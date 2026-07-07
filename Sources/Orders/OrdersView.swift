@@ -7,6 +7,7 @@ struct OrdersView: View {
     @State private var isLoading = false
     @State private var errorMessage: String?
     @State private var revisionOrder: OrderDTO?
+    @State private var tourOrder: OrderDTO? // mở màn thêm ảnh Virtual Tour
 
     var body: some View {
         NavigationStack {
@@ -30,6 +31,10 @@ struct OrdersView: View {
                 RevisionSheet(order: order) {
                     Task { await load() }
                 }
+            }
+            .sheet(item: $tourOrder) { order in
+                TourPhotosView(orderId: order.orderId)
+                    .onDisappear { Task { await load() } }
             }
         }
     }
@@ -118,6 +123,37 @@ struct OrdersView: View {
                     Link(destination: payURL) {
                         Label(L.t("Pay Now", "Thanh toán ngay"), systemImage: "creditcard.fill")
                             .font(.subheadline.weight(.semibold))
+                    }
+                }
+
+                // Virtual Tour: trước khi giao = thêm ảnh phòng; sau khi giao = link tour chia sẻ được
+                if order.hasTour == true {
+                    if let tourString = order.tourUrl, let tourURL = URL(string: tourString) {
+                        HStack(spacing: 12) {
+                            Link(destination: tourURL) {
+                                Label(L.t("View Virtual Tour", "Xem Virtual Tour"), systemImage: "house.fill")
+                                    .font(.subheadline.weight(.semibold))
+                            }
+                            ShareLink(item: tourURL) {
+                                Image(systemName: "square.and.arrow.up")
+                                    .font(.subheadline)
+                            }
+                        }
+                    } else if order.status != "refunded" {
+                        Button {
+                            tourOrder = order
+                        } label: {
+                            Label(
+                                (order.tourPhotoCount ?? 0) > 0
+                                    ? L.t("Tour photos: \(order.tourPhotoCount ?? 0) — add more",
+                                          "Ảnh tour: \(order.tourPhotoCount ?? 0) — thêm ảnh")
+                                    : L.t("Add tour photos", "Thêm ảnh cho tour"),
+                                systemImage: "photo.on.rectangle.angled"
+                            )
+                            .font(.caption.weight(.semibold))
+                        }
+                        .buttonStyle(.bordered)
+                        .tint(.indigo)
                     }
                 }
 

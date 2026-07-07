@@ -50,6 +50,7 @@ struct OrderScanResponse: Decodable {
     let discount: Double?
     let couponApplied: Bool?
     let free: Bool?
+    let hasTour: Bool? // đơn có add-on Virtual Tour → mời khách thêm ảnh phòng ngay
 }
 
 // MARK: Bảng giá dịch vụ
@@ -110,12 +111,59 @@ struct OrderDTO: Decodable, Identifiable {
     let currency: String?
     let paid: Bool?
     let paymentUrl: String?
+    // Virtual Tour add-on
+    let hasTour: Bool?
+    let tourPhotoCount: Int?
+    let tourUrl: String? // chỉ có sau khi đơn được giao (tour đã publish)
 
     var id: String { orderId }
 }
 
 struct OrdersResponse: Decodable {
     let orders: [OrderDTO]
+}
+
+// MARK: Virtual Tour (khách upload ảnh listing theo phòng)
+
+struct TourScanDTO: Decodable, Identifiable, Hashable {
+    let id: String
+    let name: String
+}
+
+struct TourPhotoDTO: Decodable, Identifiable, Hashable {
+    let id: String
+    let roomLabel: String
+    let scanId: String?
+    let url: String
+    let status: String // "pending" | "ready"
+    let sizeLabel: String?
+}
+
+struct OrderTourResponse: Decodable {
+    let hasTour: Bool
+    let status: String? // "draft" | "published"
+    let title: String?
+    let tourUrl: String?
+    let maxPerRoom: Int?
+    let maxTotal: Int?
+    let scans: [TourScanDTO]?
+    let photos: [TourPhotoDTO]?
+}
+
+struct TourPhotoSlotResponse: Decodable {
+    let photoId: String
+    let roomLabel: String
+    let scanId: String?
+    let putUrl: String
+    let contentType: String
+    let maxBytes: Int
+    let publicUrl: String
+}
+
+struct TourPhotoCompleteResponse: Decodable {
+    let photoId: String
+    let status: String
+    let url: String
 }
 
 struct APIError: LocalizedError {
@@ -268,6 +316,46 @@ final class APIClient {
 
     func requestRevision(orderId: String, message: String) async throws -> RevisionResponse {
         try await send("orders/\(orderId)/revision", method: "POST", json: ["message": message])
+    }
+
+    // MARK: Virtual Tour
+
+    func orderTour(orderId: String) async throws -> OrderTourResponse {
+        try await send("orders/\(orderId)/tour")
+    }
+
+    /// Xin slot upload 1 ảnh phòng → PUT lên R2 → gọi completeTourPhoto.
+    func createTourPhoto(orderId: String, roomLabel: String, scanId: String?) async throws -> TourPhotoSlotResponse {
+        var body: [String: Any] = ["roomLabel": roomLabel]
+        if let scanId { body["scanId"] = scanId }
+        return try await send("orders/\(orderId)/tour/photos", method: "POST", json: body)
+    }
+
+    func completeTourPhoto(orderId: String, photoId: String) async throws -> TourPhotoCompleteResponse {
+        try await send("orders/\(orderId)/tour/photos/\(photoId)", method: "POST", json: [:])
+    }
+
+    func deleteTourPhoto(orderId: String, photoId: String) async throws -> OKResponse {
+        try await send("orders/\(orderId)/tour/photos/\(photoId)", method: "DELETE")
+    }
+
+    /// PUT dữ liệu ảnh (đã nén JPEG trong RAM) lên presigned URL.
+    func uploadData(_ data: Data, to putUrl: String, contentType: String) async throws {
+        guard let url = URL(string: putUrl) else {
+            throw APIError(message: "Invalid upload URL", statusCode: 0)
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "PUT"
+        request.timeoutInterval = 300
+        request.setValue(contentType, forHTTPHeaderField: "Content-Type")
+        let (_, response) = try await URLSession.shared.upload(for: request, from: data)
+        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+        guard (200...299).contains(status) else {
+            throw APIError(
+                message: L.t("Upload failed. Please try again.", "Tải lên thất bại. Vui lòng thử lại."),
+                statusCode: status
+            )
+        }
     }
 
     // MARK: File upload (PUT presigned URL, có báo tiến độ)

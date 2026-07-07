@@ -344,6 +344,7 @@ struct OrderSheet: View {
     @State private var busyLabel: String?
     @State private var errorMessage: String?
     @State private var placedOrder: OrderScanResponse?
+    @State private var showTourPhotos = false // mở màn thêm ảnh Virtual Tour ngay sau khi đặt
 
     /// Các bản quét khác (tầng khác của CÙNG căn nhà) có thể gộp vào đơn này.
     private var otherScans: [ScanRecord] {
@@ -563,6 +564,13 @@ struct OrderSheet: View {
                 }
             } header: {
                 Text(L.t("Add-ons", "Dịch vụ thêm"))
+            } footer: {
+                if selectedAddons.contains("tour") {
+                    Text(L.t(
+                        "🏠 Virtual Tour: after ordering you'll add 1–3 photos per room — we pin them on your floor plan and you get a shareable interactive tour link.",
+                        "🏠 Virtual Tour: sau khi đặt, bạn thêm 1–3 ảnh cho mỗi phòng — đội ngũ ghim ảnh lên mặt bằng và bạn nhận link tour tương tác để chia sẻ."
+                    ))
+                }
             }
 
             Section {
@@ -708,8 +716,35 @@ struct OrderSheet: View {
                 .font(.footnote)
                 .foregroundStyle(.secondary)
             }
+
+            // Đơn có Virtual Tour → mời khách thêm ảnh phòng ngay (làm sớm = giao sớm)
+            if order.hasTour == true {
+                Button {
+                    showTourPhotos = true
+                } label: {
+                    Label(L.t("Add room photos for your tour", "Thêm ảnh phòng cho tour"),
+                          systemImage: "photo.on.rectangle.angled")
+                        .font(.headline)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                }
+                .buttonStyle(.bordered)
+                .tint(.indigo)
+                .padding(.horizontal)
+                Text(L.t(
+                    "1–3 photos per room. You can also add them later in the Orders tab.",
+                    "1–3 ảnh mỗi phòng. Bạn cũng có thể thêm sau ở mục Đơn hàng."
+                ))
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+            }
         }
         .padding(24)
+        .sheet(isPresented: $showTourPhotos) {
+            if let placedOrder {
+                TourPhotosView(orderId: placedOrder.orderId)
+            }
+        }
     }
 
     private func submit() {
