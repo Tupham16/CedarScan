@@ -6,8 +6,8 @@ struct ScanFlowView: View {
     @StateObject private var controller = ScanSessionController()
     @State private var isSaving = false
 
-    /// Được gọi khi người dùng bấm "Hoàn tất & Lưu" với toàn bộ các phòng đã quét.
-    let onFinish: ([CapturedRoom]) async -> Void
+    /// Được gọi khi người dùng bấm "Hoàn tất & Lưu" với các phòng đã quét + video (nếu có).
+    let onFinish: ([CapturedRoom], URL?) async -> Void
 
     var body: some View {
         ZStack {
@@ -27,8 +27,8 @@ struct ScanFlowView: View {
         .onAppear {
             controller.startSession()
         }
-        .alert("Quét chưa thành công", isPresented: errorBinding) {
-            Button("Thử lại", role: .cancel) {
+        .alert(L.t("Scan didn't work", "Quét chưa thành công"), isPresented: errorBinding) {
+            Button(L.t("Try again", "Thử lại"), role: .cancel) {
                 controller.lastError = nil
                 controller.scanNextRoom()
             }
@@ -50,7 +50,7 @@ struct ScanFlowView: View {
                 controller.cancel()
                 dismiss()
             } label: {
-                Text("Hủy")
+                Text(L.t("Cancel", "Hủy"))
                     .font(.headline)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 8)
@@ -58,7 +58,7 @@ struct ScanFlowView: View {
             }
             Spacer()
             if !controller.rooms.isEmpty {
-                Text("Đã quét \(controller.rooms.count) phòng")
+                Text(L.t("\(controller.rooms.count) room(s) scanned", "Đã quét \(controller.rooms.count) phòng"))
                     .font(.subheadline.weight(.semibold))
                     .padding(.horizontal, 16)
                     .padding(.vertical, 8)
@@ -73,16 +73,19 @@ struct ScanFlowView: View {
         switch controller.phase {
         case .scanning:
             VStack(spacing: 10) {
-                Text("Đi chậm quanh phòng, hướng camera vào tường, cửa và đồ đạc")
-                    .font(.footnote)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10))
+                Text(L.t(
+                    "Walk slowly around the room. Point the camera at walls, doors and furniture.",
+                    "Đi chậm quanh phòng, hướng camera vào tường, cửa và đồ đạc."
+                ))
+                .font(.footnote)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10))
                 Button {
                     controller.finishCurrentRoom()
                 } label: {
-                    Text("Xong phòng này")
+                    Text(L.t("Done with this room", "Xong phòng này"))
                         .font(.headline)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
@@ -94,7 +97,7 @@ struct ScanFlowView: View {
         case .processing:
             HStack(spacing: 10) {
                 ProgressView()
-                Text("Đang xử lý bản quét…")
+                Text(L.t("Processing scan…", "Đang xử lý bản quét…"))
                     .font(.headline)
             }
             .padding(.horizontal, 20)
@@ -107,7 +110,7 @@ struct ScanFlowView: View {
                 Button {
                     controller.scanNextRoom()
                 } label: {
-                    Text("Quét phòng tiếp theo")
+                    Text(L.t("Scan next room", "Quét phòng tiếp theo"))
                         .font(.headline)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
@@ -118,7 +121,7 @@ struct ScanFlowView: View {
                 Button {
                     saveAndClose()
                 } label: {
-                    Text("Hoàn tất & Lưu")
+                    Text(L.t("Finish & Save", "Hoàn tất & Lưu"))
                         .font(.headline)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
@@ -134,7 +137,7 @@ struct ScanFlowView: View {
             Color.black.opacity(0.5).ignoresSafeArea()
             HStack(spacing: 10) {
                 ProgressView()
-                Text("Đang lưu…")
+                Text(L.t("Saving…", "Đang lưu…"))
                     .font(.headline)
             }
             .padding(.horizontal, 24)
@@ -147,7 +150,8 @@ struct ScanFlowView: View {
         isSaving = true
         let rooms = controller.rooms
         Task {
-            await onFinish(rooms)
+            let videoURL = await controller.finishRecording()
+            await onFinish(rooms, videoURL)
             isSaving = false
             dismiss()
         }

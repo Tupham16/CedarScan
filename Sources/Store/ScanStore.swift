@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 import RoomPlan
 
 @MainActor
@@ -38,16 +39,19 @@ final class ScanStore: ObservableObject {
         folderURL(for: record).appendingPathComponent("model.usdz")
     }
 
-    func save(rooms: [CapturedRoom]) async throws -> ScanRecord {
-        let record = ScanRecord(
+    func save(rooms: [CapturedRoom], videoURL: URL?) async throws -> ScanRecord {
+        let planModel = FloorPlanModel(rooms: rooms)
+        var record = ScanRecord(
             id: UUID(),
             name: Self.defaultName(),
             createdAt: Date(),
-            roomCount: rooms.count
+            roomCount: rooms.count,
+            areaSqm: planModel.areaSquareMeters
         )
         let folder = folderURL(for: record)
         try fileManager.createDirectory(at: folder, withIntermediateDirectories: true)
 
+        // 1. Mô hình 3D USDZ
         let usdzURL = folder.appendingPathComponent("model.usdz")
         if rooms.count > 1 {
             let builder = StructureBuilder(options: [])
@@ -57,11 +61,34 @@ final class ScanStore: ObservableObject {
             try room.export(to: usdzURL)
         }
 
+        // 2. OBJ (+ MTL) từ USDZ — hỏng cũng không chặn việc lưu
+        let objURL = folder.appendingPathComponent("model.obj")
+        try? OBJExporter.export(usdzURL: usdzURL, to: objURL)
+
+        // 3. Dữ liệu RoomPlan gốc
         try JSONEncoder().encode(rooms)
             .write(to: folder.appendingPathComponent("rooms.json"))
-        try JSONEncoder().encode(record)
-            .write(to: folder.appendingPathComponent("meta.json"))
 
+        // 4. Ảnh mặt bằng PNG
+        if !planModel.isEmpty {
+            let exportView = FloorPlanExportView(model: planModel, title: record.name)
+                .frame(width: 1400, height: 1600)
+            let renderer = ImageRenderer(content: exportView)
+            renderer.scale = 2
+            if let image = renderer.uiImage, let data = image.pngData() {
+                try? data.write(to: folder.appendingPathComponent("floorplan.png"))
+            }
+        }
+
+        // 5. Video quá trình quét (nếu có)
+        if let videoURL, fileManager.fileExists(atPath: videoURL.path) {
+            try? fileManager.moveItem(
+                at: videoURL,
+                to: folder.appendingPathComponent("scan-video.mp4")
+            )
+        }
+
+        try writeMeta(record)
         records.insert(record, at: 0)
         return record
     }
@@ -78,18 +105,32 @@ final class ScanStore: ObservableObject {
 
     func rename(_ record: ScanRecord, to newName: String) {
         let trimmed = newName.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty, let index = records.firstIndex(where: { $0.id == record.id }) else {
-            return
-        }
-        records[index].name = trimmed
-        let updated = records[index]
-        try? JSONEncoder().encode(updated)
-            .write(to: folderURL(for: updated).appendingPathComponent("meta.json"))
+        guard !trimmed.isEmpty else { return }
+        update(record) { $0.name = trimmed }
+    }
+
+    func setCloudScanId(_ record: ScanRecord, cloudScanId: String) {
+        update(record) { $0.cloudScanId = cloudScanId }
+    }
+
+    func setOrderNumber(_ record: ScanRecord, orderNumber: String) {
+        update(record) { $0.cloudOrderNumber = orderNumber }
+    }
+
+    private func update(_ record: ScanRecord, _ mutate: (inout ScanRecord) -> Void) {
+        guard let index = records.firstIndex(where: { $0.id == record.id }) else { return }
+        mutate(&records[index])
+        try? writeMeta(records[index])
+    }
+
+    private func writeMeta(_ record: ScanRecord) throws {
+        try JSONEncoder().encode(record)
+            .write(to: folderURL(for: record).appendingPathComponent("meta.json"))
     }
 
     private static func defaultName() -> String {
         let formatter = DateFormatter()
         formatter.dateFormat = "dd/MM/yyyy HH:mm"
-        return "Quét \(formatter.string(from: Date()))"
+        return "Scan \(formatter.string(from: Date()))"
     }
 }

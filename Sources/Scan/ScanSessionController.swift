@@ -1,4 +1,5 @@
 import Foundation
+import ARKit
 import RoomPlan
 
 enum ScanPhase {
@@ -12,11 +13,16 @@ final class ScanSessionController: NSObject, ObservableObject, RoomCaptureViewDe
     @Published var rooms: [CapturedRoom] = []
     @Published var lastError: String?
 
+    let arSession: ARSession
     let captureView: RoomCaptureView
+    private var recorder: ScanVideoRecorder?
     private var isCancelled = false
+    private var hasStarted = false
 
     override init() {
-        captureView = RoomCaptureView(frame: .zero)
+        let session = ARSession()
+        arSession = session
+        captureView = RoomCaptureView(frame: .zero, arSession: session)
         super.init()
         captureView.delegate = self
     }
@@ -33,6 +39,12 @@ final class ScanSessionController: NSObject, ObservableObject, RoomCaptureViewDe
     func startSession() {
         phase = .scanning
         captureView.captureSession.run(configuration: RoomCaptureSession.Configuration())
+        if !hasStarted {
+            hasStarted = true
+            let recorder = ScanVideoRecorder(arSession: arSession)
+            self.recorder = recorder
+            recorder.start()
+        }
     }
 
     func finishCurrentRoom() {
@@ -47,7 +59,16 @@ final class ScanSessionController: NSObject, ObservableObject, RoomCaptureViewDe
 
     func cancel() {
         isCancelled = true
+        recorder?.cancel()
+        recorder = nil
         captureView.captureSession.stop()
+    }
+
+    /// Dừng quay video và trả về file (gọi khi bấm Hoàn tất & Lưu).
+    func finishRecording() async -> URL? {
+        let url = await recorder?.finish()
+        recorder = nil
+        return url
     }
 
     // MARK: - RoomCaptureViewDelegate

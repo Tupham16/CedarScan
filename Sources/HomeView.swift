@@ -24,25 +24,25 @@ struct HomeView: View {
             .safeAreaInset(edge: .bottom) {
                 scanButton
             }
-            .alert("Đổi tên bản quét", isPresented: renameAlertBinding) {
-                TextField("Tên mới", text: $renameText)
-                Button("Lưu") {
+            .alert(L.t("Rename scan", "Đổi tên bản quét"), isPresented: renameAlertBinding) {
+                TextField(L.t("New name", "Tên mới"), text: $renameText)
+                Button(L.t("Save", "Lưu")) {
                     if let record = recordToRename {
                         store.rename(record, to: renameText)
                     }
                     recordToRename = nil
                 }
-                Button("Hủy", role: .cancel) { recordToRename = nil }
+                Button(L.t("Cancel", "Hủy"), role: .cancel) { recordToRename = nil }
             }
-            .alert("Lỗi khi lưu", isPresented: saveErrorBinding) {
+            .alert(L.t("Could not save", "Lỗi khi lưu"), isPresented: saveErrorBinding) {
                 Button("OK", role: .cancel) { saveError = nil }
             } message: {
                 Text(saveError ?? "")
             }
             .fullScreenCover(isPresented: $isScanning) {
-                ScanFlowView { rooms in
+                ScanFlowView { rooms, videoURL in
                     do {
-                        _ = try await store.save(rooms: rooms)
+                        _ = try await store.save(rooms: rooms, videoURL: videoURL)
                     } catch {
                         // Không hiện alert khi cover còn mở — sẽ bị nuốt lúc dismiss.
                         pendingSaveError = error.localizedDescription
@@ -77,11 +77,17 @@ struct HomeView: View {
             Image(systemName: "camera.metering.matrix")
                 .font(.system(size: 56))
                 .foregroundStyle(.secondary)
-            Text("Chưa có bản quét nào")
+            Text(L.t("No scans yet", "Chưa có bản quét nào"))
                 .font(.title3.weight(.semibold))
             Text(isSupported
-                 ? "Bấm nút bên dưới để quét không gian đầu tiên. Đi chậm quanh phòng, hướng camera vào tường, cửa và đồ đạc."
-                 : "Thiết bị này không có cảm biến LiDAR nên không quét được. Cần iPhone Pro (12 Pro trở lên) hoặc iPad Pro.")
+                 ? L.t(
+                    "Tap the button below to scan your first space. Walk slowly around the room and point the camera at walls, doors and furniture.",
+                    "Bấm nút bên dưới để quét không gian đầu tiên. Đi chậm quanh phòng, hướng camera vào tường, cửa và đồ đạc."
+                 )
+                 : L.t(
+                    "This device has no LiDAR sensor, so scanning is unavailable. You need an iPhone Pro (12 Pro or later) or iPad Pro.",
+                    "Thiết bị này không có cảm biến LiDAR nên không quét được. Cần iPhone Pro (12 Pro trở lên) hoặc iPad Pro."
+                 ))
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -95,9 +101,20 @@ struct HomeView: View {
             ForEach(store.records) { record in
                 NavigationLink(value: record) {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(record.name)
-                            .font(.headline)
-                        Text("\(record.roomCount) phòng · \(record.createdAt.formatted(date: .abbreviated, time: .shortened))")
+                        HStack(spacing: 6) {
+                            Text(record.name)
+                                .font(.headline)
+                            if record.cloudOrderNumber != nil {
+                                Image(systemName: "shippingbox.fill")
+                                    .font(.caption)
+                                    .foregroundStyle(.blue)
+                            } else if record.cloudScanId != nil {
+                                Image(systemName: "checkmark.icloud.fill")
+                                    .font(.caption)
+                                    .foregroundStyle(.green)
+                            }
+                        }
+                        Text(subtitle(for: record))
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -107,13 +124,13 @@ struct HomeView: View {
                     Button(role: .destructive) {
                         store.delete(record)
                     } label: {
-                        Label("Xóa", systemImage: "trash")
+                        Label(L.t("Delete", "Xóa"), systemImage: "trash")
                     }
                     Button {
                         renameText = record.name
                         recordToRename = record
                     } label: {
-                        Label("Đổi tên", systemImage: "pencil")
+                        Label(L.t("Rename", "Đổi tên"), systemImage: "pencil")
                     }
                 }
             }
@@ -123,11 +140,22 @@ struct HomeView: View {
         }
     }
 
+    private func subtitle(for record: ScanRecord) -> String {
+        var parts = [
+            L.t("\(record.roomCount) room(s)", "\(record.roomCount) phòng"),
+            record.createdAt.formatted(date: .abbreviated, time: .shortened),
+        ]
+        if let area = record.areaSqm, area > 0 {
+            parts.insert(String(format: "%.0f m²", area), at: 1)
+        }
+        return parts.joined(separator: " · ")
+    }
+
     private var scanButton: some View {
         Button {
             isScanning = true
         } label: {
-            Label("Quét không gian mới", systemImage: "viewfinder")
+            Label(L.t("New scan", "Quét không gian mới"), systemImage: "viewfinder")
                 .font(.headline)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
