@@ -326,6 +326,7 @@ struct OrderSheet: View {
     @State private var language = "English"
     @State private var floorNaming = ""
     @State private var notes = ""
+    @State private var couponCode = ""
 
     @State private var isBusy = false
     @State private var busyLabel: String?
@@ -538,6 +539,14 @@ struct OrderSheet: View {
             }
 
             Section {
+                TextField(L.t("Coupon code (optional)", "Mã giảm giá (không bắt buộc)"), text: $couponCode)
+                    .textInputAutocapitalization(.characters)
+                    .autocorrectionDisabled()
+            } footer: {
+                Text(L.t("The discount is applied on the payment page.", "Giảm giá được áp dụng ở trang thanh toán."))
+            }
+
+            Section {
                 if let surcharge = catalog.areaSurcharges
                     .filter({ areaSqFt > $0.overSqFt && $0.fee > 0 })
                     .max(by: { $0.overSqFt < $1.overSqFt }) {
@@ -611,6 +620,17 @@ struct OrderSheet: View {
             if let total = order.total {
                 Text(L.t("Total: $\(total)", "Tổng tiền: $\(total)"))
                     .font(.headline)
+            }
+            if let discount = order.discount, discount > 0 {
+                Text(L.t("Coupon applied: −$\(String(format: "%.2f", discount))",
+                         "Đã áp mã giảm: −$\(String(format: "%.2f", discount))"))
+                    .font(.subheadline)
+                    .foregroundStyle(.green)
+            } else if order.couponApplied == false {
+                Text(L.t("Coupon code was not valid — full price applies.",
+                         "Mã giảm giá không hợp lệ — tính giá đầy đủ."))
+                    .font(.footnote)
+                    .foregroundStyle(.orange)
             }
             Text(L.t(
                 "Our team will start after payment is received. Track progress in the Orders tab.",
@@ -693,7 +713,8 @@ struct OrderSheet: View {
                     unitSystem: unitSystem,
                     language: language,
                     floorNaming: floorNaming,
-                    projectName: projectName ?? ""
+                    projectName: projectName ?? "",
+                    coupon: couponCode.trimmingCharacters(in: .whitespacesAndNewlines)
                 )
                 placedOrder = result
                 onOrdered(result.orderNumber)

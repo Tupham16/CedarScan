@@ -41,6 +41,8 @@ struct OrderScanResponse: Decodable {
     let total: Int?
     let currency: String?
     let paymentUrl: String?
+    let discount: Double?
+    let couponApplied: Bool?
 }
 
 // MARK: Bảng giá dịch vụ
@@ -200,7 +202,8 @@ final class APIClient {
         unitSystem: String,
         language: String,
         floorNaming: String,
-        projectName: String
+        projectName: String,
+        coupon: String
     ) async throws -> OrderScanResponse {
         try await send("scans/\(scanId)/order", method: "POST", json: [
             "packageId": packageId,
@@ -211,6 +214,7 @@ final class APIClient {
             "language": language,
             "floorNaming": floorNaming,
             "projectName": projectName,
+            "coupon": coupon,
         ])
     }
 

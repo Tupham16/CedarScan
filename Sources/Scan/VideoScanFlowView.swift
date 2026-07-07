@@ -190,8 +190,8 @@ struct VideoScanFlowView: View {
                     )
                     .font(.headline)
                     Text(L.t(
-                        "Walk slowly through every room, filming all walls, corners, doors and windows. You can narrate room names as you go.",
-                        "Đi chậm qua từng phòng, quay đủ mọi bức tường, góc, cửa và cửa sổ. Có thể vừa quay vừa đọc tên phòng."
+                        "Walk slowly through every room, filming all walls, corners, doors and windows.",
+                        "Đi chậm qua từng phòng, quay đủ mọi bức tường, góc, cửa và cửa sổ."
                     ))
                     .font(.subheadline)
                     Label {
