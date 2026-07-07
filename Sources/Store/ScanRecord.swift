@@ -11,6 +11,9 @@ struct ScanRecord: Identifiable, Codable, Hashable {
     var cloudScanId: String? // đã gửi lên server Cedar247
     var cloudOrderNumber: String? // đã đặt xử lý (số đơn, vd "#LS-ABC123")
     var projectId: UUID? // thuộc dự án/căn nhà nào (nil = chưa vào dự án)
+    var captureType: String? // nil/"lidar" = quét LiDAR | "video" = quay video (máy không LiDAR)
+
+    var isVideoOnly: Bool { captureType == "video" }
 }
 
 /// Dự án = một căn nhà/địa chỉ (vd "1600 College Avenue") chứa nhiều bản quét (các tầng, nhà phụ...).

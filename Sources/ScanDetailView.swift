@@ -1,5 +1,6 @@
 import SwiftUI
 import RoomPlan
+import AVKit
 
 struct ScanDetailView: View {
     let record: ScanRecord
@@ -12,6 +13,7 @@ struct ScanDetailView: View {
     @State private var planImageURL: URL?
     @State private var loadFailed = false
     @State private var showOrderSheet = false
+    @AppStorage("autoStraighten") private var autoStraighten = true
 
     /// Bản ghi mới nhất từ store (record truyền vào có thể cũ sau khi upload/đặt hàng).
     private var current: ScanRecord {
@@ -26,21 +28,25 @@ struct ScanDetailView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            Picker(L.t("View mode", "Chế độ xem"), selection: $mode) {
-                Text(L.t("3D Model", "Mô hình 3D")).tag(0)
-                Text(L.t("Floor Plan", "Mặt bằng 2D")).tag(1)
-            }
-            .pickerStyle(.segmented)
-            .padding()
-
-            if mode == 0 {
-                if FileManager.default.fileExists(atPath: usdzURL.path) {
-                    USDZPreview(url: usdzURL)
-                } else {
-                    unavailableView(L.t("3D model file not found", "Không tìm thấy file mô hình 3D"))
-                }
+            if current.isVideoOnly {
+                videoTab
             } else {
-                floorPlanTab
+                Picker(L.t("View mode", "Chế độ xem"), selection: $mode) {
+                    Text(L.t("3D Model", "Mô hình 3D")).tag(0)
+                    Text(L.t("Floor Plan", "Mặt bằng 2D")).tag(1)
+                }
+                .pickerStyle(.segmented)
+                .padding()
+
+                if mode == 0 {
+                    if FileManager.default.fileExists(atPath: usdzURL.path) {
+                        USDZPreview(url: usdzURL)
+                    } else {
+                        unavailableView(L.t("3D model file not found", "Không tìm thấy file mô hình 3D"))
+                    }
+                } else {
+                    floorPlanTab
+                }
             }
         }
         .navigationTitle(current.name)
@@ -54,6 +60,7 @@ struct ScanDetailView: View {
             serviceCard
         }
         .task {
+            guard !current.isVideoOnly else { return }
             do {
                 rooms = try store.loadRooms(for: record)
             } catch {
@@ -194,13 +201,24 @@ struct ScanDetailView: View {
                 ? L.t("Could not load scan data", "Không đọc được dữ liệu quét")
                 : L.t("Loading…", "Đang tải…"))
         } else {
-            let model = FloorPlanModel(rooms: rooms)
+            let model = FloorPlanModel(rooms: rooms, straighten: autoStraighten)
             VStack(spacing: 8) {
-                if model.areaSquareMeters > 0 {
-                    Text(String(format: L.t("Floor area: %.1f m²", "Diện tích sàn: %.1f m²"), model.areaSquareMeters))
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.secondary)
+                HStack {
+                    if model.areaSquareMeters > 0 {
+                        Text(String(format: L.t("Floor area: %.1f m²", "Diện tích sàn: %.1f m²"), model.areaSquareMeters))
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Toggle(isOn: $autoStraighten) {
+                        Text(L.t("Straighten", "Nắn thẳng"))
+                            .font(.caption)
+                    }
+                    .toggleStyle(.switch)
+                    .controlSize(.mini)
+                    .fixedSize()
                 }
+                .padding(.horizontal)
                 ZoomableView {
                     FloorPlanCanvas(model: model)
                 }
@@ -208,8 +226,35 @@ struct ScanDetailView: View {
         }
     }
 
+    /// Bản quét video: xem lại video + lưu ý độ chính xác.
+    private var videoTab: some View {
+        VStack(spacing: 10) {
+            if FileManager.default.fileExists(atPath: videoURL.path) {
+                VideoPlayer(player: AVPlayer(url: videoURL))
+            } else {
+                unavailableView(L.t("Video file not found", "Không tìm thấy file video"))
+            }
+            Label(
+                L.t(
+                    "Video walkthrough — measurements will be less accurate than a LiDAR scan.",
+                    "Bản quay video — số đo sẽ kém chính xác hơn quét LiDAR."
+                ),
+                systemImage: "exclamationmark.triangle.fill"
+            )
+            .font(.caption)
+            .foregroundStyle(.orange)
+            .padding(.horizontal)
+            .padding(.bottom, 6)
+        }
+    }
+
     private var shareMenu: some View {
         Menu {
+            if current.isVideoOnly {
+                ShareLink(item: videoURL) {
+                    Label(L.t("Share video", "Chia sẻ video"), systemImage: "video")
+                }
+            } else {
             ShareLink(item: usdzURL) {
                 Label(L.t("Share 3D model (USDZ)", "Chia sẻ mô hình 3D (USDZ)"), systemImage: "cube")
             }
@@ -220,6 +265,7 @@ struct ScanDetailView: View {
                 Label(L.t("Share floor plan (PNG)", "Chia sẻ ảnh mặt bằng (PNG)"), systemImage: "photo")
             }
             .disabled(rooms.isEmpty && !FileManager.default.fileExists(atPath: planURL.path))
+            }
         } label: {
             Image(systemName: "square.and.arrow.up")
         }
@@ -242,7 +288,7 @@ struct ScanDetailView: View {
             planImageURL = planURL
             return
         }
-        let model = FloorPlanModel(rooms: rooms)
+        let model = FloorPlanModel(rooms: rooms, straighten: autoStraighten)
         let exportView = FloorPlanExportView(model: model, title: current.name)
             .frame(width: 1400, height: 1600)
         let renderer = ImageRenderer(content: exportView)
@@ -304,6 +350,11 @@ struct OrderSheet: View {
     }
 
     private var areaSqFt: Double { combinedAreaSqm * 10.7639 }
+
+    /// Đơn có chứa bản quét CHỈ VIDEO (không LiDAR) → nhắc độ chính xác.
+    private var selectionHasVideoScan: Bool {
+        record.isVideoOnly || otherScans.contains { extraFloors.contains($0.id) && $0.isVideoOnly }
+    }
 
     private var totalUSD: Int {
         guard let catalog else { return 0 }
@@ -501,6 +552,17 @@ struct OrderSheet: View {
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                     }
+                }
+                if selectionHasVideoScan {
+                    Label(
+                        L.t(
+                            "This order includes video-only scans — measurements will be LESS accurate than LiDAR scans.",
+                            "Đơn này có bản quay video — số đo sẽ KÉM chính xác hơn quét LiDAR."
+                        ),
+                        systemImage: "exclamationmark.triangle.fill"
+                    )
+                    .font(.footnote)
+                    .foregroundStyle(.orange)
                 }
                 if let errorMessage {
                     Text(errorMessage)

@@ -167,12 +167,19 @@ final class APIClient {
 
     // MARK: Scans & Orders
 
-    func createScan(name: String, roomCount: Int, areaSqm: Double, kinds: [String]) async throws -> CreateScanResponse {
+    func createScan(
+        name: String,
+        roomCount: Int,
+        areaSqm: Double,
+        kinds: [String],
+        captureType: String
+    ) async throws -> CreateScanResponse {
         try await send("scans", method: "POST", json: [
             "name": name,
             "roomCount": roomCount,
             "areaSqm": areaSqm,
             "files": kinds,
+            "captureType": captureType,
         ])
     }
 

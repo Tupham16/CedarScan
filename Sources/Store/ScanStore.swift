@@ -179,6 +179,25 @@ final class ScanStore: ObservableObject {
         return record
     }
 
+    /// Lưu bản quét CHỈ CÓ VIDEO (máy không LiDAR): video khảo sát để đội vẽ từ video.
+    func saveVideoScan(videoURL: URL, name: String?, projectId: UUID? = nil) throws -> ScanRecord {
+        var record = ScanRecord(
+            id: UUID(),
+            name: name?.isEmpty == false ? name! : Self.defaultName(),
+            createdAt: Date(),
+            roomCount: 0,
+            areaSqm: 0,
+            projectId: projectId,
+            captureType: "video"
+        )
+        let folder = folderURL(for: record)
+        try fileManager.createDirectory(at: folder, withIntermediateDirectories: true)
+        try fileManager.moveItem(at: videoURL, to: folder.appendingPathComponent("scan-video.mp4"))
+        try writeMeta(record)
+        records.insert(record, at: 0)
+        return record
+    }
+
     func loadRooms(for record: ScanRecord) throws -> [CapturedRoom] {
         let data = try Data(contentsOf: folderURL(for: record).appendingPathComponent("rooms.json"))
         return try JSONDecoder().decode([CapturedRoom].self, from: data)

@@ -29,6 +29,7 @@ targets:
       properties:
         CFBundleDisplayName: CedarScan
         NSCameraUsageDescription: CedarScan cần dùng camera và cảm biến LiDAR để quét không gian 3D.
+        NSMicrophoneUsageDescription: CedarScan ghi âm khi quay video khảo sát để bạn có thể thuyết minh về căn nhà.
         UILaunchScreen: {}
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait

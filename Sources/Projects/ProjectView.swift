@@ -8,6 +8,7 @@ struct ProjectView: View {
     let projectId: UUID
 
     @State private var isScanning = false
+    @State private var isVideoScanning = false
     @State private var showOrderSheet = false
     @State private var recordToRename: ScanRecord?
     @State private var renameText = ""
@@ -115,6 +116,21 @@ struct ProjectView: View {
                 }
             }
         }
+        .fullScreenCover(isPresented: $isVideoScanning) {
+            VideoScanFlowView { videoURL, name in
+                do {
+                    _ = try store.saveVideoScan(videoURL: videoURL, name: name, projectId: projectId)
+                } catch {
+                    pendingSaveError = error.localizedDescription
+                }
+            }
+        }
+        .onChange(of: isVideoScanning) { _, presented in
+            if !presented, let message = pendingSaveError {
+                pendingSaveError = nil
+                saveError = message
+            }
+        }
         .onChange(of: isScanning) { _, presented in
             if !presented, let message = pendingSaveError {
                 pendingSaveError = nil
@@ -166,15 +182,23 @@ struct ProjectView: View {
     private var bottomButtons: some View {
         VStack(spacing: 8) {
             Button {
-                isScanning = true
+                if isSupported {
+                    isScanning = true
+                } else {
+                    isVideoScanning = true
+                }
             } label: {
-                Label(L.t("Scan this property", "Quét căn nhà này"), systemImage: "viewfinder")
-                    .font(.headline)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
+                Label(
+                    isSupported
+                        ? L.t("Scan this property", "Quét căn nhà này")
+                        : L.t("Record video walkthrough", "Quay video khảo sát"),
+                    systemImage: isSupported ? "viewfinder" : "video.fill"
+                )
+                .font(.headline)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
             }
             .buttonStyle(.borderedProminent)
-            .disabled(!isSupported)
 
             if !orderableScans.isEmpty {
                 Button {

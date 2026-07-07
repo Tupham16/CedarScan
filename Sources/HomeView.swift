@@ -4,6 +4,7 @@ import RoomPlan
 struct HomeView: View {
     @EnvironmentObject private var store: ScanStore
     @State private var isScanning = false
+    @State private var isVideoScanning = false
     @State private var recordToRename: ScanRecord?
     @State private var renameText = ""
     @State private var saveError: String?
@@ -45,9 +46,24 @@ struct HomeView: View {
             }
             .sheet(isPresented: $showGuide) {
                 if guideThenScan {
-                    ScanGuideView { isScanning = true }
+                    ScanGuideView { startScanning() }
                 } else {
                     ScanGuideView()
+                }
+            }
+            .fullScreenCover(isPresented: $isVideoScanning) {
+                VideoScanFlowView { videoURL, name in
+                    do {
+                        _ = try store.saveVideoScan(videoURL: videoURL, name: name)
+                    } catch {
+                        pendingSaveError = error.localizedDescription
+                    }
+                }
+            }
+            .onChange(of: isVideoScanning) { _, presented in
+                if !presented, let message = pendingSaveError {
+                    pendingSaveError = nil
+                    saveError = message
                 }
             }
             .safeAreaInset(edge: .bottom) {
@@ -134,8 +150,8 @@ struct HomeView: View {
                     "Bấm nút bên dưới để quét không gian đầu tiên, hoặc tạo Dự án cho căn nhà nhiều tầng."
                  )
                  : L.t(
-                    "This device has no LiDAR sensor, so scanning is unavailable. You need an iPhone Pro (12 Pro or later) or iPad Pro.",
-                    "Thiết bị này không có cảm biến LiDAR nên không quét được. Cần iPhone Pro (12 Pro trở lên) hoặc iPad Pro."
+                    "This device has no LiDAR sensor, so you can record a guided video walkthrough instead. Note: measurements from video are less accurate than a LiDAR scan (iPhone Pro).",
+                    "Máy này không có cảm biến LiDAR — bạn có thể quay video khảo sát theo hướng dẫn thay thế. Lưu ý: số đo từ video kém chính xác hơn quét LiDAR (iPhone Pro)."
                  ))
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
@@ -188,22 +204,34 @@ struct HomeView: View {
         }
     }
 
+    private func startScanning() {
+        if isSupported {
+            isScanning = true
+        } else {
+            isVideoScanning = true
+        }
+    }
+
     private var scanButton: some View {
         Button {
             if UserDefaults.standard.bool(forKey: ScanGuideView.seenKey) {
-                isScanning = true
+                startScanning()
             } else {
                 guideThenScan = true
                 showGuide = true
             }
         } label: {
-            Label(L.t("New scan", "Quét không gian mới"), systemImage: "viewfinder")
-                .font(.headline)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 14)
+            Label(
+                isSupported
+                    ? L.t("New scan", "Quét không gian mới")
+                    : L.t("Record video walkthrough", "Quay video khảo sát"),
+                systemImage: isSupported ? "viewfinder" : "video.fill"
+            )
+            .font(.headline)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 14)
         }
         .buttonStyle(.borderedProminent)
-        .disabled(!isSupported)
         .padding(.horizontal)
         .padding(.bottom, 8)
         .background(.ultraThinMaterial)

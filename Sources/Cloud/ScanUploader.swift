@@ -41,7 +41,8 @@ final class ScanUploader: ObservableObject {
                 name: record.name,
                 roomCount: record.roomCount,
                 areaSqm: record.areaSqm ?? 0,
-                kinds: present.map(\.kind)
+                kinds: present.map(\.kind),
+                captureType: record.captureType ?? "lidar"
             )
             let slotByKind = Dictionary(uniqueKeysWithValues: created.uploads.map { ($0.kind, $0) })
 
