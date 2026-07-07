@@ -357,6 +357,10 @@ struct OrderSheet: View {
         record.isVideoOnly || otherScans.contains { extraFloors.contains($0.id) && $0.isVideoOnly }
     }
 
+    private var isFreePromo: Bool {
+        (catalog?.freeOrdersRemaining ?? 0) > 0
+    }
+
     private var totalUSD: Int {
         guard let catalog else { return 0 }
         var total = catalog.packages.first(where: { $0.id == packageId })?.price ?? 0
@@ -439,6 +443,20 @@ struct OrderSheet: View {
     @ViewBuilder
     private func orderForm(_ catalog: CatalogResponse) -> some View {
         Form {
+            if isFreePromo, let remaining = catalog.freeOrdersRemaining, let totalFree = catalog.freeFirstOrders {
+                Section {
+                    Label {
+                        Text(L.t(
+                            "This order is FREE! New customers get their first \(totalFree) orders free (\(remaining) left).",
+                            "Đơn này MIỄN PHÍ! Khách mới được miễn phí \(totalFree) đơn đầu (còn \(remaining) lượt)."
+                        ))
+                        .font(.subheadline.weight(.semibold))
+                    } icon: {
+                        Text("🎁")
+                    }
+                    .foregroundStyle(.green)
+                }
+            }
             Section {
                 HStack {
                     Image(systemName: "checkmark.circle.fill")
@@ -470,15 +488,29 @@ struct OrderSheet: View {
             } header: {
                 Text(L.t("Floors in this order", "Các tầng trong đơn này"))
             } footer: {
-                Text(otherScans.isEmpty
-                    ? L.t(
-                        "Scan each floor separately (name them Floor 1, Floor 2…), then order them together here as one home.",
-                        "Quét từng tầng riêng (đặt tên Floor 1, Floor 2…) rồi gộp vào một đơn tại đây."
-                    )
-                    : L.t(
-                        "Select the other floors of the same home to order everything together. Total area: \(Int(combinedAreaSqm)) m².",
-                        "Chọn các tầng khác của cùng căn nhà để đặt chung một đơn. Tổng diện tích: \(Int(combinedAreaSqm)) m²."
-                    ))
+                if !otherScans.isEmpty && extraFloors.isEmpty {
+                    // Nhắc NỔI BẬT: gộp tầng = 1 giá cho cả căn — đừng đặt lẻ từng tầng!
+                    Label {
+                        Text(L.t(
+                            "TIP: One order covers the WHOLE home — select the other floors above instead of ordering them separately!",
+                            "MẸO: MỘT đơn tính giá cho CẢ căn nhà — hãy chọn thêm các tầng ở trên thay vì đặt lẻ từng tầng!"
+                        ))
+                        .font(.footnote.weight(.semibold))
+                    } icon: {
+                        Text("💡")
+                    }
+                    .foregroundStyle(.blue)
+                } else {
+                    Text(otherScans.isEmpty
+                        ? L.t(
+                            "Scan each floor separately (name them Floor 1, Floor 2…), then order them together here as one home.",
+                            "Quét từng tầng riêng (đặt tên Floor 1, Floor 2…) rồi gộp vào một đơn tại đây."
+                        )
+                        : L.t(
+                            "Select the other floors of the same home to order everything together. Total area: \(Int(combinedAreaSqm)) m².",
+                            "Chọn các tầng khác của cùng căn nhà để đặt chung một đơn. Tổng diện tích: \(Int(combinedAreaSqm)) m²."
+                        ))
+                }
             }
 
             Section {
@@ -588,7 +620,7 @@ struct OrderSheet: View {
                                 Text(busyLabel).font(.subheadline)
                             }
                         } else {
-                            Text(L.t("Place order", "Đặt hàng") + " · $\(totalUSD)")
+                            Text(L.t("Place order", "Đặt hàng") + " · " + (isFreePromo ? L.t("FREE 🎁", "MIỄN PHÍ 🎁") : "$\(totalUSD)"))
                                 .font(.headline)
                         }
                     }
@@ -617,7 +649,11 @@ struct OrderSheet: View {
                 .font(.title3.weight(.bold))
             Text(order.orderNumber)
                 .font(.title3.monospaced().weight(.bold))
-            if let total = order.total {
+            if order.free == true {
+                Text(L.t("FREE — first-orders promo 🎁", "MIỄN PHÍ — khuyến mãi đơn đầu 🎁"))
+                    .font(.headline)
+                    .foregroundStyle(.green)
+            } else if let total = order.total {
                 Text(L.t("Total: $\(total)", "Tổng tiền: $\(total)"))
                     .font(.headline)
             }
@@ -652,7 +688,7 @@ struct OrderSheet: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .padding(.horizontal)
-            } else {
+            } else if order.free != true {
                 Text(L.t(
                     "We will email you a payment link shortly.",
                     "Link thanh toán sẽ được gửi qua email trong ít phút."

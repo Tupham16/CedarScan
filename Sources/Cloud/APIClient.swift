@@ -43,6 +43,7 @@ struct OrderScanResponse: Decodable {
     let paymentUrl: String?
     let discount: Double?
     let couponApplied: Bool?
+    let free: Bool?
 }
 
 // MARK: Bảng giá dịch vụ
@@ -78,6 +79,8 @@ struct CatalogResponse: Decodable {
     let packages: [CatalogPackage]
     let addons: [CatalogAddon]
     let areaSurcharges: [CatalogSurcharge]
+    let freeFirstOrders: Int?
+    let freeOrdersRemaining: Int?
     let defaults: OrderDefaults?
 }
 
