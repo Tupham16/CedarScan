@@ -16,6 +16,7 @@ final class ScanSessionController: NSObject, ObservableObject, RoomCaptureViewDe
     let arSession: ARSession
     let captureView: RoomCaptureView
     private var recorder: ScanVideoRecorder?
+    private var colorMesh: ColorMeshBuilder?
     private var isCancelled = false
     private var hasStarted = false
 
@@ -38,13 +39,23 @@ final class ScanSessionController: NSObject, ObservableObject, RoomCaptureViewDe
 
     func startSession() {
         phase = .scanning
-        captureView.captureSession.run(configuration: RoomCaptureSession.Configuration())
         if !hasStarted {
             hasStarted = true
+            // Bật dựng lưới LiDAR trên chính ARSession dùng chung (RoomPlan tôn trọng config này).
+            // Nhờ đó lấy được lưới 3D + màu để dựng file màu nội bộ.
+            if ARWorldTrackingConfiguration.supportsSceneReconstruction(.mesh) {
+                let config = ARWorldTrackingConfiguration()
+                config.sceneReconstruction = .mesh
+                arSession.run(config)
+                let colorMesh = ColorMeshBuilder(arSession: arSession)
+                self.colorMesh = colorMesh
+                colorMesh.start()
+            }
             let recorder = ScanVideoRecorder(arSession: arSession)
             self.recorder = recorder
             recorder.start()
         }
+        captureView.captureSession.run(configuration: RoomCaptureSession.Configuration())
     }
 
     func finishCurrentRoom() {
@@ -61,6 +72,8 @@ final class ScanSessionController: NSObject, ObservableObject, RoomCaptureViewDe
         isCancelled = true
         recorder?.cancel()
         recorder = nil
+        colorMesh?.stop()
+        colorMesh = nil
         captureView.captureSession.stop()
     }
 
@@ -68,6 +81,13 @@ final class ScanSessionController: NSObject, ObservableObject, RoomCaptureViewDe
     func finishRecording() async -> URL? {
         let url = await recorder?.finish()
         recorder = nil
+        return url
+    }
+
+    /// Dựng và trả về file mô hình 3D CÓ MÀU (.ply) — nguyên liệu nội bộ. Nil nếu không có.
+    func finishColoredMesh() async -> URL? {
+        let url = await colorMesh?.exportColoredPLY()
+        colorMesh = nil
         return url
     }
 

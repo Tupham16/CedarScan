@@ -39,7 +39,7 @@ final class ScanStore: ObservableObject {
         folderURL(for: record).appendingPathComponent("model.usdz")
     }
 
-    func save(rooms: [CapturedRoom], videoURL: URL?) async throws -> ScanRecord {
+    func save(rooms: [CapturedRoom], videoURL: URL?, coloredMeshURL: URL?) async throws -> ScanRecord {
         let planModel = FloorPlanModel(rooms: rooms)
         var record = ScanRecord(
             id: UUID(),
@@ -85,6 +85,14 @@ final class ScanStore: ObservableObject {
             try? fileManager.moveItem(
                 at: videoURL,
                 to: folder.appendingPathComponent("scan-video.mp4")
+            )
+        }
+
+        // 6. Mô hình 3D có màu (.ply) — nguyên liệu nội bộ (nếu dựng được)
+        if let coloredMeshURL, fileManager.fileExists(atPath: coloredMeshURL.path) {
+            try? fileManager.moveItem(
+                at: coloredMeshURL,
+                to: folder.appendingPathComponent("colored-mesh.ply")
             )
         }
 

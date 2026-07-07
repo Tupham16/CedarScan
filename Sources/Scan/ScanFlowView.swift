@@ -6,8 +6,8 @@ struct ScanFlowView: View {
     @StateObject private var controller = ScanSessionController()
     @State private var isSaving = false
 
-    /// Được gọi khi người dùng bấm "Hoàn tất & Lưu" với các phòng đã quét + video (nếu có).
-    let onFinish: ([CapturedRoom], URL?) async -> Void
+    /// Được gọi khi người dùng bấm "Hoàn tất & Lưu" với các phòng đã quét + video + lưới màu (nếu có).
+    let onFinish: ([CapturedRoom], URL?, URL?) async -> Void
 
     var body: some View {
         ZStack {
@@ -151,7 +151,8 @@ struct ScanFlowView: View {
         let rooms = controller.rooms
         Task {
             let videoURL = await controller.finishRecording()
-            await onFinish(rooms, videoURL)
+            let meshURL = await controller.finishColoredMesh()
+            await onFinish(rooms, videoURL, meshURL)
             isSaving = false
             dismiss()
         }

@@ -19,6 +19,7 @@ final class ScanUploader: ObservableObject {
         ("usdz", "model.usdz"),
         ("obj", "model.obj"),
         ("mtl", "model.mtl"),
+        ("mesh", "colored-mesh.ply"),
         ("video", "scan-video.mp4"),
         ("plan", "floorplan.png"),
         ("rooms", "rooms.json"),

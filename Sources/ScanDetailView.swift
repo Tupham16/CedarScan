@@ -210,16 +210,7 @@ struct ScanDetailView: View {
             ShareLink(item: usdzURL) {
                 Label(L.t("Share 3D model (USDZ)", "Chia sẻ mô hình 3D (USDZ)"), systemImage: "cube")
             }
-            if FileManager.default.fileExists(atPath: objURL.path) {
-                ShareLink(item: objURL) {
-                    Label(L.t("Share OBJ", "Chia sẻ file OBJ"), systemImage: "square.stack.3d.up")
-                }
-            }
-            if FileManager.default.fileExists(atPath: videoURL.path) {
-                ShareLink(item: videoURL) {
-                    Label(L.t("Share scan video", "Chia sẻ video quét"), systemImage: "video")
-                }
-            }
+            // OBJ + video là NGUYÊN LIỆU NỘI BỘ (gửi về đội xử lý qua đơn hàng), không cho khách chia sẻ.
             Button {
                 exportFloorPlanImage()
             } label: {
