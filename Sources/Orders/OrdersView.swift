@@ -95,9 +95,25 @@ struct OrdersView: View {
                     Spacer()
                     StatusBadge(status: order.status)
                 }
-                Text("\(order.orderNumber) · \(Self.formatDate(order.placedAt))")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                HStack(spacing: 6) {
+                    Text("\(order.orderNumber) · \(Self.formatDate(order.placedAt))")
+                    if let total = order.total, total > 0 {
+                        Text("· $\(total)")
+                        if order.paid == true {
+                            Label(L.t("Paid", "Đã trả"), systemImage: "checkmark.seal.fill")
+                                .foregroundStyle(.green)
+                        }
+                    }
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+                if order.paid != true, let payString = order.paymentUrl, let payURL = URL(string: payString) {
+                    Link(destination: payURL) {
+                        Label(L.t("Pay Now", "Thanh toán ngay"), systemImage: "creditcard.fill")
+                            .font(.subheadline.weight(.semibold))
+                    }
+                }
 
                 if order.status == "delivered" {
                     if let deliveredUrl = order.deliveredUrl, let url = URL(string: deliveredUrl) {

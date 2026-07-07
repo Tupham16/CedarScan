@@ -256,95 +256,256 @@ struct ScanDetailView: View {
     }
 }
 
-// MARK: - Form đặt hàng
+// MARK: - Form đặt hàng (kiểu CubiCasa: gói + add-on + giá, lưu mặc định cho lần sau)
 
 struct OrderSheet: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.openURL) private var openURL
     let record: ScanRecord
     let onOrdered: (String) -> Void
 
-    @State private var notes = ""
+    @State private var catalog: CatalogResponse?
+    @State private var loadError: String?
+
+    @State private var packageId = ""
+    @State private var selectedAddons: Set<String> = []
     @State private var unitSystem = "metric"
+    @State private var language = "English"
+    @State private var floorNaming = ""
+    @State private var notes = ""
+
     @State private var isBusy = false
     @State private var errorMessage: String?
-    @State private var orderNumber: String?
+    @State private var placedOrder: OrderScanResponse?
+
+    private var areaSqFt: Double { (record.areaSqm ?? 0) * 10.7639 }
+
+    private var totalUSD: Int {
+        guard let catalog else { return 0 }
+        var total = catalog.packages.first(where: { $0.id == packageId })?.price ?? 0
+        for addon in catalog.addons where selectedAddons.contains(addon.id) {
+            total += addon.price
+        }
+        if let surcharge = catalog.areaSurcharges
+            .filter({ areaSqFt > $0.overSqFt && $0.fee > 0 })
+            .max(by: { $0.overSqFt < $1.overSqFt }) {
+            total += surcharge.fee
+        }
+        return total
+    }
 
     var body: some View {
         NavigationStack {
-            Form {
-                if let orderNumber {
-                    Section {
-                        VStack(spacing: 10) {
-                            Image(systemName: "checkmark.circle.fill")
-                                .font(.system(size: 44))
-                                .foregroundStyle(.green)
-                            Text(L.t("Order placed!", "Đã đặt hàng!"))
-                                .font(.headline)
-                            Text(orderNumber)
-                                .font(.title3.monospaced().weight(.bold))
-                            Text(L.t(
-                                "Our team will review your scan and produce the floor plan. Track progress in the Orders tab.",
-                                "Đội ngũ Cedar247 sẽ xử lý bản quét và vẽ mặt bằng. Theo dõi tiến độ ở mục Đơn hàng."
-                            ))
-                            .font(.footnote)
+            Group {
+                if let placedOrder {
+                    successView(placedOrder)
+                } else if let catalog {
+                    orderForm(catalog)
+                } else if let loadError {
+                    VStack(spacing: 12) {
+                        Text(loadError)
+                            .font(.subheadline)
                             .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
+                        Button(L.t("Retry", "Thử lại")) {
+                            self.loadError = nil
+                            Task { await loadCatalog() }
                         }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 8)
+                        .buttonStyle(.bordered)
                     }
+                    .padding(24)
                 } else {
-                    Section {
-                        Picker(L.t("Units", "Đơn vị đo"), selection: $unitSystem) {
-                            Text(L.t("Metric (m)", "Mét (m)")).tag("metric")
-                            Text(L.t("Imperial (ft)", "Feet (ft)")).tag("imperial")
-                        }
-                    } header: {
-                        Text(L.t("Floor plan options", "Tùy chọn bản vẽ"))
-                    }
-                    Section {
-                        TextField(
-                            L.t("Anything we should know? (optional)", "Ghi chú thêm (không bắt buộc)"),
-                            text: $notes,
-                            axis: .vertical
-                        )
-                        .lineLimit(3...6)
-                    } header: {
-                        Text(L.t("Notes", "Ghi chú"))
-                    }
-                    if let errorMessage {
-                        Section {
-                            Text(errorMessage)
-                                .font(.footnote)
-                                .foregroundStyle(.red)
-                        }
-                    }
+                    ProgressView(L.t("Loading options…", "Đang tải bảng giá…"))
                 }
             }
             .navigationTitle(L.t("Order Floor Plan", "Đặt làm mặt bằng"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button(orderNumber == nil ? L.t("Cancel", "Hủy") : L.t("Close", "Đóng")) {
+                    Button(placedOrder == nil ? L.t("Cancel", "Hủy") : L.t("Close", "Đóng")) {
                         dismiss()
                     }
                 }
-                if orderNumber == nil {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Button {
-                            submit()
-                        } label: {
-                            if isBusy {
-                                ProgressView()
-                            } else {
-                                Text(L.t("Order", "Đặt hàng")).bold()
-                            }
-                        }
-                        .disabled(isBusy)
-                    }
-                }
+            }
+            .task {
+                await loadCatalog()
             }
         }
+    }
+
+    private func loadCatalog() async {
+        do {
+            let result = try await APIClient.shared.catalog()
+            catalog = result
+            // Điền mặc định: lựa chọn lần trước > gói default > gói đầu
+            let d = result.defaults
+            if let saved = d?.packageId, result.packages.contains(where: { $0.id == saved }) {
+                packageId = saved
+            } else {
+                packageId = result.packages.first(where: { $0.isDefault })?.id
+                    ?? result.packages.first?.id ?? ""
+            }
+            let validAddonIds = Set(result.addons.map(\.id))
+            selectedAddons = Set((d?.addonIds ?? []).filter { validAddonIds.contains($0) })
+            if let u = d?.unitSystem, u == "imperial" || u == "metric" { unitSystem = u }
+            if let lang = d?.language, !lang.isEmpty { language = lang }
+            if let fn = d?.floorNaming { floorNaming = fn }
+        } catch {
+            loadError = error.localizedDescription
+        }
+    }
+
+    @ViewBuilder
+    private func orderForm(_ catalog: CatalogResponse) -> some View {
+        Form {
+            Section {
+                ForEach(catalog.packages) { pkg in
+                    Button {
+                        packageId = pkg.id
+                    } label: {
+                        HStack {
+                            Image(systemName: packageId == pkg.id ? "largecircle.fill.circle" : "circle")
+                                .foregroundStyle(.tint)
+                            Text(pkg.name)
+                                .foregroundStyle(.primary)
+                            Spacer()
+                            Text("$\(pkg.price)")
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+            } header: {
+                Text(L.t("Package", "Gói dịch vụ"))
+            }
+
+            Section {
+                ForEach(catalog.addons) { addon in
+                    Toggle(isOn: Binding(
+                        get: { selectedAddons.contains(addon.id) },
+                        set: { on in
+                            if on { selectedAddons.insert(addon.id) } else { selectedAddons.remove(addon.id) }
+                        }
+                    )) {
+                        HStack {
+                            Text(addon.name)
+                            Spacer()
+                            Text("+$\(addon.price)")
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+            } header: {
+                Text(L.t("Add-ons", "Dịch vụ thêm"))
+            }
+
+            Section {
+                Picker(L.t("Units", "Đơn vị đo"), selection: $unitSystem) {
+                    Text(L.t("Metric (m)", "Mét (m)")).tag("metric")
+                    Text(L.t("Imperial (ft)", "Feet (ft)")).tag("imperial")
+                }
+                TextField(L.t("Language (e.g. English)", "Ngôn ngữ bản vẽ (vd English)"), text: $language)
+                TextField(L.t("Floor naming style (optional)", "Kiểu đặt tên tầng (không bắt buộc)"), text: $floorNaming)
+                TextField(
+                    L.t("Anything we should know? (optional)", "Ghi chú thêm (không bắt buộc)"),
+                    text: $notes,
+                    axis: .vertical
+                )
+                .lineLimit(3...6)
+            } header: {
+                Text(L.t("Preferences (saved for next time)", "Tùy chọn (lưu cho lần sau)"))
+            }
+
+            Section {
+                if let surcharge = catalog.areaSurcharges
+                    .filter({ areaSqFt > $0.overSqFt && $0.fee > 0 })
+                    .max(by: { $0.overSqFt < $1.overSqFt }) {
+                    HStack {
+                        Text(L.t(
+                            "Large property fee (over \(Int(surcharge.overSqFt)) sq ft)",
+                            "Phụ phí nhà lớn (trên \(Int(surcharge.overSqFt)) sq ft)"
+                        ))
+                        .font(.footnote)
+                        Spacer()
+                        Text("+$\(surcharge.fee)")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                if let errorMessage {
+                    Text(errorMessage)
+                        .font(.footnote)
+                        .foregroundStyle(.red)
+                }
+                Button {
+                    submit()
+                } label: {
+                    HStack {
+                        if isBusy {
+                            ProgressView().tint(.white)
+                        } else {
+                            Text(L.t("Place order", "Đặt hàng") + " · $\(totalUSD)")
+                                .font(.headline)
+                        }
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 6)
+                }
+                .buttonStyle(.borderedProminent)
+                .listRowInsets(EdgeInsets())
+                .disabled(isBusy || packageId.isEmpty)
+            } footer: {
+                Text(L.t(
+                    "You will get a secure payment link (Stripe/PayPal) after placing the order.",
+                    "Sau khi đặt sẽ có link thanh toán bảo mật (Stripe/PayPal)."
+                ))
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func successView(_ order: OrderScanResponse) -> some View {
+        VStack(spacing: 14) {
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 52))
+                .foregroundStyle(.green)
+            Text(L.t("Order placed!", "Đã đặt hàng!"))
+                .font(.title3.weight(.bold))
+            Text(order.orderNumber)
+                .font(.title3.monospaced().weight(.bold))
+            if let total = order.total {
+                Text(L.t("Total: $\(total)", "Tổng tiền: $\(total)"))
+                    .font(.headline)
+            }
+            Text(L.t(
+                "Our team will start after payment is received. Track progress in the Orders tab.",
+                "Đội ngũ Cedar247 sẽ bắt đầu sau khi nhận thanh toán. Theo dõi tiến độ ở mục Đơn hàng."
+            ))
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+            .multilineTextAlignment(.center)
+            .padding(.horizontal)
+
+            if let payString = order.paymentUrl, let payURL = URL(string: payString) {
+                Button {
+                    openURL(payURL)
+                } label: {
+                    Label(L.t("Pay Now", "Thanh toán ngay"), systemImage: "creditcard.fill")
+                        .font(.headline)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                }
+                .buttonStyle(.borderedProminent)
+                .padding(.horizontal)
+            } else {
+                Text(L.t(
+                    "We will email you a payment link shortly.",
+                    "Link thanh toán sẽ được gửi qua email trong ít phút."
+                ))
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+            }
+        }
+        .padding(24)
     }
 
     private func submit() {
@@ -358,10 +519,14 @@ struct OrderSheet: View {
             do {
                 let result = try await APIClient.shared.orderScan(
                     scanId: cloudScanId,
+                    packageId: packageId,
+                    addonIds: Array(selectedAddons),
                     notes: notes,
-                    unitSystem: unitSystem
+                    unitSystem: unitSystem,
+                    language: language,
+                    floorNaming: floorNaming
                 )
-                orderNumber = result.orderNumber
+                placedOrder = result
                 onOrdered(result.orderNumber)
             } catch {
                 errorMessage = error.localizedDescription

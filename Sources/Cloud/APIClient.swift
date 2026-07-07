@@ -38,6 +38,45 @@ struct OrderScanResponse: Decodable {
     let orderId: String
     let orderNumber: String
     let status: String
+    let total: Int?
+    let currency: String?
+    let paymentUrl: String?
+}
+
+// MARK: Bảng giá dịch vụ
+
+struct CatalogPackage: Decodable, Identifiable {
+    let id: String
+    let name: String
+    let price: Int
+    let isDefault: Bool
+}
+
+struct CatalogAddon: Decodable, Identifiable {
+    let id: String
+    let name: String
+    let price: Int
+}
+
+struct CatalogSurcharge: Decodable {
+    let overSqFt: Double
+    let fee: Int
+}
+
+struct OrderDefaults: Decodable {
+    let packageId: String?
+    let addonIds: [String]?
+    let unitSystem: String?
+    let language: String?
+    let floorNaming: String?
+}
+
+struct CatalogResponse: Decodable {
+    let currency: String
+    let packages: [CatalogPackage]
+    let addons: [CatalogAddon]
+    let areaSurcharges: [CatalogSurcharge]
+    let defaults: OrderDefaults?
 }
 
 struct DeliveryFileDTO: Decodable, Hashable {
@@ -56,6 +95,10 @@ struct OrderDTO: Decodable, Identifiable {
     let deliveredAt: String?
     let deliveredUrl: String?
     let deliveryFiles: [DeliveryFileDTO]
+    let total: Int?
+    let currency: String?
+    let paid: Bool?
+    let paymentUrl: String?
 
     var id: String { orderId }
 }
@@ -137,10 +180,26 @@ final class APIClient {
         try await send("scans/\(scanId)/complete", method: "POST", json: [:])
     }
 
-    func orderScan(scanId: String, notes: String, unitSystem: String) async throws -> OrderScanResponse {
+    func catalog() async throws -> CatalogResponse {
+        try await send("catalog")
+    }
+
+    func orderScan(
+        scanId: String,
+        packageId: String,
+        addonIds: [String],
+        notes: String,
+        unitSystem: String,
+        language: String,
+        floorNaming: String
+    ) async throws -> OrderScanResponse {
         try await send("scans/\(scanId)/order", method: "POST", json: [
+            "packageId": packageId,
+            "addons": addonIds,
             "notes": notes,
             "unitSystem": unitSystem,
+            "language": language,
+            "floorNaming": floorNaming,
         ])
     }
 
