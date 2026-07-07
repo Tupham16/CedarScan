@@ -39,11 +39,16 @@ final class ScanStore: ObservableObject {
         folderURL(for: record).appendingPathComponent("model.usdz")
     }
 
-    func save(rooms: [CapturedRoom], videoURL: URL?, coloredMeshURL: URL?) async throws -> ScanRecord {
+    func save(
+        rooms: [CapturedRoom],
+        videoURL: URL?,
+        coloredMeshURL: URL?,
+        name: String? = nil
+    ) async throws -> ScanRecord {
         let planModel = FloorPlanModel(rooms: rooms)
         var record = ScanRecord(
             id: UUID(),
-            name: Self.defaultName(),
+            name: name?.isEmpty == false ? name! : Self.defaultName(),
             createdAt: Date(),
             roomCount: rooms.count,
             areaSqm: planModel.areaSquareMeters

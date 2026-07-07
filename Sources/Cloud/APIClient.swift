@@ -186,6 +186,7 @@ final class APIClient {
 
     func orderScan(
         scanId: String,
+        extraScanIds: [String],
         packageId: String,
         addonIds: [String],
         notes: String,
@@ -196,6 +197,7 @@ final class APIClient {
         try await send("scans/\(scanId)/order", method: "POST", json: [
             "packageId": packageId,
             "addons": addonIds,
+            "extraScanIds": extraScanIds,
             "notes": notes,
             "unitSystem": unitSystem,
             "language": language,

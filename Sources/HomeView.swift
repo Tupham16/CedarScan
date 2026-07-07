@@ -40,9 +40,11 @@ struct HomeView: View {
                 Text(saveError ?? "")
             }
             .fullScreenCover(isPresented: $isScanning) {
-                ScanFlowView { rooms, videoURL, meshURL in
+                ScanFlowView { rooms, videoURL, meshURL, name in
                     do {
-                        _ = try await store.save(rooms: rooms, videoURL: videoURL, coloredMeshURL: meshURL)
+                        _ = try await store.save(
+                            rooms: rooms, videoURL: videoURL, coloredMeshURL: meshURL, name: name
+                        )
                     } catch {
                         // Không hiện alert khi cover còn mở — sẽ bị nuốt lúc dismiss.
                         pendingSaveError = error.localizedDescription

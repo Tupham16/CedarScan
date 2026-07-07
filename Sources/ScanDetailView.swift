@@ -261,6 +261,7 @@ struct ScanDetailView: View {
 struct OrderSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
+    @EnvironmentObject private var store: ScanStore
     let record: ScanRecord
     let onOrdered: (String) -> Void
 
@@ -269,16 +270,30 @@ struct OrderSheet: View {
 
     @State private var packageId = ""
     @State private var selectedAddons: Set<String> = []
+    @State private var extraFloors: Set<UUID> = []
     @State private var unitSystem = "metric"
     @State private var language = "English"
     @State private var floorNaming = ""
     @State private var notes = ""
 
     @State private var isBusy = false
+    @State private var busyLabel: String?
     @State private var errorMessage: String?
     @State private var placedOrder: OrderScanResponse?
 
-    private var areaSqFt: Double { (record.areaSqm ?? 0) * 10.7639 }
+    /// Các bản quét khác của khách (tầng khác của cùng căn nhà) có thể gộp vào đơn này.
+    private var otherScans: [ScanRecord] {
+        store.records.filter { $0.id != record.id && $0.cloudOrderNumber == nil }
+    }
+
+    private var combinedAreaSqm: Double {
+        (record.areaSqm ?? 0)
+            + otherScans
+                .filter { extraFloors.contains($0.id) }
+                .reduce(0) { $0 + ($1.areaSqm ?? 0) }
+    }
+
+    private var areaSqFt: Double { combinedAreaSqm * 10.7639 }
 
     private var totalUSD: Int {
         guard let catalog else { return 0 }
@@ -358,6 +373,48 @@ struct OrderSheet: View {
     @ViewBuilder
     private func orderForm(_ catalog: CatalogResponse) -> some View {
         Form {
+            Section {
+                HStack {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(.green)
+                    Text(record.name)
+                    Spacer()
+                    if let area = record.areaSqm, area > 0 {
+                        Text(String(format: "%.0f m²", area))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                ForEach(otherScans) { scan in
+                    Toggle(isOn: Binding(
+                        get: { extraFloors.contains(scan.id) },
+                        set: { on in
+                            if on { extraFloors.insert(scan.id) } else { extraFloors.remove(scan.id) }
+                        }
+                    )) {
+                        HStack {
+                            Text(scan.name)
+                            Spacer()
+                            if let area = scan.areaSqm, area > 0 {
+                                Text(String(format: "%.0f m²", area))
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                }
+            } header: {
+                Text(L.t("Floors in this order", "Các tầng trong đơn này"))
+            } footer: {
+                Text(otherScans.isEmpty
+                    ? L.t(
+                        "Scan each floor separately (name them Floor 1, Floor 2…), then order them together here as one home.",
+                        "Quét từng tầng riêng (đặt tên Floor 1, Floor 2…) rồi gộp vào một đơn tại đây."
+                    )
+                    : L.t(
+                        "Select the other floors of the same home to order everything together. Total area: \(Int(combinedAreaSqm)) m².",
+                        "Chọn các tầng khác của cùng căn nhà để đặt chung một đơn. Tổng diện tích: \(Int(combinedAreaSqm)) m²."
+                    ))
+            }
+
             Section {
                 ForEach(catalog.packages) { pkg in
                     Button {
@@ -442,6 +499,9 @@ struct OrderSheet: View {
                     HStack {
                         if isBusy {
                             ProgressView().tint(.white)
+                            if let busyLabel {
+                                Text(busyLabel).font(.subheadline)
+                            }
                         } else {
                             Text(L.t("Place order", "Đặt hàng") + " · $\(totalUSD)")
                                 .font(.headline)
@@ -515,10 +575,37 @@ struct OrderSheet: View {
         }
         isBusy = true
         errorMessage = nil
+        let extras = otherScans.filter { extraFloors.contains($0.id) }
         Task {
+            // Các tầng chọn thêm mà CHƯA tải lên → tự tải trước khi đặt
+            var extraCloudIds: [String] = []
+            for extra in extras {
+                if let existing = extra.cloudScanId {
+                    extraCloudIds.append(existing)
+                    continue
+                }
+                busyLabel = L.t("Uploading \(extra.name)…", "Đang tải \(extra.name)…")
+                let uploader = ScanUploader()
+                if let cloudId = await uploader.upload(record: extra, folder: store.folderURL(for: extra)) {
+                    store.setCloudScanId(extra, cloudScanId: cloudId)
+                    extraCloudIds.append(cloudId)
+                } else {
+                    if case .failed(let message) = uploader.phase {
+                        errorMessage = "\(extra.name): \(message)"
+                    } else {
+                        errorMessage = L.t("Could not upload \(extra.name).", "Không tải được \(extra.name).")
+                    }
+                    isBusy = false
+                    busyLabel = nil
+                    return
+                }
+            }
+
+            busyLabel = L.t("Placing order…", "Đang đặt hàng…")
             do {
                 let result = try await APIClient.shared.orderScan(
                     scanId: cloudScanId,
+                    extraScanIds: extraCloudIds,
                     packageId: packageId,
                     addonIds: Array(selectedAddons),
                     notes: notes,
@@ -528,10 +615,14 @@ struct OrderSheet: View {
                 )
                 placedOrder = result
                 onOrdered(result.orderNumber)
+                for extra in extras {
+                    store.setOrderNumber(extra, orderNumber: result.orderNumber)
+                }
             } catch {
                 errorMessage = error.localizedDescription
             }
             isBusy = false
+            busyLabel = nil
         }
     }
 }

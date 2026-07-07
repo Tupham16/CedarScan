@@ -6,8 +6,15 @@ struct ScanFlowView: View {
     @StateObject private var controller = ScanSessionController()
     @State private var isSaving = false
 
-    /// Được gọi khi người dùng bấm "Hoàn tất & Lưu" với các phòng đã quét + video + lưới màu (nếu có).
-    let onFinish: ([CapturedRoom], URL?, URL?) async -> Void
+    /// Được gọi khi bấm lưu: các phòng đã quét + video + lưới màu (nếu có) + TÊN bản quét (tầng).
+    let onFinish: ([CapturedRoom], URL?, URL?, String?) async -> Void
+
+    @State private var showNaming = false
+    @State private var scanName = ""
+
+    private static let floorSuggestions = [
+        "Floor 1", "Floor 2", "Floor 3", "Basement", "Attic", "Whole home",
+    ]
 
     var body: some View {
         ZStack {
@@ -18,6 +25,10 @@ struct ScanFlowView: View {
                 topBar
                 Spacer()
                 bottomControls
+            }
+
+            if showNaming {
+                namingOverlay
             }
 
             if isSaving {
@@ -119,7 +130,7 @@ struct ScanFlowView: View {
                 .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10))
 
                 Button {
-                    saveAndClose()
+                    showNaming = true
                 } label: {
                     Text(L.t("Finish & Save", "Hoàn tất & Lưu"))
                         .font(.headline)
@@ -129,6 +140,66 @@ struct ScanFlowView: View {
                 .buttonStyle(.borderedProminent)
             }
             .padding()
+        }
+    }
+
+    /// Hỏi tên bản quét (tầng nào?) — giúp đội xử lý biết file thuộc tầng nào để ghép đúng.
+    private var namingOverlay: some View {
+        ZStack {
+            Color.black.opacity(0.45).ignoresSafeArea()
+            VStack(spacing: 14) {
+                Text(L.t("Name this scan", "Đặt tên bản quét"))
+                    .font(.headline)
+                Text(L.t(
+                    "Which floor is this? This helps us assemble your home correctly.",
+                    "Đây là tầng nào? Tên giúp đội xử lý ghép các tầng chính xác."
+                ))
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+
+                // Gợi ý bấm nhanh
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 100))], spacing: 8) {
+                    ForEach(Self.floorSuggestions, id: \.self) { suggestion in
+                        Button {
+                            scanName = suggestion
+                        } label: {
+                            Text(suggestion)
+                                .font(.subheadline)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 6)
+                                .frame(maxWidth: .infinity)
+                                .background(
+                                    scanName == suggestion ? Color.accentColor.opacity(0.2) : Color(.tertiarySystemFill),
+                                    in: Capsule()
+                                )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+
+                TextField(L.t("Or type a name (e.g. Floor 1)", "Hoặc tự gõ tên (vd Floor 1)"), text: $scanName)
+                    .textFieldStyle(.roundedBorder)
+
+                Button {
+                    showNaming = false
+                    saveAndClose()
+                } label: {
+                    Text(L.t("Save scan", "Lưu bản quét"))
+                        .font(.headline)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                }
+                .buttonStyle(.borderedProminent)
+
+                Button(L.t("Back", "Quay lại")) {
+                    showNaming = false
+                }
+                .font(.subheadline)
+            }
+            .padding(20)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18))
+            .padding(24)
         }
     }
 
@@ -149,10 +220,11 @@ struct ScanFlowView: View {
     private func saveAndClose() {
         isSaving = true
         let rooms = controller.rooms
+        let name = scanName.trimmingCharacters(in: .whitespacesAndNewlines)
         Task {
             let videoURL = await controller.finishRecording()
             let meshURL = await controller.finishColoredMesh()
-            await onFinish(rooms, videoURL, meshURL)
+            await onFinish(rooms, videoURL, meshURL, name.isEmpty ? nil : name)
             isSaving = false
             dismiss()
         }
