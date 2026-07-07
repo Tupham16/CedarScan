@@ -10,6 +10,8 @@ struct HomeView: View {
     @State private var pendingSaveError: String?
     @State private var showNewProject = false
     @State private var newProjectName = ""
+    @State private var showGuide = false
+    @State private var guideThenScan = false
 
     private var isSupported: Bool { RoomCaptureSession.isSupported }
 
@@ -24,6 +26,14 @@ struct HomeView: View {
             }
             .navigationTitle("CedarScan")
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        guideThenScan = false
+                        showGuide = true
+                    } label: {
+                        Label(L.t("How to scan", "Cách quét"), systemImage: "questionmark.circle")
+                    }
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
                         newProjectName = ""
@@ -31,6 +41,13 @@ struct HomeView: View {
                     } label: {
                         Label(L.t("New Property", "Dự án mới"), systemImage: "folder.badge.plus")
                     }
+                }
+            }
+            .sheet(isPresented: $showGuide) {
+                if guideThenScan {
+                    ScanGuideView { isScanning = true }
+                } else {
+                    ScanGuideView()
                 }
             }
             .safeAreaInset(edge: .bottom) {
@@ -173,7 +190,12 @@ struct HomeView: View {
 
     private var scanButton: some View {
         Button {
-            isScanning = true
+            if UserDefaults.standard.bool(forKey: ScanGuideView.seenKey) {
+                isScanning = true
+            } else {
+                guideThenScan = true
+                showGuide = true
+            }
         } label: {
             Label(L.t("New scan", "Quét không gian mới"), systemImage: "viewfinder")
                 .font(.headline)

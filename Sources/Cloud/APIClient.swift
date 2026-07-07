@@ -211,6 +211,14 @@ final class APIClient {
         try await send("orders")
     }
 
+    struct RevisionResponse: Decodable {
+        let ok: Bool
+    }
+
+    func requestRevision(orderId: String, message: String) async throws -> RevisionResponse {
+        try await send("orders/\(orderId)/revision", method: "POST", json: ["message": message])
+    }
+
     // MARK: File upload (PUT presigned URL, có báo tiến độ)
 
     func uploadFile(

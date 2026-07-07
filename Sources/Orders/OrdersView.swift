@@ -6,6 +6,7 @@ struct OrdersView: View {
     @State private var orders: [OrderDTO] = []
     @State private var isLoading = false
     @State private var errorMessage: String?
+    @State private var revisionOrder: OrderDTO?
 
     var body: some View {
         NavigationStack {
@@ -24,6 +25,11 @@ struct OrdersView: View {
             }
             .refreshable {
                 await load()
+            }
+            .sheet(item: $revisionOrder) { order in
+                RevisionSheet(order: order) {
+                    Task { await load() }
+                }
             }
         }
     }
@@ -138,6 +144,13 @@ struct OrdersView: View {
                             }
                         }
                     }
+                    Button {
+                        revisionOrder = order
+                    } label: {
+                        Label(L.t("Request a revision", "Yêu cầu sửa"), systemImage: "pencil.and.outline")
+                            .font(.caption.weight(.semibold))
+                    }
+                    .buttonStyle(.bordered)
                 }
             }
             .padding(.vertical, 4)
@@ -147,6 +160,103 @@ struct OrdersView: View {
     private static func formatDate(_ iso: String) -> String {
         guard let date = ISO8601DateFormatter().date(from: iso) else { return "" }
         return date.formatted(date: .abbreviated, time: .omitted)
+    }
+}
+
+/// Form yêu cầu sửa: khách mô tả chỗ cần chỉnh → đơn quay lại hàng xử lý.
+struct RevisionSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    let order: OrderDTO
+    let onSent: () -> Void
+
+    @State private var message = ""
+    @State private var isBusy = false
+    @State private var errorMessage: String?
+    @State private var sent = false
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                if sent {
+                    Section {
+                        VStack(spacing: 10) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .font(.system(size: 44))
+                                .foregroundStyle(.green)
+                            Text(L.t("Revision requested!", "Đã gửi yêu cầu sửa!"))
+                                .font(.headline)
+                            Text(L.t(
+                                "Our team will update your floor plan and deliver a revised version.",
+                                "Đội ngũ sẽ chỉnh sửa và giao lại bản cập nhật cho bạn."
+                            ))
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8)
+                    }
+                } else {
+                    Section {
+                        TextField(
+                            L.t("What should we change? (e.g. missing door on Floor 2, wrong room label…)",
+                                "Cần sửa gì? (vd thiếu cửa ở Floor 2, sai tên phòng…)"),
+                            text: $message,
+                            axis: .vertical
+                        )
+                        .lineLimit(4...8)
+                    } header: {
+                        Text(order.orderNumber)
+                    } footer: {
+                        Text(L.t("Revisions for mistakes on our side are free.",
+                                 "Sửa lỗi thuộc về chúng tôi là miễn phí."))
+                    }
+                    if let errorMessage {
+                        Section {
+                            Text(errorMessage)
+                                .font(.footnote)
+                                .foregroundStyle(.red)
+                        }
+                    }
+                }
+            }
+            .navigationTitle(L.t("Request a revision", "Yêu cầu sửa"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button(sent ? L.t("Close", "Đóng") : L.t("Cancel", "Hủy")) { dismiss() }
+                }
+                if !sent {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button {
+                            submit()
+                        } label: {
+                            if isBusy {
+                                ProgressView()
+                            } else {
+                                Text(L.t("Send", "Gửi")).bold()
+                            }
+                        }
+                        .disabled(isBusy || message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    }
+                }
+            }
+        }
+    }
+
+    private func submit() {
+        isBusy = true
+        errorMessage = nil
+        Task {
+            do {
+                _ = try await APIClient.shared.requestRevision(orderId: order.orderId, message: message)
+                sent = true
+                onSent()
+            } catch {
+                errorMessage = error.localizedDescription
+            }
+            isBusy = false
+        }
     }
 }
 
