@@ -31,8 +31,9 @@ final class ScanUploader: ObservableObject {
         let fm = FileManager.default
 
         let present = Self.fileKinds.filter { fm.fileExists(atPath: folder.appendingPathComponent($0.fileName).path) }
-        guard present.contains(where: { $0.kind == "usdz" || $0.kind == "obj" }) else {
-            phase = .failed(L.t("No 3D model file found for this scan.", "Không tìm thấy file mô hình 3D của bản quét này."))
+        // Quét LiDAR cần mô hình 3D; quét VIDEO (máy không LiDAR) chỉ cần video.
+        guard present.contains(where: { $0.kind == "usdz" || $0.kind == "obj" || $0.kind == "video" }) else {
+            phase = .failed(L.t("No scan files found for this scan.", "Không tìm thấy file của bản quét này."))
             return nil
         }
 
