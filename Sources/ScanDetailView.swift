@@ -588,6 +588,7 @@ struct OrderSheet: View {
         let extras = otherScans.filter { extraFloors.contains($0.id) }
         Task {
             // Tải lên mọi bản quét CHƯA có trên server (kể cả bản chính — khi đặt từ trang dự án)
+            @MainActor
             func ensureUploaded(_ scan: ScanRecord) async -> String? {
                 if let existing = scan.cloudScanId { return existing }
                 busyLabel = L.t("Uploading \(scan.name)…", "Đang tải \(scan.name)…")
