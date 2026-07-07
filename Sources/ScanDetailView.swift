@@ -64,7 +64,10 @@ struct ScanDetailView: View {
             ShareSheet(items: [url])
         }
         .sheet(isPresented: $showOrderSheet) {
-            OrderSheet(record: current) { orderNumber in
+            OrderSheet(
+                record: current,
+                projectName: store.project(with: current.projectId)?.name
+            ) { orderNumber in
                 store.setOrderNumber(current, orderNumber: orderNumber)
             }
         }
@@ -263,6 +266,8 @@ struct OrderSheet: View {
     @Environment(\.openURL) private var openURL
     @EnvironmentObject private var store: ScanStore
     let record: ScanRecord
+    var projectName: String? = nil // tên dự án/địa chỉ nhà — hiện trên thẻ đơn cho đội xử lý
+    var candidateScans: [ScanRecord]? = nil // chế độ dự án: danh sách tầng, chọn sẵn tất cả
     let onOrdered: (String) -> Void
 
     @State private var catalog: CatalogResponse?
@@ -281,9 +286,14 @@ struct OrderSheet: View {
     @State private var errorMessage: String?
     @State private var placedOrder: OrderScanResponse?
 
-    /// Các bản quét khác của khách (tầng khác của cùng căn nhà) có thể gộp vào đơn này.
+    /// Các bản quét khác (tầng khác của CÙNG căn nhà) có thể gộp vào đơn này.
     private var otherScans: [ScanRecord] {
-        store.records.filter { $0.id != record.id && $0.cloudOrderNumber == nil }
+        if let candidateScans {
+            return candidateScans.filter { $0.id != record.id }
+        }
+        return store.records.filter {
+            $0.id != record.id && $0.cloudOrderNumber == nil && $0.projectId == record.projectId
+        }
     }
 
     private var combinedAreaSqm: Double {
@@ -349,6 +359,10 @@ struct OrderSheet: View {
     }
 
     private func loadCatalog() async {
+        // Chế độ dự án: chọn sẵn TẤT CẢ các tầng của căn nhà
+        if candidateScans != nil && extraFloors.isEmpty {
+            extraFloors = Set(otherScans.map(\.id))
+        }
         do {
             let result = try await APIClient.shared.catalog()
             catalog = result
@@ -569,49 +583,54 @@ struct OrderSheet: View {
     }
 
     private func submit() {
-        guard let cloudScanId = record.cloudScanId else {
-            errorMessage = L.t("Scan is not uploaded yet.", "Bản quét chưa được tải lên.")
-            return
-        }
         isBusy = true
         errorMessage = nil
         let extras = otherScans.filter { extraFloors.contains($0.id) }
         Task {
-            // Các tầng chọn thêm mà CHƯA tải lên → tự tải trước khi đặt
+            // Tải lên mọi bản quét CHƯA có trên server (kể cả bản chính — khi đặt từ trang dự án)
+            func ensureUploaded(_ scan: ScanRecord) async -> String? {
+                if let existing = scan.cloudScanId { return existing }
+                busyLabel = L.t("Uploading \(scan.name)…", "Đang tải \(scan.name)…")
+                let uploader = ScanUploader()
+                if let cloudId = await uploader.upload(record: scan, folder: store.folderURL(for: scan)) {
+                    store.setCloudScanId(scan, cloudScanId: cloudId)
+                    return cloudId
+                }
+                if case .failed(let message) = uploader.phase {
+                    errorMessage = "\(scan.name): \(message)"
+                } else {
+                    errorMessage = L.t("Could not upload \(scan.name).", "Không tải được \(scan.name).")
+                }
+                return nil
+            }
+
+            guard let primaryCloudId = await ensureUploaded(record) else {
+                isBusy = false
+                busyLabel = nil
+                return
+            }
             var extraCloudIds: [String] = []
             for extra in extras {
-                if let existing = extra.cloudScanId {
-                    extraCloudIds.append(existing)
-                    continue
-                }
-                busyLabel = L.t("Uploading \(extra.name)…", "Đang tải \(extra.name)…")
-                let uploader = ScanUploader()
-                if let cloudId = await uploader.upload(record: extra, folder: store.folderURL(for: extra)) {
-                    store.setCloudScanId(extra, cloudScanId: cloudId)
-                    extraCloudIds.append(cloudId)
-                } else {
-                    if case .failed(let message) = uploader.phase {
-                        errorMessage = "\(extra.name): \(message)"
-                    } else {
-                        errorMessage = L.t("Could not upload \(extra.name).", "Không tải được \(extra.name).")
-                    }
+                guard let cloudId = await ensureUploaded(extra) else {
                     isBusy = false
                     busyLabel = nil
                     return
                 }
+                extraCloudIds.append(cloudId)
             }
 
             busyLabel = L.t("Placing order…", "Đang đặt hàng…")
             do {
                 let result = try await APIClient.shared.orderScan(
-                    scanId: cloudScanId,
+                    scanId: primaryCloudId,
                     extraScanIds: extraCloudIds,
                     packageId: packageId,
                     addonIds: Array(selectedAddons),
                     notes: notes,
                     unitSystem: unitSystem,
                     language: language,
-                    floorNaming: floorNaming
+                    floorNaming: floorNaming,
+                    projectName: projectName ?? ""
                 )
                 placedOrder = result
                 onOrdered(result.orderNumber)

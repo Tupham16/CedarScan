@@ -192,7 +192,8 @@ final class APIClient {
         notes: String,
         unitSystem: String,
         language: String,
-        floorNaming: String
+        floorNaming: String,
+        projectName: String
     ) async throws -> OrderScanResponse {
         try await send("scans/\(scanId)/order", method: "POST", json: [
             "packageId": packageId,
@@ -202,6 +203,7 @@ final class APIClient {
             "unitSystem": unitSystem,
             "language": language,
             "floorNaming": floorNaming,
+            "projectName": projectName,
         ])
     }
 

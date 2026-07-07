@@ -5,17 +5,88 @@ import RoomPlan
 @MainActor
 final class ScanStore: ObservableObject {
     @Published private(set) var records: [ScanRecord] = []
+    @Published private(set) var projects: [ScanProject] = []
 
     private let fileManager = FileManager.default
 
-    private var rootURL: URL {
+    private var documentsURL: URL {
         fileManager.urls(for: .documentDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("Scans", isDirectory: true)
+    }
+
+    private var rootURL: URL {
+        documentsURL.appendingPathComponent("Scans", isDirectory: true)
+    }
+
+    private var projectsURL: URL {
+        documentsURL.appendingPathComponent("projects.json")
     }
 
     init() {
         try? fileManager.createDirectory(at: rootURL, withIntermediateDirectories: true)
+        loadProjects()
         reload()
+    }
+
+    // MARK: - Dự án (căn nhà / địa chỉ)
+
+    private func loadProjects() {
+        guard let data = try? Data(contentsOf: projectsURL),
+              let loaded = try? JSONDecoder().decode([ScanProject].self, from: data) else {
+            return
+        }
+        projects = loaded.sorted { $0.createdAt > $1.createdAt }
+    }
+
+    private func persistProjects() {
+        if let data = try? JSONEncoder().encode(projects) {
+            try? data.write(to: projectsURL)
+        }
+    }
+
+    @discardableResult
+    func createProject(name: String) -> ScanProject? {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        let project = ScanProject(id: UUID(), name: trimmed, createdAt: Date())
+        projects.insert(project, at: 0)
+        persistProjects()
+        return project
+    }
+
+    func renameProject(_ project: ScanProject, to newName: String) {
+        let trimmed = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty,
+              let index = projects.firstIndex(where: { $0.id == project.id }) else { return }
+        projects[index].name = trimmed
+        persistProjects()
+    }
+
+    /// Xoá dự án — các bản quét bên trong KHÔNG mất, chỉ trở về danh sách chưa phân loại.
+    func deleteProject(_ project: ScanProject) {
+        for record in records where record.projectId == project.id {
+            update(record) { $0.projectId = nil }
+        }
+        projects.removeAll { $0.id == project.id }
+        persistProjects()
+    }
+
+    func moveScan(_ record: ScanRecord, to project: ScanProject?) {
+        update(record) { $0.projectId = project?.id }
+    }
+
+    func scans(in project: ScanProject) -> [ScanRecord] {
+        records.filter { $0.projectId == project.id }
+    }
+
+    var looseScans: [ScanRecord] {
+        records.filter { record in
+            record.projectId == nil || !projects.contains(where: { $0.id == record.projectId })
+        }
+    }
+
+    func project(with id: UUID?) -> ScanProject? {
+        guard let id else { return nil }
+        return projects.first(where: { $0.id == id })
     }
 
     func reload() {
@@ -43,7 +114,8 @@ final class ScanStore: ObservableObject {
         rooms: [CapturedRoom],
         videoURL: URL?,
         coloredMeshURL: URL?,
-        name: String? = nil
+        name: String? = nil,
+        projectId: UUID? = nil
     ) async throws -> ScanRecord {
         let planModel = FloorPlanModel(rooms: rooms)
         var record = ScanRecord(
@@ -51,7 +123,8 @@ final class ScanStore: ObservableObject {
             name: name?.isEmpty == false ? name! : Self.defaultName(),
             createdAt: Date(),
             roomCount: rooms.count,
-            areaSqm: planModel.areaSquareMeters
+            areaSqm: planModel.areaSquareMeters,
+            projectId: projectId
         )
         let folder = folderURL(for: record)
         try fileManager.createDirectory(at: folder, withIntermediateDirectories: true)

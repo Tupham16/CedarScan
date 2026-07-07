@@ -8,21 +8,45 @@ struct HomeView: View {
     @State private var renameText = ""
     @State private var saveError: String?
     @State private var pendingSaveError: String?
+    @State private var showNewProject = false
+    @State private var newProjectName = ""
 
     private var isSupported: Bool { RoomCaptureSession.isSupported }
 
     var body: some View {
         NavigationStack {
             Group {
-                if store.records.isEmpty {
+                if store.records.isEmpty && store.projects.isEmpty {
                     emptyState
                 } else {
-                    scanList
+                    mainList
                 }
             }
             .navigationTitle("CedarScan")
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        newProjectName = ""
+                        showNewProject = true
+                    } label: {
+                        Label(L.t("New Property", "Dự án mới"), systemImage: "folder.badge.plus")
+                    }
+                }
+            }
             .safeAreaInset(edge: .bottom) {
                 scanButton
+            }
+            .alert(L.t("New Property", "Dự án mới"), isPresented: $showNewProject) {
+                TextField(L.t("Address or name (e.g. 1600 College Ave)", "Địa chỉ hoặc tên (vd 1600 College Ave)"), text: $newProjectName)
+                Button(L.t("Create", "Tạo")) {
+                    store.createProject(name: newProjectName)
+                }
+                Button(L.t("Cancel", "Hủy"), role: .cancel) {}
+            } message: {
+                Text(L.t(
+                    "A property groups the scans of one home (Floor 1, Floor 2, Shed…) so you can order them together.",
+                    "Một dự án gom các bản quét của cùng căn nhà (Floor 1, Floor 2, Shed…) để đặt hàng chung."
+                ))
             }
             .alert(L.t("Rename scan", "Đổi tên bản quét"), isPresented: renameAlertBinding) {
                 TextField(L.t("New name", "Tên mới"), text: $renameText)
@@ -57,6 +81,12 @@ struct HomeView: View {
                     saveError = message
                 }
             }
+            .navigationDestination(for: ScanRecord.self) { record in
+                ScanDetailView(record: record)
+            }
+            .navigationDestination(for: ScanProject.self) { project in
+                ProjectView(projectId: project.id)
+            }
         }
     }
 
@@ -83,8 +113,8 @@ struct HomeView: View {
                 .font(.title3.weight(.semibold))
             Text(isSupported
                  ? L.t(
-                    "Tap the button below to scan your first space. Walk slowly around the room and point the camera at walls, doors and furniture.",
-                    "Bấm nút bên dưới để quét không gian đầu tiên. Đi chậm quanh phòng, hướng camera vào tường, cửa và đồ đạc."
+                    "Tap the button below to scan your first space, or create a Property folder for a home with several floors.",
+                    "Bấm nút bên dưới để quét không gian đầu tiên, hoặc tạo Dự án cho căn nhà nhiều tầng."
                  )
                  : L.t(
                     "This device has no LiDAR sensor, so scanning is unavailable. You need an iPhone Pro (12 Pro or later) or iPad Pro.",
@@ -98,59 +128,47 @@ struct HomeView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    private var scanList: some View {
+    private var mainList: some View {
         List {
-            ForEach(store.records) { record in
-                NavigationLink(value: record) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        HStack(spacing: 6) {
-                            Text(record.name)
-                                .font(.headline)
-                            if record.cloudOrderNumber != nil {
-                                Image(systemName: "shippingbox.fill")
-                                    .font(.caption)
+            if !store.projects.isEmpty {
+                Section(L.t("Properties", "Dự án (căn nhà)")) {
+                    ForEach(store.projects) { project in
+                        NavigationLink(value: project) {
+                            HStack(spacing: 10) {
+                                Image(systemName: "folder.fill")
                                     .foregroundStyle(.blue)
-                            } else if record.cloudScanId != nil {
-                                Image(systemName: "checkmark.icloud.fill")
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(project.name)
+                                        .font(.headline)
+                                    Text(L.t(
+                                        "\(store.scans(in: project).count) scan(s)",
+                                        "\(store.scans(in: project).count) bản quét"
+                                    ))
                                     .font(.caption)
-                                    .foregroundStyle(.green)
+                                    .foregroundStyle(.secondary)
+                                }
                             }
+                            .padding(.vertical, 2)
                         }
-                        Text(subtitle(for: record))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
                     }
-                    .padding(.vertical, 4)
                 }
-                .swipeActions {
-                    Button(role: .destructive) {
-                        store.delete(record)
-                    } label: {
-                        Label(L.t("Delete", "Xóa"), systemImage: "trash")
-                    }
-                    Button {
-                        renameText = record.name
-                        recordToRename = record
-                    } label: {
-                        Label(L.t("Rename", "Đổi tên"), systemImage: "pencil")
+            }
+            if !store.looseScans.isEmpty {
+                Section(store.projects.isEmpty
+                        ? L.t("Scans", "Bản quét")
+                        : L.t("Not in a property", "Chưa vào dự án")) {
+                    ForEach(store.looseScans) { record in
+                        ScanRow(
+                            record: record,
+                            onRename: {
+                                renameText = record.name
+                                recordToRename = record
+                            }
+                        )
                     }
                 }
             }
         }
-        .navigationDestination(for: ScanRecord.self) { record in
-            ScanDetailView(record: record)
-        }
-    }
-
-    private func subtitle(for record: ScanRecord) -> String {
-        var parts = [
-            L.t("\(record.roomCount) room(s)", "\(record.roomCount) phòng"),
-            record.createdAt.formatted(date: .abbreviated, time: .shortened),
-        ]
-        if let area = record.areaSqm, area > 0 {
-            parts.insert(String(format: "%.0f m²", area), at: 1)
-        }
-        return parts.joined(separator: " · ")
     }
 
     private var scanButton: some View {
@@ -167,5 +185,85 @@ struct HomeView: View {
         .padding(.horizontal)
         .padding(.bottom, 8)
         .background(.ultraThinMaterial)
+    }
+}
+
+/// Một dòng bản quét (dùng chung ở danh sách chính và trang dự án):
+/// bấm mở chi tiết, vuốt xoá/đổi tên, nhấn giữ để chuyển vào dự án.
+struct ScanRow: View {
+    @EnvironmentObject private var store: ScanStore
+    let record: ScanRecord
+    let onRename: () -> Void
+
+    var body: some View {
+        NavigationLink(value: record) {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 6) {
+                    Text(record.name)
+                        .font(.headline)
+                    if record.cloudOrderNumber != nil {
+                        Image(systemName: "shippingbox.fill")
+                            .font(.caption)
+                            .foregroundStyle(.blue)
+                    } else if record.cloudScanId != nil {
+                        Image(systemName: "checkmark.icloud.fill")
+                            .font(.caption)
+                            .foregroundStyle(.green)
+                    }
+                }
+                Text(subtitle)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.vertical, 4)
+        }
+        .swipeActions {
+            Button(role: .destructive) {
+                store.delete(record)
+            } label: {
+                Label(L.t("Delete", "Xóa"), systemImage: "trash")
+            }
+            Button {
+                onRename()
+            } label: {
+                Label(L.t("Rename", "Đổi tên"), systemImage: "pencil")
+            }
+        }
+        .contextMenu {
+            if !store.projects.isEmpty {
+                Menu {
+                    ForEach(store.projects) { project in
+                        Button(project.name) {
+                            store.moveScan(record, to: project)
+                        }
+                    }
+                } label: {
+                    Label(L.t("Move to property", "Chuyển vào dự án"), systemImage: "folder")
+                }
+            }
+            if record.projectId != nil {
+                Button {
+                    store.moveScan(record, to: nil)
+                } label: {
+                    Label(L.t("Remove from property", "Đưa ra khỏi dự án"), systemImage: "folder.badge.minus")
+                }
+            }
+            Button {
+                onRename()
+            } label: {
+                Label(L.t("Rename", "Đổi tên"), systemImage: "pencil")
+            }
+        }
+    }
+
+    private var subtitle: String {
+        var parts = [
+            L.t("\(record.roomCount) room(s)", "\(record.roomCount) phòng"),
+            record.createdAt.formatted(date: .abbreviated, time: .shortened),
+        ]
+        if let area = record.areaSqm, area > 0 {
+            parts.insert(String(format: "%.0f m²", area), at: 1)
+        }
+        return parts.joined(separator: " · ")
     }
 }
