@@ -4,11 +4,13 @@ import Foundation
 @MainActor
 final class AccountStore: ObservableObject {
     @Published private(set) var customer: CustomerDTO?
+    @Published private(set) var emailVerified = false
 
     private static let tokenKey = "app-token"
     private static let customerKey = "app-customer"
 
     var isSignedIn: Bool { customer != nil }
+    var needsVerification: Bool { customer != nil && !emailVerified }
 
     init() {
         if let token = Keychain.read(Self.tokenKey) {
@@ -27,6 +29,7 @@ final class AccountStore: ObservableObject {
         do {
             let me = try await APIClient.shared.me()
             setCustomer(me.customer)
+            emailVerified = me.emailVerified ?? false
         } catch let error as APIError where error.statusCode == 401 {
             signOut()
         } catch {
@@ -44,6 +47,10 @@ final class AccountStore: ObservableObject {
         apply(result)
     }
 
+    func markVerified() {
+        emailVerified = true
+    }
+
     func signOut() {
         APIClient.shared.token = nil
         Keychain.delete(Self.tokenKey)
@@ -55,6 +62,7 @@ final class AccountStore: ObservableObject {
         APIClient.shared.token = auth.token
         Keychain.save(auth.token, for: Self.tokenKey)
         setCustomer(auth.customer)
+        emailVerified = auth.emailVerified ?? false
     }
 
     private func setCustomer(_ c: CustomerDTO) {

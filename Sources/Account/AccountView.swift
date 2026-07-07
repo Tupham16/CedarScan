@@ -6,7 +6,9 @@ struct AccountView: View {
     var body: some View {
         NavigationStack {
             Group {
-                if let customer = account.customer {
+                if account.needsVerification {
+                    ScrollView { VerifyEmailView() }
+                } else if let customer = account.customer {
                     List {
                         Section {
                             VStack(alignment: .leading, spacing: 4) {

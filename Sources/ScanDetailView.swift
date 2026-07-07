@@ -110,6 +110,18 @@ struct ScanDetailView: View {
                     .foregroundStyle(.secondary)
                     Spacer()
                 }
+            } else if account.needsVerification {
+                HStack(spacing: 8) {
+                    Image(systemName: "envelope.badge")
+                        .foregroundStyle(.orange)
+                    Text(L.t(
+                        "Verify your email (Account tab) to place an order.",
+                        "Xác minh email (mục Tài khoản) để đặt hàng."
+                    ))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    Spacer()
+                }
             } else {
                 switch uploader.phase {
                 case .idle, .failed:

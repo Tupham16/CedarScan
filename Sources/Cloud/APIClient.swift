@@ -11,10 +11,16 @@ struct CustomerDTO: Codable {
 struct AuthResponse: Decodable {
     let token: String
     let customer: CustomerDTO
+    let emailVerified: Bool?
 }
 
 struct MeResponse: Decodable {
     let customer: CustomerDTO
+    let emailVerified: Bool?
+}
+
+struct OKResponse: Decodable {
+    let ok: Bool
 }
 
 struct UploadSlot: Decodable {
@@ -159,7 +165,9 @@ final class APIClient {
     // MARK: Auth
 
     func register(email: String, password: String, name: String) async throws -> AuthResponse {
-        try await send("auth/register", method: "POST", json: ["email": email, "password": password, "name": name])
+        try await send("auth/register", method: "POST", json: [
+            "email": email, "password": password, "name": name, "deviceId": DeviceID.current,
+        ])
     }
 
     func login(email: String, password: String) async throws -> AuthResponse {
@@ -168,6 +176,14 @@ final class APIClient {
 
     func me() async throws -> MeResponse {
         try await send("me")
+    }
+
+    func verifyEmail(code: String) async throws -> OKResponse {
+        try await send("auth/verify", method: "POST", json: ["code": code])
+    }
+
+    func resendCode() async throws -> OKResponse {
+        try await send("auth/resend-code", method: "POST", json: [:])
     }
 
     // MARK: Scans & Orders
@@ -218,6 +234,7 @@ final class APIClient {
             "floorNaming": floorNaming,
             "projectName": projectName,
             "coupon": coupon,
+            "deviceId": DeviceID.current,
         ])
     }
 
