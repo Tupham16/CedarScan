@@ -178,6 +178,26 @@ final class APIClient {
         try await send("me")
     }
 
+    struct OkResponse: Decodable {
+        let ok: Bool
+    }
+
+    func forgotPassword(email: String) async throws -> OkResponse {
+        try await send("auth/forgot", method: "POST", json: ["email": email])
+    }
+
+    func resetPassword(email: String, code: String, newPassword: String) async throws -> OkResponse {
+        try await send("auth/reset", method: "POST", json: [
+            "email": email,
+            "code": code,
+            "newPassword": newPassword,
+        ])
+    }
+
+    func deleteAccount(password: String) async throws -> OkResponse {
+        try await send("account/delete", method: "POST", json: ["password": password])
+    }
+
     func verifyEmail(code: String) async throws -> OKResponse {
         try await send("auth/verify", method: "POST", json: ["code": code])
     }

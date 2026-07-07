@@ -10,6 +10,7 @@ struct AuthView: View {
     @State private var password = ""
     @State private var isBusy = false
     @State private var errorMessage: String?
+    @State private var showForgotPassword = false
 
     var body: some View {
         VStack(spacing: 18) {
@@ -80,8 +81,21 @@ struct AuthView: View {
                      : L.t("New here? Create an account", "Chưa có tài khoản? Đăng ký"))
                     .font(.subheadline)
             }
+
+            if !isRegistering {
+                Button {
+                    showForgotPassword = true
+                } label: {
+                    Text(L.t("Forgot password?", "Quên mật khẩu?"))
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            }
         }
         .padding(24)
+        .sheet(isPresented: $showForgotPassword) {
+            ForgotPasswordView()
+        }
     }
 
     private func submit() {
