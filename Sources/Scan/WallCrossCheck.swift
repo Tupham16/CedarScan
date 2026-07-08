@@ -184,12 +184,27 @@ enum WallCrossCheck {
         }
         let n = Double(inliers.count)
         // Giải hệ 3x3 (Cramer): [sxx sxy sx; sxy syy sy; sx sy n] · [a b c] = [sxz syz sz]
-        let det = sxx * (syy * n - sy * sy) - sxy * (sxy * n - sy * sx) + sx * (sxy * sy - syy * sx)
-        var a: Double = 0, b: Double = 0, c: Double = 0
+        // (tách nhỏ từng minor — biểu thức gộp làm Swift type-check quá lâu, CI fail)
+        let m00: Double = syy * n - sy * sy
+        let m01: Double = sxy * n - sy * sx
+        let m02: Double = sxy * sy - syy * sx
+        let det: Double = sxx * m00 - sxy * m01 + sx * m02
+        var a: Double = 0
+        var b: Double = 0
+        var c: Double = 0
         if abs(det) > 1e-9 {
-            a = (sxz * (syy * n - sy * sy) - sxy * (syz * n - sz * sy) + sx * (syz * sy - syy * sz)) / det
-            b = (sxx * (syz * n - sz * sy) - sxz * (sxy * n - sy * sx) + sx * (sxy * sz - syz * sx)) / det
-            c = (sxx * (syy * sz - sy * syz) - sxy * (sxy * sz - sx * syz) + sxz * (sxy * sy - syy * sx)) / det
+            let a1: Double = sxz * m00
+            let a2: Double = sxy * (syz * n - sz * sy)
+            let a3: Double = sx * (syz * sy - syy * sz)
+            a = (a1 - a2 + a3) / det
+            let b1: Double = sxx * (syz * n - sz * sy)
+            let b2: Double = sxz * m01
+            let b3: Double = sx * (sxy * sz - syz * sx)
+            b = (b1 - b2 + b3) / det
+            let c1: Double = sxx * (syy * sz - sy * syz)
+            let c2: Double = sxy * (sxy * sz - sx * syz)
+            let c3: Double = sxz * m02
+            c = (c1 - c2 + c3) / det
         } else {
             c = sz / n
         }
