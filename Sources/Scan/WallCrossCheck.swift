@@ -213,8 +213,14 @@ enum WallCrossCheck {
         let offset = abs(c)
         // Residual so với mặt phẳng VỪA FIT (độ gồ ghề bề mặt) — không so với mặt RoomPlan,
         // nếu không tường lệch đều/nghiêng sẽ bị p90 phạt ĐÚP với offset/angle.
-        var residAbs = inliers.map { q in
-            Float(abs(Double(q.z) - (a * Double(q.x) + b * Double(q.y) + c)))
+        var residAbs: [Float] = []
+        residAbs.reserveCapacity(inliers.count)
+        for q in inliers {
+            let zq: Double = Double(q.z)
+            let xTerm: Double = a * Double(q.x)
+            let yTerm: Double = b * Double(q.y)
+            let predicted: Double = xTerm + yTerm + c
+            residAbs.append(Float(abs(zq - predicted)))
         }
         residAbs.sort()
         let p90 = Double(residAbs[min(residAbs.count - 1, Int(Double(residAbs.count) * 0.9))])
