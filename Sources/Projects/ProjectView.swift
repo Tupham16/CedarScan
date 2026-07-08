@@ -10,6 +10,7 @@ struct ProjectView: View {
     @State private var isScanning = false
     @State private var isVideoScanning = false
     @State private var showOrderSheet = false
+    @State private var showLowQualityConfirm = false
     @State private var recordToRename: ScanRecord?
     @State private var renameText = ""
     @State private var showRenameProject = false
@@ -105,14 +106,16 @@ struct ProjectView: View {
             Text(saveError ?? "")
         }
         .fullScreenCover(isPresented: $isScanning) {
-            ScanFlowView { rooms, videoURL, meshURL, name in
+            ScanFlowView { rooms, videoURL, meshURL, name, quality in
                 do {
                     _ = try await store.save(
                         rooms: rooms, videoURL: videoURL, coloredMeshURL: meshURL,
-                        name: name, projectId: projectId
+                        name: name, projectId: projectId, quality: quality
                     )
+                    return true
                 } catch {
                     pendingSaveError = error.localizedDescription
+                    return false
                 }
             }
         }
@@ -202,7 +205,12 @@ struct ProjectView: View {
 
             if !orderableScans.isEmpty {
                 Button {
-                    showOrderSheet = true
+                    // Chặn mềm: có bản quét chất lượng thấp → khuyên quét lại, vẫn cho gửi
+                    if orderableScans.contains(where: { $0.qualityRescan == true }) {
+                        showLowQualityConfirm = true
+                    } else {
+                        showOrderSheet = true
+                    }
                 } label: {
                     Label(
                         L.t("Order Floor Plan (\(orderableScans.count) scan(s))",
@@ -214,10 +222,29 @@ struct ProjectView: View {
                     .padding(.vertical, 12)
                 }
                 .buttonStyle(.bordered)
+                .confirmationDialog(
+                    L.t("Some scans have low quality", "Có bản quét chất lượng thấp"),
+                    isPresented: $showLowQualityConfirm,
+                    titleVisibility: .visible
+                ) {
+                    Button(L.t("Order anyway", "Vẫn đặt hàng")) {
+                        showOrderSheet = true
+                    }
+                    Button(L.t("I'll rescan first", "Để tôi quét lại"), role: .cancel) {}
+                } message: {
+                    Text(L.t(
+                        "Rescanning the flagged floors usually gives a more accurate floor plan: \(lowQualityNames). You can still order — our team will be notified.",
+                        "Quét lại các tầng bị đánh dấu thường cho bản vẽ chính xác hơn: \(lowQualityNames). Bạn vẫn có thể đặt — đội xử lý sẽ được báo trước."
+                    ))
+                }
             }
         }
         .padding(.horizontal)
         .padding(.bottom, 8)
         .background(.ultraThinMaterial)
+    }
+
+    private var lowQualityNames: String {
+        orderableScans.filter { $0.qualityRescan == true }.map(\.name).joined(separator: ", ")
     }
 }

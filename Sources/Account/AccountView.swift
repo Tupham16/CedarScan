@@ -3,6 +3,8 @@ import SwiftUI
 struct AccountView: View {
     @EnvironmentObject private var account: AccountStore
     @State private var showDeleteAccount = false
+    @AppStorage("scanCoachHaptics") private var scanCoachHaptics = true
+    @AppStorage("scanCoachVoice") private var scanCoachVoice = false
 
     var body: some View {
         NavigationStack {
@@ -31,6 +33,21 @@ struct AccountView: View {
                             Text(L.t(
                                 "Scan your space with LiDAR, send it to Cedar247, and our team will produce professional 2D floor plans (PDF/PNG/DWG) for you.",
                                 "Quét không gian bằng LiDAR, gửi cho Cedar247 — đội ngũ của chúng tôi sẽ làm bản vẽ mặt bằng chuyên nghiệp (PDF/PNG/DWG) cho bạn."
+                            ))
+                        }
+                        Section {
+                            Toggle(isOn: $scanCoachHaptics) {
+                                Label(L.t("Vibration alerts", "Rung cảnh báo"), systemImage: "iphone.radiowaves.left.and.right")
+                            }
+                            Toggle(isOn: $scanCoachVoice) {
+                                Label(L.t("Voice coaching", "Nhắc bằng giọng nói"), systemImage: "speaker.wave.2")
+                            }
+                        } header: {
+                            Text(L.t("Scan coaching", "Trợ giúp khi quét"))
+                        } footer: {
+                            Text(L.t(
+                                "Alerts while scanning when you move too fast, light is low, or you pass through a doorway.",
+                                "Cảnh báo trong lúc quét khi đi nhanh quá, thiếu sáng hoặc đi qua cửa."
                             ))
                         }
                         Section {

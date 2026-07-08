@@ -13,6 +13,7 @@ struct ScanDetailView: View {
     @State private var planImageURL: URL?
     @State private var loadFailed = false
     @State private var showOrderSheet = false
+    @State private var showLowQualityConfirm = false
     @AppStorage("autoStraighten") private var autoStraighten = true
 
     /// Bản ghi mới nhất từ store (record truyền vào có thể cũ sau khi upload/đặt hàng).
@@ -78,6 +79,22 @@ struct ScanDetailView: View {
                 store.setOrderNumber(current, orderNumber: orderNumber)
             }
         }
+        // Chặn mềm: chất lượng thấp → khuyên quét lại nhưng vẫn cho gửi (đội vẽ được báo trước)
+        .confirmationDialog(
+            L.t("Scan quality is low", "Chất lượng bản quét thấp"),
+            isPresented: $showLowQualityConfirm,
+            titleVisibility: .visible
+        ) {
+            Button(L.t("Order anyway", "Vẫn đặt hàng")) {
+                proceedUploadOrOrder()
+            }
+            Button(L.t("I'll rescan first", "Để tôi quét lại"), role: .cancel) {}
+        } message: {
+            Text(L.t(
+                "This scan scored \(current.qualityScore ?? 0)/100. Rescanning usually gives a more accurate floor plan. You can still order — our team will be notified about the quality.",
+                "Bản quét này được \(current.qualityScore ?? 0)/100 điểm. Quét lại thường cho bản vẽ chính xác hơn. Bạn vẫn có thể đặt — đội xử lý sẽ được báo trước về chất lượng."
+            ))
+        }
     }
 
     // MARK: - Dịch vụ Cedar247
@@ -85,6 +102,21 @@ struct ScanDetailView: View {
     @ViewBuilder
     private var serviceCard: some View {
         VStack(spacing: 8) {
+            if let score = current.qualityScore, let grade = current.qualityGrade {
+                HStack(spacing: 8) {
+                    Image(systemName: current.qualityRescan == true
+                        ? "exclamationmark.triangle.fill" : "checkmark.seal.fill")
+                        .foregroundStyle(gradeColor(grade))
+                    Text(L.t("Scan quality: \(score)/100 (\(grade))", "Chất lượng quét: \(score)/100 (\(grade))"))
+                        .font(.caption.weight(.semibold))
+                    if current.qualityRescan == true {
+                        Text(L.t("· rescan recommended", "· nên quét lại"))
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                    }
+                    Spacer()
+                }
+            }
             if let orderNumber = current.cloudOrderNumber {
                 HStack(spacing: 8) {
                     Image(systemName: "shippingbox.fill")
@@ -192,6 +224,14 @@ struct ScanDetailView: View {
     }
 
     private func startUploadOrOrder() {
+        if current.qualityRescan == true && current.cloudOrderNumber == nil {
+            showLowQualityConfirm = true
+            return
+        }
+        proceedUploadOrOrder()
+    }
+
+    private func proceedUploadOrOrder() {
         if current.cloudScanId != nil {
             showOrderSheet = true
             return
@@ -201,6 +241,15 @@ struct ScanDetailView: View {
                 store.setCloudScanId(current, cloudScanId: cloudId)
                 showOrderSheet = true
             }
+        }
+    }
+
+    private func gradeColor(_ grade: String) -> Color {
+        switch grade {
+        case "A": return .green
+        case "B": return .blue
+        case "C": return .orange
+        default: return .red
         }
     }
 

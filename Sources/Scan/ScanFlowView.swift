@@ -6,11 +6,14 @@ struct ScanFlowView: View {
     @StateObject private var controller = ScanSessionController()
     @State private var isSaving = false
 
-    /// Được gọi khi bấm lưu: các phòng đã quét + video + lưới màu (nếu có) + TÊN bản quét (tầng).
-    let onFinish: ([CapturedRoom], URL?, URL?, String?) async -> Void
+    /// Được gọi khi bấm lưu: các phòng đã quét + video + lưới màu (nếu có) + TÊN bản quét (tầng)
+    /// + báo cáo chất lượng (nil khi không đo được). Trả về false nếu LƯU THẤT BẠI
+    /// — khi đó không hiện report card (để alert lỗi của call-site hiện ra).
+    let onFinish: ([CapturedRoom], URL?, URL?, String?, ScanQualityReport?) async -> Bool
 
     @State private var showNaming = false
     @State private var scanName = ""
+    @State private var finishedReport: ScanQualityReport?
 
     private static let floorSuggestions = [
         "Floor 1", "Floor 2", "Floor 3", "Basement", "Attic", "Whole home",
@@ -20,6 +23,11 @@ struct ScanFlowView: View {
         ZStack {
             RoomCaptureViewRepresentable(controller: controller)
                 .ignoresSafeArea()
+
+            // Cảnh báo chất lượng real-time (viền màu + rung) — chỉ khi đang quét
+            if controller.phase == .scanning {
+                QualityAlertOverlay(monitor: controller.qualityMonitor)
+            }
 
             VStack {
                 topBar
@@ -33,6 +41,13 @@ struct ScanFlowView: View {
 
             if isSaving {
                 savingOverlay
+            }
+
+            if let report = finishedReport {
+                ScanReportCardView(report: report) {
+                    finishedReport = nil
+                    dismiss()
+                }
             }
         }
         .onAppear {
@@ -221,12 +236,37 @@ struct ScanFlowView: View {
         isSaving = true
         let rooms = controller.rooms
         let name = scanName.trimmingCharacters(in: .whitespacesAndNewlines)
+        // Bản chụp mesh + cờ cap PHẢI lấy trước finishColoredMesh (nó giải phóng dữ liệu)
+        let meshSnapshot = controller.snapshotMeshVertices()
+        let meshCapped = controller.meshCapReached
+        // Chốt metrics VÔ ĐIỀU KIỆN — finish() còn stop CADisplayLink (không stop là leak)
+        let metrics = controller.finishQualityMetrics()
         Task {
             let videoURL = await controller.finishRecording()
             let meshURL = await controller.finishColoredMesh()
-            await onFinish(rooms, videoURL, meshURL, name.isEmpty ? nil : name)
+            // Quét đã xong hẳn — tắt camera/LiDAR ngay, đừng để chạy sau lưng report card
+            controller.arSession.pause()
+
+            // Báo cáo chất lượng: metrics lúc quét + cross-check tường vs mesh thô
+            var report: ScanQualityReport?
+            if ScanQualityConfig.current.enabled && metrics.activeDurationSec > 1 {
+                let wallResults = await WallCrossCheck.run(rooms: rooms, meshPieces: meshSnapshot)
+                let area = FloorPlanModel(rooms: rooms).areaSquareMeters
+                report = ScanQualityReport.build(
+                    metrics: metrics,
+                    walls: wallResults,
+                    floorAreaM2: area > 0 ? area : nil,
+                    meshCapped: meshCapped
+                )
+            }
+
+            let saved = await onFinish(rooms, videoURL, meshURL, name.isEmpty ? nil : name, report)
             isSaving = false
-            dismiss()
+            if saved, let report {
+                finishedReport = report   // hiện report card, bấm Xong mới đóng
+            } else {
+                dismiss()   // lưu lỗi → đóng ngay để alert lỗi của màn ngoài hiện ra
+            }
         }
     }
 }

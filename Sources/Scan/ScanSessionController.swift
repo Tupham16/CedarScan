@@ -15,8 +15,10 @@ final class ScanSessionController: NSObject, ObservableObject, RoomCaptureViewDe
 
     let arSession: ARSession
     let captureView: RoomCaptureView
+    let qualityMonitor: ScanQualityMonitor
     private var recorder: ScanVideoRecorder?
     private var colorMesh: ColorMeshBuilder?
+    private var delegateProxy: RoomCaptureSessionDelegateProxy?
     private var isCancelled = false
     private var hasStarted = false
 
@@ -24,6 +26,7 @@ final class ScanSessionController: NSObject, ObservableObject, RoomCaptureViewDe
         let session = ARSession()
         arSession = session
         captureView = RoomCaptureView(frame: .zero, arSession: session)
+        qualityMonitor = ScanQualityMonitor(arSession: session)
         super.init()
         captureView.delegate = self
     }
@@ -54,18 +57,31 @@ final class ScanSessionController: NSObject, ObservableObject, RoomCaptureViewDe
             let recorder = ScanVideoRecorder(arSession: arSession)
             self.recorder = recorder
             recorder.start()
+            qualityMonitor.start()
+            // "Nghe ké" delegate của RoomCaptureSession (cửa + instruction) — forward nguyên
+            // vẹn cho delegate gốc của RoomCaptureView. Kill-switch: enableDelegateProxy.
+            if ScanQualityConfig.current.enableDelegateProxy {
+                let proxy = RoomCaptureSessionDelegateProxy()
+                proxy.original = captureView.captureSession.delegate
+                proxy.monitor = qualityMonitor
+                delegateProxy = proxy
+                captureView.captureSession.delegate = proxy
+            }
         }
         captureView.captureSession.run(configuration: RoomCaptureSession.Configuration())
+        qualityMonitor.setActive(true)
     }
 
     func finishCurrentRoom() {
         phase = .processing
+        qualityMonitor.setActive(false)
         captureView.captureSession.stop(pauseARSession: false)
     }
 
     func scanNextRoom() {
         phase = .scanning
         captureView.captureSession.run(configuration: RoomCaptureSession.Configuration())
+        qualityMonitor.setActive(true)
     }
 
     func cancel() {
@@ -74,7 +90,23 @@ final class ScanSessionController: NSObject, ObservableObject, RoomCaptureViewDe
         recorder = nil
         colorMesh?.stop()
         colorMesh = nil
+        qualityMonitor.stop()
         captureView.captureSession.stop()
+    }
+
+    /// Bản chụp mesh thô cho cross-check tường — PHẢI gọi trước finishColoredMesh().
+    func snapshotMeshVertices() -> [[SIMD3<Float>]] {
+        colorMesh?.snapshotWorldVertices() ?? []
+    }
+
+    /// Mesh bị cắt vì chạm trần đỉnh (nhà lớn) — báo cáo dùng để không trừ điểm oan.
+    var meshCapReached: Bool {
+        colorMesh?.capReached ?? false
+    }
+
+    /// Chốt số liệu chất lượng (gọi 1 lần lúc Hoàn tất & Lưu).
+    func finishQualityMetrics() -> ScanMonitorMetrics {
+        qualityMonitor.finish()
     }
 
     /// Dừng quay video và trả về file (gọi khi bấm Hoàn tất & Lưu).

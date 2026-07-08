@@ -115,7 +115,8 @@ final class ScanStore: ObservableObject {
         videoURL: URL?,
         coloredMeshURL: URL?,
         name: String? = nil,
-        projectId: UUID? = nil
+        projectId: UUID? = nil,
+        quality: ScanQualityReport? = nil
     ) async throws -> ScanRecord {
         let planModel = FloorPlanModel(rooms: rooms)
         var record = ScanRecord(
@@ -124,7 +125,10 @@ final class ScanStore: ObservableObject {
             createdAt: Date(),
             roomCount: rooms.count,
             areaSqm: planModel.areaSquareMeters,
-            projectId: projectId
+            projectId: projectId,
+            qualityScore: quality?.score,
+            qualityGrade: quality?.grade,
+            qualityRescan: quality?.rescanRecommended
         )
         let folder = folderURL(for: record)
         try fileManager.createDirectory(at: folder, withIntermediateDirectories: true)
@@ -172,6 +176,11 @@ final class ScanStore: ObservableObject {
                 at: coloredMeshURL,
                 to: folder.appendingPathComponent("colored-mesh.ply")
             )
+        }
+
+        // 7. Báo cáo chất lượng quét — gửi kèm khi upload để đội vẽ biết scan tin được đến đâu
+        if let quality, let data = try? JSONEncoder().encode(quality) {
+            try? data.write(to: folder.appendingPathComponent("quality.json"))
         }
 
         try writeMeta(record)

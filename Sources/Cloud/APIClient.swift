@@ -89,6 +89,7 @@ struct CatalogResponse: Decodable {
     let freeFirstOrders: Int?
     let freeOrdersRemaining: Int?
     let defaults: OrderDefaults?
+    let scanQuality: ScanQualityConfig? // ngưỡng Accuracy Suite — server tinh chỉnh từ xa
 }
 
 struct DeliveryFileDTO: Decodable, Hashable {
@@ -261,15 +262,20 @@ final class APIClient {
         roomCount: Int,
         areaSqm: Double,
         kinds: [String],
-        captureType: String
+        captureType: String,
+        quality: [String: Any]? = nil
     ) async throws -> CreateScanResponse {
-        try await send("scans", method: "POST", json: [
+        var body: [String: Any] = [
             "name": name,
             "roomCount": roomCount,
             "areaSqm": areaSqm,
             "files": kinds,
             "captureType": captureType,
-        ])
+        ]
+        if let quality {
+            body["quality"] = quality
+        }
+        return try await send("scans", method: "POST", json: body)
     }
 
     func completeScan(scanId: String) async throws -> CompleteScanResponse {
@@ -277,7 +283,11 @@ final class APIClient {
     }
 
     func catalog() async throws -> CatalogResponse {
-        try await send("catalog")
+        let response: CatalogResponse = try await send("catalog")
+        // Server có thể tinh chỉnh ngưỡng Accuracy Suite — cache lại cho lần quét sau.
+        // Server KHÔNG có override (null) → về mặc định, để xóa AppSetting là hồi phục được.
+        ScanQualityConfig.current = response.scanQuality ?? .defaults
+        return response
     }
 
     func orderScan(

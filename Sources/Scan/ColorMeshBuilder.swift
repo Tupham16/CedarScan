@@ -26,6 +26,10 @@ final class ColorMeshBuilder {
     }
     private var pieces: [UUID: MeshPiece] = [:]
 
+    /// Đã chạm trần 120k đỉnh → anchor mới (phòng quét sau) không được gom nữa.
+    /// Cross-check tường dùng cờ này để KHÔNG trừ điểm "tường thiếu dữ liệu" oan cho khách.
+    private(set) var capReached = false
+
     // Khung màu: RGB nhỏ (origin trên-trái) + ma trận camera của đúng khung đó
     private struct ColorFrame {
         var rgb: [UInt8]        // w*h*3
@@ -69,7 +73,10 @@ final class ColorMeshBuilder {
         var vertexTotal = pieces.values.reduce(0) { $0 + $1.worldVertices.count }
         for anchor in frame.anchors {
             guard let mesh = anchor as? ARMeshAnchor else { continue }
-            if pieces[mesh.identifier] == nil && vertexTotal >= Self.maxVertices { continue }
+            if pieces[mesh.identifier] == nil && vertexTotal >= Self.maxVertices {
+                capReached = true
+                continue
+            }
 
             let geometry = mesh.geometry
             let transform = mesh.transform
@@ -173,6 +180,11 @@ final class ColorMeshBuilder {
 
     private func clampByte(_ v: Float) -> UInt8 {
         UInt8(max(0, min(255, v)))
+    }
+
+    /// Bản chụp các đỉnh world-space cho cross-check tường (gọi trên main, TRƯỚC exportColoredPLY).
+    func snapshotWorldVertices() -> [[SIMD3<Float>]] {
+        pieces.values.map(\.worldVertices)
     }
 
     // MARK: - Xuất PLY màu (gọi khi kết thúc; nặng nên chạy nền)

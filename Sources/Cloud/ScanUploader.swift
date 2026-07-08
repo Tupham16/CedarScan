@@ -37,13 +37,21 @@ final class ScanUploader: ObservableObject {
             return nil
         }
 
+        // Báo cáo chất lượng (nếu có) gửi kèm ngay lúc tạo scan — đội vẽ thấy trên Kanban
+        var quality: [String: Any]?
+        if let data = try? Data(contentsOf: folder.appendingPathComponent("quality.json")),
+           let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            quality = obj
+        }
+
         do {
             let created = try await APIClient.shared.createScan(
                 name: record.name,
                 roomCount: record.roomCount,
                 areaSqm: record.areaSqm ?? 0,
                 kinds: present.map(\.kind),
-                captureType: record.captureType ?? "lidar"
+                captureType: record.captureType ?? "lidar",
+                quality: quality
             )
             let slotByKind = Dictionary(uniqueKeysWithValues: created.uploads.map { ($0.kind, $0) })
 
