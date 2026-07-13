@@ -14,6 +14,7 @@ struct ScanDetailView: View {
     @State private var loadFailed = false
     @State private var showOrderSheet = false
     @State private var showLowQualityConfirm = false
+    @State private var coloredZipExists = false
     @AppStorage("autoStraighten") private var autoStraighten = true
 
     /// Bản ghi mới nhất từ store (record truyền vào có thể cũ sau khi upload/đặt hàng).
@@ -26,6 +27,8 @@ struct ScanDetailView: View {
     private var videoURL: URL { folder.appendingPathComponent("scan-video.mp4") }
     private var objURL: URL { folder.appendingPathComponent("model.obj") }
     private var planURL: URL { folder.appendingPathComponent("floorplan.png") }
+    private var plyURL: URL { folder.appendingPathComponent("colored-mesh.ply") }
+    private var coloredZipURL: URL { folder.appendingPathComponent("model-colored.zip") }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -66,6 +69,15 @@ struct ScanDetailView: View {
                 rooms = try store.loadRooms(for: record)
             } catch {
                 loadFailed = true
+            }
+            // Gói OBJ màu: bản quét cũ chưa có mà đã có PLY thì dựng nền để chia sẻ được.
+            coloredZipExists = FileManager.default.fileExists(atPath: coloredZipURL.path)
+            if !coloredZipExists, FileManager.default.fileExists(atPath: plyURL.path) {
+                let ply = plyURL, zip = coloredZipURL
+                try? await Task.detached(priority: .utility) {
+                    try ColoredOBJExporter.makeOBJZip(fromPLY: ply, to: zip)
+                }.value
+                coloredZipExists = FileManager.default.fileExists(atPath: coloredZipURL.path)
             }
         }
         .sheet(item: $planImageURL) { url in
@@ -319,7 +331,13 @@ struct ScanDetailView: View {
             ShareLink(item: usdzURL) {
                 Label(L.t("Share 3D model (USDZ)", "Chia sẻ mô hình 3D (USDZ)"), systemImage: "cube")
             }
-            // OBJ + video là NGUYÊN LIỆU NỘI BỘ (gửi về đội xử lý qua đơn hàng), không cho khách chia sẻ.
+            // Mô hình LiDAR CÓ MÀU: OBJ+MTL đóng ZIP, mở được có màu trong Blender/MeshLab…
+            if coloredZipExists {
+                ShareLink(item: coloredZipURL) {
+                    Label(L.t("Share colored 3D (OBJ)", "Chia sẻ mô hình màu (OBJ)"), systemImage: "cube.fill")
+                }
+            }
+            // OBJ (RoomPlan) + video là NGUYÊN LIỆU NỘI BỘ (gửi về đội xử lý qua đơn hàng), không cho khách chia sẻ.
             Button {
                 exportFloorPlanImage()
             } label: {

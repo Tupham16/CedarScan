@@ -172,10 +172,17 @@ final class ScanStore: ObservableObject {
 
         // 6. Mô hình 3D có màu (.ply) — nguyên liệu nội bộ (nếu dựng được)
         if let coloredMeshURL, fileManager.fileExists(atPath: coloredMeshURL.path) {
-            try? fileManager.moveItem(
-                at: coloredMeshURL,
-                to: folder.appendingPathComponent("colored-mesh.ply")
-            )
+            let plyURL = folder.appendingPathComponent("colored-mesh.ply")
+            try? fileManager.moveItem(at: coloredMeshURL, to: plyURL)
+
+            // 6b. Gói OBJ+MTL màu (kiểu Scaniverse/Polycam) để khách tự mở/chia sẻ.
+            // Dựng nền vì nặng; hỏng cũng không chặn việc lưu.
+            if fileManager.fileExists(atPath: plyURL.path) {
+                let zipURL = folder.appendingPathComponent("model-colored.zip")
+                try? await Task.detached(priority: .utility) {
+                    try ColoredOBJExporter.makeOBJZip(fromPLY: plyURL, to: zipURL)
+                }.value
+            }
         }
 
         // 7. Báo cáo chất lượng quét — gửi kèm khi upload để đội vẽ biết scan tin được đến đâu
