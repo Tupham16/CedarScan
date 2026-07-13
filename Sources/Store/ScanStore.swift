@@ -175,12 +175,15 @@ final class ScanStore: ObservableObject {
             let plyURL = folder.appendingPathComponent("colored-mesh.ply")
             try? fileManager.moveItem(at: coloredMeshURL, to: plyURL)
 
-            // 6b. Gói OBJ+MTL màu (kiểu Scaniverse/Polycam) để khách tự mở/chia sẻ.
-            // Dựng nền vì nặng; hỏng cũng không chặn việc lưu.
+            // 6b. Gói màu để khách tự mở/chia sẻ — dựng nền vì nặng, hỏng cũng không chặn lưu:
+            //   • GLB (glTF): Blender kéo vào là có màu ngay cả khi render.
+            //   • OBJ+MTL (zip): màu theo đỉnh, hợp MeshLab/CloudCompare.
             if fileManager.fileExists(atPath: plyURL.path) {
                 let zipURL = folder.appendingPathComponent("model-colored.zip")
+                let glbURL = folder.appendingPathComponent("model-colored.glb")
                 try? await Task.detached(priority: .utility) {
-                    try ColoredOBJExporter.makeOBJZip(fromPLY: plyURL, to: zipURL)
+                    try? ColoredOBJExporter.makeOBJZip(fromPLY: plyURL, to: zipURL)
+                    try GLBExporter.makeGLB(fromPLY: plyURL, to: glbURL)
                 }.value
             }
         }

@@ -15,6 +15,7 @@ struct ScanDetailView: View {
     @State private var showOrderSheet = false
     @State private var showLowQualityConfirm = false
     @State private var coloredZipExists = false
+    @State private var coloredGLBExists = false
     @AppStorage("autoStraighten") private var autoStraighten = true
 
     /// Bản ghi mới nhất từ store (record truyền vào có thể cũ sau khi upload/đặt hàng).
@@ -29,6 +30,7 @@ struct ScanDetailView: View {
     private var planURL: URL { folder.appendingPathComponent("floorplan.png") }
     private var plyURL: URL { folder.appendingPathComponent("colored-mesh.ply") }
     private var coloredZipURL: URL { folder.appendingPathComponent("model-colored.zip") }
+    private var coloredGLBURL: URL { folder.appendingPathComponent("model-colored.glb") }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -70,7 +72,15 @@ struct ScanDetailView: View {
             } catch {
                 loadFailed = true
             }
-            // Gói OBJ màu: bản quét cũ chưa có mà đã có PLY thì dựng nền để chia sẻ được.
+            // File màu: bản quét cũ chưa có mà đã có PLY thì dựng nền để chia sẻ được.
+            coloredGLBExists = FileManager.default.fileExists(atPath: coloredGLBURL.path)
+            if !coloredGLBExists, FileManager.default.fileExists(atPath: plyURL.path) {
+                let ply = plyURL, glb = coloredGLBURL
+                try? await Task.detached(priority: .utility) {
+                    try GLBExporter.makeGLB(fromPLY: ply, to: glb)
+                }.value
+                coloredGLBExists = FileManager.default.fileExists(atPath: coloredGLBURL.path)
+            }
             coloredZipExists = FileManager.default.fileExists(atPath: coloredZipURL.path)
             if !coloredZipExists, FileManager.default.fileExists(atPath: plyURL.path) {
                 let ply = plyURL, zip = coloredZipURL
@@ -331,10 +341,16 @@ struct ScanDetailView: View {
             ShareLink(item: usdzURL) {
                 Label(L.t("Share 3D model (USDZ)", "Chia sẻ mô hình 3D (USDZ)"), systemImage: "cube")
             }
-            // Mô hình LiDAR CÓ MÀU: OBJ+MTL đóng ZIP, mở được có màu trong Blender/MeshLab…
+            // Mô hình LiDAR CÓ MÀU.
+            // GLB: Blender/most viewers ra màu ngay (khuyến nghị). OBJ: hợp MeshLab/CloudCompare.
+            if coloredGLBExists {
+                ShareLink(item: coloredGLBURL) {
+                    Label(L.t("Share colored 3D (GLB)", "Chia sẻ mô hình màu (GLB)"), systemImage: "cube.fill")
+                }
+            }
             if coloredZipExists {
                 ShareLink(item: coloredZipURL) {
-                    Label(L.t("Share colored 3D (OBJ)", "Chia sẻ mô hình màu (OBJ)"), systemImage: "cube.fill")
+                    Label(L.t("Share colored 3D (OBJ)", "Chia sẻ mô hình màu (OBJ)"), systemImage: "square.stack.3d.up")
                 }
             }
             // OBJ (RoomPlan) + video là NGUYÊN LIỆU NỘI BỘ (gửi về đội xử lý qua đơn hàng), không cho khách chia sẻ.
