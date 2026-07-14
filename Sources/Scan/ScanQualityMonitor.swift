@@ -8,7 +8,9 @@ import simd
 /// Cảnh báo chất lượng đang hiển thị (viền màu + 1 dòng chữ ngắn).
 struct QualityAlert: Equatable {
     enum Severity { case caution, critical }
-    enum Code { case trackingLost, doorAhead, doorTooFast, slowDown, turnSlowly, lowLight, overheating }
+    enum Code {
+        case trackingLost, doorAhead, doorTooFast, slowDown, turnSlowly, lowLight, overheating, tooClose
+    }
 
     var severity: Severity
     var code: Code
@@ -22,6 +24,7 @@ struct QualityAlert: Equatable {
         case .turnSlowly: return L.t("Turn slowly", "Xoay chậm lại")
         case .lowLight: return L.t("Turn on lights", "Bật thêm đèn")
         case .overheating: return L.t("Phone is hot — short break", "Máy nóng — nghỉ chút cho nguội")
+        case .tooClose: return L.t("Step back a little", "Lùi ra xa một chút")
         }
     }
 }
@@ -68,6 +71,15 @@ final class ScanQualityMonitor: NSObject, ObservableObject {
     // xuống 30fps và meshing chậm lại mà không báo ai. Theo dõi qua notification.
     private var isHot = false
     private var thermalObserver: NSObjectProtocol?
+
+    // "Quá gần": LiDAR kém chính xác dưới ~25-30cm — dí sát vật thể tạo lỗ trên mesh
+    // + khung màu out nét.
+    private static let tooCloseMeters: Float = 0.35
+    private var tooCloseSince: TimeInterval = -1
+    /// Coach "quá gần" CHỈ bật tường minh từ chế độ quét Mesh (nơi tự bật .sceneDepth).
+    /// KHÔNG suy từ frame.sceneDepth != nil: RoomPlan có thể tự bật depth nội bộ tùy
+    /// phiên bản iOS → suy như vậy sẽ lén đổi hành vi luồng RoomPlan (vốn có coach riêng).
+    var tooCloseCoachEnabled = false
 
     // Trạng thái cảnh báo (debounce để không nhấp nháy)
     private var overspeedSince: TimeInterval = -1
@@ -310,6 +322,11 @@ final class ScanQualityMonitor: NSObject, ObservableObject {
         updateCondition(&overRotationSince, active: Double(rotationDps) > config.maxRotationSoft, now: t)
         updateCondition(&lowLightSince, active: (light ?? .greatestFiniteMagnitude) < config.lowLightSoft, now: t)
         updateCondition(&limitedSince, active: trackingLimited, now: t)
+        // Bỏ qua hẳn khi coach tắt — khỏi tốn lock CVPixelBuffer mỗi tick ở luồng RoomPlan.
+        let frontDepth: Float = tooCloseCoachEnabled
+            ? (Self.centerDepth(of: frame) ?? .greatestFiniteMagnitude)
+            : .greatestFiniteMagnitude
+        updateCondition(&tooCloseSince, active: frontDepth < Self.tooCloseMeters, now: t)
 
         if config.enableDoorCoach {
             processDoors(pos: pos, speed: speed, now: t)
@@ -324,6 +341,39 @@ final class ScanQualityMonitor: NSObject, ObservableObject {
         } else {
             since = -1
         }
+    }
+
+    /// Khoảng cách bề mặt trước camera (m) — median 5 điểm quanh tâm depth map LiDAR.
+    /// nil khi phiên không bật .sceneDepth (luồng RoomPlan) hoặc buffer khác định dạng.
+    private static func centerDepth(of frame: ARFrame) -> Float? {
+        guard let depth = frame.sceneDepth?.depthMap,
+              CVPixelBufferGetPixelFormatType(depth) == kCVPixelFormatType_DepthFloat32
+        else { return nil }
+        CVPixelBufferLockBaseAddress(depth, .readOnly)
+        defer { CVPixelBufferUnlockBaseAddress(depth, .readOnly) }
+        guard let base = CVPixelBufferGetBaseAddress(depth) else { return nil }
+        let w = CVPixelBufferGetWidth(depth)
+        let h = CVPixelBufferGetHeight(depth)
+        let rowBytes = CVPixelBufferGetBytesPerRow(depth)
+        guard w >= 4, h >= 4 else { return nil }
+
+        let points = [
+            (w / 2, h / 2),
+            (w / 4, h / 2), (3 * w / 4, h / 2),
+            (w / 2, h / 4), (w / 2, 3 * h / 4),
+        ]
+        var samples: [Float] = []
+        samples.reserveCapacity(points.count)
+        for (x, y) in points {
+            let value = base.advanced(by: y * rowBytes + x * 4)
+                .assumingMemoryBound(to: Float32.self).pointee
+            if value.isFinite && value > 0 {
+                samples.append(value)
+            }
+        }
+        // Median để 1-2 điểm nhiễu không kích cảnh báo oan
+        guard samples.count >= 3 else { return nil }
+        return samples.sorted()[samples.count / 2]
     }
 
     // MARK: - Cửa (state machine per-door)
@@ -398,6 +448,12 @@ final class ScanQualityMonitor: NSObject, ObservableObject {
             candidate = QualityAlert(severity: .critical, code: .trackingLost)
         } else if let transient = transientAlert, now < transient.until {
             candidate = transient.alert
+        } else if tooCloseSince > 0 && now - tooCloseSince > 0.7,
+                  Double(speed) <= config.maxSpeedHard,
+                  Double(rotationDps) <= config.maxRotationHard {
+            // Nhường khi đang vượt ngưỡng CỨNG tốc độ/xoay — cảnh báo critical bên dưới
+            // phải thắng caution này (lia máy nhanh sát kệ/tường là ca tệ nhất của cả hai).
+            candidate = QualityAlert(severity: .caution, code: .tooClose)
         } else if overspeedSince > 0 && now - overspeedSince > 0.5 {
             let severity: QualityAlert.Severity = Double(speed) > config.maxSpeedHard ? .critical : .caution
             candidate = QualityAlert(severity: severity, code: .slowDown)

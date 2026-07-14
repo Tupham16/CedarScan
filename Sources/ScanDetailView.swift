@@ -69,14 +69,18 @@ struct ScanDetailView: View {
         }
         .task {
             guard !current.isVideoOnly else { return }
-            // Bản quét MESH không có rooms.json — chỉ bỏ phần load rooms; phần dựng lại
-            // GLB/zip từ PLY bên dưới VẪN PHẢI chạy (menu chia sẻ mesh cần các cờ này).
-            if !current.isMeshOnly {
-                do {
-                    rooms = try store.loadRooms(for: record)
-                } catch {
-                    loadFailed = true
-                }
+            // Bản quét MESH: không có rooms.json, và KHÔNG tự dựng GLB/zip nữa (vận hành
+            // chỉ giữ OBJ + video) — chỉ đọc cờ tồn tại để bản quét CŨ còn file thì vẫn
+            // hiện mục chia sẻ tương ứng.
+            if current.isMeshOnly {
+                coloredGLBExists = FileManager.default.fileExists(atPath: coloredGLBURL.path)
+                coloredZipExists = FileManager.default.fileExists(atPath: coloredZipURL.path)
+                return
+            }
+            do {
+                rooms = try store.loadRooms(for: record)
+            } catch {
+                loadFailed = true
             }
             // File màu: bản quét cũ chưa có mà đã có PLY thì dựng nền để chia sẻ được.
             coloredGLBExists = FileManager.default.fileExists(atPath: coloredGLBURL.path)
@@ -341,15 +345,19 @@ struct ScanDetailView: View {
         .padding(.bottom, 6)
     }
 
-    /// Chỉ hứa "chia sẻ GLB/OBJ/PLY" khi thật sự có file mesh (quét dừng quá sớm
-    /// có thể chỉ cứu được video).
+    /// Chỉ hứa đúng file đang có: OBJ (chuẩn mới / bản cũ có GLB-zip), PLY (bản phao khi
+    /// chuyển OBJ lỗi), hoặc chỉ video (quét dừng quá sớm).
     private var meshFooterText: String {
-        let hasMeshFiles = coloredGLBExists || coloredZipExists
-            || FileManager.default.fileExists(atPath: plyURL.path)
-        if hasMeshFiles {
+        if FileManager.default.fileExists(atPath: objURL.path) || coloredGLBExists || coloredZipExists {
             return L.t(
-                "Share the colored 3D model (GLB / OBJ / PLY) from the share menu. This scan type has no floor plan.",
-                "Chia sẻ mô hình 3D màu (GLB / OBJ / PLY) từ menu chia sẻ. Loại bản quét này không có bản vẽ mặt bằng."
+                "Share the colored 3D model (OBJ) from the share menu. This scan type has no floor plan.",
+                "Chia sẻ mô hình 3D màu (OBJ) từ menu chia sẻ. Loại bản quét này không có bản vẽ mặt bằng."
+            )
+        }
+        if FileManager.default.fileExists(atPath: plyURL.path) {
+            return L.t(
+                "Share the raw 3D mesh (PLY) from the share menu. This scan type has no floor plan.",
+                "Chia sẻ mesh thô (PLY) từ menu chia sẻ. Loại bản quét này không có bản vẽ mặt bằng."
             )
         }
         return L.t(
@@ -423,10 +431,15 @@ struct ScanDetailView: View {
         }
     }
 
-    /// Menu chia sẻ cho bản quét MESH: GLB/OBJ dựa trên cờ đã dựng ở .task; PLY + video
-    /// kiểm tra file trực tiếp (không cần dựng gì).
+    /// Menu chia sẻ cho bản quét MESH. Chuẩn mới: model.obj (+mtl) + video.
+    /// Các mục GLB/zip/PLY chỉ hiện cho bản quét CŨ còn giữ những file đó.
     @ViewBuilder
     private var meshShareItems: some View {
+        if FileManager.default.fileExists(atPath: objURL.path) {
+            ShareLink(item: objURL) {
+                Label(L.t("Share colored 3D (OBJ)", "Chia sẻ mô hình màu (OBJ)"), systemImage: "square.stack.3d.up")
+            }
+        }
         if coloredGLBExists {
             ShareLink(item: coloredGLBURL) {
                 Label(L.t("Share colored 3D (GLB)", "Chia sẻ mô hình màu (GLB)"), systemImage: "cube.fill")

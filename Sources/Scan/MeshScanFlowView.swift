@@ -1,6 +1,19 @@
 import SwiftUI
 import ARKit
 
+/// Kết quả một lần quét Mesh 3D — gói lại cho gọn chữ ký onFinish.
+struct MeshScanResult {
+    let videoURL: URL?
+    let meshURL: URL?
+    let name: String?
+    /// Mức nét THẬT SỰ đã quét (không đọc lại AppStorage lúc lưu — tránh lệch
+    /// khi cửa sổ khác đổi tier giữa chừng trên iPad).
+    let quality: MeshQuality
+    /// Mô hình từng chạm trần 2M trong lúc quét → dữ liệu CÓ PHẦN BỊ THIẾU;
+    /// call-site nên mời khách quét bản BỔ SUNG cho phần còn lại sau khi lưu.
+    let hitCap: Bool
+}
+
 /// Luồng quét MESH 3D (không RoomPlan): quét liền mạch mọi hình dạng, one-shot nhiều
 /// tầng — đi cầu thang thoải mái — và "Dừng & Lưu" BẤT KỲ lúc nào (không cần RoomPlan
 /// "present" phòng như luồng cũ). Sản phẩm: mesh màu + video, KHÔNG có floorplan.
@@ -8,10 +21,8 @@ struct MeshScanFlowView: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var controller: MeshScanController
 
-    /// (videoURL, meshURL, tên bản quét, mức nét THẬT SỰ đã quét — không đọc lại AppStorage
-    /// lúc lưu, tránh lệch khi cửa sổ khác đổi tier giữa chừng trên iPad). Lỗi lưu do
-    /// call-site giữ qua pendingSaveError và hiện alert SAU khi cover đóng.
-    let onFinish: (URL?, URL?, String?, MeshQuality) async -> Void
+    /// Lỗi lưu do call-site giữ qua pendingSaveError và hiện alert SAU khi cover đóng.
+    let onFinish: (MeshScanResult) async -> Void
 
     @State private var showNaming = false
     @State private var showEmptyMeshConfirm = false
@@ -20,14 +31,15 @@ struct MeshScanFlowView: View {
     @State private var scanName = ""
     @AppStorage("showScanMesh") private var showScanMesh = true
 
-    init(quality: MeshQuality, onFinish: @escaping (URL?, URL?, String?, MeshQuality) async -> Void) {
+    init(quality: MeshQuality, onFinish: @escaping (MeshScanResult) async -> Void) {
         _controller = StateObject(wrappedValue: MeshScanController(quality: quality))
         self.onFinish = onFinish
     }
 
     /// Một bản quét mesh có thể phủ cả căn → "Whole home" lên đầu.
+    /// "Part 1/2": nhà rất lớn chạm trần → chia thành nhiều bản quét bổ sung.
     private static let nameSuggestions = [
-        "Whole home", "Floor 1", "Floor 2", "Floor 3", "Basement", "Attic",
+        "Whole home", "Part 1", "Part 2", "Floor 1", "Floor 2", "Basement",
     ]
 
     var body: some View {
@@ -37,7 +49,10 @@ struct MeshScanFlowView: View {
 
             // Lưới quét trực tiếp (tái dùng từ luồng RoomPlan — chỉ đọc chung ARSession)
             if showScanMesh {
-                MeshOverlayRepresentable(arSession: controller.arSession)
+                // Trần hiển thị 600k (RoomPlan chỉ 150k): khách quay lại khu đã quét phải
+                // còn THẤY lưới để biết chỗ nào đã phủ — nhà thường sẽ không bị "quên" nữa.
+                // Nếu test thấy nóng/giật thì hạ số này.
+                MeshOverlayRepresentable(arSession: controller.arSession, maxVerts: 600_000)
                     .ignoresSafeArea()
                     .allowsHitTesting(false)
             }
@@ -177,8 +192,8 @@ struct MeshScanFlowView: View {
         } else if controller.capReached {
             bannerLabel(
                 L.t(
-                    "Model is full — new areas are NOT being recorded. Stop & Save.",
-                    "Mô hình đã đầy — khu vực quét thêm KHÔNG được ghi. Hãy Dừng & Lưu."
+                    "Model is full — Stop & Save this part, then scan the rest as a NEW scan.",
+                    "Mô hình đã đầy — hãy Dừng & Lưu phần này, rồi quét phần còn lại thành bản quét MỚI."
                 ),
                 color: .orange
             )
@@ -260,8 +275,15 @@ struct MeshScanFlowView: View {
                     UIApplication.shared.endBackgroundTask(bgTask)
                 }
             }
-            let result = await controller.stopAndExport()
-            await onFinish(result.videoURL, result.meshURL, name.isEmpty ? nil : name, controller.quality)
+            let exported = await controller.stopAndExport()
+            let result = MeshScanResult(
+                videoURL: exported.videoURL,
+                meshURL: exported.meshURL,
+                name: name.isEmpty ? nil : name,
+                quality: controller.quality,
+                hitCap: exported.hitCap
+            )
+            await onFinish(result)
             isSaving = false
             dismiss()
         }

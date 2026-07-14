@@ -1,8 +1,9 @@
 import Foundation
 
-/// Chuyển mô hình LiDAR CÓ MÀU (file .ply do ColorMeshBuilder xuất) sang gói ZIP
-/// chứa OBJ + MTL — kiểu Scaniverse/Polycam. OBJ mang MÀU THEO ĐỈNH (v x y z r g b),
-/// mở được CÓ MÀU trong MeshLab, CloudCompare và (bật tay) trong Blender.
+/// Chuyển mô hình LiDAR CÓ MÀU (file .ply do ColorMeshBuilder xuất) sang OBJ + MTL —
+/// dạng file rời (makeOBJFiles, chế độ quét Mesh) hoặc gói ZIP (makeOBJZip, luồng RoomPlan).
+/// OBJ mang MÀU THEO ĐỈNH (v x y z r g b), mở được CÓ MÀU trong MeshLab, CloudCompare
+/// và (bật tay) trong Blender.
 ///
 /// LƯU Ý: màu đỉnh trong OBJ là phi tiêu chuẩn — Blender khi RENDER lấy màu từ vật liệu
 /// nên OBJ+MTL không tự ra màu khi render. Muốn Blender ra màu ngay, dùng GLBExporter.
@@ -11,20 +12,39 @@ import Foundation
 enum ColoredOBJExporter {
     enum ExportError: Error { case zipFailed }
 
+    private static let mtlText = """
+    # CedarScan material — màu nằm ở từng đỉnh (vertex colors), không dùng texture map.
+    newmtl vertexcolor
+    Ka 1.000 1.000 1.000
+    Kd 1.000 1.000 1.000
+    Ks 0.000 0.000 0.000
+    d 1.0
+    illum 1
+
+    """
+
+    /// Ghi THẲNG model.obj + model.mtl (không nén) từ PLY màu — dùng cho chế độ quét MESH:
+    /// thư mục bản quét chỉ giữ OBJ + video (yêu cầu vận hành), uploader gửi 2 file này
+    /// theo kind "obj"/"mtl" có sẵn trên server.
+    static func makeOBJFiles(fromPLY plyURL: URL, objURL: URL, mtlURL: URL) throws {
+        let mesh = try ColoredMeshPLY.parse(plyURL)
+        do {
+            // MTL (bé) ghi TRƯỚC — file rẻ không được phép làm hỏng file đắt đã ghi xong.
+            try Data(mtlText.utf8).write(to: mtlURL)
+            try writeOBJ(mesh, to: objURL)
+        } catch {
+            // Ghi dở giữa chừng (thường do ĐẦY Ổ — đúng lúc dễ xảy ra nhất vì OBJ ~200MB
+            // ghi ngay sau video): phải dọn cả hai file CỤT, không thì menu chia sẻ +
+            // uploader coi OBJ cụt là sản phẩm thật trong khi PLY phao nằm ngay cạnh.
+            try? FileManager.default.removeItem(at: objURL)
+            try? FileManager.default.removeItem(at: mtlURL)
+            throw error
+        }
+    }
+
     /// Đọc PLY màu → ghi model.obj + model.mtl vào 1 thư mục tạm rồi nén thành .zip tại `zipURL`.
     static func makeOBJZip(fromPLY plyURL: URL, to zipURL: URL) throws {
         let mesh = try ColoredMeshPLY.parse(plyURL)
-
-        let mtlText = """
-        # CedarScan material — màu nằm ở từng đỉnh (vertex colors), không dùng texture map.
-        newmtl vertexcolor
-        Ka 1.000 1.000 1.000
-        Kd 1.000 1.000 1.000
-        Ks 0.000 0.000 0.000
-        d 1.0
-        illum 1
-
-        """
 
         // MARK: - Ghi 2 file vào thư mục tạm rồi nén
         let fm = FileManager.default

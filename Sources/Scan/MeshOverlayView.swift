@@ -21,7 +21,10 @@ final class MeshOverlayView: SCNView {
     private var anchorDists: [UUID: Float] = [:] // khoảng cách anchor→camera (cho việc nhả vùng xa)
     private var inFlight = Set<UUID>()           // anchor đang dựng dở ở nền → chống dồn hàng
     private var totalVerts = 0                    // tổng đỉnh đang hiển thị (để chặn trần)
-    private static let maxVerts = 150_000         // trần như ColorMeshBuilder — chặn phình bộ nhớ/GPU
+    /// Trần đỉnh HIỂN THỊ (chặn phình GPU/bộ nhớ — không liên quan dữ liệu xuất).
+    /// RoomPlan: 150k (chạy cạnh RoomPlan nặng). Mesh mode: nâng cao hơn để lưới
+    /// không "quên" vùng đã quét khi khách quay lại — khách cần thấy chỗ nào đã phủ.
+    private let maxVerts: Int
     private var lastMeshUpdate: TimeInterval = 0
     private static let meshUpdateInterval: TimeInterval = 0.5
     /// Dựng SCNGeometry ở luồng NỀN để không chiếm main thread (main chỉ memcpy nhanh).
@@ -39,8 +42,9 @@ final class MeshOverlayView: SCNView {
         return m
     }()
 
-    init(arSession: ARSession) {
+    init(arSession: ARSession, maxVerts: Int = 150_000) {
         self.arSession = arSession
+        self.maxVerts = maxVerts
         super.init(frame: .zero, options: nil)
         scene = SCNScene()
         backgroundColor = .clear
@@ -120,7 +124,7 @@ final class MeshOverlayView: SCNView {
             } else {
                 // Vùng MỚI khi đã chạm trần: chỉ nhận nếu nhả được các vùng XA HƠN để lấy chỗ
                 // — lưới "đi theo" người quét thay vì tắt hẳn (lỗi cũ: quét lâu là mất lưới).
-                if totalVerts + sig.v > Self.maxVerts {
+                if totalVerts + sig.v > maxVerts {
                     guard evictFarther(than: dist, toFit: sig.v) else { continue }
                 }
                 let created = SCNNode()
@@ -183,17 +187,17 @@ final class MeshOverlayView: SCNView {
         var freed = 0
         var victims: [UUID] = []
         for (id, _) in farther {
-            if totalVerts - freed + needed <= Self.maxVerts { break }
+            if totalVerts - freed + needed <= maxVerts { break }
             freed += anchorSigs[id]?.v ?? 0
             victims.append(id)
         }
-        guard totalVerts - freed + needed <= Self.maxVerts else { return false }
+        guard totalVerts - freed + needed <= maxVerts else { return false }
         for id in victims { removeAnchor(id) }
         return true
     }
 
     private func trimOverCap() {
-        while totalVerts > Self.maxVerts {
+        while totalVerts > maxVerts {
             guard let far = anchorDists
                 .filter({ anchorNodes[$0.key] != nil })
                 .max(by: { $0.value < $1.value })
@@ -249,9 +253,10 @@ final class MeshOverlayView: SCNView {
 /// hoặc ARSCNView camera (MeshScanFlowView) — chỉ cần ARSession dùng chung.
 struct MeshOverlayRepresentable: UIViewRepresentable {
     let arSession: ARSession
+    var maxVerts: Int = 150_000
 
     func makeUIView(context: Context) -> MeshOverlayView {
-        let view = MeshOverlayView(arSession: arSession)
+        let view = MeshOverlayView(arSession: arSession, maxVerts: maxVerts)
         view.start()
         return view
     }

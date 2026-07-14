@@ -12,6 +12,8 @@ struct ProjectView: View {
     @State private var isMeshScanning = false
     @State private var showModePicker = false
     @State private var pendingScanMode: ScanMode?
+    @State private var meshCapFollowUp = false
+    @State private var showScanNextPart = false
     @AppStorage("meshQuality") private var meshQuality: MeshQuality = .light
     @State private var showOrderSheet = false
     @State private var showLowQualityConfirm = false
@@ -147,22 +149,42 @@ struct ProjectView: View {
             .presentationDetents([.medium, .large])
         }
         .fullScreenCover(isPresented: $isMeshScanning) {
-            MeshScanFlowView(quality: meshQuality) { videoURL, meshURL, name, usedQuality in
+            MeshScanFlowView(quality: meshQuality) { result in
                 do {
                     _ = try await store.saveMeshScan(
-                        videoURL: videoURL, meshURL: meshURL, name: name,
-                        projectId: projectId, quality: usedQuality
+                        videoURL: result.videoURL, meshURL: result.meshURL,
+                        name: result.name, projectId: projectId, quality: result.quality
                     )
+                    if result.hitCap { meshCapFollowUp = true }
                 } catch {
                     pendingSaveError = error.localizedDescription
                 }
             }
         }
         .onChange(of: isMeshScanning) { _, presented in
-            if !presented, let message = pendingSaveError {
+            guard !presented else { return }
+            if let message = pendingSaveError {
                 pendingSaveError = nil
+                meshCapFollowUp = false
                 saveError = message
+            } else if meshCapFollowUp {
+                meshCapFollowUp = false
+                showScanNextPart = true
             }
+        }
+        .alert(
+            L.t("Part of the home is missing", "Còn một phần nhà chưa vào bản quét"),
+            isPresented: $showScanNextPart
+        ) {
+            Button(L.t("Scan the rest now", "Quét phần còn lại ngay")) {
+                isMeshScanning = true
+            }
+            Button(L.t("Later", "Để sau"), role: .cancel) {}
+        } message: {
+            Text(L.t(
+                "The 3D model hit its size limit before you finished — the saved part is safe. Scan the remaining area as another scan (name them \"Part 1\", \"Part 2\"…) and they can be merged later.",
+                "Mô hình 3D chạm giới hạn trước khi quét xong — phần đã lưu vẫn an toàn. Hãy quét khu còn lại thành một bản quét khác (đặt tên \"Part 1\", \"Part 2\"…) để ghép lại sau."
+            ))
         }
         .onChange(of: isVideoScanning) { _, presented in
             if !presented, let message = pendingSaveError {

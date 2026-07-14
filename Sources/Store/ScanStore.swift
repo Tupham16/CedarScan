@@ -198,7 +198,8 @@ final class ScanStore: ObservableObject {
         return record
     }
 
-    /// Lưu bản quét CHẾ ĐỘ MESH 3D (không RoomPlan): mesh màu (PLY → GLB/OBJ zip) + video.
+    /// Lưu bản quét CHẾ ĐỘ MESH 3D (không RoomPlan): model.obj màu (+mtl) + video —
+    /// PLY chỉ là file trung gian, chuyển sang OBJ xong là xóa (lỗi chuyển thì giữ làm phao).
     /// videoURL/meshURL đều có thể nil (recorder/builder có thể fail lặng lẽ) — nhưng cả hai
     /// cùng nil thì throw: không ghi record rỗng (upload về sau sẽ từ chối nó).
     func saveMeshScan(
@@ -242,17 +243,30 @@ final class ScanStore: ObservableObject {
             )
         }
 
-        // 2. Mesh màu (.ply) — SẢN PHẨM CHÍNH của chế độ này + gói GLB/OBJ để mở/chia sẻ.
+        // 2. Mô hình 3D: CHỈ giữ OBJ màu (+MTL nhỏ) theo yêu cầu vận hành — không giữ
+        //    PLY/GLB. PLY chỉ là file trung gian từ builder → chuyển sang OBJ rồi XÓA.
+        //    Chuyển đổi lỗi thì giữ PLY lại (colored-mesh.ply) — không bao giờ mất dữ liệu 3D
+        //    (menu chia sẻ + uploader đều xử lý được PLY).
         if hasMesh, let meshURL {
-            let plyURL = folder.appendingPathComponent("colored-mesh.ply")
-            try? fileManager.moveItem(at: meshURL, to: plyURL)
-            if fileManager.fileExists(atPath: plyURL.path) {
-                let zipURL = folder.appendingPathComponent("model-colored.zip")
-                let glbURL = folder.appendingPathComponent("model-colored.glb")
-                try? await Task.detached(priority: .utility) {
-                    try? ColoredOBJExporter.makeOBJZip(fromPLY: plyURL, to: zipURL)
-                    try GLBExporter.makeGLB(fromPLY: plyURL, to: glbURL)
-                }.value
+            let objURL = folder.appendingPathComponent("model.obj")
+            let mtlURL = folder.appendingPathComponent("model.mtl")
+            // .userInitiated: người dùng đang đứng chờ trên overlay "Đang dựng mô hình 3D…"
+            // (.utility đẩy sang efficiency core, nhà lớn chờ lâu gấp đôi vô ích).
+            let converted = await Task.detached(priority: .userInitiated) { () -> Bool in
+                do {
+                    try ColoredOBJExporter.makeOBJFiles(fromPLY: meshURL, objURL: objURL, mtlURL: mtlURL)
+                    return true
+                } catch {
+                    return false
+                }
+            }.value
+            if converted {
+                try? fileManager.removeItem(at: meshURL)
+            } else {
+                try? fileManager.moveItem(
+                    at: meshURL,
+                    to: folder.appendingPathComponent("colored-mesh.ply")
+                )
             }
         }
 

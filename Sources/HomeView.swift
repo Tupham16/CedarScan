@@ -8,6 +8,8 @@ struct HomeView: View {
     @State private var isMeshScanning = false
     @State private var showModePicker = false
     @State private var pendingScanMode: ScanMode?
+    @State private var meshCapFollowUp = false
+    @State private var showScanNextPart = false
     @AppStorage("meshQuality") private var meshQuality: MeshQuality = .light
     @State private var recordToRename: ScanRecord?
     @State private var renameText = ""
@@ -71,11 +73,14 @@ struct HomeView: View {
                 .presentationDetents([.medium, .large])
             }
             .fullScreenCover(isPresented: $isMeshScanning) {
-                MeshScanFlowView(quality: meshQuality) { videoURL, meshURL, name, usedQuality in
+                MeshScanFlowView(quality: meshQuality) { result in
                     do {
                         _ = try await store.saveMeshScan(
-                            videoURL: videoURL, meshURL: meshURL, name: name, quality: usedQuality
+                            videoURL: result.videoURL, meshURL: result.meshURL,
+                            name: result.name, quality: result.quality
                         )
+                        // Nhà rất lớn chạm trần: sau khi cover đóng sẽ mời quét phần còn lại.
+                        if result.hitCap { meshCapFollowUp = true }
                     } catch {
                         // Không hiện alert khi cover còn mở — sẽ bị nuốt lúc dismiss.
                         pendingSaveError = error.localizedDescription
@@ -83,10 +88,29 @@ struct HomeView: View {
                 }
             }
             .onChange(of: isMeshScanning) { _, presented in
-                if !presented, let message = pendingSaveError {
+                guard !presented else { return }
+                if let message = pendingSaveError {
                     pendingSaveError = nil
+                    meshCapFollowUp = false
                     saveError = message
+                } else if meshCapFollowUp {
+                    meshCapFollowUp = false
+                    showScanNextPart = true
                 }
+            }
+            .alert(
+                L.t("Part of the home is missing", "Còn một phần nhà chưa vào bản quét"),
+                isPresented: $showScanNextPart
+            ) {
+                Button(L.t("Scan the rest now", "Quét phần còn lại ngay")) {
+                    isMeshScanning = true
+                }
+                Button(L.t("Later", "Để sau"), role: .cancel) {}
+            } message: {
+                Text(L.t(
+                    "The 3D model hit its size limit before you finished — the saved part is safe. Scan the remaining area as another scan (name them \"Part 1\", \"Part 2\"…) and they can be merged later.",
+                    "Mô hình 3D chạm giới hạn trước khi quét xong — phần đã lưu vẫn an toàn. Hãy quét khu còn lại thành một bản quét khác (đặt tên \"Part 1\", \"Part 2\"…) để ghép lại sau."
+                ))
             }
             .fullScreenCover(isPresented: $isVideoScanning) {
                 VideoScanFlowView { videoURL, name in

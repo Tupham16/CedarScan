@@ -44,6 +44,7 @@ struct QualityAlertOverlay: View {
         case .turnSlowly: return "arrow.triangle.2.circlepath"
         case .lowLight: return "lightbulb.fill"
         case .overheating: return "thermometer.high"
+        case .tooClose: return "minus.magnifyingglass"
         }
     }
 }

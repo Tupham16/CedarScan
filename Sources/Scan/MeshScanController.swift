@@ -5,7 +5,8 @@ import UIKit
 /// Điều khiển chế độ quét MESH 3D: chạy thẳng ARWorldTrackingConfiguration +
 /// sceneReconstruction = .mesh, KHÔNG qua RoomPlan/RoomCaptureView.
 /// Quét liền mạch mọi hình dạng, one-shot nhiều tầng, Dừng & Lưu bất kỳ lúc nào.
-/// Sản phẩm: mesh màu (PLY → GLB/OBJ) + video walkthrough — không có floorplan/USDZ.
+/// Sản phẩm: model.obj màu (+mtl) + video walkthrough — không có floorplan/USDZ
+/// (PLY chỉ là file trung gian, ScanStore chuyển sang OBJ rồi xóa).
 ///
 /// Khác luồng RoomPlan: KHÔNG có RoomCaptureSession pause ARSession hộ, nên controller
 /// này phải tự `arSession.pause()` ở cả hai đường Dừng & Lưu lẫn Hủy.
@@ -52,6 +53,12 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
         arSession.delegate = self
         let config = ARWorldTrackingConfiguration()
         config.sceneReconstruction = .mesh
+        // Bật depth map cho coach "quá gần" (LiDAR kém chính xác dưới ~25-30cm —
+        // dí sát vật thể tạo lỗ trên mesh + khung màu out nét).
+        if ARWorldTrackingConfiguration.supportsFrameSemantics(.sceneDepth) {
+            config.frameSemantics.insert(.sceneDepth)
+            qualityMonitor.tooCloseCoachEnabled = true
+        }
         // Giữ isLightEstimationEnabled mặc định (true) — cảnh báo thiếu sáng cần nó.
         arSession.run(config)
 
@@ -84,17 +91,20 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
     /// @MainActor BẮT BUỘC: hàm async không isolation sẽ chạy thân hàm trên executor NỀN
     /// (SE-0338) → Timer.invalidate/UIApplication/pause + sửa state đua với delegate main.
     @MainActor
-    func stopAndExport() async -> (videoURL: URL?, meshURL: URL?) {
-        guard !isStopped else { return (nil, nil) }
+    func stopAndExport() async -> (videoURL: URL?, meshURL: URL?, hitCap: Bool) {
+        guard !isStopped else { return (nil, nil, false) }
         isStopped = true
         teardownCommon()
         colorMesh?.stop() // tắt CADisplayLink ngay trên main trước khi export
         arSession.pause()
+        // capReached STICKY của builder = "đã từng phải bỏ dữ liệu" → call-site dùng để
+        // mời khách quét BẢN BỔ SUNG cho phần còn thiếu (nhà rất lớn chạm trần 2M).
+        let hitCap = colorMesh?.capReached ?? false
         let videoURL = await recorder?.finish()
         recorder = nil
         let meshURL = await colorMesh?.exportColoredPLY()
         colorMesh = nil
-        return (videoURL, meshURL)
+        return (videoURL, meshURL, hitCap)
     }
 
     func cancel() {
