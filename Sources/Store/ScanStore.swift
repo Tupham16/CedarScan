@@ -243,18 +243,17 @@ final class ScanStore: ObservableObject {
             )
         }
 
-        // 2. Mô hình 3D: CHỈ giữ OBJ màu (+MTL nhỏ) theo yêu cầu vận hành — không giữ
-        //    PLY/GLB. PLY chỉ là file trung gian từ builder → chuyển sang OBJ rồi XÓA.
-        //    Chuyển đổi lỗi thì giữ PLY lại (colored-mesh.ply) — không bao giờ mất dữ liệu 3D
-        //    (menu chia sẻ + uploader đều xử lý được PLY).
+        // 2. Mô hình 3D: giữ OBJ màu ĐÃ NÉN (obj+mtl trong model-colored.zip). OBJ là text
+        //    nén ~5 lần → upload nhẹ hơn nhiều bản obj thô (~200MB → ~40MB). PLY chỉ là file
+        //    trung gian từ builder → nén xong XÓA. Nén lỗi thì dọn zip cụt và GIỮ PLY lại làm
+        //    phao (menu chia sẻ + uploader đều xử lý được PLY) — không bao giờ mất dữ liệu 3D.
         if hasMesh, let meshURL {
-            let objURL = folder.appendingPathComponent("model.obj")
-            let mtlURL = folder.appendingPathComponent("model.mtl")
+            let zipURL = folder.appendingPathComponent("model-colored.zip")
             // .userInitiated: người dùng đang đứng chờ trên overlay "Đang dựng mô hình 3D…"
             // (.utility đẩy sang efficiency core, nhà lớn chờ lâu gấp đôi vô ích).
             let converted = await Task.detached(priority: .userInitiated) { () -> Bool in
                 do {
-                    try ColoredOBJExporter.makeOBJFiles(fromPLY: meshURL, objURL: objURL, mtlURL: mtlURL)
+                    try ColoredOBJExporter.makeOBJZip(fromPLY: meshURL, to: zipURL)
                     return true
                 } catch {
                     return false
@@ -263,6 +262,7 @@ final class ScanStore: ObservableObject {
             if converted {
                 try? fileManager.removeItem(at: meshURL)
             } else {
+                try? fileManager.removeItem(at: zipURL) // dọn zip ghi dở
                 try? fileManager.moveItem(
                     at: meshURL,
                     to: folder.appendingPathComponent("colored-mesh.ply")

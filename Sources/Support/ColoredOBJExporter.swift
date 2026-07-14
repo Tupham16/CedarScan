@@ -1,7 +1,7 @@
 import Foundation
 
-/// Chuyển mô hình LiDAR CÓ MÀU (file .ply do ColorMeshBuilder xuất) sang OBJ + MTL —
-/// dạng file rời (makeOBJFiles, chế độ quét Mesh) hoặc gói ZIP (makeOBJZip, luồng RoomPlan).
+/// Chuyển mô hình LiDAR CÓ MÀU (file .ply do ColorMeshBuilder xuất) sang gói ZIP chứa
+/// OBJ + MTL (makeOBJZip) — dùng cho cả chế độ quét Mesh lẫn luồng RoomPlan.
 /// OBJ mang MÀU THEO ĐỈNH (v x y z r g b), mở được CÓ MÀU trong MeshLab, CloudCompare
 /// và (bật tay) trong Blender.
 ///
@@ -22,25 +22,6 @@ enum ColoredOBJExporter {
     illum 1
 
     """
-
-    /// Ghi THẲNG model.obj + model.mtl (không nén) từ PLY màu — dùng cho chế độ quét MESH:
-    /// thư mục bản quét chỉ giữ OBJ + video (yêu cầu vận hành), uploader gửi 2 file này
-    /// theo kind "obj"/"mtl" có sẵn trên server.
-    static func makeOBJFiles(fromPLY plyURL: URL, objURL: URL, mtlURL: URL) throws {
-        let mesh = try ColoredMeshPLY.parse(plyURL)
-        do {
-            // MTL (bé) ghi TRƯỚC — file rẻ không được phép làm hỏng file đắt đã ghi xong.
-            try Data(mtlText.utf8).write(to: mtlURL)
-            try writeOBJ(mesh, to: objURL)
-        } catch {
-            // Ghi dở giữa chừng (thường do ĐẦY Ổ — đúng lúc dễ xảy ra nhất vì OBJ ~200MB
-            // ghi ngay sau video): phải dọn cả hai file CỤT, không thì menu chia sẻ +
-            // uploader coi OBJ cụt là sản phẩm thật trong khi PLY phao nằm ngay cạnh.
-            try? FileManager.default.removeItem(at: objURL)
-            try? FileManager.default.removeItem(at: mtlURL)
-            throw error
-        }
-    }
 
     /// Đọc PLY màu → ghi model.obj + model.mtl vào 1 thư mục tạm rồi nén thành .zip tại `zipURL`.
     static func makeOBJZip(fromPLY plyURL: URL, to zipURL: URL) throws {

@@ -20,6 +20,7 @@ final class ScanUploader: ObservableObject {
         ("obj", "model.obj"),
         ("mtl", "model.mtl"),
         ("mesh", "colored-mesh.ply"),
+        ("objzip", "model-colored.zip"),   // mô hình màu OBJ+MTL đã nén (chế độ Mesh + RoomPlan)
         ("video", "scan-video.mp4"),
         ("plan", "floorplan.png"),
         ("rooms", "rooms.json"),
@@ -32,9 +33,10 @@ final class ScanUploader: ObservableObject {
 
         let present = Self.fileKinds.filter { fm.fileExists(atPath: folder.appendingPathComponent($0.fileName).path) }
         // Quét RoomPlan cần mô hình 3D; quét VIDEO chỉ cần video; quét MESH có thể chỉ có
-        // PLY (video recorder fail lặng lẽ vẫn phải upload được mesh).
+        // model-colored.zip (objzip) hoặc PLY phao (video recorder fail lặng lẽ vẫn upload được).
         guard present.contains(where: {
-            $0.kind == "usdz" || $0.kind == "obj" || $0.kind == "video" || $0.kind == "mesh"
+            $0.kind == "usdz" || $0.kind == "obj" || $0.kind == "video"
+                || $0.kind == "mesh" || $0.kind == "objzip"
         }) else {
             phase = .failed(L.t("No scan files found for this scan.", "Không tìm thấy file của bản quét này."))
             return nil

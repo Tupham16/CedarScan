@@ -16,6 +16,9 @@ struct ScanDetailView: View {
     @State private var showLowQualityConfirm = false
     @State private var coloredZipExists = false
     @State private var coloredGLBExists = false
+    /// Bản sao zip mang TÊN BẢN QUÉT để chia sẻ ra ngoài (Floor 1.zip thay vì
+    /// model-colored.zip). nil → dùng file gốc.
+    @State private var meshShareURL: URL?
     @AppStorage("autoStraighten") private var autoStraighten = true
 
     /// Bản ghi mới nhất từ store (record truyền vào có thể cũ sau khi upload/đặt hàng).
@@ -75,6 +78,9 @@ struct ScanDetailView: View {
             if current.isMeshOnly {
                 coloredGLBExists = FileManager.default.fileExists(atPath: coloredGLBURL.path)
                 coloredZipExists = FileManager.default.fileExists(atPath: coloredZipURL.path)
+                if coloredZipExists {
+                    meshShareURL = prepareNamedZip()
+                }
                 return
             }
             do {
@@ -446,7 +452,7 @@ struct ScanDetailView: View {
             }
         }
         if coloredZipExists {
-            ShareLink(item: coloredZipURL) {
+            ShareLink(item: meshShareURL ?? coloredZipURL) {
                 Label(L.t("Share colored 3D (OBJ)", "Chia sẻ mô hình màu (OBJ)"), systemImage: "square.stack.3d.up")
             }
         }
@@ -459,6 +465,35 @@ struct ScanDetailView: View {
             ShareLink(item: videoURL) {
                 Label(L.t("Share video", "Chia sẻ video"), systemImage: "video")
             }
+        }
+    }
+
+    /// Tên file zip theo tên bản quét (giữ chữ/số/dấu tiếng Việt + khoảng trắng . _ -).
+    private func meshShareFileName() -> String {
+        let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: " ._-"))
+        // components(separatedBy: allowed.inverted).joined() = bỏ mọi ký tự KHÔNG hợp lệ.
+        // prefix(60) cắt theo Character (grapheme) nên không vỡ cặp surrogate.
+        let cleaned = current.name
+            .components(separatedBy: allowed.inverted)
+            .joined()
+            .trimmingCharacters(in: .whitespaces)
+        let base = cleaned.isEmpty ? "model-colored" : String(cleaned.prefix(60))
+        return base + ".zip"
+    }
+
+    /// Tạo bản sao zip mang tên bản quét trong thư mục tạm riêng theo record (tránh đụng
+    /// tên giữa các bản quét). Lỗi → nil (chia sẻ dùng file gốc).
+    private func prepareNamedZip() -> URL? {
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("share-\(record.id.uuidString.prefix(8))", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let dest = dir.appendingPathComponent(meshShareFileName())
+        try? FileManager.default.removeItem(at: dest)
+        do {
+            try FileManager.default.copyItem(at: coloredZipURL, to: dest)
+            return dest
+        } catch {
+            return nil
         }
     }
 
