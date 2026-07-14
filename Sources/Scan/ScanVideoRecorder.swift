@@ -7,9 +7,11 @@ import UIKit
 /// Quay video 480p quá trình quét bằng cách đọc ARSession.currentFrame theo nhịp CADisplayLink
 /// (không chiếm delegate của ARSession — RoomPlan vẫn toàn quyền điều khiển phiên AR).
 final class ScanVideoRecorder {
-    // Video dọc 480x640 (khung hình camera 4:3 xoay dọc), ~14 fps, H.264 ~1.2 Mbps
-    private static let outputWidth = 480
-    private static let outputHeight = 640
+    // Video dọc 360x480 (khung camera 4:3 xoay dọc), ~8 fps, H.264 ~700 kbps.
+    // Nhẹ hơn ~½ so với 480p/14fps mà vẫn đủ nét cho đội vẽ xem chi tiết
+    // (người quét ít lia máy nên fps thấp không mất thông tin). File cũng nhẹ hơn → upload nhanh.
+    private static let outputWidth = 360
+    private static let outputHeight = 480
 
     let outputURL: URL
 
@@ -39,7 +41,7 @@ final class ScanVideoRecorder {
             AVVideoWidthKey: Self.outputWidth,
             AVVideoHeightKey: Self.outputHeight,
             AVVideoCompressionPropertiesKey: [
-                AVVideoAverageBitRateKey: 1_200_000,
+                AVVideoAverageBitRateKey: 700_000,
                 AVVideoProfileLevelKey: AVVideoProfileLevelH264MainAutoLevel,
             ],
         ]
@@ -63,7 +65,7 @@ final class ScanVideoRecorder {
         self.adaptor = adaptor
 
         let link = CADisplayLink(target: self, selector: #selector(tick))
-        link.preferredFrameRateRange = CAFrameRateRange(minimum: 10, maximum: 15, preferred: 14)
+        link.preferredFrameRateRange = CAFrameRateRange(minimum: 6, maximum: 10, preferred: 8)
         link.add(to: .main, forMode: .common)
         self.displayLink = link
     }
