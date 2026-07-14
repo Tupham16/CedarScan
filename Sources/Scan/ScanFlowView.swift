@@ -14,6 +14,7 @@ struct ScanFlowView: View {
     @State private var showNaming = false
     @State private var scanName = ""
     @State private var finishedReport: ScanQualityReport?
+    @AppStorage("showScanMesh") private var showScanMesh = true
 
     private static let floorSuggestions = [
         "Floor 1", "Floor 2", "Floor 3", "Basement", "Attic", "Whole home",
@@ -23,6 +24,14 @@ struct ScanFlowView: View {
         ZStack {
             RoomCaptureViewRepresentable(controller: controller)
                 .ignoresSafeArea()
+
+            // Lớp phủ lưới LiDAR (giống CubiCasa) — chỉ khi đang quét & người dùng bật.
+            // allowsHitTesting(false): chạm đi xuyên xuống RoomCaptureView.
+            if showScanMesh && controller.phase == .scanning {
+                MeshOverlayRepresentable(controller: controller)
+                    .ignoresSafeArea()
+                    .allowsHitTesting(false)
+            }
 
             // Cảnh báo chất lượng real-time (viền màu + rung) — chỉ khi đang quét
             if controller.phase == .scanning {
@@ -82,7 +91,6 @@ struct ScanFlowView: View {
                     .padding(.vertical, 8)
                     .background(.ultraThinMaterial, in: Capsule())
             }
-            Spacer()
             if !controller.rooms.isEmpty {
                 Text(L.t("\(controller.rooms.count) room(s) scanned", "Đã quét \(controller.rooms.count) phòng"))
                     .font(.subheadline.weight(.semibold))
@@ -90,6 +98,18 @@ struct ScanFlowView: View {
                     .padding(.vertical, 8)
                     .background(.ultraThinMaterial, in: Capsule())
             }
+            Spacer()
+            // Bật/tắt lớp phủ lưới khi quét
+            Button {
+                showScanMesh.toggle()
+            } label: {
+                Image(systemName: showScanMesh ? "square.grid.3x3.fill" : "square.grid.3x3")
+                    .font(.title3)
+                    .foregroundStyle(showScanMesh ? Color.green : Color.primary)
+                    .padding(10)
+                    .background(.ultraThinMaterial, in: Circle())
+            }
+            .accessibilityLabel(L.t("Toggle scan mesh", "Bật/tắt lưới quét"))
         }
         .padding()
     }
