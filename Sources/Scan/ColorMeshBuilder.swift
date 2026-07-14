@@ -50,6 +50,13 @@ final class ColorMeshBuilder {
         pieces.values.reduce(0) { $0 + $1.worldVertices.count }
     }
 
+    /// Đang đầy NGAY LÚC NÀY — dùng cho banner Mesh mode. KHÁC capReached ("đã từng
+    /// chạm trần", sticky, cho report RoomPlan): sau khi dọn anchor bị ARKit xóa,
+    /// có thể còn chỗ trở lại và banner phải tự hạ.
+    var isFull: Bool {
+        vertexCount >= maxVertices
+    }
+
     // Khung màu: RGB nhỏ (origin trên-trái) + ma trận camera của đúng khung đó
     private struct ColorFrame {
         var rgb: [UInt8]        // w*h*3
@@ -95,6 +102,22 @@ final class ColorMeshBuilder {
     // MARK: - Gom lưới
 
     private func ingestMesh(from frame: ARFrame) {
+        // Dọn anchor bị ARKit xóa TRƯỚC khi đếm: ARKit gộp/tách chunk mesh liên tục
+        // (nhiều nhất ở phút đầu). Không dọn thì đỉnh "ma" của anchor chết tích lại —
+        // vừa phình vertexTotal (báo "mô hình đầy" oan chỉ sau ~10 giây quét), vừa để
+        // hình học cũ đã bị thay thế nằm sai chỗ trong file xuất.
+        var present = Set<UUID>()
+        present.reserveCapacity(frame.anchors.count)
+        for anchor in frame.anchors {
+            if let mesh = anchor as? ARMeshAnchor {
+                present.insert(mesh.identifier)
+            }
+        }
+        for id in Array(pieces.keys) where !present.contains(id) {
+            pieces.removeValue(forKey: id)
+            anchorSigs.removeValue(forKey: id)
+        }
+
         var vertexTotal = pieces.values.reduce(0) { $0 + $1.worldVertices.count }
         for anchor in frame.anchors {
             guard let mesh = anchor as? ARMeshAnchor else { continue }

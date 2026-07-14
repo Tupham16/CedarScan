@@ -161,8 +161,9 @@ struct MeshScanFlowView: View {
 
     @ViewBuilder
     private var warningBanner: some View {
-        // Ưu tiên: mất định vị > đang gián đoạn (nhất thời) > mô hình đầy (cố định).
-        // capReached không bao giờ tự hết nên phải đứng CUỐI, không được che 2 cái kia.
+        // Ưu tiên: mất định vị > đang gián đoạn (nhất thời) > mô hình đầy.
+        // capReached đứng CUỐI để không che 2 trạng thái khẩn hơn (nó có thể tự hạ
+        // khi ARKit gộp anchor giải phóng chỗ, nhưng thường đứng lâu).
         if controller.trackingLost {
             bannerLabel(
                 L.t("Tracking lost — Stop & Save what you have.", "Mất định vị — hãy Dừng & Lưu phần đã quét."),

@@ -10,7 +10,8 @@ import UIKit
 /// Khác luồng RoomPlan: KHÔNG có RoomCaptureSession pause ARSession hộ, nên controller
 /// này phải tự `arSession.pause()` ở cả hai đường Dừng & Lưu lẫn Hủy.
 final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
-    /// Chạm trần đỉnh mesh — khu vực quét thêm sẽ KHÔNG vào file. UI hiện banner cố định.
+    /// Mesh ĐANG đầy — khu vực quét thêm không vào file cho tới khi có chỗ trở lại
+    /// (ARKit gộp anchor có thể giải phóng chỗ). UI hiện banner khi cờ bật.
     @Published private(set) var capReached = false
     /// Phiên đang bị gián đoạn (cuộc gọi, khóa máy, đổi app) — đang chờ khôi phục.
     @Published private(set) var isInterrupted = false
@@ -64,12 +65,14 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
         qualityMonitor.setActive(true)
         // Buổi quét 10–30 phút: không được để auto-lock cắt ngang phiên AR.
         UIApplication.shared.isIdleTimerDisabled = true
-        // capReached được ColorMeshBuilder set trên tick main-thread (không observable) →
-        // poll nhẹ 1s/lần để đẩy sang @Published cho banner SwiftUI.
+        // Poll nhẹ 1s/lần trạng thái ĐẦY của builder (không observable) → @Published cho
+        // banner SwiftUI. Dùng isFull (trạng thái hiện tại) chứ không phải capReached
+        // (sticky): ARKit dọn anchor có thể giải phóng chỗ → banner phải tự hạ.
         capPollTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
             guard let self, let mesh = self.colorMesh else { return }
-            if mesh.capReached && !self.capReached {
-                self.capReached = true
+            let full = mesh.isFull
+            if full != self.capReached {
+                self.capReached = full
             }
         }
     }
