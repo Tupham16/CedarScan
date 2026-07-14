@@ -36,6 +36,8 @@ struct ScanDetailView: View {
         VStack(spacing: 0) {
             if current.isVideoOnly {
                 videoTab
+            } else if current.isMeshOnly {
+                meshTab
             } else {
                 Picker(L.t("View mode", "Chế độ xem"), selection: $mode) {
                     Text(L.t("3D Model", "Mô hình 3D")).tag(0)
@@ -67,10 +69,14 @@ struct ScanDetailView: View {
         }
         .task {
             guard !current.isVideoOnly else { return }
-            do {
-                rooms = try store.loadRooms(for: record)
-            } catch {
-                loadFailed = true
+            // Bản quét MESH không có rooms.json — chỉ bỏ phần load rooms; phần dựng lại
+            // GLB/zip từ PLY bên dưới VẪN PHẢI chạy (menu chia sẻ mesh cần các cờ này).
+            if !current.isMeshOnly {
+                do {
+                    rooms = try store.loadRooms(for: record)
+                } catch {
+                    loadFailed = true
+                }
             }
             // File màu: bản quét cũ chưa có mà đã có PLY thì dựng nền để chia sẻ được.
             coloredGLBExists = FileManager.default.fileExists(atPath: coloredGLBURL.path)
@@ -309,6 +315,41 @@ struct ScanDetailView: View {
         }
     }
 
+    /// Bản quét MESH 3D: video walkthrough + hướng dẫn chia sẻ mô hình màu.
+    /// (Không có floorplan/USDZ — mesh màu là sản phẩm chính, xem bằng menu chia sẻ.)
+    private var meshTab: some View {
+        VStack(spacing: 10) {
+            if FileManager.default.fileExists(atPath: videoURL.path) {
+                VideoPlayer(player: AVPlayer(url: videoURL))
+            } else {
+                unavailableView(L.t("No walkthrough video in this scan", "Bản quét này không có video"))
+            }
+            meshInfoFooter
+        }
+    }
+
+    private var meshInfoFooter: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Label(meshTitle, systemImage: "cube.transparent")
+                .font(.caption.weight(.semibold))
+            Text(L.t(
+                "Share the colored 3D model (GLB / OBJ / PLY) from the share menu. This scan type has no floor plan.",
+                "Chia sẻ mô hình 3D màu (GLB / OBJ / PLY) từ menu chia sẻ. Loại bản quét này không có bản vẽ mặt bằng."
+            ))
+            .font(.caption)
+            .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal)
+        .padding(.bottom, 6)
+    }
+
+    private var meshTitle: String {
+        let base = L.t("3D mesh scan", "Bản quét Mesh 3D")
+        guard let raw = current.meshQuality, let tier = MeshQuality(rawValue: raw) else { return base }
+        return base + " · " + tier.label
+    }
+
     /// Bản quét video: xem lại video + lưu ý độ chính xác.
     private var videoTab: some View {
         VStack(spacing: 10) {
@@ -337,6 +378,8 @@ struct ScanDetailView: View {
                 ShareLink(item: videoURL) {
                     Label(L.t("Share video", "Chia sẻ video"), systemImage: "video")
                 }
+            } else if current.isMeshOnly {
+                meshShareItems
             } else {
             ShareLink(item: usdzURL) {
                 Label(L.t("Share 3D model (USDZ)", "Chia sẻ mô hình 3D (USDZ)"), systemImage: "cube")
@@ -363,6 +406,32 @@ struct ScanDetailView: View {
             }
         } label: {
             Image(systemName: "square.and.arrow.up")
+        }
+    }
+
+    /// Menu chia sẻ cho bản quét MESH: GLB/OBJ dựa trên cờ đã dựng ở .task; PLY + video
+    /// kiểm tra file trực tiếp (không cần dựng gì).
+    @ViewBuilder
+    private var meshShareItems: some View {
+        if coloredGLBExists {
+            ShareLink(item: coloredGLBURL) {
+                Label(L.t("Share colored 3D (GLB)", "Chia sẻ mô hình màu (GLB)"), systemImage: "cube.fill")
+            }
+        }
+        if coloredZipExists {
+            ShareLink(item: coloredZipURL) {
+                Label(L.t("Share colored 3D (OBJ)", "Chia sẻ mô hình màu (OBJ)"), systemImage: "square.stack.3d.up")
+            }
+        }
+        if FileManager.default.fileExists(atPath: plyURL.path) {
+            ShareLink(item: plyURL) {
+                Label(L.t("Share raw mesh (PLY)", "Chia sẻ mesh thô (PLY)"), systemImage: "square.3.layers.3d")
+            }
+        }
+        if FileManager.default.fileExists(atPath: videoURL.path) {
+            ShareLink(item: videoURL) {
+                Label(L.t("Share video", "Chia sẻ video"), systemImage: "video")
+            }
         }
     }
 
@@ -451,6 +520,11 @@ struct OrderSheet: View {
     /// Đơn có chứa bản quét CHỈ VIDEO (không LiDAR) → nhắc độ chính xác.
     private var selectionHasVideoScan: Bool {
         record.isVideoOnly || otherScans.contains { extraFloors.contains($0.id) && $0.isVideoOnly }
+    }
+
+    /// Đơn có bản quét MESH 3D → báo đội vẽ sẽ dựng mặt bằng từ mesh thô + video.
+    private var selectionHasMeshScan: Bool {
+        record.isMeshOnly || otherScans.contains { extraFloors.contains($0.id) && $0.isMeshOnly }
     }
 
     private var isFreePromo: Bool {
@@ -707,6 +781,17 @@ struct OrderSheet: View {
                     )
                     .font(.footnote)
                     .foregroundStyle(.orange)
+                }
+                if selectionHasMeshScan {
+                    Label(
+                        L.t(
+                            "This order includes 3D mesh scans — the floor plan is drawn from the raw mesh + video.",
+                            "Đơn này có bản quét Mesh 3D — mặt bằng sẽ được vẽ từ mesh thô + video."
+                        ),
+                        systemImage: "cube.transparent"
+                    )
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
                 }
                 if let errorMessage {
                     Text(errorMessage)

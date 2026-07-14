@@ -198,6 +198,67 @@ final class ScanStore: ObservableObject {
         return record
     }
 
+    /// Lưu bản quét CHẾ ĐỘ MESH 3D (không RoomPlan): mesh màu (PLY → GLB/OBJ zip) + video.
+    /// videoURL/meshURL đều có thể nil (recorder/builder có thể fail lặng lẽ) — nhưng cả hai
+    /// cùng nil thì throw: không ghi record rỗng (upload về sau sẽ từ chối nó).
+    func saveMeshScan(
+        videoURL: URL?,
+        meshURL: URL?,
+        name: String?,
+        projectId: UUID? = nil,
+        quality: MeshQuality
+    ) async throws -> ScanRecord {
+        let hasVideo = videoURL.map { fileManager.fileExists(atPath: $0.path) } ?? false
+        let hasMesh = meshURL.map { fileManager.fileExists(atPath: $0.path) } ?? false
+        guard hasVideo || hasMesh else {
+            throw NSError(domain: "CedarScan", code: 1, userInfo: [
+                NSLocalizedDescriptionKey: L.t(
+                    "Nothing was captured — no 3D mesh and no video.",
+                    "Chưa thu được dữ liệu — không có mesh 3D lẫn video."
+                ),
+            ])
+        }
+
+        let record = ScanRecord(
+            id: UUID(),
+            name: name?.isEmpty == false ? name! : Self.defaultName(),
+            createdAt: Date(),
+            roomCount: 0,
+            areaSqm: nil,
+            projectId: projectId,
+            captureType: "mesh",
+            meshQuality: quality.rawValue
+        )
+        let folder = folderURL(for: record)
+        try fileManager.createDirectory(at: folder, withIntermediateDirectories: true)
+
+        // 1. Video walkthrough (nếu quay được)
+        if hasVideo, let videoURL {
+            try? fileManager.moveItem(
+                at: videoURL,
+                to: folder.appendingPathComponent("scan-video.mp4")
+            )
+        }
+
+        // 2. Mesh màu (.ply) — SẢN PHẨM CHÍNH của chế độ này + gói GLB/OBJ để mở/chia sẻ.
+        if hasMesh, let meshURL {
+            let plyURL = folder.appendingPathComponent("colored-mesh.ply")
+            try? fileManager.moveItem(at: meshURL, to: plyURL)
+            if fileManager.fileExists(atPath: plyURL.path) {
+                let zipURL = folder.appendingPathComponent("model-colored.zip")
+                let glbURL = folder.appendingPathComponent("model-colored.glb")
+                try? await Task.detached(priority: .utility) {
+                    try? ColoredOBJExporter.makeOBJZip(fromPLY: plyURL, to: zipURL)
+                    try GLBExporter.makeGLB(fromPLY: plyURL, to: glbURL)
+                }.value
+            }
+        }
+
+        try writeMeta(record)
+        records.insert(record, at: 0)
+        return record
+    }
+
     /// Lưu bản quét CHỈ CÓ VIDEO (máy không LiDAR): video khảo sát để đội vẽ từ video.
     func saveVideoScan(videoURL: URL, name: String?, projectId: UUID? = nil) throws -> ScanRecord {
         var record = ScanRecord(

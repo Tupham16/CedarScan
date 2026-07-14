@@ -311,12 +311,26 @@ struct ScanRow: View {
 
     private var subtitle: String {
         var parts = [
-            L.t("\(record.roomCount) room(s)", "\(record.roomCount) phòng"),
+            typePart,
             record.createdAt.formatted(date: .abbreviated, time: .shortened),
         ]
         if let area = record.areaSqm, area > 0 {
             parts.insert(String(format: "%.0f m²", area), at: 1)
         }
         return parts.joined(separator: " · ")
+    }
+
+    /// Bản mesh/video không có roomCount ý nghĩa — hiện loại (+ mức nét) thay vì "0 phòng".
+    /// (Không có mức nét trên dòng thì test 3 mức ra 3 dòng giống hệt nhau.)
+    private var typePart: String {
+        if record.isMeshOnly {
+            let base = L.t("3D mesh", "Mesh 3D")
+            guard let raw = record.meshQuality, let tier = MeshQuality(rawValue: raw) else { return base }
+            return base + " (" + tier.label + ")"
+        }
+        if record.isVideoOnly {
+            return L.t("Video walkthrough", "Video khảo sát")
+        }
+        return L.t("\(record.roomCount) room(s)", "\(record.roomCount) phòng")
     }
 }
