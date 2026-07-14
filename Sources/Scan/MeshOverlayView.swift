@@ -17,8 +17,13 @@ final class MeshOverlayView: SCNView {
     private struct MeshSig: Equatable { let v: Int; let f: Int }
     private var anchorNodes: [UUID: SCNNode] = [:]
     private var anchorSigs: [UUID: MeshSig] = [:]
+    private var inFlight = Set<UUID>()           // anchor đang dựng dở ở nền → chống dồn hàng
+    private var totalVerts = 0                    // tổng đỉnh đang hiển thị (để chặn trần)
+    private static let maxVerts = 150_000         // trần như ColorMeshBuilder — chặn phình bộ nhớ/GPU
     private var lastMeshUpdate: TimeInterval = 0
-    private static let meshUpdateInterval: TimeInterval = 0.3
+    private static let meshUpdateInterval: TimeInterval = 0.5
+    /// Dựng SCNGeometry ở luồng NỀN để không chiếm main thread (main chỉ memcpy nhanh).
+    private let buildQueue = DispatchQueue(label: "com.cedar247.meshoverlay", qos: .utility)
 
     /// Vật liệu wireframe dùng CHUNG cho mọi node (khỏi cấp phát mới mỗi lần dựng lưới).
     private static let wireframeMaterial: SCNMaterial = {
@@ -40,7 +45,7 @@ final class MeshOverlayView: SCNView {
         isOpaque = false
         isUserInteractionEnabled = false   // để chạm đi xuyên xuống RoomCaptureView
         rendersContinuously = true
-        antialiasingMode = .multisampling2X
+        antialiasingMode = .none            // giảm tải GPU khi chạy cùng RoomPlan
         cameraNode.camera = SCNCamera()
         scene?.rootNode.addChildNode(cameraNode)
         pointOfView = cameraNode
@@ -88,7 +93,7 @@ final class MeshOverlayView: SCNView {
         cameraNode.camera?.projectionTransform = SCNMatrix4(projection)
     }
 
-    // MARK: - Dựng lưới từ ARMeshAnchor (throttle 0.3s)
+    // MARK: - Dựng lưới từ ARMeshAnchor (throttle; copy trên main, dựng geometry ở nền)
 
     private func updateMeshes(_ frame: ARFrame) {
         var present = Set<UUID>()
@@ -96,6 +101,9 @@ final class MeshOverlayView: SCNView {
             guard let mesh = anchor as? ARMeshAnchor else { continue }
             let id = mesh.identifier
             present.insert(id)
+
+            // Trần: đã đủ dữ liệu thì không thêm VÙNG MỚI (node cũ vẫn tiếp tục cập nhật).
+            if anchorNodes[id] == nil && totalVerts >= Self.maxVerts { continue }
 
             let node: SCNNode
             if let existing = anchorNodes[id] {
@@ -105,54 +113,80 @@ final class MeshOverlayView: SCNView {
                 scene?.rootNode.addChildNode(node)
                 anchorNodes[id] = node
             }
-            // Pose cập nhật mỗi lần (rẻ). Hình học chỉ dựng lại khi ĐỔI — tránh churn main thread.
+            // Pose cập nhật mỗi lần (rẻ). Hình học chỉ dựng lại khi ĐỔI và không đang dựng dở.
             node.simdTransform = mesh.transform
-            let sig = MeshSig(v: mesh.geometry.vertices.count, f: mesh.geometry.faces.count)
-            if anchorSigs[id] != sig {
-                anchorSigs[id] = sig
-                if let geometry = Self.makeWireframe(from: mesh.geometry) {
-                    node.geometry = geometry
+
+            let vSource = mesh.geometry.vertices
+            let fElement = mesh.geometry.faces
+            let sig = MeshSig(v: vSource.count, f: fElement.count)
+            let vLen = vSource.stride * vSource.count
+            guard anchorSigs[id] != sig,
+                  !inFlight.contains(id),
+                  vSource.count > 0, fElement.count > 0, fElement.indexCountPerPrimitive == 3,
+                  vSource.offset + vLen <= vSource.buffer.length
+            else { continue }
+            totalVerts += sig.v - (anchorSigs[id]?.v ?? 0)
+            anchorSigs[id] = sig
+            inFlight.insert(id)
+
+            // Copy NHANH trên main (ARKit tái dụng MTLBuffer nên phải copy ngay tại đây)…
+            let vBytes = Data(bytes: vSource.buffer.contents().advanced(by: vSource.offset), count: vLen)
+            let iBytes = Data(bytes: fElement.buffer.contents(), count: fElement.buffer.length)
+            let vCount = vSource.count
+            let vStride = vSource.stride
+            let fCount = fElement.count
+            let bpi = fElement.bytesPerIndex
+
+            // …rồi DỰNG geometry ở nền, gán lại trên main. Nhờ vậy main thread không bị chiếm
+            // → ARKit/RoomPlan không rớt frame (trước đây gây "đứng lại" + hủy bản quét + crash).
+            buildQueue.async {
+                let geometry = Self.makeWireframe(
+                    vBytes: vBytes, vCount: vCount, vStride: vStride,
+                    iBytes: iBytes, faceCount: fCount, bytesPerIndex: bpi
+                )
+                DispatchQueue.main.async { [weak self] in
+                    guard let self else { return }
+                    self.inFlight.remove(id)   // luôn giải phóng dù dựng được hay không
+                    if let geometry, let node = self.anchorNodes[id] {
+                        node.geometry = geometry
+                    }
                 }
             }
         }
         // Bỏ node của anchor không còn
         for (id, node) in anchorNodes where !present.contains(id) {
             node.removeFromParentNode()
+            totalVerts -= anchorSigs[id]?.v ?? 0
             anchorNodes.removeValue(forKey: id)
             anchorSigs.removeValue(forKey: id)
         }
     }
 
-    private static func makeWireframe(from mesh: ARMeshGeometry) -> SCNGeometry? {
-        let vertexSource = mesh.vertices
-        let faceElement = mesh.faces
-        let vCount = vertexSource.count
-        guard vCount > 0, faceElement.count > 0, faceElement.indexCountPerPrimitive == 3 else {
-            return nil
-        }
+    /// Dựng wireframe từ dữ liệu ĐÃ copy (chạy ở luồng nền — không đụng buffer của ARKit nữa).
+    private static func makeWireframe(
+        vBytes: Data, vCount: Int, vStride: Int,
+        iBytes: Data, faceCount: Int, bytesPerIndex: Int
+    ) -> SCNGeometry? {
+        guard vCount > 0, faceCount > 0 else { return nil }
 
-        // Sao chép đỉnh: ARKit dùng float3 xếp sát (stride 12) — đọc 3 Float riêng để KHÔNG
-        // over-read như khi ép sang SIMD3<Float> (16 byte).
         var verts = [SCNVector3]()
         verts.reserveCapacity(vCount)
-        let base = vertexSource.buffer.contents()
-        for i in 0..<vCount {
-            let p = base.advanced(by: vertexSource.offset + vertexSource.stride * i)
-            let x = p.assumingMemoryBound(to: Float.self).pointee
-            let y = p.advanced(by: 4).assumingMemoryBound(to: Float.self).pointee
-            let z = p.advanced(by: 8).assumingMemoryBound(to: Float.self).pointee
-            verts.append(SCNVector3(x, y, z))
+        vBytes.withUnsafeBytes { (raw: UnsafeRawBufferPointer) in
+            guard let base = raw.baseAddress else { return }
+            for i in 0..<vCount {
+                let off = vStride * i
+                let x = base.loadUnaligned(fromByteOffset: off, as: Float.self)
+                let y = base.loadUnaligned(fromByteOffset: off + 4, as: Float.self)
+                let z = base.loadUnaligned(fromByteOffset: off + 8, as: Float.self)
+                verts.append(SCNVector3(x, y, z))
+            }
         }
+        guard !verts.isEmpty else { return nil }
 
-        // Sao chép chỉ số mặt sang Data riêng (không giữ MTLBuffer của ARKit — nó bị tái dụng).
-        let indexData = Data(bytes: faceElement.buffer.contents(), count: faceElement.buffer.length)
         let element = SCNGeometryElement(
-            data: indexData,
-            primitiveType: .triangles,
-            primitiveCount: faceElement.count,
-            bytesPerIndex: faceElement.bytesPerIndex
+            data: iBytes, primitiveType: .triangles,
+            primitiveCount: faceCount, bytesPerIndex: bytesPerIndex
         )
-
         let source = SCNGeometrySource(vertices: verts)
         let geometry = SCNGeometry(sources: [source], elements: [element])
         geometry.materials = [Self.wireframeMaterial]
