@@ -28,7 +28,7 @@ struct ScanFlowView: View {
             // Lớp phủ lưới LiDAR (giống CubiCasa) — chỉ khi đang quét & người dùng bật.
             // allowsHitTesting(false): chạm đi xuyên xuống RoomCaptureView.
             if showScanMesh && controller.phase == .scanning {
-                MeshOverlayRepresentable(controller: controller)
+                MeshOverlayRepresentable(arSession: controller.arSession)
                     .ignoresSafeArea()
                     .allowsHitTesting(false)
             }

@@ -245,12 +245,13 @@ final class MeshOverlayView: SCNView {
     }
 }
 
-/// Cầu nối SwiftUI cho lớp phủ lưới. Gắn phía trên RoomCaptureView trong ScanFlowView.
+/// Cầu nối SwiftUI cho lớp phủ lưới. Gắn phía trên RoomCaptureView (ScanFlowView)
+/// hoặc ARSCNView camera (MeshScanFlowView) — chỉ cần ARSession dùng chung.
 struct MeshOverlayRepresentable: UIViewRepresentable {
-    let controller: ScanSessionController
+    let arSession: ARSession
 
     func makeUIView(context: Context) -> MeshOverlayView {
-        let view = MeshOverlayView(arSession: controller.arSession)
+        let view = MeshOverlayView(arSession: arSession)
         view.start()
         return view
     }

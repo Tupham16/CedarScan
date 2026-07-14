@@ -9,11 +9,13 @@ import simd
 ///  - Định kỳ đọc arSession.currentFrame: gom lưới (ARMeshAnchor) + lưu vài "khung màu" nhỏ.
 ///  - Khi kết thúc: chiếu từng đỉnh lưới vào khung màu nhìn thẳng nhất → lấy RGB → ghi PLY.
 final class ColorMeshBuilder {
-    // Giới hạn để file nhẹ + không tốn RAM
-    private static let maxVertices = 120_000
-    private static let maxKeyframes = 40
-    private static let keyframeIntervalSec = 0.4
-    private static let keyframeWidth = 320
+    // Giới hạn để file nhẹ + không tốn RAM — theo mức độ nét đã chọn (MeshQuality)
+    private let maxVertices: Int
+    private let maxKeyframes: Int
+    private let keyframeWidth: Int
+    /// Nhịp chụp khung màu — TỰ NHÂN ĐÔI mỗi khi buffer đầy (xem maybeCaptureColorFrame)
+    /// để khung màu luôn trải ĐỀU cả buổi quét dài bất kỳ với RAM cố định.
+    private var keyframeIntervalSec: Double
 
     private weak var arSession: ARSession?
     private var displayLink: CADisplayLink?
@@ -26,9 +28,27 @@ final class ColorMeshBuilder {
     }
     private var pieces: [UUID: MeshPiece] = [:]
 
-    /// Đã chạm trần 120k đỉnh → anchor mới (phòng quét sau) không được gom nữa.
-    /// Cross-check tường dùng cờ này để KHÔNG trừ điểm "tường thiếu dữ liệu" oan cho khách.
+    /// Chữ ký để BỎ QUA anchor không đổi giữa hai tick (đa số anchor đứng yên đa số thời
+    /// gian — bỏ qua chúng cắt ~95% việc copy trên main thread). PHẢI so cả transform:
+    /// đỉnh được bake sang world-space, nên anchor chỉ tinh chỉnh pose (số đỉnh giữ nguyên)
+    /// mà bị bỏ qua sẽ để lại tọa độ world cũ sai.
+    private struct AnchorSig {
+        var vertexCount: Int
+        var faceCount: Int
+        var transform: simd_float4x4
+    }
+    private var anchorSigs: [UUID: AnchorSig] = [:]
+
+    /// Đã chạm trần đỉnh → anchor mới (khu quét sau) không được gom nữa.
+    /// RoomPlan mode: cross-check tường dùng cờ này để không trừ điểm oan.
+    /// Mesh mode: controller đọc cờ này để hiện banner "mô hình đã đầy".
     private(set) var capReached = false
+
+    /// Tổng số đỉnh đang giữ — Mesh mode dùng để chặn lưu bản quét rỗng.
+    /// Chỉ đọc trên main (cùng luồng với CADisplayLink tick).
+    var vertexCount: Int {
+        pieces.values.reduce(0) { $0 + $1.worldVertices.count }
+    }
 
     // Khung màu: RGB nhỏ (origin trên-trái) + ma trận camera của đúng khung đó
     private struct ColorFrame {
@@ -44,8 +64,13 @@ final class ColorMeshBuilder {
     private var lastKeyframeTime: TimeInterval = 0
     private let queue = DispatchQueue(label: "com.cedar247.colormesh")
 
-    init(arSession: ARSession) {
+    init(arSession: ARSession, quality: MeshQuality = .light) {
         self.arSession = arSession
+        let preset = quality.preset
+        maxVertices = preset.maxVertices
+        maxKeyframes = preset.maxKeyframes
+        keyframeWidth = preset.keyframeWidth
+        keyframeIntervalSec = preset.keyframeIntervalSec
     }
 
     func start() {
@@ -73,41 +98,59 @@ final class ColorMeshBuilder {
         var vertexTotal = pieces.values.reduce(0) { $0 + $1.worldVertices.count }
         for anchor in frame.anchors {
             guard let mesh = anchor as? ARMeshAnchor else { continue }
-            if pieces[mesh.identifier] == nil && vertexTotal >= Self.maxVertices {
+            let geometry = mesh.geometry
+            let vSource = geometry.vertices
+            let nSource = geometry.normals
+            let faceElement = geometry.faces
+            let count = vSource.count
+            let transform = mesh.transform
+
+            // Anchor KHÔNG ĐỔI từ tick trước → bỏ qua (đỡ copy lại cả phiên mỗi tick).
+            if let old = anchorSigs[mesh.identifier],
+               old.vertexCount == count, old.faceCount == faceElement.count,
+               old.transform == transform {
+                continue
+            }
+            if pieces[mesh.identifier] == nil && vertexTotal >= maxVertices {
                 capReached = true
                 continue
             }
+            // Chặn đọc lấn buffer: vertices/normals là float3 PACKED stride 12 —
+            // đọc 3 Float rời bằng loadUnaligned, tuyệt đối không ép SIMD3<Float> (16 byte).
+            guard count > 0,
+                  vSource.offset + vSource.stride * count <= vSource.buffer.length,
+                  nSource.count >= count,
+                  nSource.offset + nSource.stride * count <= nSource.buffer.length
+            else { continue }
 
-            let geometry = mesh.geometry
-            let transform = mesh.transform
             let normalMatrix = simd_float3x3(
                 SIMD3(transform.columns.0.x, transform.columns.0.y, transform.columns.0.z),
                 SIMD3(transform.columns.1.x, transform.columns.1.y, transform.columns.1.z),
                 SIMD3(transform.columns.2.x, transform.columns.2.y, transform.columns.2.z)
             )
 
-            let vSource = geometry.vertices
-            let nSource = geometry.normals
-            let count = vSource.count
+            let vBase = vSource.buffer.contents().advanced(by: vSource.offset)
+            let nBase = nSource.buffer.contents().advanced(by: nSource.offset)
             var worldVertices = [SIMD3<Float>](); worldVertices.reserveCapacity(count)
             var worldNormals = [SIMD3<Float>](); worldNormals.reserveCapacity(count)
             for i in 0..<count {
-                let vPtr = vSource.buffer.contents()
-                    .advanced(by: vSource.offset + vSource.stride * i)
-                    .assumingMemoryBound(to: SIMD3<Float>.self)
-                let local = vPtr.pointee
-                let world = transform * SIMD4<Float>(local.x, local.y, local.z, 1)
+                let vOff = vSource.stride * i
+                let lx = vBase.loadUnaligned(fromByteOffset: vOff, as: Float.self)
+                let ly = vBase.loadUnaligned(fromByteOffset: vOff + 4, as: Float.self)
+                let lz = vBase.loadUnaligned(fromByteOffset: vOff + 8, as: Float.self)
+                let world = transform * SIMD4<Float>(lx, ly, lz, 1)
                 worldVertices.append(SIMD3(world.x, world.y, world.z))
 
-                let nPtr = nSource.buffer.contents()
-                    .advanced(by: nSource.offset + nSource.stride * i)
-                    .assumingMemoryBound(to: SIMD3<Float>.self)
-                worldNormals.append(simd_normalize(normalMatrix * nPtr.pointee))
+                let nOff = nSource.stride * i
+                let nx = nBase.loadUnaligned(fromByteOffset: nOff, as: Float.self)
+                let ny = nBase.loadUnaligned(fromByteOffset: nOff + 4, as: Float.self)
+                let nz = nBase.loadUnaligned(fromByteOffset: nOff + 8, as: Float.self)
+                worldNormals.append(simd_normalize(normalMatrix * SIMD3(nx, ny, nz)))
             }
 
-            let faceElement = geometry.faces
             var faces = [(UInt32, UInt32, UInt32)]()
-            if faceElement.bytesPerIndex == 4 && faceElement.indexCountPerPrimitive == 3 {
+            if faceElement.bytesPerIndex == 4, faceElement.indexCountPerPrimitive == 3,
+               faceElement.count * 3 * 4 <= faceElement.buffer.length {
                 faces.reserveCapacity(faceElement.count)
                 let base = faceElement.buffer.contents()
                 for f in 0..<faceElement.count {
@@ -122,6 +165,9 @@ final class ColorMeshBuilder {
             pieces[mesh.identifier] = MeshPiece(
                 worldVertices: worldVertices, worldNormals: worldNormals, faces: faces
             )
+            anchorSigs[mesh.identifier] = AnchorSig(
+                vertexCount: count, faceCount: faceElement.count, transform: transform
+            )
             vertexTotal += worldVertices.count
         }
     }
@@ -129,7 +175,7 @@ final class ColorMeshBuilder {
     // MARK: - Khung màu
 
     private func maybeCaptureColorFrame(from frame: ARFrame) {
-        guard frame.timestamp - lastKeyframeTime >= Self.keyframeIntervalSec else { return }
+        guard frame.timestamp - lastKeyframeTime >= keyframeIntervalSec else { return }
         lastKeyframeTime = frame.timestamp
 
         let pixelBuffer = frame.capturedImage
@@ -147,7 +193,7 @@ final class ColorMeshBuilder {
         let yPtr = yBase.assumingMemoryBound(to: UInt8.self)
         let cPtr = cBase.assumingMemoryBound(to: UInt8.self)
 
-        let tw = min(Self.keyframeWidth, srcW)
+        let tw = min(keyframeWidth, srcW)
         let th = max(1, Int((Float(tw) * Float(srcH) / Float(srcW)).rounded()))
         var rgb = [UInt8](repeating: 0, count: tw * th * 3)
 
@@ -170,12 +216,15 @@ final class ColorMeshBuilder {
             rgb: rgb, w: tw, h: th, srcW: Float(srcW), srcH: Float(srcH),
             transform: frame.camera.transform, intrinsics: frame.camera.intrinsics
         )
-        if keyframes.count >= Self.maxKeyframes {
-            // Giữ đều: thay 1 khung cũ ngẫu-nhiên-theo-vị-trí để trải khắp buổi quét
-            keyframes[keyframes.count % Self.maxKeyframes] = kf
-        } else {
-            keyframes.append(kf)
+        if keyframes.count >= maxKeyframes {
+            // Buffer đầy: BỎ 1 KHUNG XEN KẼ (giữ 0,2,4,…) rồi nhân đôi nhịp chụp — khung màu
+            // luôn trải ĐỀU cả buổi quét dài bất kỳ với RAM cố định.
+            // (Fix bug cũ: `count % max` luôn = 0 khi đầy → chỉ đè slot 0, slot 1..39 đóng
+            // băng ở ~16 giây đầu → quét dài ra màu xám/sai ở mọi thứ quét sau đó.)
+            keyframes = stride(from: 0, to: keyframes.count, by: 2).map { keyframes[$0] }
+            keyframeIntervalSec *= 2
         }
+        keyframes.append(kf)
     }
 
     private func clampByte(_ v: Float) -> UInt8 {
@@ -219,10 +268,23 @@ final class ColorMeshBuilder {
         }
         guard !vertices.isEmpty, !faces.isEmpty else { return nil }
 
-        // Màu từng đỉnh
+        // Màu từng đỉnh — dữ liệu chiếu của mỗi khung màu tính SẴN 1 lần (hoist simd_inverse
+        // + intrinsics khỏi vòng lặp: trước đây bị tính lại cho TỪNG đỉnh × TỪNG khung,
+        // hàng chục triệu lần thừa ở mức Nét → save lâu vô lý).
+        let samplers = keyframes.map { kf in
+            KeyframeSampler(
+                rgb: kf.rgb, w: kf.w, h: kf.h, srcW: kf.srcW, srcH: kf.srcH,
+                camPos: SIMD3(kf.transform.columns.3.x, kf.transform.columns.3.y, kf.transform.columns.3.z),
+                worldToCamera: simd_inverse(kf.transform),
+                fx: kf.intrinsics.columns.0.x,
+                fy: kf.intrinsics.columns.1.y,
+                cx: kf.intrinsics.columns.2.x,
+                cy: kf.intrinsics.columns.2.y
+            )
+        }
         var colors = [SIMD3<UInt8>](repeating: SIMD3(150, 150, 150), count: vertices.count)
         for i in vertices.indices {
-            colors[i] = sampleColor(world: vertices[i], normal: normals[i], keyframes: keyframes)
+            colors[i] = sampleColor(world: vertices[i], normal: normals[i], samplers: samplers)
         }
 
         // Ghi PLY nhị phân little-endian (KHÔNG dùng ModelIO — lỗi màu trên iOS)
@@ -263,42 +325,52 @@ final class ColorMeshBuilder {
         }
     }
 
+    /// Khung màu + dữ liệu chiếu đã tính sẵn (1 lần/khung, dùng cho mọi đỉnh).
+    private struct KeyframeSampler {
+        let rgb: [UInt8]
+        let w: Int
+        let h: Int
+        let srcW: Float
+        let srcH: Float
+        let camPos: SIMD3<Float>
+        let worldToCamera: simd_float4x4
+        let fx: Float
+        let fy: Float
+        let cx: Float
+        let cy: Float
+    }
+
     /// Chiếu đỉnh vào các khung màu, chọn khung nhìn thẳng nhất, lấy RGB.
+    /// Lưu ý đã biết: KHÔNG có occlusion test — đỉnh tầng 2 có normal tình cờ hướng về camera
+    /// tầng 1 có thể lấy màu xuyên sàn; nhiều khung màu trải đều làm giảm chứ không loại hẳn.
     private static func sampleColor(
-        world: SIMD3<Float>, normal: SIMD3<Float>, keyframes: [ColorFrame]
+        world: SIMD3<Float>, normal: SIMD3<Float>, samplers: [KeyframeSampler]
     ) -> SIMD3<UInt8> {
         var best: SIMD3<UInt8>? = nil
         var bestScore: Float = -1
 
-        for kf in keyframes {
-            let camPos = SIMD3(kf.transform.columns.3.x, kf.transform.columns.3.y, kf.transform.columns.3.z)
-            let toCam = simd_normalize(camPos - world)
+        for kf in samplers {
+            let toCam = simd_normalize(kf.camPos - world)
             let facing = simd_dot(normal, toCam)
             if facing <= 0.1 { continue } // quay lưng với camera → bỏ
+            if facing <= bestScore { continue } // không thể thắng khung tốt nhất → khỏi chiếu
 
             // Đưa về hệ camera (camera nhìn theo -Z)
-            let inv = simd_inverse(kf.transform)
-            let cs4 = inv * SIMD4<Float>(world.x, world.y, world.z, 1)
+            let cs4 = kf.worldToCamera * SIMD4<Float>(world.x, world.y, world.z, 1)
             let z = cs4.z
             if z >= -0.05 { continue } // sau lưng hoặc quá sát
 
-            let fx = kf.intrinsics.columns.0.x
-            let fy = kf.intrinsics.columns.1.y
-            let cx = kf.intrinsics.columns.2.x
-            let cy = kf.intrinsics.columns.2.y
             // Ảnh gốc: origin trên-trái, x phải, y xuống
-            let xImg = cx + fx * (cs4.x / -z)
-            let yImg = cy + fy * (cs4.y / z)
+            let xImg = kf.cx + kf.fx * (cs4.x / -z)
+            let yImg = kf.cy + kf.fy * (cs4.y / z)
             guard xImg >= 0, yImg >= 0, xImg < kf.srcW, yImg < kf.srcH else { continue }
 
             let kx = min(kf.w - 1, Int(xImg * Float(kf.w) / kf.srcW))
             let ky = min(kf.h - 1, Int(yImg * Float(kf.h) / kf.srcH))
             let o = (ky * kf.w + kx) * 3
 
-            if facing > bestScore {
-                bestScore = facing
-                best = SIMD3(kf.rgb[o], kf.rgb[o + 1], kf.rgb[o + 2])
-            }
+            bestScore = facing
+            best = SIMD3(kf.rgb[o], kf.rgb[o + 1], kf.rgb[o + 2])
         }
         return best ?? SIMD3(150, 150, 150)
     }
