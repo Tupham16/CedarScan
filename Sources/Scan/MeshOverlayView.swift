@@ -77,7 +77,11 @@ final class MeshOverlayView: SCNView {
     private func updateCamera(_ frame: ARFrame) {
         let size = bounds.size
         guard size.width > 0, size.height > 0 else { return }
-        cameraNode.simdTransform = frame.camera.transform   // camera→world, cùng quy ước SceneKit
+        // PHẢI ghép viewMatrix và projectionMatrix CÙNG orientation (.portrait) cho nhất quán.
+        // camera.transform "thô" tham chiếu theo chiều NGANG của cảm biến; ghép nó với projection
+        // đã xoay portrait sẽ lệch đúng 90°. viewMatrix(for:.portrait) đã bao gồm phép xoay này.
+        // node camera = nghịch đảo của view (world→camera) = camera→world.
+        cameraNode.simdTransform = frame.camera.viewMatrix(for: .portrait).inverse
         let projection = frame.camera.projectionMatrix(
             for: .portrait, viewportSize: size, zNear: 0.01, zFar: 50
         )
