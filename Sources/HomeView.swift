@@ -5,6 +5,9 @@ struct HomeView: View {
     @EnvironmentObject private var store: ScanStore
     @State private var isScanning = false
     @State private var isVideoScanning = false
+    @State private var isMeshScanning = false
+    @State private var showModePicker = false
+    @AppStorage("meshQuality") private var meshQuality: MeshQuality = .light
     @State private var recordToRename: ScanRecord?
     @State private var renameText = ""
     @State private var saveError: String?
@@ -49,6 +52,33 @@ struct HomeView: View {
                     ScanGuideView { startScanning() }
                 } else {
                     ScanGuideView()
+                }
+            }
+            .sheet(isPresented: $showModePicker) {
+                ScanModePickerView { mode in
+                    switch mode {
+                    case .floorplan: isScanning = true
+                    case .mesh: isMeshScanning = true
+                    }
+                }
+                .presentationDetents([.medium, .large])
+            }
+            .fullScreenCover(isPresented: $isMeshScanning) {
+                MeshScanFlowView(quality: meshQuality) { videoURL, meshURL, name in
+                    do {
+                        _ = try await store.saveMeshScan(
+                            videoURL: videoURL, meshURL: meshURL, name: name, quality: meshQuality
+                        )
+                    } catch {
+                        // Không hiện alert khi cover còn mở — sẽ bị nuốt lúc dismiss.
+                        pendingSaveError = error.localizedDescription
+                    }
+                }
+            }
+            .onChange(of: isMeshScanning) { _, presented in
+                if !presented, let message = pendingSaveError {
+                    pendingSaveError = nil
+                    saveError = message
                 }
             }
             .fullScreenCover(isPresented: $isVideoScanning) {
@@ -209,7 +239,7 @@ struct HomeView: View {
 
     private func startScanning() {
         if isSupported {
-            isScanning = true
+            showModePicker = true
         } else {
             isVideoScanning = true
         }

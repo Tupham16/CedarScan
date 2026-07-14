@@ -9,6 +9,9 @@ struct ProjectView: View {
 
     @State private var isScanning = false
     @State private var isVideoScanning = false
+    @State private var isMeshScanning = false
+    @State private var showModePicker = false
+    @AppStorage("meshQuality") private var meshQuality: MeshQuality = .light
     @State private var showOrderSheet = false
     @State private var showLowQualityConfirm = false
     @State private var recordToRename: ScanRecord?
@@ -128,6 +131,33 @@ struct ProjectView: View {
                 }
             }
         }
+        .sheet(isPresented: $showModePicker) {
+            ScanModePickerView { mode in
+                switch mode {
+                case .floorplan: isScanning = true
+                case .mesh: isMeshScanning = true
+                }
+            }
+            .presentationDetents([.medium, .large])
+        }
+        .fullScreenCover(isPresented: $isMeshScanning) {
+            MeshScanFlowView(quality: meshQuality) { videoURL, meshURL, name in
+                do {
+                    _ = try await store.saveMeshScan(
+                        videoURL: videoURL, meshURL: meshURL, name: name,
+                        projectId: projectId, quality: meshQuality
+                    )
+                } catch {
+                    pendingSaveError = error.localizedDescription
+                }
+            }
+        }
+        .onChange(of: isMeshScanning) { _, presented in
+            if !presented, let message = pendingSaveError {
+                pendingSaveError = nil
+                saveError = message
+            }
+        }
         .onChange(of: isVideoScanning) { _, presented in
             if !presented, let message = pendingSaveError {
                 pendingSaveError = nil
@@ -186,7 +216,7 @@ struct ProjectView: View {
         VStack(spacing: 8) {
             Button {
                 if isSupported {
-                    isScanning = true
+                    showModePicker = true
                 } else {
                     isVideoScanning = true
                 }
