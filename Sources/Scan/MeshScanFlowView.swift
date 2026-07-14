@@ -8,9 +8,10 @@ struct MeshScanFlowView: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var controller: MeshScanController
 
-    /// (videoURL, meshURL, tên bản quét). Lỗi lưu do call-site giữ qua pendingSaveError
-    /// và hiện alert SAU khi cover đóng (pattern chung của HomeView/ProjectView).
-    let onFinish: (URL?, URL?, String?) async -> Void
+    /// (videoURL, meshURL, tên bản quét, mức nét THẬT SỰ đã quét — không đọc lại AppStorage
+    /// lúc lưu, tránh lệch khi cửa sổ khác đổi tier giữa chừng trên iPad). Lỗi lưu do
+    /// call-site giữ qua pendingSaveError và hiện alert SAU khi cover đóng.
+    let onFinish: (URL?, URL?, String?, MeshQuality) async -> Void
 
     @State private var showNaming = false
     @State private var showEmptyMeshConfirm = false
@@ -19,7 +20,7 @@ struct MeshScanFlowView: View {
     @State private var scanName = ""
     @AppStorage("showScanMesh") private var showScanMesh = true
 
-    init(quality: MeshQuality, onFinish: @escaping (URL?, URL?, String?) async -> Void) {
+    init(quality: MeshQuality, onFinish: @escaping (URL?, URL?, String?, MeshQuality) async -> Void) {
         _controller = StateObject(wrappedValue: MeshScanController(quality: quality))
         self.onFinish = onFinish
     }
@@ -31,7 +32,7 @@ struct MeshScanFlowView: View {
 
     var body: some View {
         ZStack {
-            ARCameraViewRepresentable(arSession: controller.arSession)
+            ARCameraViewRepresentable(arSession: controller.arSession, sessionDelegate: controller)
                 .ignoresSafeArea()
 
             // Lưới quét trực tiếp (tái dùng từ luồng RoomPlan — chỉ đọc chung ARSession)
@@ -65,6 +66,12 @@ struct MeshScanFlowView: View {
                 showUnsupported = true
             }
         }
+        // Lưới an toàn: cover bị gỡ bằng đường nào đi nữa cũng không được để idle timer
+        // kẹt tắt + CADisplayLink giữ builder/recorder sống mãi. cancel() idempotent
+        // (isStopped) nên đường Lưu/Hủy bình thường không bị ảnh hưởng.
+        .onDisappear {
+            controller.cancel()
+        }
         .alert(
             L.t("LiDAR not available", "Máy không hỗ trợ LiDAR"),
             isPresented: $showUnsupported
@@ -82,7 +89,9 @@ struct MeshScanFlowView: View {
             titleVisibility: .visible
         ) {
             Button(L.t("Keep scanning", "Quét tiếp"), role: .cancel) {}
-            Button(L.t("Save video only", "Vẫn lưu (chỉ có video)")) {
+            // "Vẫn lưu phần đã có": mesh dưới ngưỡng (nếu >0 đỉnh) vẫn được xuất kèm video.
+            Button(L.t("Save anyway", "Vẫn lưu phần đã có")) {
+                controller.qualityMonitor.setActive(false)
                 showNaming = true
             }
         } message: {
@@ -152,10 +161,17 @@ struct MeshScanFlowView: View {
 
     @ViewBuilder
     private var warningBanner: some View {
+        // Ưu tiên: mất định vị > đang gián đoạn (nhất thời) > mô hình đầy (cố định).
+        // capReached không bao giờ tự hết nên phải đứng CUỐI, không được che 2 cái kia.
         if controller.trackingLost {
             bannerLabel(
                 L.t("Tracking lost — Stop & Save what you have.", "Mất định vị — hãy Dừng & Lưu phần đã quét."),
                 color: .red
+            )
+        } else if controller.isInterrupted {
+            bannerLabel(
+                L.t("Scan interrupted — waiting to recover…", "Phiên quét bị gián đoạn — đang chờ khôi phục…"),
+                color: .yellow
             )
         } else if controller.capReached {
             bannerLabel(
@@ -164,11 +180,6 @@ struct MeshScanFlowView: View {
                     "Mô hình đã đầy — khu vực quét thêm KHÔNG được ghi. Hãy Dừng & Lưu."
                 ),
                 color: .orange
-            )
-        } else if controller.isInterrupted {
-            bannerLabel(
-                L.t("Scan interrupted — waiting to recover…", "Phiên quét bị gián đoạn — đang chờ khôi phục…"),
-                color: .yellow
             )
         }
     }
@@ -200,7 +211,10 @@ struct MeshScanFlowView: View {
                 showNaming = false
                 saveAndClose()
             },
-            onBack: { showNaming = false }
+            onBack: {
+                showNaming = false
+                controller.qualityMonitor.setActive(true) // quét tiếp → bật lại coach
+            }
         )
     }
 
@@ -226,16 +240,27 @@ struct MeshScanFlowView: View {
         if controller.meshVertexCount < 5_000 {
             showEmptyMeshConfirm = true
         } else {
+            // Tắt coach trong lúc đặt tên — không rung/nói "bật đèn" khi đang gõ chữ.
+            controller.qualityMonitor.setActive(false)
             showNaming = true
         }
     }
 
     private func saveAndClose() {
+        guard !isSaving else { return } // chống double-tap nút Lưu
         isSaving = true
         let name = scanName.trimmingCharacters(in: .whitespacesAndNewlines)
         Task {
+            // Giữ app sống nếu bị background đúng lúc export/lưu (cuộc gọi đến ở giây
+            // cuối) — không thì buổi quét 30 phút có thể mất trắng vì chưa ghi record.
+            let bgTask = UIApplication.shared.beginBackgroundTask(expirationHandler: nil)
+            defer {
+                if bgTask != .invalid {
+                    UIApplication.shared.endBackgroundTask(bgTask)
+                }
+            }
             let result = await controller.stopAndExport()
-            await onFinish(result.videoURL, result.meshURL, name.isEmpty ? nil : name)
+            await onFinish(result.videoURL, result.meshURL, name.isEmpty ? nil : name, controller.quality)
             isSaving = false
             dismiss()
         }

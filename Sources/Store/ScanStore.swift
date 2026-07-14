@@ -227,7 +227,9 @@ final class ScanStore: ObservableObject {
             areaSqm: nil,
             projectId: projectId,
             captureType: "mesh",
-            meshQuality: quality.rawValue
+            // Không có mesh (chỉ cứu được video) thì đừng gắn nhãn tier — dòng danh sách
+            // sẽ không quảng cáo "Mesh 3D (Nét)" cho một bản chỉ có video.
+            meshQuality: hasMesh ? quality.rawValue : nil
         )
         let folder = folderURL(for: record)
         try fileManager.createDirectory(at: folder, withIntermediateDirectories: true)

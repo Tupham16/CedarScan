@@ -8,10 +8,17 @@ import ARKit
 /// Lưới quét vẽ bằng MeshOverlayView chồng lên trên (tái dùng, đã chạy ổn với RoomPlan).
 struct ARCameraViewRepresentable: UIViewRepresentable {
     let arSession: ARSession
+    /// Delegate cần giữ trên session (MeshScanController). Gán lại SAU khi view nhận
+    /// session — chống mọi thứ tự makeUIView/onAppear và mọi hành vi ARSCNView đụng
+    /// vào delegate khi được gán session (belt-and-suspenders, 1 dòng).
+    weak var sessionDelegate: ARSessionDelegate?
 
     func makeUIView(context: Context) -> ARSCNView {
         let view = ARSCNView(frame: .zero)
         view.session = arSession
+        if let sessionDelegate {
+            arSession.delegate = sessionDelegate
+        }
         view.scene = SCNScene()
         view.automaticallyUpdatesLighting = false
         view.antialiasingMode = .none        // đỡ GPU — MeshOverlayView còn render chồng lên

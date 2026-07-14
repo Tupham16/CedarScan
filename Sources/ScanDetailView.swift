@@ -332,16 +332,30 @@ struct ScanDetailView: View {
         VStack(alignment: .leading, spacing: 6) {
             Label(meshTitle, systemImage: "cube.transparent")
                 .font(.caption.weight(.semibold))
-            Text(L.t(
-                "Share the colored 3D model (GLB / OBJ / PLY) from the share menu. This scan type has no floor plan.",
-                "Chia sẻ mô hình 3D màu (GLB / OBJ / PLY) từ menu chia sẻ. Loại bản quét này không có bản vẽ mặt bằng."
-            ))
-            .font(.caption)
-            .foregroundStyle(.secondary)
+            Text(meshFooterText)
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal)
         .padding(.bottom, 6)
+    }
+
+    /// Chỉ hứa "chia sẻ GLB/OBJ/PLY" khi thật sự có file mesh (quét dừng quá sớm
+    /// có thể chỉ cứu được video).
+    private var meshFooterText: String {
+        let hasMeshFiles = coloredGLBExists || coloredZipExists
+            || FileManager.default.fileExists(atPath: plyURL.path)
+        if hasMeshFiles {
+            return L.t(
+                "Share the colored 3D model (GLB / OBJ / PLY) from the share menu. This scan type has no floor plan.",
+                "Chia sẻ mô hình 3D màu (GLB / OBJ / PLY) từ menu chia sẻ. Loại bản quét này không có bản vẽ mặt bằng."
+            )
+        }
+        return L.t(
+            "This scan has video only — no 3D model was captured.",
+            "Bản quét này chỉ có video — chưa thu được mô hình 3D."
+        )
     }
 
     private var meshTitle: String {

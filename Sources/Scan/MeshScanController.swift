@@ -76,10 +76,14 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
 
     /// Dừng quét và xuất (video, mesh PLY). Pause session TRƯỚC khi export — giải phóng
     /// camera/LiDAR và CPU dựng lưới cho việc dựng PLY (không còn RoomPlan nào cần session).
+    /// @MainActor BẮT BUỘC: hàm async không isolation sẽ chạy thân hàm trên executor NỀN
+    /// (SE-0338) → Timer.invalidate/UIApplication/pause + sửa state đua với delegate main.
+    @MainActor
     func stopAndExport() async -> (videoURL: URL?, meshURL: URL?) {
         guard !isStopped else { return (nil, nil) }
         isStopped = true
         teardownCommon()
+        colorMesh?.stop() // tắt CADisplayLink ngay trên main trước khi export
         arSession.pause()
         let videoURL = await recorder?.finish()
         recorder = nil
@@ -118,6 +122,10 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
     func sessionWasInterrupted(_ session: ARSession) {
         guard !isStopped else { return }
         isInterrupted = true
+        // Hủy đồng hồ relocalize còn treo từ gián đoạn trước — không thì nó nổ giữa
+        // gián đoạn thứ hai và báo "mất định vị" oan.
+        relocalizeTimer?.invalidate()
+        relocalizeTimer = nil
         colorMesh?.stop()
         qualityMonitor.setActive(false)
     }
@@ -130,7 +138,11 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
         relocalizeTimer = Timer.scheduledTimer(withTimeInterval: 10, repeats: false) { [weak self] _ in
             guard let self, !self.isStopped else { return }
             if case .some(.normal) = self.arSession.currentFrame?.camera.trackingState {
-                // đã hồi phục — cameraDidChangeTrackingState xử lý rồi
+                // Đã hồi phục — thường cameraDidChangeTrackingState đã lo, nhưng gọi lại
+                // cho chắc (cả hai idempotent) để không bao giờ kẹt ở trạng thái
+                // "lưới vẫn vẽ mà không ghi gì".
+                self.colorMesh?.start()
+                self.qualityMonitor.setActive(true)
             } else {
                 self.trackingLost = true
             }

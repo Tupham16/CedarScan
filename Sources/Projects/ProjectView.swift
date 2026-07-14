@@ -11,6 +11,7 @@ struct ProjectView: View {
     @State private var isVideoScanning = false
     @State private var isMeshScanning = false
     @State private var showModePicker = false
+    @State private var pendingScanMode: ScanMode?
     @AppStorage("meshQuality") private var meshQuality: MeshQuality = .light
     @State private var showOrderSheet = false
     @State private var showLowQualityConfirm = false
@@ -131,21 +132,26 @@ struct ProjectView: View {
                 }
             }
         }
-        .sheet(isPresented: $showModePicker) {
+        // Mở cover từ onDismiss của sheet (chờ sheet đóng XONG mới present) — như HomeView.
+        .sheet(isPresented: $showModePicker, onDismiss: {
+            guard let mode = pendingScanMode else { return }
+            pendingScanMode = nil
+            switch mode {
+            case .floorplan: isScanning = true
+            case .mesh: isMeshScanning = true
+            }
+        }) {
             ScanModePickerView { mode in
-                switch mode {
-                case .floorplan: isScanning = true
-                case .mesh: isMeshScanning = true
-                }
+                pendingScanMode = mode
             }
             .presentationDetents([.medium, .large])
         }
         .fullScreenCover(isPresented: $isMeshScanning) {
-            MeshScanFlowView(quality: meshQuality) { videoURL, meshURL, name in
+            MeshScanFlowView(quality: meshQuality) { videoURL, meshURL, name, usedQuality in
                 do {
                     _ = try await store.saveMeshScan(
                         videoURL: videoURL, meshURL: meshURL, name: name,
-                        projectId: projectId, quality: meshQuality
+                        projectId: projectId, quality: usedQuality
                     )
                 } catch {
                     pendingSaveError = error.localizedDescription

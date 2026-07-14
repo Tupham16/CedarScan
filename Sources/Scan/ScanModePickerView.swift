@@ -18,36 +18,39 @@ struct ScanModePickerView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 12) {
-                ModeCard(
-                    icon: "square.split.bottomrightquarter",
-                    title: L.t("Floor plan scan (per floor)", "Quét mặt bằng (từng tầng)"),
-                    subtitle: L.t(
-                        "Best for ordering a floor plan — scan room by room, one floor per scan.",
-                        "Chuẩn để đặt làm bản vẽ mặt bằng — quét từng phòng, mỗi tầng một bản."
-                    ),
-                    isSelected: selected == .floorplan
-                ) { selected = .floorplan }
+            // ScrollView: ở detent .medium nội dung (2 card + tier picker + nút) có thể
+            // vượt chiều cao khả dụng trên máy 6.1" — không được ép nén/cắt chữ.
+            ScrollView {
+                VStack(spacing: 12) {
+                    ModeCard(
+                        icon: "square.split.bottomrightquarter",
+                        title: L.t("Floor plan scan (per floor)", "Quét mặt bằng (từng tầng)"),
+                        subtitle: L.t(
+                            "Best for ordering a floor plan — scan room by room, one floor per scan.",
+                            "Chuẩn để đặt làm bản vẽ mặt bằng — quét từng phòng, mỗi tầng một bản."
+                        ),
+                        isSelected: selected == .floorplan
+                    ) { selected = .floorplan }
 
-                ModeCard(
-                    icon: "cube.transparent",
-                    title: L.t("3D scan (whole home)", "Quét 3D nguyên căn"),
-                    subtitle: L.t(
-                        "One continuous scan across floors, Stop & Save anytime. Produces a colored 3D model + video — NO floor plan drawing.",
-                        "Quét liền một mạch nhiều tầng, Dừng & Lưu bất kỳ lúc nào. Ra mô hình 3D màu + video — KHÔNG có bản vẽ mặt bằng."
-                    ),
-                    isSelected: selected == .mesh
-                ) { selected = .mesh }
+                    ModeCard(
+                        icon: "cube.transparent",
+                        title: L.t("3D scan (whole home)", "Quét 3D nguyên căn"),
+                        subtitle: L.t(
+                            "One continuous scan across floors, Stop & Save anytime. Produces a colored 3D model + video — NO floor plan drawing.",
+                            "Quét liền một mạch nhiều tầng, Dừng & Lưu bất kỳ lúc nào. Ra mô hình 3D màu + video — KHÔNG có bản vẽ mặt bằng."
+                        ),
+                        isSelected: selected == .mesh
+                    ) { selected = .mesh }
 
-                if selected == .mesh {
-                    QualityTierPicker(quality: $meshQuality)
+                    if selected == .mesh {
+                        QualityTierPicker(quality: $meshQuality)
+                    }
+
+                    startButton
+                        .padding(.top, 4)
                 }
-
-                Spacer(minLength: 0)
-
-                startButton
+                .padding()
             }
-            .padding()
             .navigationTitle(L.t("Choose scan type", "Chọn kiểu quét"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
