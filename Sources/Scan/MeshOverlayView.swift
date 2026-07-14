@@ -1,6 +1,7 @@
 import SwiftUI
 import SceneKit
 import ARKit
+import simd
 
 /// Lớp phủ LƯỚI LiDAR (wireframe) lên trên RoomCaptureView, canh theo camera AR theo thời
 /// gian thực — để người quét biết bề mặt nào đã được quét (giống CubiCasa/Polycam).
@@ -17,6 +18,7 @@ final class MeshOverlayView: SCNView {
     private struct MeshSig: Equatable { let v: Int; let f: Int }
     private var anchorNodes: [UUID: SCNNode] = [:]
     private var anchorSigs: [UUID: MeshSig] = [:]
+    private var anchorDists: [UUID: Float] = [:] // khoảng cách anchor→camera (cho việc nhả vùng xa)
     private var inFlight = Set<UUID>()           // anchor đang dựng dở ở nền → chống dồn hàng
     private var totalVerts = 0                    // tổng đỉnh đang hiển thị (để chặn trần)
     private static let maxVerts = 150_000         // trần như ColorMeshBuilder — chặn phình bộ nhớ/GPU
@@ -96,29 +98,39 @@ final class MeshOverlayView: SCNView {
     // MARK: - Dựng lưới từ ARMeshAnchor (throttle; copy trên main, dựng geometry ở nền)
 
     private func updateMeshes(_ frame: ARFrame) {
+        let c4 = frame.camera.transform.columns.3
+        let camPos = SIMD3(c4.x, c4.y, c4.z)
         var present = Set<UUID>()
         for anchor in frame.anchors {
             guard let mesh = anchor as? ARMeshAnchor else { continue }
             let id = mesh.identifier
             present.insert(id)
 
-            // Trần: đã đủ dữ liệu thì không thêm VÙNG MỚI (node cũ vẫn tiếp tục cập nhật).
-            if anchorNodes[id] == nil && totalVerts >= Self.maxVerts { continue }
+            let a4 = mesh.transform.columns.3
+            let dist = simd_distance(SIMD3(a4.x, a4.y, a4.z), camPos)
+            anchorDists[id] = dist
+
+            let vSource = mesh.geometry.vertices
+            let fElement = mesh.geometry.faces
+            let sig = MeshSig(v: vSource.count, f: fElement.count)
 
             let node: SCNNode
             if let existing = anchorNodes[id] {
                 node = existing
             } else {
-                node = SCNNode()
-                scene?.rootNode.addChildNode(node)
-                anchorNodes[id] = node
+                // Vùng MỚI khi đã chạm trần: chỉ nhận nếu nhả được các vùng XA HƠN để lấy chỗ
+                // — lưới "đi theo" người quét thay vì tắt hẳn (lỗi cũ: quét lâu là mất lưới).
+                if totalVerts + sig.v > Self.maxVerts {
+                    guard evictFarther(than: dist, toFit: sig.v) else { continue }
+                }
+                let created = SCNNode()
+                scene?.rootNode.addChildNode(created)
+                anchorNodes[id] = created
+                node = created
             }
             // Pose cập nhật mỗi lần (rẻ). Hình học chỉ dựng lại khi ĐỔI và không đang dựng dở.
             node.simdTransform = mesh.transform
 
-            let vSource = mesh.geometry.vertices
-            let fElement = mesh.geometry.faces
-            let sig = MeshSig(v: vSource.count, f: fElement.count)
             let vLen = vSource.stride * vSource.count
             guard anchorSigs[id] != sig,
                   !inFlight.contains(id),
@@ -153,13 +165,52 @@ final class MeshOverlayView: SCNView {
                 }
             }
         }
-        // Bỏ node của anchor không còn
-        for (id, node) in anchorNodes where !present.contains(id) {
-            node.removeFromParentNode()
-            totalVerts -= anchorSigs[id]?.v ?? 0
-            anchorNodes.removeValue(forKey: id)
-            anchorSigs.removeValue(forKey: id)
+        // Bỏ node/dữ liệu của anchor không còn trong phiên
+        for id in Array(anchorDists.keys) where !present.contains(id) {
+            removeAnchor(id)
         }
+        // Anchor cũ phình to có thể đẩy tổng vượt trần → tỉa vùng XA camera nhất
+        trimOverCap()
+    }
+
+    /// Nhả các vùng XA camera hơn `dist` (xa nhất trước) cho tới khi đủ chỗ cho `needed` đỉnh.
+    /// Trả về false nếu nhả hết vẫn không đủ (vùng mới xa hơn mọi vùng đang giữ → bỏ qua,
+    /// nhờ vậy vùng vừa bị nhả không bị nhận lại ngay — không giật qua lại).
+    private func evictFarther(than dist: Float, toFit needed: Int) -> Bool {
+        let farther = anchorDists
+            .filter { anchorNodes[$0.key] != nil && $0.value > dist }
+            .sorted { $0.value > $1.value }
+        var freed = 0
+        var victims: [UUID] = []
+        for (id, _) in farther {
+            if totalVerts - freed + needed <= Self.maxVerts { break }
+            freed += anchorSigs[id]?.v ?? 0
+            victims.append(id)
+        }
+        guard totalVerts - freed + needed <= Self.maxVerts else { return false }
+        for id in victims { removeAnchor(id) }
+        return true
+    }
+
+    private func trimOverCap() {
+        while totalVerts > Self.maxVerts {
+            guard let far = anchorDists
+                .filter({ anchorNodes[$0.key] != nil })
+                .max(by: { $0.value < $1.value })
+            else { break }
+            removeAnchor(far.key)
+        }
+    }
+
+    private func removeAnchor(_ id: UUID) {
+        anchorNodes[id]?.removeFromParentNode()
+        totalVerts -= anchorSigs[id]?.v ?? 0
+        anchorNodes.removeValue(forKey: id)
+        anchorSigs.removeValue(forKey: id)
+        anchorDists.removeValue(forKey: id)
+        // Nhả luôn cờ đang-dựng: nếu anchor được nhận lại ngay, bản dựng mới không bị chặn.
+        // (Queue nền serial + main FIFO nên bản dựng mới luôn gán SAU bản cũ — không lo ngược thứ tự.)
+        inFlight.remove(id)
     }
 
     /// Dựng wireframe từ dữ liệu ĐÃ copy (chạy ở luồng nền — không đụng buffer của ARKit nữa).
