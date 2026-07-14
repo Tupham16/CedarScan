@@ -1,0 +1,243 @@
+import SwiftUI
+import ARKit
+
+/// Luồng quét MESH 3D (không RoomPlan): quét liền mạch mọi hình dạng, one-shot nhiều
+/// tầng — đi cầu thang thoải mái — và "Dừng & Lưu" BẤT KỲ lúc nào (không cần RoomPlan
+/// "present" phòng như luồng cũ). Sản phẩm: mesh màu + video, KHÔNG có floorplan.
+struct MeshScanFlowView: View {
+    @Environment(\.dismiss) private var dismiss
+    @StateObject private var controller: MeshScanController
+
+    /// (videoURL, meshURL, tên bản quét). Lỗi lưu do call-site giữ qua pendingSaveError
+    /// và hiện alert SAU khi cover đóng (pattern chung của HomeView/ProjectView).
+    let onFinish: (URL?, URL?, String?) async -> Void
+
+    @State private var showNaming = false
+    @State private var showEmptyMeshConfirm = false
+    @State private var showUnsupported = false
+    @State private var isSaving = false
+    @State private var scanName = ""
+    @AppStorage("showScanMesh") private var showScanMesh = true
+
+    init(quality: MeshQuality, onFinish: @escaping (URL?, URL?, String?) async -> Void) {
+        _controller = StateObject(wrappedValue: MeshScanController(quality: quality))
+        self.onFinish = onFinish
+    }
+
+    /// Một bản quét mesh có thể phủ cả căn → "Whole home" lên đầu.
+    private static let nameSuggestions = [
+        "Whole home", "Floor 1", "Floor 2", "Floor 3", "Basement", "Attic",
+    ]
+
+    var body: some View {
+        ZStack {
+            ARCameraViewRepresentable(arSession: controller.arSession)
+                .ignoresSafeArea()
+
+            // Lưới quét trực tiếp (tái dùng từ luồng RoomPlan — chỉ đọc chung ARSession)
+            if showScanMesh {
+                MeshOverlayRepresentable(arSession: controller.arSession)
+                    .ignoresSafeArea()
+                    .allowsHitTesting(false)
+            }
+
+            if !isSaving && !showNaming {
+                QualityAlertOverlay(monitor: controller.qualityMonitor)
+            }
+
+            VStack {
+                topBar
+                Spacer()
+                bottomControls
+            }
+
+            if showNaming {
+                namingOverlay
+            }
+            if isSaving {
+                savingOverlay
+            }
+        }
+        .onAppear {
+            if controller.isSupported {
+                controller.startSession()
+            } else {
+                showUnsupported = true
+            }
+        }
+        .alert(
+            L.t("LiDAR not available", "Máy không hỗ trợ LiDAR"),
+            isPresented: $showUnsupported
+        ) {
+            Button("OK") { dismiss() }
+        } message: {
+            Text(L.t(
+                "3D mesh scanning needs a LiDAR sensor (iPhone Pro).",
+                "Quét mesh 3D cần cảm biến LiDAR (iPhone Pro)."
+            ))
+        }
+        .confirmationDialog(
+            L.t("No 3D model captured yet", "Chưa quét được mô hình 3D"),
+            isPresented: $showEmptyMeshConfirm,
+            titleVisibility: .visible
+        ) {
+            Button(L.t("Keep scanning", "Quét tiếp"), role: .cancel) {}
+            Button(L.t("Save video only", "Vẫn lưu (chỉ có video)")) {
+                showNaming = true
+            }
+        } message: {
+            Text(L.t(
+                "Walk around and point the camera at walls and floors for a few more seconds.",
+                "Hãy đi thêm vài giây, hướng camera vào tường và sàn để có dữ liệu 3D."
+            ))
+        }
+    }
+
+    // MARK: - Thanh trên (Hủy + bật/tắt lưới)
+
+    private var topBar: some View {
+        HStack {
+            Button {
+                controller.cancel()
+                dismiss()
+            } label: {
+                Text(L.t("Cancel", "Hủy"))
+                    .font(.headline)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .background(.ultraThinMaterial, in: Capsule())
+            }
+            Spacer()
+            Button {
+                showScanMesh.toggle()
+            } label: {
+                Image(systemName: showScanMesh ? "square.grid.3x3.fill" : "square.grid.3x3")
+                    .font(.title3)
+                    .foregroundStyle(showScanMesh ? Color.green : Color.primary)
+                    .padding(10)
+                    .background(.ultraThinMaterial, in: Circle())
+            }
+            .accessibilityLabel(L.t("Toggle scan mesh", "Bật/tắt lưới quét"))
+        }
+        .padding()
+    }
+
+    // MARK: - Điều khiển dưới (banner + Dừng & Lưu)
+
+    private var bottomControls: some View {
+        VStack(spacing: 10) {
+            warningBanner
+            Text(L.t(
+                "Walk slowly and point the camera at every surface. Stairs and multiple floors are fine — keep scanning in one go.",
+                "Đi chậm, hướng camera vào mọi bề mặt. Đi cầu thang / nhiều tầng thoải mái — cứ quét liền một mạch."
+            ))
+            .font(.footnote)
+            .multilineTextAlignment(.center)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10))
+
+            Button {
+                stopTapped()
+            } label: {
+                Text(L.t("Stop & Save", "Dừng & Lưu"))
+                    .font(.headline)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+            }
+            .buttonStyle(.borderedProminent)
+        }
+        .padding()
+    }
+
+    @ViewBuilder
+    private var warningBanner: some View {
+        if controller.trackingLost {
+            bannerLabel(
+                L.t("Tracking lost — Stop & Save what you have.", "Mất định vị — hãy Dừng & Lưu phần đã quét."),
+                color: .red
+            )
+        } else if controller.capReached {
+            bannerLabel(
+                L.t(
+                    "Model is full — new areas are NOT being recorded. Stop & Save.",
+                    "Mô hình đã đầy — khu vực quét thêm KHÔNG được ghi. Hãy Dừng & Lưu."
+                ),
+                color: .orange
+            )
+        } else if controller.isInterrupted {
+            bannerLabel(
+                L.t("Scan interrupted — waiting to recover…", "Phiên quét bị gián đoạn — đang chờ khôi phục…"),
+                color: .yellow
+            )
+        }
+    }
+
+    private func bannerLabel(_ text: String, color: Color) -> some View {
+        Label {
+            Text(text).font(.footnote.weight(.semibold))
+        } icon: {
+            Image(systemName: "exclamationmark.triangle.fill")
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .frame(maxWidth: .infinity)
+        .background(color.opacity(0.85), in: RoundedRectangle(cornerRadius: 10))
+        .foregroundStyle(color == .yellow || color == .orange ? Color.black : Color.white)
+    }
+
+    // MARK: - Đặt tên + lưu
+
+    private var namingOverlay: some View {
+        ScanNameOverlay(
+            name: $scanName,
+            subtitle: L.t(
+                "Which part of the home is this? One mesh scan can cover several floors.",
+                "Đây là khu nào? Một bản quét mesh có thể phủ nhiều tầng."
+            ),
+            suggestions: Self.nameSuggestions,
+            onSave: {
+                showNaming = false
+                saveAndClose()
+            },
+            onBack: { showNaming = false }
+        )
+    }
+
+    private var savingOverlay: some View {
+        ZStack {
+            Color.black.opacity(0.5).ignoresSafeArea()
+            VStack(spacing: 10) {
+                ProgressView()
+                Text(L.t("Building 3D model…", "Đang dựng mô hình 3D…"))
+                    .font(.headline)
+                Text(L.t("This can take a moment at high detail.", "Mức nét cao có thể mất một lúc."))
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, 24)
+            .padding(.vertical, 16)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14))
+        }
+    }
+
+    private func stopTapped() {
+        // Đọc vertexCount TRƯỚC khi export (finishColoredMesh giải phóng builder).
+        if controller.meshVertexCount < 5_000 {
+            showEmptyMeshConfirm = true
+        } else {
+            showNaming = true
+        }
+    }
+
+    private func saveAndClose() {
+        isSaving = true
+        let name = scanName.trimmingCharacters(in: .whitespacesAndNewlines)
+        Task {
+            let result = await controller.stopAndExport()
+            await onFinish(result.videoURL, result.meshURL, name.isEmpty ? nil : name)
+            isSaving = false
+            dismiss()
+        }
+    }
+}
