@@ -43,6 +43,7 @@ struct QualityAlertOverlay: View {
         case .slowDown: return "tortoise.fill"
         case .turnSlowly: return "arrow.triangle.2.circlepath"
         case .lowLight: return "lightbulb.fill"
+        case .overheating: return "thermometer.high"
         }
     }
 }

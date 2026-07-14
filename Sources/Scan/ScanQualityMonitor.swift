@@ -8,7 +8,7 @@ import simd
 /// Cảnh báo chất lượng đang hiển thị (viền màu + 1 dòng chữ ngắn).
 struct QualityAlert: Equatable {
     enum Severity { case caution, critical }
-    enum Code { case trackingLost, doorAhead, doorTooFast, slowDown, turnSlowly, lowLight }
+    enum Code { case trackingLost, doorAhead, doorTooFast, slowDown, turnSlowly, lowLight, overheating }
 
     var severity: Severity
     var code: Code
@@ -21,6 +21,7 @@ struct QualityAlert: Equatable {
         case .slowDown: return L.t("Slow down", "Đi chậm lại")
         case .turnSlowly: return L.t("Turn slowly", "Xoay chậm lại")
         case .lowLight: return L.t("Turn on lights", "Bật thêm đèn")
+        case .overheating: return L.t("Phone is hot — short break", "Máy nóng — nghỉ chút cho nguội")
         }
     }
 }
@@ -62,6 +63,11 @@ final class ScanQualityMonitor: NSObject, ObservableObject {
     private var longestLimited: Double = 0
     private var currentLimitedEpisode: Double = 0
     private var instructionCounts: [String: Int] = [:]
+
+    // Nhiệt: quét LiDAR + meshing + H.264 hàng chục phút dễ lên .serious — iOS hạ camera
+    // xuống 30fps và meshing chậm lại mà không báo ai. Theo dõi qua notification.
+    private var isHot = false
+    private var thermalObserver: NSObjectProtocol?
 
     // Trạng thái cảnh báo (debounce để không nhấp nháy)
     private var overspeedSince: TimeInterval = -1
@@ -122,11 +128,25 @@ final class ScanQualityMonitor: NSObject, ObservableObject {
         link.add(to: .main, forMode: .common)
         displayLink = link
         cautionHaptic.prepare()
+
+        let hot = { (state: ProcessInfo.ThermalState) -> Bool in
+            state == .serious || state == .critical
+        }
+        isHot = hot(ProcessInfo.processInfo.thermalState)
+        thermalObserver = NotificationCenter.default.addObserver(
+            forName: ProcessInfo.thermalStateDidChangeNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            self?.isHot = hot(ProcessInfo.processInfo.thermalState)
+        }
     }
 
     func stop() {
         displayLink?.invalidate()
         displayLink = nil
+        if let thermalObserver {
+            NotificationCenter.default.removeObserver(thermalObserver)
+            self.thermalObserver = nil
+        }
         alert = nil
     }
 
@@ -384,6 +404,8 @@ final class ScanQualityMonitor: NSObject, ObservableObject {
         } else if overRotationSince > 0 && now - overRotationSince > 0.5 {
             let severity: QualityAlert.Severity = Double(rotationDps) > config.maxRotationHard ? .critical : .caution
             candidate = QualityAlert(severity: severity, code: .turnSlowly)
+        } else if isHot {
+            candidate = QualityAlert(severity: .caution, code: .overheating)
         } else if lowLightSince > 0 && now - lowLightSince > 1.0 {
             candidate = QualityAlert(severity: .caution, code: .lowLight)
         }

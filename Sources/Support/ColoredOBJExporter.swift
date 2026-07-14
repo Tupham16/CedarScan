@@ -15,37 +15,6 @@ enum ColoredOBJExporter {
     static func makeOBJZip(fromPLY plyURL: URL, to zipURL: URL) throws {
         let mesh = try ColoredMeshPLY.parse(plyURL)
 
-        // MARK: - Dựng OBJ (màu theo đỉnh) + MTL
-        var lines: [String] = []
-        lines.reserveCapacity(mesh.positions.count + mesh.indices.count / 3 + 4)
-        lines.append("# CedarScan colored LiDAR mesh")
-        lines.append("mtllib model.mtl")
-        lines.append("o CedarScanMesh")
-        lines.append("usemtl vertexcolor")
-        for k in mesh.positions.indices {
-            let p = mesh.positions[k]
-            let c = mesh.colors[k]
-            // Tách sẵn từng đối số thành let Double để biểu thức String(format:) nhẹ cho
-            // type-checker (CI này từng timeout vì biểu thức phức tạp).
-            let x = Double(p.x)
-            let y = Double(p.y)
-            let z = Double(p.z)
-            let r = Double(c.r) / 255.0
-            let g = Double(c.g) / 255.0
-            let b = Double(c.b) / 255.0
-            lines.append(String(format: "v %.4f %.4f %.4f %.3f %.3f %.3f", x, y, z, r, g, b))
-        }
-        var i = 0
-        while i < mesh.indices.count {
-            // OBJ đánh chỉ số đỉnh từ 1
-            let a = mesh.indices[i] + 1
-            let b = mesh.indices[i + 1] + 1
-            let c = mesh.indices[i + 2] + 1
-            lines.append("f \(a) \(b) \(c)")
-            i += 3
-        }
-        let objText = lines.joined(separator: "\n") + "\n"
-
         let mtlText = """
         # CedarScan material — màu nằm ở từng đỉnh (vertex colors), không dùng texture map.
         newmtl vertexcolor
@@ -63,10 +32,57 @@ enum ColoredOBJExporter {
             .appendingPathComponent("CedarScan-3D-\(UUID().uuidString.prefix(6))", isDirectory: true)
         try fm.createDirectory(at: work, withIntermediateDirectories: true)
         defer { try? fm.removeItem(at: work) }
-        try Data(objText.utf8).write(to: work.appendingPathComponent("model.obj"))
+        try writeOBJ(mesh, to: work.appendingPathComponent("model.obj"))
         try Data(mtlText.utf8).write(to: work.appendingPathComponent("model.mtl"))
 
         try zipDirectory(work, to: zipURL)
+    }
+
+    /// Ghi OBJ dạng STREAM (buffer ~1MB, màu theo đỉnh: v x y z r g b).
+    /// Bản cũ gom hơn 1 triệu String rồi joined() — đỉnh RAM tạm ~200MB ở 450k đỉnh;
+    /// stream giữ đỉnh ~20MB ở mọi mức nét và bỏ được cú khựng joined()+copy.
+    private static func writeOBJ(_ mesh: ColoredMeshPLY.Mesh, to objURL: URL) throws {
+        FileManager.default.createFile(atPath: objURL.path, contents: nil)
+        let handle = try FileHandle(forWritingTo: objURL)
+        defer { try? handle.close() }
+
+        var buffer = Data()
+        buffer.reserveCapacity(1_200_000)
+
+        func flushIfNeeded(force: Bool = false) throws {
+            if buffer.count >= 1_000_000 || (force && !buffer.isEmpty) {
+                try handle.write(contentsOf: buffer)
+                buffer.removeAll(keepingCapacity: true)
+            }
+        }
+
+        buffer.append(contentsOf: "# CedarScan colored LiDAR mesh\nmtllib model.mtl\no CedarScanMesh\nusemtl vertexcolor\n".utf8)
+        for k in mesh.positions.indices {
+            let p = mesh.positions[k]
+            let c = mesh.colors[k]
+            // Tách sẵn từng đối số thành let Double để biểu thức String(format:) nhẹ cho
+            // type-checker (CI này từng timeout vì biểu thức phức tạp).
+            let x = Double(p.x)
+            let y = Double(p.y)
+            let z = Double(p.z)
+            let r = Double(c.r) / 255.0
+            let g = Double(c.g) / 255.0
+            let b = Double(c.b) / 255.0
+            let line = String(format: "v %.4f %.4f %.4f %.3f %.3f %.3f\n", x, y, z, r, g, b)
+            buffer.append(contentsOf: line.utf8)
+            try flushIfNeeded()
+        }
+        var i = 0
+        while i < mesh.indices.count {
+            // OBJ đánh chỉ số đỉnh từ 1
+            let a = mesh.indices[i] + 1
+            let b = mesh.indices[i + 1] + 1
+            let c = mesh.indices[i + 2] + 1
+            buffer.append(contentsOf: "f \(a) \(b) \(c)\n".utf8)
+            try flushIfNeeded()
+            i += 3
+        }
+        try flushIfNeeded(force: true)
     }
 
     // MARK: - Nén thư mục thành .zip (dùng NSFileCoordinator, không cần thư viện ngoài)
