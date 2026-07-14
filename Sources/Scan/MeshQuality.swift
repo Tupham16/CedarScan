@@ -33,6 +33,21 @@ enum MeshQuality: String, CaseIterable, Identifiable {
         }
     }
 
+    /// Preset cho CHẾ ĐỘ QUÉT MESH 3D (nguyên căn). Khác `preset` (dành cho luồng RoomPlan,
+    /// nơi file màu chỉ là tư liệu phụ cần nhẹ): mật độ hình học do ARKit quyết định, trần
+    /// đỉnh KHÔNG phải núm chỉnh độ nét mà chỉ là chỗ CẮT CỤT — nguyên căn phải lọt trọn.
+    /// Nên cả 3 mức dùng chung van an toàn RAM 2M đỉnh (~110MB mảng mesh; nhà 2 tầng thực tế
+    /// ~0.5–1.5M) và chỉ khác nhau về MÀU (độ phủ + độ nét khung màu) + thời gian lưu.
+    var wholeHomePreset: Preset {
+        let base = preset
+        return Preset(
+            maxVertices: 2_000_000,
+            keyframeWidth: base.keyframeWidth,
+            maxKeyframes: base.maxKeyframes,
+            keyframeIntervalSec: base.keyframeIntervalSec
+        )
+    }
+
     /// Nhãn ngắn cho segmented picker.
     var label: String {
         switch self {
@@ -43,16 +58,17 @@ enum MeshQuality: String, CaseIterable, Identifiable {
     }
 
     /// Caption đổi theo lựa chọn — để người test biết mình đang so cái gì.
+    /// (Hình học 3 mức GIỐNG NHAU — mật độ do ARKit quyết; chỉ khác màu + thời gian lưu.)
     var caption: String {
         switch self {
         case .light:
-            return L.t("Fast, small file, coarse colors", "Nhanh, file nhỏ, màu thô")
+            return L.t("Coarse colors — fastest save", "Màu thô — lưu nhanh nhất")
         case .medium:
             return L.t("Balanced — recommended", "Cân bằng — khuyên dùng")
         case .high:
             return L.t(
-                "Best colors; bigger file, slower save, warmer phone",
-                "Màu đẹp nhất; file lớn, lưu lâu hơn, máy nóng hơn"
+                "Best colors — slower save, warmer phone",
+                "Màu đẹp nhất — lưu lâu hơn, máy nóng hơn"
             )
         }
     }

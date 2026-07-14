@@ -71,9 +71,8 @@ final class ColorMeshBuilder {
     private var lastKeyframeTime: TimeInterval = 0
     private let queue = DispatchQueue(label: "com.cedar247.colormesh")
 
-    init(arSession: ARSession, quality: MeshQuality = .light) {
+    init(arSession: ARSession, preset: MeshQuality.Preset = MeshQuality.light.preset) {
         self.arSession = arSession
-        let preset = quality.preset
         maxVertices = preset.maxVertices
         maxKeyframes = preset.maxKeyframes
         keyframeWidth = preset.keyframeWidth
@@ -306,8 +305,24 @@ final class ColorMeshBuilder {
             )
         }
         var colors = [SIMD3<UInt8>](repeating: SIMD3(150, 150, 150), count: vertices.count)
-        for i in vertices.indices {
-            colors[i] = sampleColor(world: vertices[i], normal: normals[i], samplers: samplers)
+        // Song song hóa theo chunk: mỗi chunk ghi một dải chỉ số RIÊNG (không giao nhau),
+        // dữ liệu đọc (vertices/normals/samplers) bất biến → an toàn. Nguyên căn ở trần
+        // 2M đỉnh × 64 khung màu là ~128 triệu phép chiếu — tuần tự sẽ bắt chờ rất lâu.
+        let total = vertices.count
+        let chunkSize = 16_384
+        let chunkCount = (total + chunkSize - 1) / chunkSize
+        vertices.withUnsafeBufferPointer { vBuf in
+            normals.withUnsafeBufferPointer { nBuf in
+                colors.withUnsafeMutableBufferPointer { cBuf in
+                    DispatchQueue.concurrentPerform(iterations: chunkCount) { chunk in
+                        let start = chunk * chunkSize
+                        let end = min(start + chunkSize, total)
+                        for i in start..<end {
+                            cBuf[i] = sampleColor(world: vBuf[i], normal: nBuf[i], samplers: samplers)
+                        }
+                    }
+                }
+            }
         }
 
         // Ghi PLY nhị phân little-endian (KHÔNG dùng ModelIO — lỗi màu trên iOS)

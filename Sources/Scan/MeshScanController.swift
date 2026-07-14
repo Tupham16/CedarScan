@@ -55,7 +55,9 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
         // Giữ isLightEstimationEnabled mặc định (true) — cảnh báo thiếu sáng cần nó.
         arSession.run(config)
 
-        let colorMesh = ColorMeshBuilder(arSession: arSession, quality: quality)
+        // wholeHomePreset: hình học full mật độ ARKit, trần 2M chỉ là van an toàn RAM —
+        // tier chỉ quyết định chất lượng MÀU. (Preset thường 120k là cho luồng RoomPlan.)
+        let colorMesh = ColorMeshBuilder(arSession: arSession, preset: quality.wholeHomePreset)
         self.colorMesh = colorMesh
         colorMesh.start()
         let recorder = ScanVideoRecorder(arSession: arSession)

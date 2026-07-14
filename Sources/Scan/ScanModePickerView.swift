@@ -12,7 +12,9 @@ struct ScanModePickerView: View {
     @Environment(\.dismiss) private var dismiss
     let onStart: (ScanMode) -> Void
 
-    @AppStorage("lastScanMode") private var lastScanModeRaw: String = ScanMode.floorplan.rawValue
+    // Mặc định preselect "Quét 3D nguyên căn" — workflow chính của chủ app
+    // (tự sản xuất bản vẽ 2D từ mesh + video, không cần floorplan RoomPlan).
+    @AppStorage("lastScanMode") private var lastScanModeRaw: String = ScanMode.mesh.rawValue
     @AppStorage("meshQuality") private var meshQuality: MeshQuality = .light
     @State private var selected: ScanMode = .floorplan
 
