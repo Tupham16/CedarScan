@@ -72,11 +72,14 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
         // tier chỉ quyết định chất lượng MÀU. (Preset thường 120k là cho luồng RoomPlan.)
         // strictVertexCap: không mất geometry đã quét khi ARKit gộp anchor lúc đầy.
         // captureDepthForOcclusion: kiểm tra che khuất khi gán màu (hết màu ghế in lên bàn).
+        // refineLargeTriangles: lúc xuất chia nhỏ tam giác lớn để mảng tường/sàn phẳng có
+        // thêm đỉnh màu — hết cảnh vài đỉnh kéo nhòe màu cả mét (đổi bằng lưu lâu hơn).
         let colorMesh = ColorMeshBuilder(
             arSession: arSession,
             preset: quality.wholeHomePreset,
             strictVertexCap: true,
-            captureDepthForOcclusion: true
+            captureDepthForOcclusion: true,
+            refineLargeTriangles: true
         )
         self.colorMesh = colorMesh
         colorMesh.start()
@@ -113,6 +116,11 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
         guard !isStopped else { return (nil, nil, false) }
         isStopped = true
         teardownCommon()
+        // teardownCommon vừa bật lại auto-lock, nhưng export còn chạy hàng chục giây tới
+        // vài phút (chia tam giác + bake màu): người quét bấm Lưu rồi ĐẶT MÁY XUỐNG, máy
+        // tự khóa là app bị treo giữa chừng → mất trắng buổi quét. Giữ màn hình thức
+        // suốt lúc lưu; MeshScanFlowView trả lại auto-lock sau khi lưu xong hẳn.
+        UIApplication.shared.isIdleTimerDisabled = true
         colorMesh?.stop() // tắt CADisplayLink ngay trên main trước khi export
         // Gom CHỐT SỔ frame hiện tại trước khi pause: tick 2–5Hz nên nửa giây mesh cuối
         // (vùng vừa quét ngay trước khi bấm Dừng) có thể chưa vào bộ tích lũy.

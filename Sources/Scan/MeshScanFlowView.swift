@@ -277,6 +277,9 @@ struct MeshScanFlowView: View {
             // cuối) — không thì buổi quét 30 phút có thể mất trắng vì chưa ghi record.
             let bgTask = UIApplication.shared.beginBackgroundTask(expirationHandler: nil)
             defer {
+                // Trả lại auto-lock CHỈ khi đã lưu xong hẳn (stopAndExport giữ màn hình
+                // thức qua cả export lẫn giai đoạn nén zip trong onFinish).
+                UIApplication.shared.isIdleTimerDisabled = false
                 if bgTask != .invalid {
                     UIApplication.shared.endBackgroundTask(bgTask)
                 }

@@ -80,21 +80,27 @@ final class ColorMeshBuilder {
     private var lastKeyframeTime: TimeInterval = 0
     private let queue = DispatchQueue(label: "com.cedar247.colormesh")
 
-    /// Hai cờ hành vi MỚI mặc định TẮT để luồng RoomPlan (ScanSessionController gọi với
-    /// default) giữ nguyên hành vi cũ; chế độ quét Mesh nguyên căn bật cả hai:
+    /// Các cờ hành vi mặc định TẮT để luồng RoomPlan (ScanSessionController gọi với
+    /// default) giữ nguyên hành vi cũ; chế độ quét Mesh nguyên căn bật cả ba:
     /// - strictVertexCap: trần đỉnh chặn cả anchor update phình to (fix mất geometry khi
     ///   ARKit gộp anchor lúc đầy). RoomPlan giữ kiểu cũ — PLY 120k chỉ là tư liệu phụ.
     /// - captureDepthForOcclusion: lưu depth theo keyframe để kiểm tra che khuất khi gán
     ///   màu. KHÔNG suy từ frame.sceneDepth != nil: RoomPlan có thể tự bật depth nội bộ
     ///   tùy phiên bản iOS → suy như vậy sẽ lén đổi màu PLY của luồng RoomPlan.
+    /// - refineLargeTriangles: lúc xuất, chia nhỏ tam giác lớn (midpoint 1→4) TRƯỚC khi
+    ///   bake màu — ARKit gộp mảng phẳng (tường/sàn) thành tam giác to, vài đỉnh màu bị
+    ///   Gouraud kéo nhòe cả mét. Chỉ THÊM đỉnh tại trung điểm cạnh, KHÔNG dịch chuyển
+    ///   hình học; đổi bằng bake màu lâu hơn (×2–4) + file to hơn.
     private let strictVertexCap: Bool
     private let captureDepthForOcclusion: Bool
+    private let refineLargeTriangles: Bool
 
     init(
         arSession: ARSession,
         preset: MeshQuality.Preset = MeshQuality.light.preset,
         strictVertexCap: Bool = false,
-        captureDepthForOcclusion: Bool = false
+        captureDepthForOcclusion: Bool = false,
+        refineLargeTriangles: Bool = false
     ) {
         self.arSession = arSession
         maxVertices = preset.maxVertices
@@ -103,6 +109,7 @@ final class ColorMeshBuilder {
         keyframeIntervalSec = preset.keyframeIntervalSec
         self.strictVertexCap = strictVertexCap
         self.captureDepthForOcclusion = captureDepthForOcclusion
+        self.refineLargeTriangles = refineLargeTriangles
     }
 
     func start() {
@@ -378,17 +385,20 @@ final class ColorMeshBuilder {
         stop()
         let pieces = self.pieces
         let keyframes = self.keyframes
+        let refine = refineLargeTriangles
         guard !pieces.isEmpty, !keyframes.isEmpty else { return nil }
 
         return await withCheckedContinuation { (continuation: CheckedContinuation<URL?, Never>) in
             queue.async {
-                let url = Self.buildPLY(pieces: pieces, keyframes: keyframes)
+                let url = Self.buildPLY(pieces: pieces, keyframes: keyframes, refineLargeTriangles: refine)
                 continuation.resume(returning: url)
             }
         }
     }
 
-    private static func buildPLY(pieces: [UUID: MeshPiece], keyframes: [ColorFrame]) -> URL? {
+    private static func buildPLY(
+        pieces: [UUID: MeshPiece], keyframes: [ColorFrame], refineLargeTriangles: Bool
+    ) -> URL? {
         // Gộp lưới thành 1 mảng đỉnh + mặt (dời chỉ số)
         var vertices: [SIMD3<Float>] = []
         var normals: [SIMD3<Float>] = []
@@ -402,6 +412,13 @@ final class ColorMeshBuilder {
             }
         }
         guard !vertices.isEmpty, !faces.isEmpty else { return nil }
+
+        // Chia nhỏ tam giác lớn TRƯỚC vòng bake màu (chỉ chế độ Mesh bật cờ): thêm đỉnh
+        // = thêm "điểm ảnh" màu trên mảng phẳng lớn. Vòng sampleColor bên dưới chạy
+        // Y NGUYÊN trên danh sách đỉnh mới — occlusion test + bilinear áp cho cả đỉnh chia.
+        if refineLargeTriangles {
+            subdivideLargeTriangles(vertices: &vertices, normals: &normals, faces: &faces)
+        }
 
         // Màu từng đỉnh — dữ liệu chiếu của mỗi khung màu tính SẴN 1 lần (hoist simd_inverse
         // + intrinsics khỏi vòng lặp: trước đây bị tính lại cho TỪNG đỉnh × TỪNG khung,
@@ -474,6 +491,91 @@ final class ColorMeshBuilder {
             return url
         } catch {
             return nil
+        }
+    }
+
+    // MARK: - Chia nhỏ tam giác lớn (cờ refineLargeTriangles — chỉ chế độ Mesh)
+
+    /// Cạnh dài hơn mức này (mét) thì tam giác bị chia. 7cm = giữa khoảng 6–8cm đã chốt,
+    /// và TRÊN mật độ mesh thường của ARKit (~4–6cm) để không chia đại trà cả mô hình —
+    /// chỉ các mảng phẳng ARKit đã gộp (tường/sàn/mặt bàn) mới dính.
+    private static let refineEdgeThreshold: Float = 0.07
+    /// Tối đa 2 lượt chia (1 tam giác → tối đa 16): cạnh 28cm về ~7cm là đủ cho màu
+    /// per-vertex; sâu hơn chỉ tốn đỉnh + thời gian bake mà mắt không thấy khác.
+    private static let refineMaxPasses = 2
+    /// Van an toàn RAM + kích thước file: NGỪNG chia khi tổng đỉnh chạm mức này
+    /// (giữa khoảng 4–5M đã chốt; PLY trung gian ~200MB, zip OBJ+GLB vẫn <~200MB).
+    /// Tam giác chưa kịp chia khi chạm van chỉ kém nét màu cục bộ — hình học không đổi.
+    private static let refineVertexCeiling = 4_500_000
+
+    /// Midpoint-subdivide 1→4 các tam giác có cạnh dài quá ngưỡng, để màu per-vertex có
+    /// đủ "điểm ảnh" trên mảng phẳng lớn. CHỈ THÊM đỉnh tại TRUNG ĐIỂM cạnh — tuyệt đối
+    /// không dịch chuyển/smooth hình học. Trung điểm DÙNG CHUNG giữa 2 tam giác kề
+    /// (map cạnh→chỉ số): hai bên cạnh lấy CÙNG một đỉnh màu — không thì nứt màu dọc cạnh.
+    /// Chạy trên queue nền của exportColoredPLY (một lần, trước bake màu).
+    private static func subdivideLargeTriangles(
+        vertices: inout [SIMD3<Float>],
+        normals: inout [SIMD3<Float>],
+        faces: inout [(UInt32, UInt32, UInt32)]
+    ) {
+        let thresholdSq = refineEdgeThreshold * refineEdgeThreshold
+        for _ in 0..<refineMaxPasses {
+            if vertices.count >= refineVertexCeiling { return }
+            // Cạnh (min,max) → chỉ số trung điểm đã tạo trong lượt này.
+            var midpointForEdge: [UInt64: UInt32] = [:]
+            var out: [(UInt32, UInt32, UInt32)] = []
+            out.reserveCapacity(faces.count)
+            var didSplit = false
+
+            // Nested func gọi tại chỗ (không escape) nên được phép chạm inout ở trên.
+            func midpoint(_ a: UInt32, _ b: UInt32) -> UInt32 {
+                let key = a < b
+                    ? (UInt64(a) << 32) | UInt64(b)
+                    : (UInt64(b) << 32) | UInt64(a)
+                if let existing = midpointForEdge[key] { return existing }
+                let idx = UInt32(vertices.count)
+                vertices.append((vertices[Int(a)] + vertices[Int(b)]) * 0.5)
+                // Normal trung điểm = trung bình CHUẨN HÓA hai đầu; hai normal gần đối
+                // nhau (tổng ~0) thì lấy normal đầu a — không để vector 0/NaN lọt vào
+                // facing test của sampleColor.
+                let sum = normals[Int(a)] + normals[Int(b)]
+                let len = simd_length(sum)
+                normals.append(len > 1e-5 ? sum / len : normals[Int(a)])
+                midpointForEdge[key] = idx
+                return idx
+            }
+
+            for f in faces {
+                // Chốt chống index rác: trước đây chỉ số mặt chỉ đi thẳng ra file, giờ
+                // mới có chỗ dùng nó truy mảng — index hỏng từ buffer ARKit không được
+                // phép crash lúc lưu (mất cả bản quét). Đỉnh chia luôn hợp lệ do tự tạo.
+                let n = UInt32(vertices.count)
+                guard f.0 < n, f.1 < n, f.2 < n else {
+                    out.append(f)
+                    continue
+                }
+                let a = vertices[Int(f.0)]
+                let b = vertices[Int(f.1)]
+                let c = vertices[Int(f.2)]
+                let longestSq = max(
+                    simd_length_squared(a - b),
+                    max(simd_length_squared(b - c), simd_length_squared(c - a))
+                )
+                if longestSq > thresholdSq, vertices.count + 3 <= refineVertexCeiling {
+                    let ab = midpoint(f.0, f.1)
+                    let bc = midpoint(f.1, f.2)
+                    let ca = midpoint(f.2, f.0)
+                    out.append((f.0, ab, ca))
+                    out.append((ab, f.1, bc))
+                    out.append((ca, bc, f.2))
+                    out.append((ab, bc, ca))
+                    didSplit = true
+                } else {
+                    out.append(f)
+                }
+            }
+            faces = out
+            if !didSplit { return }
         }
     }
 
