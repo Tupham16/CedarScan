@@ -40,10 +40,20 @@ enum MeshQuality: String, CaseIterable, Identifiable {
     /// ~0.5–1.5M) và chỉ khác nhau về MÀU (độ phủ + độ nét khung màu) + thời gian lưu.
     var wholeHomePreset: Preset {
         let base = preset
+        // Keyframe NHIỀU hơn preset RoomPlan cùng tier: bản quét nguyên căn trải 10–30
+        // phút và cả trăm m² — độ phủ khung màu quyết định màu đúng/sai nhiều hơn mọi
+        // thứ khác (trần đỉnh tăng ×16 mà giữ nguyên số khung là màu "đói" dữ liệu).
+        // RAM mức Nét: 96 khung 640px ≈ 85MB + depth ≈ 19MB — chấp nhận được trên máy Pro.
+        let keyframes: Int
+        switch self {
+        case .light: keyframes = 56
+        case .medium: keyframes = 72
+        case .high: keyframes = 96
+        }
         return Preset(
             maxVertices: 2_000_000,
             keyframeWidth: base.keyframeWidth,
-            maxKeyframes: base.maxKeyframes,
+            maxKeyframes: keyframes,
             keyframeIntervalSec: base.keyframeIntervalSec
         )
     }

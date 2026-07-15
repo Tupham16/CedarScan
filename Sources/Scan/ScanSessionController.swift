@@ -117,7 +117,13 @@ final class ScanSessionController: NSObject, ObservableObject, RoomCaptureViewDe
     }
 
     /// Dựng và trả về file mô hình 3D CÓ MÀU (.ply) — nguyên liệu nội bộ. Nil nếu không có.
+    /// @MainActor: stop() phải chạy trên MAIN trước khi exportColoredPLY copy dữ liệu trên
+    /// executor nền — hàm async không isolation chạy thân trên executor nền (SE-0338), nếu
+    /// không chốt trước thì CADisplayLink còn tick ghi pieces/keyframes ngay trong lúc nền
+    /// đang đọc (race có sẵn từ trước; stop() idempotent nên gọi lại trong export vô hại).
+    @MainActor
     func finishColoredMesh() async -> URL? {
+        colorMesh?.stop()
         let url = await colorMesh?.exportColoredPLY()
         colorMesh = nil
         return url

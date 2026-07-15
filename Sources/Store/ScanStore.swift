@@ -243,17 +243,19 @@ final class ScanStore: ObservableObject {
             )
         }
 
-        // 2. Mô hình 3D: giữ OBJ màu ĐÃ NÉN (obj+mtl trong model-colored.zip). OBJ là text
-        //    nén ~5 lần → upload nhẹ hơn nhiều bản obj thô (~200MB → ~40MB). PLY chỉ là file
-        //    trung gian từ builder → nén xong XÓA. Nén lỗi thì dọn zip cụt và GIỮ PLY lại làm
-        //    phao (menu chia sẻ + uploader đều xử lý được PLY) — không bao giờ mất dữ liệu 3D.
+        // 2. Mô hình 3D: giữ OBJ màu ĐÃ NÉN (obj+mtl+glb trong model-colored.zip). OBJ là text
+        //    nén ~5 lần → upload nhẹ hơn nhiều bản obj thô (~200MB → ~40MB). GLB kèm trong zip
+        //    để đội vẽ kéo vào Blender là CÓ MÀU ngay (OBJ màu-đỉnh Blender render trắng).
+        //    PLY chỉ là file trung gian từ builder → nén xong XÓA. Nén lỗi thì dọn zip cụt và
+        //    GIỮ PLY lại làm phao (menu chia sẻ + uploader đều xử lý được PLY) — không bao giờ
+        //    mất dữ liệu 3D.
         if hasMesh, let meshURL {
             let zipURL = folder.appendingPathComponent("model-colored.zip")
             // .userInitiated: người dùng đang đứng chờ trên overlay "Đang dựng mô hình 3D…"
             // (.utility đẩy sang efficiency core, nhà lớn chờ lâu gấp đôi vô ích).
             let converted = await Task.detached(priority: .userInitiated) { () -> Bool in
                 do {
-                    try ColoredOBJExporter.makeOBJZip(fromPLY: meshURL, to: zipURL)
+                    try ColoredOBJExporter.makeOBJZip(fromPLY: meshURL, to: zipURL, includeGLB: true)
                     return true
                 } catch {
                     return false

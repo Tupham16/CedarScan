@@ -52,9 +52,15 @@ struct MeshScanFlowView: View {
                 // Trần hiển thị 600k (RoomPlan chỉ 150k): khách quay lại khu đã quét phải
                 // còn THẤY lưới để biết chỗ nào đã phủ — nhà thường sẽ không bị "quên" nữa.
                 // Nếu test thấy nóng/giật thì hạ số này.
-                MeshOverlayRepresentable(arSession: controller.arSession, maxVerts: 600_000)
-                    .ignoresSafeArea()
-                    .allowsHitTesting(false)
+                // recordedCounts: lưới tô THEO DỮ LIỆU XUẤT THẬT — xanh = đã vào file,
+                // đỏ = chưa được ghi (builder tắt vì gián đoạn, hoặc mô hình đầy).
+                MeshOverlayRepresentable(
+                    arSession: controller.arSession,
+                    maxVerts: 600_000,
+                    recordedCounts: { [weak controller] in controller?.recordedAnchorCounts ?? [:] }
+                )
+                .ignoresSafeArea()
+                .allowsHitTesting(false)
             }
 
             if !isSaving && !showNaming {
@@ -152,8 +158,8 @@ struct MeshScanFlowView: View {
         VStack(spacing: 10) {
             warningBanner
             Text(L.t(
-                "Walk slowly and point the camera at every surface. Stairs and multiple floors are fine — keep scanning in one go.",
-                "Đi chậm, hướng camera vào mọi bề mặt. Đi cầu thang / nhiều tầng thoải mái — cứ quét liền một mạch."
+                "Walk slowly and point the camera at every surface — stairs and multiple floors are fine. Green mesh = saved into the model; red = NOT saved, re-scan those spots.",
+                "Đi chậm, hướng camera vào mọi bề mặt — cầu thang/nhiều tầng thoải mái. Lưới XANH = đã vào mô hình; ĐỎ = CHƯA được ghi, hãy quét lại chỗ đó."
             ))
             .font(.footnote)
             .multilineTextAlignment(.center)

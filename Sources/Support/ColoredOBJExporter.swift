@@ -23,11 +23,14 @@ enum ColoredOBJExporter {
 
     """
 
-    /// Đọc PLY màu → ghi model.obj + model.mtl vào 1 thư mục tạm rồi nén thành .zip tại `zipURL`.
-    static func makeOBJZip(fromPLY plyURL: URL, to zipURL: URL) throws {
+    /// Đọc PLY màu → ghi model.obj + model.mtl (+ model.glb khi `includeGLB`) vào 1 thư mục
+    /// tạm rồi nén thành .zip tại `zipURL`. `includeGLB` cho chế độ quét Mesh: đội vẽ kéo
+    /// model.glb vào Blender là CÓ MÀU ngay (OBJ màu-theo-đỉnh phi tiêu chuẩn — Blender
+    /// render ra trắng); zip nặng thêm ~20–25MB/1M đỉnh, vẫn nhẹ so cap upload 500MB.
+    static func makeOBJZip(fromPLY plyURL: URL, to zipURL: URL, includeGLB: Bool = false) throws {
         let mesh = try ColoredMeshPLY.parse(plyURL)
 
-        // MARK: - Ghi 2 file vào thư mục tạm rồi nén
+        // MARK: - Ghi các file vào thư mục tạm rồi nén
         let fm = FileManager.default
         let work = fm.temporaryDirectory
             .appendingPathComponent("CedarScan-3D-\(UUID().uuidString.prefix(6))", isDirectory: true)
@@ -35,6 +38,10 @@ enum ColoredOBJExporter {
         defer { try? fm.removeItem(at: work) }
         try writeOBJ(mesh, to: work.appendingPathComponent("model.obj"))
         try Data(mtlText.utf8).write(to: work.appendingPathComponent("model.mtl"))
+        if includeGLB {
+            // GLB hỏng không chặn zip — OBJ vẫn là dữ liệu chính.
+            try? GLBExporter.makeGLB(mesh: mesh, to: work.appendingPathComponent("model.glb"))
+        }
 
         try zipDirectory(work, to: zipURL)
     }

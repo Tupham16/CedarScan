@@ -42,6 +42,34 @@ final class MeshOverlayView: SCNView {
         return m
     }()
 
+    /// Vật liệu cho vùng CHƯA VÀO dữ liệu xuất (builder tạm tắt vì gián đoạn/mất định vị,
+    /// hoặc mô hình đầy). ĐỎ = "chỗ này chưa được ghi — quét lại sau khi hồi phục".
+    /// Trước đây overlay tô xanh tuốt nên người quét tưởng "xanh = đã có trong file" và
+    /// mất trắng các khu quét trong lúc builder tắt mà không hề hay biết.
+    private static let unrecordedMaterial: SCNMaterial = {
+        let m = SCNMaterial()
+        m.fillMode = .lines
+        m.diffuse.contents = UIColor.systemRed
+        m.emission.contents = UIColor.systemRed
+        m.lightingModel = .constant
+        m.isDoubleSided = true
+        m.writesToDepthBuffer = false
+        return m
+    }()
+
+    /// Nguồn sự thật "anchor nào ĐÃ vào dữ liệu xuất" + SỐ ĐỈNH đã ghi (từ
+    /// ColorMeshBuilder.pieces). So số đỉnh chứ không chỉ ID: anchor phình to mà bị trần
+    /// chặn có ID trùng nhưng bản trong file NHỎ hơn bản hiển thị → vẫn phải tô đỏ.
+    /// nil (luồng RoomPlan không dùng cơ chế này) → mọi lưới xanh như cũ.
+    var recordedCounts: (() -> [UUID: Int])?
+    /// Thời điểm anchor xuất hiện lần đầu — anchor mới được "ân hạn" 1.5s trước khi bị tô
+    /// đỏ (builder tick 2–5Hz cần chút thời gian gom; không có ân hạn thì lưới mới nào
+    /// cũng chớp đỏ rồi mới xanh, nhìn như lỗi).
+    private var anchorFirstSeen: [UUID: TimeInterval] = [:]
+    /// Timestamp frame gần nhất — cho materialFor dùng được cả ngoài updateMeshes
+    /// (closure gán geometry ở main.async không còn frame trong scope).
+    private var lastFrameTimestamp: TimeInterval = 0
+
     init(arSession: ARSession, maxVerts: Int = 150_000) {
         self.arSession = arSession
         self.maxVerts = maxVerts
@@ -76,6 +104,7 @@ final class MeshOverlayView: SCNView {
 
     @objc private func tick() {
         guard let frame = arSession?.currentFrame else { return }
+        lastFrameTimestamp = frame.timestamp
         updateCamera(frame)
         if frame.timestamp - lastMeshUpdate >= Self.meshUpdateInterval {
             lastMeshUpdate = frame.timestamp
@@ -113,6 +142,9 @@ final class MeshOverlayView: SCNView {
             let a4 = mesh.transform.columns.3
             let dist = simd_distance(SIMD3(a4.x, a4.y, a4.z), camPos)
             anchorDists[id] = dist
+            if anchorFirstSeen[id] == nil {
+                anchorFirstSeen[id] = frame.timestamp
+            }
 
             let vSource = mesh.geometry.vertices
             let fElement = mesh.geometry.faces
@@ -164,6 +196,13 @@ final class MeshOverlayView: SCNView {
                     guard let self else { return }
                     self.inFlight.remove(id)   // luôn giải phóng dù dựng được hay không
                     if let geometry, let node = self.anchorNodes[id] {
+                        // Chọn vật liệu NGAY khi gán geometry mới — không đợi retint 0.5s.
+                        // (makeWireframe gán xanh mặc định; anchor ĐỎ đang được ARKit cập
+                        // nhật liên tục sẽ chớp xanh↔đỏ ~2Hz nếu chỉ dựa vào retint —
+                        // đúng lúc người quét cần tín hiệu "chưa ghi" tin cậy nhất.)
+                        if let recorded = self.recordedCounts?() {
+                            geometry.materials = [self.materialFor(id, recorded: recorded)]
+                        }
                         node.geometry = geometry
                     }
                 }
@@ -175,6 +214,34 @@ final class MeshOverlayView: SCNView {
         }
         // Anchor cũ phình to có thể đẩy tổng vượt trần → tỉa vùng XA camera nhất
         trimOverCap()
+        // Tô lưới theo trạng thái GHI THẬT (xanh = đã vào file, đỏ = chưa)
+        retintForRecording()
+    }
+
+    /// Vật liệu đúng cho anchor theo dữ liệu xuất thật. "Đã ghi" = bản trong file đạt
+    /// ≥85% số đỉnh đang hiển thị (dung sai hấp thụ độ trễ builder 2–5Hz với update nhỏ;
+    /// anchor phình to bị trần chặn sẽ tụt dưới ngưỡng → đỏ dù ID có trong file).
+    private func materialFor(_ id: UUID, recorded: [UUID: Int]) -> SCNMaterial {
+        if lastFrameTimestamp - (anchorFirstSeen[id] ?? lastFrameTimestamp) < 1.5 {
+            return Self.wireframeMaterial // ân hạn anchor mới
+        }
+        let shown = anchorSigs[id]?.v ?? 0
+        let saved = recorded[id] ?? 0
+        let isRecorded = saved > 0 && (shown == 0 || Float(saved) >= Float(shown) * 0.85)
+        return isRecorded ? Self.wireframeMaterial : Self.unrecordedMaterial
+    }
+
+    /// Tô lại lưới theo dữ liệu xuất thật: anchor chưa vào bộ tích lũy sau thời gian ân hạn
+    /// → ĐỎ. So sánh identity vật liệu nên vòng lặp gần như miễn phí khi không đổi trạng thái.
+    private func retintForRecording() {
+        guard let recorded = recordedCounts?() else { return }
+        for (id, node) in anchorNodes {
+            guard let geometry = node.geometry else { continue }
+            let material = materialFor(id, recorded: recorded)
+            if geometry.firstMaterial !== material {
+                geometry.materials = [material]
+            }
+        }
     }
 
     /// Nhả các vùng XA camera hơn `dist` (xa nhất trước) cho tới khi đủ chỗ cho `needed` đỉnh.
@@ -212,6 +279,7 @@ final class MeshOverlayView: SCNView {
         anchorNodes.removeValue(forKey: id)
         anchorSigs.removeValue(forKey: id)
         anchorDists.removeValue(forKey: id)
+        anchorFirstSeen.removeValue(forKey: id)
         // Nhả luôn cờ đang-dựng: nếu anchor được nhận lại ngay, bản dựng mới không bị chặn.
         // (Queue nền serial + main FIFO nên bản dựng mới luôn gán SAU bản cũ — không lo ngược thứ tự.)
         inFlight.remove(id)
@@ -254,14 +322,19 @@ final class MeshOverlayView: SCNView {
 struct MeshOverlayRepresentable: UIViewRepresentable {
     let arSession: ARSession
     var maxVerts: Int = 150_000
+    /// Đưa vào từ mesh mode để lưới tô trung thực (xanh = đã ghi, đỏ = chưa); RoomPlan để nil.
+    var recordedCounts: (() -> [UUID: Int])? = nil
 
     func makeUIView(context: Context) -> MeshOverlayView {
         let view = MeshOverlayView(arSession: arSession, maxVerts: maxVerts)
+        view.recordedCounts = recordedCounts
         view.start()
         return view
     }
 
-    func updateUIView(_ uiView: MeshOverlayView, context: Context) {}
+    func updateUIView(_ uiView: MeshOverlayView, context: Context) {
+        uiView.recordedCounts = recordedCounts
+    }
 
     static func dismantleUIView(_ uiView: MeshOverlayView, coordinator: ()) {
         uiView.stop()

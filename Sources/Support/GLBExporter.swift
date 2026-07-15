@@ -29,7 +29,12 @@ enum GLBExporter {
 
     /// Đọc PLY màu → ghi file .glb tại `glbURL`.
     static func makeGLB(fromPLY plyURL: URL, to glbURL: URL) throws {
-        let mesh = try ColoredMeshPLY.parse(plyURL)
+        try makeGLB(mesh: ColoredMeshPLY.parse(plyURL), to: glbURL)
+    }
+
+    /// Ghi .glb từ mesh ĐÃ parse — cho nơi gọi có sẵn mesh (ColoredOBJExporter gói zip)
+    /// khỏi parse PLY hai lần trên mesh cả triệu đỉnh.
+    static func makeGLB(mesh: ColoredMeshPLY.Mesh, to glbURL: URL) throws {
         let vCount = mesh.positions.count
         let iCount = mesh.indices.count
         guard vCount > 0, iCount > 0 else { throw ExportError.emptyMesh }

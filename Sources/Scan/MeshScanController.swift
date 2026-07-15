@@ -45,6 +45,12 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
         colorMesh?.vertexCount ?? 0
     }
 
+    /// Anchor đã VÀO dữ liệu xuất (kèm số đỉnh đã ghi) — MeshOverlayView tô lưới trung
+    /// thực theo đây (xanh = chắc chắn có trong file, đỏ = chưa/thiếu).
+    var recordedAnchorCounts: [UUID: Int] {
+        colorMesh?.recordedAnchorCounts ?? [:]
+    }
+
     /// Gọi từ onAppear của MeshScanFlowView — makeUIView của ARCameraViewRepresentable đã
     /// chạy trước đó, nên gán arSession.delegate tại đây chắc chắn KHÔNG bị ARSCNView đè.
     func startSession() {
@@ -64,7 +70,14 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
 
         // wholeHomePreset: hình học full mật độ ARKit, trần 2M chỉ là van an toàn RAM —
         // tier chỉ quyết định chất lượng MÀU. (Preset thường 120k là cho luồng RoomPlan.)
-        let colorMesh = ColorMeshBuilder(arSession: arSession, preset: quality.wholeHomePreset)
+        // strictVertexCap: không mất geometry đã quét khi ARKit gộp anchor lúc đầy.
+        // captureDepthForOcclusion: kiểm tra che khuất khi gán màu (hết màu ghế in lên bàn).
+        let colorMesh = ColorMeshBuilder(
+            arSession: arSession,
+            preset: quality.wholeHomePreset,
+            strictVertexCap: true,
+            captureDepthForOcclusion: true
+        )
         self.colorMesh = colorMesh
         colorMesh.start()
         let recorder = ScanVideoRecorder(arSession: arSession)
@@ -82,6 +95,11 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
             let full = mesh.isFull
             if full != self.capReached {
                 self.capReached = full
+                // Rung khi CHUYỂN sang đầy — người quét thường nhìn phòng chứ không nhìn
+                // banner; thiếu tín hiệu này là tiếp tục quét vào chỗ không được ghi.
+                if full {
+                    UINotificationFeedbackGenerator().notificationOccurred(.warning)
+                }
             }
         }
     }
@@ -96,6 +114,9 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
         isStopped = true
         teardownCommon()
         colorMesh?.stop() // tắt CADisplayLink ngay trên main trước khi export
+        // Gom CHỐT SỔ frame hiện tại trước khi pause: tick 2–5Hz nên nửa giây mesh cuối
+        // (vùng vừa quét ngay trước khi bấm Dừng) có thể chưa vào bộ tích lũy.
+        colorMesh?.ingestFinalFrame()
         arSession.pause()
         // capReached STICKY của builder = "đã từng phải bỏ dữ liệu" → call-site dùng để
         // mời khách quét BẢN BỔ SUNG cho phần còn thiếu (nhà rất lớn chạm trần 2M).
@@ -137,6 +158,8 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
     func sessionWasInterrupted(_ session: ARSession) {
         guard !isStopped else { return }
         isInterrupted = true
+        // Rung báo "đang KHÔNG ghi" — từ giờ lưới quét thêm sẽ hiện ĐỎ trên overlay.
+        UINotificationFeedbackGenerator().notificationOccurred(.warning)
         // Hủy đồng hồ relocalize còn treo từ gián đoạn trước — không thì nó nổ giữa
         // gián đoạn thứ hai và báo "mất định vị" oan.
         relocalizeTimer?.invalidate()
@@ -160,6 +183,7 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
                 self.qualityMonitor.setActive(true)
             } else {
                 self.trackingLost = true
+                UINotificationFeedbackGenerator().notificationOccurred(.error)
             }
         }
     }
@@ -182,6 +206,9 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
 
     func session(_ session: ARSession, didFailWithError error: Error) {
         guard !isStopped else { return }
-        trackingLost = true
+        if !trackingLost {
+            trackingLost = true
+            UINotificationFeedbackGenerator().notificationOccurred(.error)
+        }
     }
 }
