@@ -83,7 +83,10 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
         )
         self.colorMesh = colorMesh
         colorMesh.start()
-        let recorder = ScanVideoRecorder(arSession: arSession)
+        // recordCameraTrack: ghi vị trí + hướng camera đồng bộ PTS video → camera-track.json
+        // đóng kèm zip OBJ cho minimap kiểu CubiCasa (mũi tên trên floorplan khi xem video).
+        // Cờ opt-in, CHỈ mesh mode bật — luồng RoomPlan giữ nguyên hành vi.
+        let recorder = ScanVideoRecorder(arSession: arSession, recordCameraTrack: true)
         self.recorder = recorder
         recorder.start()
         qualityMonitor.start()
@@ -112,8 +115,8 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
     /// @MainActor BẮT BUỘC: hàm async không isolation sẽ chạy thân hàm trên executor NỀN
     /// (SE-0338) → Timer.invalidate/UIApplication/pause + sửa state đua với delegate main.
     @MainActor
-    func stopAndExport() async -> (videoURL: URL?, meshURL: URL?, hitCap: Bool) {
-        guard !isStopped else { return (nil, nil, false) }
+    func stopAndExport() async -> (videoURL: URL?, meshURL: URL?, trackURL: URL?, hitCap: Bool) {
+        guard !isStopped else { return (nil, nil, nil, false) }
         isStopped = true
         teardownCommon()
         // teardownCommon vừa bật lại auto-lock, nhưng export còn chạy hàng chục giây tới
@@ -130,10 +133,11 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
         // mời khách quét BẢN BỔ SUNG cho phần còn thiếu (nhà rất lớn chạm trần 2M).
         let hitCap = colorMesh?.capReached ?? false
         let videoURL = await recorder?.finish()
+        let trackURL = recorder?.cameraTrackURL // chỉ khác nil khi video hoàn tất OK
         recorder = nil
         let meshURL = await colorMesh?.exportColoredPLY()
         colorMesh = nil
-        return (videoURL, meshURL, hitCap)
+        return (videoURL, meshURL, trackURL, hitCap)
     }
 
     func cancel() {

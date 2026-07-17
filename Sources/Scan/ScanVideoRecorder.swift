@@ -15,6 +15,10 @@ final class ScanVideoRecorder {
 
     let outputURL: URL
 
+    /// File camera-track.json (nếu có bật ghi track) — chỉ khác nil SAU khi finish()
+    /// trả về URL video thành công. Track đi kèm video: thiếu video thì track vô nghĩa.
+    private(set) var cameraTrackURL: URL?
+
     private weak var arSession: ARSession?
     private var writer: AVAssetWriter?
     private var input: AVAssetWriterInput?
@@ -25,8 +29,27 @@ final class ScanVideoRecorder {
     private var lastTimestamp: TimeInterval = 0
     private var isFinishing = false
 
-    init(arSession: ARSession) {
+    // MARK: Camera track (minimap kiểu CubiCasa)
+    // Cờ opt-in mặc định TẮT — recorder dùng chung cho cả luồng RoomPlan lẫn Mesh;
+    // chỉ MeshScanController bật (cùng pattern strictVertexCap của ColorMeshBuilder).
+    // Ghi {t, vị trí, hướng nhìn ngang, tracking} lấy từ CHÍNH ARFrame vừa ghi vào
+    // video trong tick() → t trùng khớp tuyệt đối với PTS video, không cần timer riêng.
+    private let recordCameraTrack: Bool
+    private struct TrackSample {
+        let t: TimeInterval
+        let x: Float
+        let y: Float
+        let z: Float
+        let dx: Float
+        let dz: Float
+        let ok: Bool
+    }
+    private var trackSamples: [TrackSample] = []
+    private var lastTrackTime: TimeInterval = -1
+
+    init(arSession: ARSession, recordCameraTrack: Bool = false) {
         self.arSession = arSession
+        self.recordCameraTrack = recordCameraTrack
         self.outputURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("scan-video-\(UUID().uuidString.prefix(8)).mp4")
     }
@@ -102,9 +125,86 @@ final class ScanVideoRecorder {
 
         let seconds = frame.timestamp - (firstTimestamp ?? frame.timestamp)
         adaptor.append(buffer, withPresentationTime: CMTime(seconds: seconds, preferredTimescale: 600))
+        if recordCameraTrack {
+            appendTrackSample(frame: frame, at: seconds)
+        }
+    }
+
+    /// Lấy mẫu vị trí + hướng camera từ ARFrame VỪA ghi vào video (t = PTS của khung đó).
+    /// ~4Hz là đủ: viewer nội suy giữa các mẫu; 30 phút quét ≈ 7200 mẫu (~450KB JSON).
+    private func appendTrackSample(frame: ARFrame, at t: TimeInterval) {
+        guard trackSamples.isEmpty || t - lastTrackTime >= 0.24 else { return }
+        let tf = frame.camera.transform
+        // Hướng ống kính = -Z của camera.transform. KHÔNG cần viewMatrix(for:.portrait):
+        // xoay giao diện chỉ quay quanh trục nhìn, không đổi vector nhìn của ống kính.
+        var dx = -tf.columns.2.x
+        var dz = -tf.columns.2.z
+        if dx * dx + dz * dz < 0.04 {
+            // Đang nhìn gần thẳng đứng (quét sàn/trần) → chiếu ngang của hướng nhìn ≈ 0,
+            // mũi tên sẽ xoay loạn. Thay bằng trục DỌC MÁY: app portrait-only nên +X
+            // camera trỏ về ĐUÔI máy (cạnh nút Home). CHÚC máy xuống sàn → đỉnh máy (-X)
+            // ngả về phía trước = hướng người quét đối mặt; NGỬA máy lên trần thì ngược
+            // lại — đuôi máy (+X) mới ngả về trước. Chọn dấu theo chiều đứng của hướng
+            // nhìn để cả hai phía đều liên tục với nhánh -Z quanh ngưỡng (không lật 180°).
+            let lookY = -tf.columns.2.y
+            let s: Float = lookY < 0 ? -1 : 1
+            dx = s * tf.columns.0.x
+            dz = s * tf.columns.0.z
+        }
+        let len = (dx * dx + dz * dz).squareRoot()
+        guard len > 0.001 else { return } // cả hai trục cùng thoái hóa (cực hiếm) — bỏ mẫu
+        let px = tf.columns.3.x
+        let py = tf.columns.3.y
+        let pz = tf.columns.3.z
+        // Tracking chập chờn có thể cho transform NaN/Inf — String(format:) sẽ ghi "nan"
+        // làm VỠ cả file JSON. Bỏ mẫu hỏng, giữ file sạch.
+        guard px.isFinite, py.isFinite, pz.isFinite, dx.isFinite, dz.isFinite else { return }
+        var ok = false
+        if case .normal = frame.camera.trackingState { ok = true }
+        lastTrackTime = t
+        trackSamples.append(TrackSample(
+            t: t,
+            x: px, y: py, z: pz,
+            dx: dx / len, dz: dz / len,
+            ok: ok
+        ))
+    }
+
+    /// Ghi camera-track.json ra file tạm (gọi sau khi video hoàn tất). Ghi tay từng dòng
+    /// cho gọn file (mảng phẳng thay vì object mỗi mẫu) và nhẹ cho type-checker.
+    private func writeCameraTrackFile() {
+        guard recordCameraTrack, !trackSamples.isEmpty else { return }
+        var text = "{\"version\":1,\n"
+        text += "\"coordinateSpace\":\"ARKit world: right-handed, Y-up, meters. "
+        text += "t = seconds from video start (PTS-aligned). "
+        text += "(dx,dz) = unit horizontal look direction in the X-Z plane. "
+        text += "ok: 1 = tracking normal, 0 = limited/interrupted.\",\n"
+        text += "\"fields\":[\"t\",\"x\",\"y\",\"z\",\"dx\",\"dz\",\"ok\"],\n\"samples\":[\n"
+        for (i, s) in trackSamples.enumerated() {
+            let sep = i == trackSamples.count - 1 ? "\n" : ",\n"
+            let line = String(
+                format: "[%.2f,%.3f,%.3f,%.3f,%.3f,%.3f,%d]",
+                s.t, Double(s.x), Double(s.y), Double(s.z),
+                Double(s.dx), Double(s.dz), s.ok ? 1 : 0
+            )
+            text += line + sep
+        }
+        text += "]}\n"
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("camera-track-\(UUID().uuidString.prefix(8)).json")
+        do {
+            try Data(text.utf8).write(to: url)
+            cameraTrackURL = url
+        } catch {
+            cameraTrackURL = nil // track hỏng không được chặn việc lưu video/mesh
+        }
     }
 
     /// Kết thúc quay; trả về URL file video (hoặc nil nếu chưa quay được khung nào).
+    /// @MainActor: tick() chạy trên main (CADisplayLink) — thân hàm cùng actor thì
+    /// invalidate/đọc trackSamples không đua với tick (hàm async không isolation sẽ
+    /// chạy thân hàm trên executor NỀN theo SE-0338).
+    @MainActor
     func finish() async -> URL? {
         guard let writer, let input, !isFinishing else { return nil }
         isFinishing = true
@@ -119,7 +219,9 @@ final class ScanVideoRecorder {
         await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
             writer.finishWriting { continuation.resume() }
         }
-        return writer.status == .completed ? outputURL : nil
+        guard writer.status == .completed else { return nil }
+        writeCameraTrackFile()
+        return outputURL
     }
 
     /// Hủy quay (khi khách bấm Hủy) — xoá file tạm.

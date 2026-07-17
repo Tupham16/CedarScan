@@ -27,7 +27,11 @@ enum ColoredOBJExporter {
     /// tạm rồi nén thành .zip tại `zipURL`. `includeGLB` cho chế độ quét Mesh: đội vẽ kéo
     /// model.glb vào Blender là CÓ MÀU ngay (OBJ màu-theo-đỉnh phi tiêu chuẩn — Blender
     /// render ra trắng); zip nặng thêm ~20–25MB/1M đỉnh, vẫn nhẹ so cap upload 500MB.
-    static func makeOBJZip(fromPLY plyURL: URL, to zipURL: URL, includeGLB: Bool = false) throws {
+    /// `extraFiles`: file phụ đóng kèm cạnh model.obj (vd camera-track.json cho minimap) —
+    /// copy theo đúng tên file gốc, hỏng không chặn zip.
+    static func makeOBJZip(
+        fromPLY plyURL: URL, to zipURL: URL, includeGLB: Bool = false, extraFiles: [URL] = []
+    ) throws {
         let mesh = try ColoredMeshPLY.parse(plyURL)
 
         // MARK: - Ghi các file vào thư mục tạm rồi nén
@@ -41,6 +45,9 @@ enum ColoredOBJExporter {
         if includeGLB {
             // GLB hỏng không chặn zip — OBJ vẫn là dữ liệu chính.
             try? GLBExporter.makeGLB(mesh: mesh, to: work.appendingPathComponent("model.glb"))
+        }
+        for extra in extraFiles {
+            try? fm.copyItem(at: extra, to: work.appendingPathComponent(extra.lastPathComponent))
         }
 
         try zipDirectory(work, to: zipURL)

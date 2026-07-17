@@ -5,6 +5,9 @@ import ARKit
 struct MeshScanResult {
     let videoURL: URL?
     let meshURL: URL?
+    /// camera-track.json (vị trí + hướng camera theo PTS video) — nguyên liệu minimap;
+    /// nil khi video không quay được (track không video là vô nghĩa).
+    let trackURL: URL?
     let name: String?
     /// Mức nét THẬT SỰ đã quét (không đọc lại AppStorage lúc lưu — tránh lệch
     /// khi cửa sổ khác đổi tier giữa chừng trên iPad).
@@ -288,6 +291,7 @@ struct MeshScanFlowView: View {
             let result = MeshScanResult(
                 videoURL: exported.videoURL,
                 meshURL: exported.meshURL,
+                trackURL: exported.trackURL,
                 name: name.isEmpty ? nil : name,
                 quality: controller.quality,
                 hitCap: exported.hitCap

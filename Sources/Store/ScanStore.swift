@@ -205,6 +205,7 @@ final class ScanStore: ObservableObject {
     func saveMeshScan(
         videoURL: URL?,
         meshURL: URL?,
+        trackURL: URL? = nil,
         name: String?,
         projectId: UUID? = nil,
         quality: MeshQuality
@@ -243,6 +244,23 @@ final class ScanStore: ObservableObject {
             )
         }
 
+        // 1b. Camera track (vị trí + hướng camera đồng bộ PTS video) — nguyên liệu minimap
+        //     kiểu CubiCasa: tool FLOORPLANCUT của đội vẽ đọc file này để vẽ mũi tên chạy
+        //     trên ảnh mặt bằng khi phát video. Giữ 1 bản trong thư mục bản quét (viewer
+        //     trong app sau này) + đóng kèm vào zip OBJ bên dưới (tới tay đội vẽ, không
+        //     cần đổi gì phía server). Hỏng cũng không chặn lưu.
+        //     GIỚI HẠN CÓ CHỦ ĐÍCH: track lên server CHỈ qua zip OBJ — nếu nén zip lỗi
+        //     (rơi về PLY phao) hay bản chỉ-có-video thì track vẫn nằm đây nhưng KHÔNG
+        //     được upload (ScanUploader không có kind riêng; muốn thêm phải đổi server
+        //     TRƯỚC app SAU). Mesh mất thì minimap cũng vô nghĩa nên chấp nhận.
+        var savedTrackURL: URL?
+        if let trackURL, fileManager.fileExists(atPath: trackURL.path) {
+            let dest = folder.appendingPathComponent("camera-track.json")
+            if (try? fileManager.moveItem(at: trackURL, to: dest)) != nil {
+                savedTrackURL = dest
+            }
+        }
+
         // 2. Mô hình 3D: giữ OBJ màu ĐÃ NÉN (obj+mtl+glb trong model-colored.zip). OBJ là text
         //    nén ~5 lần → upload nhẹ hơn nhiều bản obj thô (~200MB → ~40MB). GLB kèm trong zip
         //    để đội vẽ kéo vào Blender là CÓ MÀU ngay (OBJ màu-đỉnh Blender render trắng).
@@ -253,9 +271,12 @@ final class ScanStore: ObservableObject {
             let zipURL = folder.appendingPathComponent("model-colored.zip")
             // .userInitiated: người dùng đang đứng chờ trên overlay "Đang dựng mô hình 3D…"
             // (.utility đẩy sang efficiency core, nhà lớn chờ lâu gấp đôi vô ích).
+            let extraFiles = savedTrackURL.map { [$0] } ?? []
             let converted = await Task.detached(priority: .userInitiated) { () -> Bool in
                 do {
-                    try ColoredOBJExporter.makeOBJZip(fromPLY: meshURL, to: zipURL, includeGLB: true)
+                    try ColoredOBJExporter.makeOBJZip(
+                        fromPLY: meshURL, to: zipURL, includeGLB: true, extraFiles: extraFiles
+                    )
                     return true
                 } catch {
                     return false

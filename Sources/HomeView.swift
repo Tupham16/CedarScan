@@ -77,6 +77,7 @@ struct HomeView: View {
                     do {
                         _ = try await store.saveMeshScan(
                             videoURL: result.videoURL, meshURL: result.meshURL,
+                            trackURL: result.trackURL,
                             name: result.name, quality: result.quality
                         )
                         // Nhà rất lớn chạm trần: sau khi cover đóng sẽ mời quét phần còn lại.
