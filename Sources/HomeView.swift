@@ -21,7 +21,17 @@ struct HomeView: View {
     @State private var showNewProject = false
     @State private var newProjectName = ""
     @State private var showGuide = false
+    /// Guide đang mở ở dạng CÓ nút "Bắt đầu quét" (luồng lần đầu) hay chỉ để đọc.
     @State private var guideThenScan = false
+    /// Người dùng ĐÃ BẤM nút "Bắt đầu quét" trong guide. Tách khỏi `guideThenScan` vì nút
+    /// "Đóng" cũng dismiss cùng một sheet — gộp một cờ thì đóng guide sẽ tự nhảy vào màn quét.
+    ///
+    /// RESET Ở LỐI VÀO, không chỉ ở onDismiss: nếu có đúng một lần onDismiss không chạy (view
+    /// bị dựng lại/đổi identity giữa lúc sheet đang đóng — rất dễ xảy ra khi P3–P6 sắp tới đổi
+    /// cấu trúc màn hình) thì cờ kẹt `true`, và lần sau người dùng chỉ mở guide để ĐỌC rồi đóng
+    /// lại là app tự nhảy vào màn quét. Đặt lại ở cả hai lối vào biến chuyện đó thành bất khả
+    /// thi về cấu trúc, thay vì phải tin rằng onDismiss luôn luôn chạy.
+    @State private var startAfterGuide = false
 
     private var isSupported: Bool { RoomCaptureSession.isSupported }
 
@@ -39,6 +49,7 @@ struct HomeView: View {
                 ToolbarItem(placement: .topBarLeading) {
                     Button {
                         guideThenScan = false
+                        startAfterGuide = false // xem mục "reset ở LỐI VÀO" ở sheet bên dưới
                         showGuide = true
                     } label: {
                         Label(L.t("How to scan", "Cách quét"), systemImage: "questionmark.circle")
@@ -53,9 +64,20 @@ struct HomeView: View {
                     }
                 }
             }
-            .sheet(isPresented: $showGuide) {
+            // Bắt đầu quét từ onDismiss, KHÔNG gọi thẳng trong callback của guide: ScanGuideView
+            // gọi dismiss() rồi onStart() trong CÙNG một transaction, nên present thẳng ở đó là
+            // present-trong-lúc-sheet-đang-đóng — đúng thứ mà chú thích ngay dưới cảnh báo.
+            // Hậu quả nếu không sửa: lần cài MỚI đầu tiên, bấm "Hiểu rồi — bắt đầu quét" thì
+            // guide đóng mà sheet độ nét không hiện, người dùng phải bấm nút Quét lần hai. Và vì
+            // seenKey đã được set TRƯỚC dismiss nên lần hai đi thẳng — lỗi tự lành và không bao
+            // giờ tái hiện trên máy đã dùng, tức không thể bắt được bằng test thủ công thông thường.
+            .sheet(isPresented: $showGuide, onDismiss: {
+                guard startAfterGuide else { return }
+                startAfterGuide = false
+                startScanning()
+            }) {
                 if guideThenScan {
-                    ScanGuideView { startScanning() }
+                    ScanGuideView { startAfterGuide = true }
                 } else {
                     ScanGuideView()
                 }
@@ -282,11 +304,15 @@ struct HomeView: View {
 
     private var scanButton: some View {
         Button {
-            if UserDefaults.standard.bool(forKey: ScanGuideView.seenKey) {
-                startScanning()
-            } else {
+            // Guide chỉ dạy luồng quét 3D LiDAR (đi chậm, giữ 40cm, đừng dừng giữa các tầng,
+            // dựng mô hình lúc lưu). Máy KHÔNG có LiDAR đi đường quay video — không có thứ nào
+            // trong đó áp dụng được, nên đừng bắt họ đọc rồi rơi vào màn chẳng giống mô tả nào.
+            if isSupported && !UserDefaults.standard.bool(forKey: ScanGuideView.seenKey) {
                 guideThenScan = true
+                startAfterGuide = false // xem mục "reset ở LỐI VÀO" ở sheet bên trên
                 showGuide = true
+            } else {
+                startScanning()
             }
         } label: {
             Label(
