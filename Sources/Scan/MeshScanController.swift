@@ -74,12 +74,15 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
         // captureDepthForOcclusion: kiểm tra che khuất khi gán màu (hết màu ghế in lên bàn).
         // refineLargeTriangles: lúc xuất chia nhỏ tam giác lớn để mảng tường/sàn phẳng có
         // thêm đỉnh màu — hết cảnh vài đỉnh kéo nhòe màu cả mét (đổi bằng lưu lâu hơn).
+        // fillUncoloredVertices: cứu đỉnh "xám" (vùng đã quét nhưng không khung màu nào
+        // qua bộ lọc) bằng lượt vét lỏng tay + vá màu lân cận — hết mảng xám trong OBJ.
         let colorMesh = ColorMeshBuilder(
             arSession: arSession,
             preset: quality.wholeHomePreset,
             strictVertexCap: true,
             captureDepthForOcclusion: true,
-            refineLargeTriangles: true
+            refineLargeTriangles: true,
+            fillUncoloredVertices: true
         )
         self.colorMesh = colorMesh
         colorMesh.start()

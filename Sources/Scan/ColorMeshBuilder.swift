@@ -91,16 +91,22 @@ final class ColorMeshBuilder {
     ///   bake màu — ARKit gộp mảng phẳng (tường/sàn) thành tam giác to, vài đỉnh màu bị
     ///   Gouraud kéo nhòe cả mét. Chỉ THÊM đỉnh tại trung điểm cạnh, KHÔNG dịch chuyển
     ///   hình học; đổi bằng bake màu lâu hơn (×2–4) + file to hơn.
+    /// - fillUncoloredVertices: cứu đỉnh "xám" (đã quét nhưng không khung màu nào qua
+    ///   được bộ lọc chuẩn — khung bị vứt khi kho đầy / góc quá xiên / occlusion loại
+    ///   nhầm): lượt vét lỏng tay + vá màu lân cận (kiểu inpainting của app quét thương
+    ///   mại). Chỉ đụng đỉnh ĐÃ hỏng, vùng có màu giữ nguyên; thêm ~vài giây lúc xuất.
     private let strictVertexCap: Bool
     private let captureDepthForOcclusion: Bool
     private let refineLargeTriangles: Bool
+    private let fillUncoloredVertices: Bool
 
     init(
         arSession: ARSession,
         preset: MeshQuality.Preset = MeshQuality.light.preset,
         strictVertexCap: Bool = false,
         captureDepthForOcclusion: Bool = false,
-        refineLargeTriangles: Bool = false
+        refineLargeTriangles: Bool = false,
+        fillUncoloredVertices: Bool = false
     ) {
         self.arSession = arSession
         maxVertices = preset.maxVertices
@@ -110,6 +116,7 @@ final class ColorMeshBuilder {
         self.strictVertexCap = strictVertexCap
         self.captureDepthForOcclusion = captureDepthForOcclusion
         self.refineLargeTriangles = refineLargeTriangles
+        self.fillUncoloredVertices = fillUncoloredVertices
     }
 
     func start() {
@@ -386,18 +393,23 @@ final class ColorMeshBuilder {
         let pieces = self.pieces
         let keyframes = self.keyframes
         let refine = refineLargeTriangles
+        let fill = fillUncoloredVertices
         guard !pieces.isEmpty, !keyframes.isEmpty else { return nil }
 
         return await withCheckedContinuation { (continuation: CheckedContinuation<URL?, Never>) in
             queue.async {
-                let url = Self.buildPLY(pieces: pieces, keyframes: keyframes, refineLargeTriangles: refine)
+                let url = Self.buildPLY(
+                    pieces: pieces, keyframes: keyframes,
+                    refineLargeTriangles: refine, fillUncoloredVertices: fill
+                )
                 continuation.resume(returning: url)
             }
         }
     }
 
     private static func buildPLY(
-        pieces: [UUID: MeshPiece], keyframes: [ColorFrame], refineLargeTriangles: Bool
+        pieces: [UUID: MeshPiece], keyframes: [ColorFrame],
+        refineLargeTriangles: Bool, fillUncoloredVertices: Bool
     ) -> URL? {
         // Gộp lưới thành 1 mảng đỉnh + mặt (dời chỉ số)
         var vertices: [SIMD3<Float>] = []
@@ -436,6 +448,8 @@ final class ColorMeshBuilder {
             )
         }
         var colors = [SIMD3<UInt8>](repeating: SIMD3(150, 150, 150), count: vertices.count)
+        // Đỉnh không lấy được màu (mọi khung bị bộ lọc chuẩn loại) — để 2 lượt vá cứu sau.
+        var uncolored = [Bool](repeating: false, count: vertices.count)
         // Song song hóa theo chunk: mỗi chunk ghi một dải chỉ số RIÊNG (không giao nhau),
         // dữ liệu đọc (vertices/normals/samplers) bất biến → an toàn. Nguyên căn ở trần
         // 2M đỉnh × 64 khung màu là ~128 triệu phép chiếu — tuần tự sẽ bắt chờ rất lâu.
@@ -445,15 +459,29 @@ final class ColorMeshBuilder {
         vertices.withUnsafeBufferPointer { vBuf in
             normals.withUnsafeBufferPointer { nBuf in
                 colors.withUnsafeMutableBufferPointer { cBuf in
-                    DispatchQueue.concurrentPerform(iterations: chunkCount) { chunk in
-                        let start = chunk * chunkSize
-                        let end = min(start + chunkSize, total)
-                        for i in start..<end {
-                            cBuf[i] = sampleColor(world: vBuf[i], normal: nBuf[i], samplers: samplers)
+                    uncolored.withUnsafeMutableBufferPointer { uBuf in
+                        DispatchQueue.concurrentPerform(iterations: chunkCount) { chunk in
+                            let start = chunk * chunkSize
+                            let end = min(start + chunkSize, total)
+                            for i in start..<end {
+                                if let c = sampleColor(world: vBuf[i], normal: nBuf[i], samplers: samplers) {
+                                    cBuf[i] = c
+                                } else {
+                                    uBuf[i] = true // giữ xám 150 tạm — vá bên dưới
+                                }
+                            }
                         }
                     }
                 }
             }
+        }
+
+        // Cứu đỉnh xám (chỉ chế độ Mesh bật cờ — RoomPlan giữ hành vi cũ: xám 150 như trước)
+        if fillUncoloredVertices {
+            fillUncolored(
+                colors: &colors, uncolored: &uncolored,
+                vertices: vertices, normals: normals, faces: faces, samplers: samplers
+            )
         }
 
         // Ghi PLY nhị phân little-endian (KHÔNG dùng ModelIO — lỗi màu trên iOS)
@@ -601,13 +629,20 @@ final class ColorMeshBuilder {
     /// CÓ KIỂM TRA CHE KHUẤT bằng depth map LiDAR của từng khung (khi phiên bật .sceneDepth):
     /// đỉnh bị vật khác chắn giữa nó và camera sẽ KHÔNG lấy màu từ khung đó — hết cảnh màu
     /// ghế salon "in" lên mặt bàn phía sau. Khung không có depth (luồng RoomPlan) giữ hành vi cũ.
+    /// Trả nil khi KHÔNG khung nào qua bộ lọc (caller quyết: xám 150 hoặc đưa vào lượt vá).
+    /// relaxed=true (lượt vét cho đỉnh đã hỏng): chấp nhận góc xiên (facing>0) — KHÔNG
+    /// dùng cho lượt chuẩn. skipOcclusion=true chỉ dành cho nấc vét CUỐI: bỏ occlusion
+    /// test là bất đắc dĩ (khung bị che có thể thắng khung sạch → màu vật chắn in lên
+    /// mặt sau), nên nấc 1 luôn GIỮ occlusion, chỉ đỉnh vẫn hỏng mới sang nấc 2.
     private static func sampleColor(
-        world: SIMD3<Float>, normal: SIMD3<Float>, samplers: [KeyframeSampler]
-    ) -> SIMD3<UInt8> {
+        world: SIMD3<Float>, normal: SIMD3<Float>, samplers: [KeyframeSampler],
+        relaxed: Bool = false, skipOcclusion: Bool = false
+    ) -> SIMD3<UInt8>? {
         var bestIdx = -1
         var bestX: Float = 0
         var bestY: Float = 0
         var bestScore: Float = -1
+        let minFacing: Float = relaxed ? 0 : 0.1
 
         for k in samplers.indices {
             let kf = samplers[k]
@@ -615,7 +650,7 @@ final class ColorMeshBuilder {
             let dist = simd_length(toCamRaw)
             if dist < 0.05 { continue } // trùng vị trí camera → chiếu vô nghĩa
             let facing = simd_dot(normal, toCamRaw / dist)
-            if facing <= 0.1 { continue } // quay lưng với camera → bỏ
+            if facing <= minFacing { continue } // quay lưng với camera → bỏ
             // Điểm = độ nhìn thẳng / căn khoảng cách: khung GẦN thắng khung xa cùng góc
             // (footprint pixel nhỏ hơn nhiều → màu nét hơn); sqrt để không phạt quá tay.
             let score = facing / sqrtf(max(dist, 0.5))
@@ -634,8 +669,9 @@ final class ColorMeshBuilder {
             // KIỂM TRA CHE KHUẤT: depth map cho biết bề mặt GẦN NHẤT ở pixel này cách camera
             // bao xa; đỉnh nằm sâu hơn mức đó (quá dung sai) tức là có vật chắn → bỏ khung.
             // Chỉ tin depth trong tầm LiDAR (~5m); dung sai nới theo khoảng cách vì depth
-            // 256px thô hơn mesh nhiều (mép vật hay lệch vài cm).
-            if kf.dw > 0, kf.dh > 0 {
+            // 256px thô hơn mesh nhiều (mép vật hay lệch vài cm). Chỉ nấc vét CUỐI
+            // (skipOcclusion) mới bỏ qua — occlusion loại nhầm ở mép vật gây đỉnh xám.
+            if !skipOcclusion, kf.dw > 0, kf.dh > 0 {
                 let dx = min(kf.dw - 1, Int(xImg * Float(kf.dw) / kf.srcW))
                 let dy = min(kf.dh - 1, Int(yImg * Float(kf.dh) / kf.srcH))
                 let d = kf.depth[dy * kf.dw + dx]
@@ -647,8 +683,143 @@ final class ColorMeshBuilder {
             bestX = xImg
             bestY = yImg
         }
-        guard bestIdx >= 0 else { return SIMD3(150, 150, 150) }
+        guard bestIdx >= 0 else { return nil }
         return bilinearSample(samplers[bestIdx], x: bestX, y: bestY)
+    }
+
+    // MARK: - Vá đỉnh không màu (cờ fillUncoloredVertices — chỉ chế độ Mesh)
+
+    /// Hai lượt cứu đỉnh "xám" (đã quét nhưng mọi khung màu bị bộ lọc chuẩn loại):
+    /// 1) LƯỢT VÉT LỎNG TAY 2 NẤC — thử lại với sampleColor(relaxed:): nấc 1 chấp nhận
+    ///    góc xiên nhưng GIỮ occlusion, nấc 2 (vẫn hỏng) mới bỏ occlusion. Ưu tiên chạy
+    ///    TRƯỚC vì lấy được MÀU THẬT từ ảnh (vd cả mảng tường chỉ được thấy ở góc chéo
+    ///    gắt); chỉ chạy cho đỉnh đã hỏng nên không đụng vùng đang đẹp.
+    /// 2) VÁ LÂN CẬN — đỉnh vẫn không màu nhận trung bình màu các đỉnh kề trên lưới,
+    ///    lan từng vòng (kiểu inpainting của app quét thương mại): mảng xám "mượn" màu
+    ///    xung quanh — hơi mờ đều nhưng đẹp hơn xám chết rất nhiều.
+    /// Đỉnh thuộc đảo cô lập không nối tới đỉnh màu nào (mảnh vụn rời) giữ xám 150.
+    private static func fillUncolored(
+        colors: inout [SIMD3<UInt8>], uncolored: inout [Bool],
+        vertices: [SIMD3<Float>], normals: [SIMD3<Float>],
+        faces: [(UInt32, UInt32, UInt32)], samplers: [KeyframeSampler]
+    ) {
+        // ---- Lượt 1: vét lỏng tay 2 NẤC (song song, chỉ trên danh sách đỉnh hỏng) ----
+        // Nấc 1 nới facing nhưng GIỮ occlusion: cứu đúng nhóm đỉnh chỉ hỏng vì góc
+        // xiên/kho khung bị vứt, KHÔNG cho khung bị che thắng khung sạch (bỏ occlusion
+        // ngay từ đầu sẽ in màu mặt bàn xuống sàn dưới gầm — đúng bug cũ đã trị).
+        // Nấc 2 (đỉnh vẫn hỏng) mới bất đắc dĩ bỏ occlusion — thà màu hơi lệch hơn xám.
+        let missing = uncolored.indices.filter { uncolored[$0] }
+        guard !missing.isEmpty else { return }
+        let still = rescuePass(
+            missing, skipOcclusion: false,
+            vertices: vertices, normals: normals, samplers: samplers,
+            colors: &colors, uncolored: &uncolored
+        )
+        _ = rescuePass(
+            still, skipOcclusion: true,
+            vertices: vertices, normals: normals, samplers: samplers,
+            colors: &colors, uncolored: &uncolored
+        )
+
+        // ---- Lượt 2: vá lân cận (lan màu qua cạnh lưới, 2 pha mỗi vòng) ----
+        // Chỉ mặt chứa đỉnh còn hỏng mới tham gia — thường là phần nhỏ của lưới.
+        // GUARD chỉ số mặt < số đỉnh: index rác từ buffer ARKit không được phép crash
+        // lúc lưu (mất cả bản quét) — cùng invariant với guard trong subdivideLargeTriangles;
+        // mặt hỏng bị BỎ QUA (không lan màu qua nó). Chỗ này truy mảng bằng chỉ số mặt
+        // (subdivide có guard riêng nhưng PASS THROUGH mặt hỏng) nên phải tự kiểm.
+        let n = colors.count
+        var active = faces.filter {
+            Int($0.0) < n && Int($0.1) < n && Int($0.2) < n &&
+                (uncolored[Int($0.0)] || uncolored[Int($0.1)] || uncolored[Int($0.2)])
+        }
+        guard !active.isEmpty else { return }
+        var sum = [SIMD3<Float>](repeating: .zero, count: colors.count)
+        var cnt = [Int32](repeating: 0, count: colors.count)
+        // Trần 128 vòng ≈ lan tối đa ~2.5–4.5m (đỉnh cách 2–3.5cm) — mảng xám xa hơn thế
+        // không dính đỉnh màu nào coi như đảo cô lập, giữ xám.
+        for _ in 0..<128 {
+            // Pha 1: đỉnh MÀU cộng dồn màu sang đỉnh HỎNG cùng mặt (trạng thái đầu vòng).
+            func floatColor(_ i: Int) -> SIMD3<Float> {
+                SIMD3<Float>(Float(colors[i].x), Float(colors[i].y), Float(colors[i].z))
+            }
+            for f in active {
+                let ia = Int(f.0), ib = Int(f.1), ic = Int(f.2)
+                let ca = !uncolored[ia], cb = !uncolored[ib], cc = !uncolored[ic]
+                if ca == cb, cb == cc { continue } // cả 3 cùng màu/cùng hỏng → không có gì lan
+                if ca { let s = floatColor(ia)
+                    if !cb { sum[ib] += s; cnt[ib] += 1 }
+                    if !cc { sum[ic] += s; cnt[ic] += 1 } }
+                if cb { let s = floatColor(ib)
+                    if !ca { sum[ia] += s; cnt[ia] += 1 }
+                    if !cc { sum[ic] += s; cnt[ic] += 1 } }
+                if cc { let s = floatColor(ic)
+                    if !ca { sum[ia] += s; cnt[ia] += 1 }
+                    if !cb { sum[ib] += s; cnt[ib] += 1 } }
+            }
+            // Pha 2: áp trung bình + đánh dấu đã màu + reset bộ đếm (cnt=0 chặn áp trùng).
+            var changed = false
+            func applyAvg(_ i: Int) {
+                guard cnt[i] > 0 else { return }
+                let c = sum[i] / Float(cnt[i])
+                colors[i] = SIMD3(
+                    UInt8(max(0, min(255, c.x + 0.5))),
+                    UInt8(max(0, min(255, c.y + 0.5))),
+                    UInt8(max(0, min(255, c.z + 0.5)))
+                )
+                uncolored[i] = false
+                sum[i] = .zero
+                cnt[i] = 0
+                changed = true
+            }
+            for f in active {
+                applyAvg(Int(f.0)); applyAvg(Int(f.1)); applyAvg(Int(f.2))
+            }
+            if !changed { break } // không lan thêm được — phần còn lại là đảo cô lập
+            // Co tập active: mặt đã đủ màu cả 3 đỉnh không còn gì để lan — bỏ khỏi các
+            // vòng sau (không co thì O(active × vòng), mảng xám lớn tốn hàng chục giây).
+            active = active.filter {
+                uncolored[Int($0.0)] || uncolored[Int($0.1)] || uncolored[Int($0.2)]
+            }
+            if active.isEmpty { break }
+        }
+    }
+
+    /// Một lượt vét song song trên danh sách đỉnh hỏng (chỉ số LUÔN < số đỉnh — lấy từ
+    /// uncolored.indices); trả về danh sách đỉnh VẪN hỏng sau lượt này.
+    private static func rescuePass(
+        _ missing: [Int], skipOcclusion: Bool,
+        vertices: [SIMD3<Float>], normals: [SIMD3<Float>], samplers: [KeyframeSampler],
+        colors: inout [SIMD3<UInt8>], uncolored: inout [Bool]
+    ) -> [Int] {
+        guard !missing.isEmpty else { return [] }
+        let mCount = missing.count
+        let mChunk = 4_096
+        let mChunks = (mCount + mChunk - 1) / mChunk
+        missing.withUnsafeBufferPointer { mBuf in
+            vertices.withUnsafeBufferPointer { vBuf in
+                normals.withUnsafeBufferPointer { nBuf in
+                    colors.withUnsafeMutableBufferPointer { cBuf in
+                        uncolored.withUnsafeMutableBufferPointer { uBuf in
+                            DispatchQueue.concurrentPerform(iterations: mChunks) { chunk in
+                                let start = chunk * mChunk
+                                let end = min(start + mChunk, mCount)
+                                for j in start..<end {
+                                    let i = mBuf[j]
+                                    if let c = sampleColor(
+                                        world: vBuf[i], normal: nBuf[i], samplers: samplers,
+                                        relaxed: true, skipOcclusion: skipOcclusion
+                                    ) {
+                                        cBuf[i] = c
+                                        uBuf[i] = false
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return missing.filter { uncolored[$0] }
     }
 
     /// Màu NỘI SUY 2 CHIỀU trên khung nhỏ (thay nearest) — bớt "vỡ pixel" khi khung 640px
