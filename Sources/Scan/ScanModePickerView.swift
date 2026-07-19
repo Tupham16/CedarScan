@@ -1,59 +1,40 @@
 import SwiftUI
 
 /// Kiểu quét — chọn ở sheet trước khi bắt đầu.
+///
+/// P2 (2026-07-19): luồng RoomPlan đã TẮT LỐI VÀO, `.floorplan` không còn được sinh ra ở đâu
+/// nữa. Giữ case lại vì `pendingScanMode` ở HomeView/ProjectView vẫn switch trên nó — xóa case
+/// bây giờ là phải sửa cả hai call site, mà chỗ đó chứa cơ chế present-trong-onDismiss viết rất
+/// cẩn thận (không được đụng vô cớ). Cả enum này sẽ biến mất ở P6 khi xóa RoomPlan thật.
 enum ScanMode: String {
-    case floorplan   // RoomPlan: từng phòng/từng tầng → floorplan + USDZ (luồng cũ)
+    case floorplan   // RoomPlan: từng phòng/từng tầng → floorplan + USDZ (KHÔNG còn lối vào)
     case mesh        // Mesh 3D: one-shot nhiều tầng → mesh màu + video, không floorplan
 }
 
-/// Sheet chọn kiểu quét — hiện MỖI LẦN bấm quét (chọn nhầm kiểu là mất 10+ phút đi bộ,
-/// một chạm thêm là bảo hiểm rẻ). Lựa chọn lần trước được nhớ để PRESELECT, không auto-skip.
+/// Sheet trước khi quét. TÊN CÒN LÀ "ModePicker" NHƯNG GIỜ CHỈ CHỌN ĐỘ NÉT — từ P2 app chỉ còn
+/// một kiểu quét (3D nguyên căn) nên không còn gì để chọn kiểu nữa. Cố ý KHÔNG đổi tên struct ở
+/// pha này: đổi tên là chạm vào HomeView + ProjectView, mà mục tiêu của P2 là chỉ sửa ĐÚNG MỘT
+/// FILE để hoàn tác được bằng cách khôi phục file đó. Đổi tên/gộp vào màn địa chỉ ở P3–P6.
+///
+/// Vẫn giữ sheet (thay vì vào thẳng màn quét) vì lựa chọn Vừa/Nét là thứ đáng hỏi: nó đổi
+/// thời gian lưu gần gấp đôi, và chọn nhầm thì phải quét lại cả buổi.
 struct ScanModePickerView: View {
     @Environment(\.dismiss) private var dismiss
     let onStart: (ScanMode) -> Void
 
-    // Mặc định preselect "Quét 3D nguyên căn" — workflow chính của chủ app
-    // (tự sản xuất bản vẽ 2D từ mesh + video, không cần floorplan RoomPlan).
-    @AppStorage("lastScanMode") private var lastScanModeRaw: String = ScanMode.mesh.rawValue
     @AppStorage("meshQuality") private var meshQuality: MeshQuality = MeshQuality.storageDefault
-    @State private var selected: ScanMode = .floorplan
 
     var body: some View {
         NavigationStack {
-            // ScrollView: ở detent .medium nội dung (2 card + tier picker + nút) có thể
-            // vượt chiều cao khả dụng trên máy 6.1" — không được ép nén/cắt chữ.
             ScrollView {
                 VStack(spacing: 12) {
-                    ModeCard(
-                        icon: "square.split.bottomrightquarter",
-                        title: L.t("Floor plan scan (per floor)", "Quét mặt bằng (từng tầng)"),
-                        subtitle: L.t(
-                            "Best for ordering a floor plan — scan room by room, one floor per scan.",
-                            "Chuẩn để đặt làm bản vẽ mặt bằng — quét từng phòng, mỗi tầng một bản."
-                        ),
-                        isSelected: selected == .floorplan
-                    ) { selected = .floorplan }
-
-                    ModeCard(
-                        icon: "cube.transparent",
-                        title: L.t("3D scan (whole home)", "Quét 3D nguyên căn"),
-                        subtitle: L.t(
-                            "One continuous scan across floors, Stop & Save anytime. Produces a colored 3D model + video — NO floor plan drawing.",
-                            "Quét liền một mạch nhiều tầng, Dừng & Lưu bất kỳ lúc nào. Ra mô hình 3D màu + video — KHÔNG có bản vẽ mặt bằng."
-                        ),
-                        isSelected: selected == .mesh
-                    ) { selected = .mesh }
-
-                    if selected == .mesh {
-                        QualityTierPicker(quality: $meshQuality)
-                    }
-
+                    QualityTierPicker(quality: $meshQuality)
                     startButton
                         .padding(.top, 4)
                 }
                 .padding()
             }
-            .navigationTitle(L.t("Choose scan type", "Chọn kiểu quét"))
+            .navigationTitle(L.t("Scan detail level", "Độ nét bản quét"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
@@ -61,18 +42,13 @@ struct ScanModePickerView: View {
                 }
             }
         }
-        .onAppear {
-            if let last = ScanMode(rawValue: lastScanModeRaw) {
-                selected = last
-            }
-        }
     }
 
     private var startButton: some View {
         Button {
-            lastScanModeRaw = selected.rawValue
             dismiss()
-            onStart(selected)
+            // Luôn .mesh: đây là kiểu quét duy nhất còn lại.
+            onStart(.mesh)
         } label: {
             Text(L.t("Start scanning", "Bắt đầu quét"))
                 .font(.headline)
@@ -80,48 +56,6 @@ struct ScanModePickerView: View {
                 .padding(.vertical, 14)
         }
         .buttonStyle(.borderedProminent)
-    }
-}
-
-/// Thẻ một kiểu quét — tách view riêng + kiểu tường minh (né type-check timeout CI).
-private struct ModeCard: View {
-    let icon: String
-    let title: String
-    let subtitle: String
-    let isSelected: Bool
-    let action: () -> Void
-
-    var body: some View {
-        let border: Color = isSelected ? Color.accentColor : Color(.separator)
-        let mark: String = isSelected ? "largecircle.fill.circle" : "circle"
-        return Button(action: action) {
-            HStack(alignment: .top, spacing: 12) {
-                Image(systemName: icon)
-                    .font(.title2)
-                    .frame(width: 34)
-                    .foregroundStyle(Color.accentColor)
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(title)
-                        .font(.headline)
-                        .foregroundStyle(.primary)
-                        .multilineTextAlignment(.leading)
-                    Text(subtitle)
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.leading)
-                }
-                Spacer(minLength: 0)
-                Image(systemName: mark)
-                    .foregroundStyle(.tint)
-            }
-            .padding(12)
-            .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 14))
-            .overlay(
-                RoundedRectangle(cornerRadius: 14)
-                    .strokeBorder(border, lineWidth: isSelected ? 2 : 1)
-            )
-        }
-        .buttonStyle(.plain)
     }
 }
 
