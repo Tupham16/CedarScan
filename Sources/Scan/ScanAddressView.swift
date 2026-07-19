@@ -21,19 +21,25 @@ struct ScanAddressView: View {
     @AppStorage("meshQuality") private var meshQuality: MeshQuality = MeshQuality.storageDefault
     @State private var address = ""
     @State private var pickedProjectId: UUID?
-    /// "Chữ tôi gõ trùng tên căn đã có, nhưng đây là căn KHÁC" — lối thoát khỏi việc gộp.
-    @State private var forceNewProject = false
 
-    /// Căn đã có trùng tên với chữ đang gõ, tính LIVE để HIỆN RA trước khi bấm quét.
-    ///
-    /// Gộp IM LẶNG nguy hiểm hơn chính lỗi nó sửa: tách nhầm làm đơn THIẾU một tầng (đội vẽ
-    /// thấy ngay), còn gộp nhầm làm đơn THỪA tầng của nhà khác — đội vẽ dựng ra một căn nhà
-    /// không tồn tại, và không ai có cách nào biết. Ô nhập ghi "Địa chỉ hoặc tên" nên tên người
-    /// là dữ liệu hợp lệ, mà tên người Việt trùng nhau là chuyện thường ngày: hai khách cùng
-    /// gọi "Nhà chị Lan" BẮT BUỘC phải tách được.
-    private var typedMatch: ScanProject? {
+    /// Căn đã quét, lọc theo chữ đang gõ. Ô nhập và danh sách là MỘT khối: gõ để lọc, chạm một
+    /// dòng để dùng lại căn đó, không chạm mà bấm Bắt đầu thì tạo căn mới theo chữ vừa gõ.
+    private var filteredProjects: [ScanProject] {
         let key = Self.matchKey(address)
-        guard !key.isEmpty else { return nil }
+        guard !key.isEmpty else { return store.projects }
+        return store.projects.filter { Self.matchKey($0.name).contains(key) }
+    }
+
+    /// Căn đã có TRÙNG HẲN tên với chữ đang gõ (không phải chỉ chứa).
+    ///
+    /// Chỉ dùng để nhắc một dòng, KHÔNG tự gộp. Gộp im lặng nguy hiểm hơn chính lỗi nó sửa:
+    /// tách nhầm làm đơn THIẾU một tầng (đội vẽ thấy ngay), gộp nhầm làm đơn THỪA tầng của nhà
+    /// khác — đội vẽ dựng ra một căn nhà không tồn tại và không ai phát hiện được. Ô này ghi
+    /// "Địa chỉ hoặc tên" nên tên người là dữ liệu hợp lệ, mà hai khách cùng gọi "Nhà chị Lan"
+    /// là chuyện thường ngày. Nên: chỉ NHẮC, để người dùng chạm.
+    private var exactMatch: ScanProject? {
+        let key = Self.matchKey(address)
+        guard !key.isEmpty, pickedProjectId == nil else { return nil }
         return store.projects.first { Self.matchKey($0.name) == key }
     }
 
@@ -42,8 +48,7 @@ struct ScanAddressView: View {
             // Tách từng Section thành computed property riêng — CI từng timeout type-check
             // với biểu thức SwiftUI lớn, và Form nhiều section là đúng dạng dễ dính.
             Form {
-                addressSection
-                existingSection
+                homeSection
                 qualitySection
                 actionSection
             }
@@ -57,7 +62,9 @@ struct ScanAddressView: View {
         }
     }
 
-    private var addressSection: some View {
+    /// Ô nhập và danh sách căn đã quét là MỘT khối: gõ để lọc, chạm một dòng để dùng lại căn
+    /// đó. Trước đây là hai mục riêng — cùng một việc mà bày hai chỗ.
+    private var homeSection: some View {
         Section {
             TextField(
                 L.t("Address or name (e.g. 1600 College Ave)", "Địa chỉ hoặc tên (vd 1600 College Ave)"),
@@ -65,75 +72,97 @@ struct ScanAddressView: View {
             )
             .textInputAutocapitalization(.words)
             .autocorrectionDisabled()
-            // Gõ địa chỉ mới thì bỏ chọn căn đã có — hai đường loại trừ nhau, để cả hai cùng
-            // "bật" là người dùng không đoán được cái nào thắng.
-            .onChange(of: address) { _, newValue in
-                if !newValue.isEmpty { pickedProjectId = nil }
-                // Gõ lại từ đầu thì bỏ luôn lựa chọn "đây là căn khác" của lần gõ trước.
-                forceNewProject = false
+            // Gõ = đang mô tả căn mới → bỏ dòng đang chọn. Hai đường loại trừ nhau, để cả hai
+            // cùng "bật" là người dùng không đoán được cái nào thắng.
+            //
+            // XOÁ VÔ ĐIỀU KIỆN, không guard `!newValue.isEmpty`: guard đó là tàn dư từ hồi nút
+            // chọn dòng còn đặt `address = ""` (phải chặn để lựa chọn vừa tạo không tự huỷ).
+            // Bỏ dòng đó rồi mà giữ guard thì sinh ra trạng thái KHÔNG THOÁT ĐƯỢC: ô rỗng nhưng
+            // `pickedProjectId` vẫn còn — màn hình nói "chưa gắn căn nào" (ô trống + footer +
+            // nhãn nút) trong khi `start()` vẫn gắn. Giờ an toàn vì nhánh chạm dòng không ghi
+            // vào `address` nữa nên không sinh vòng lặp.
+            .onChange(of: address) { _, _ in
+                pickedProjectId = nil
             }
-            matchRow
+            pickedRow
+            existingRows
         } header: {
             Text(L.t("Which home is this?", "Căn nhà này ở đâu?"))
         } footer: {
+            // Footer render SAU mọi dòng của section, nên KHÔNG dùng nó để chỉ đường ("chạm dòng
+            // bên dưới" sẽ trỏ ngược lên trên). Giữ đúng một câu chung, không đổi theo tình huống
+            // — việc cảnh báo trùng tên đã chuyển lên chữ trên NÚT, chỗ người dùng thật sự đọc.
             Text(L.t(
-                "Shown to the drafting team on the order. You can skip this and add it later.",
-                "Hiện trên đơn cho đội vẽ. Có thể bỏ qua và điền sau."
+                "Shown to the drafting team on the order. You can leave it empty and fill it in later.",
+                "Hiện trên đơn cho đội vẽ. Để trống cũng được, điền sau."
             ))
         }
     }
 
-    /// Báo cho người dùng biết chữ họ vừa gõ sẽ GỘP vào căn đã có, kèm lối thoát. Không có dòng
-    /// này thì hai kết cục (tạo căn mới / gộp vào căn cũ) nhìn giống hệt nhau trên màn hình.
+    /// Trạng thái "đang dùng lại căn nào", LUÔN hiện ngay dưới ô nhập khi có lựa chọn.
+    ///
+    /// Không thể trông vào dấu tích trong danh sách: danh sách có thể dài, có thể bị lọc rỗng,
+    /// và dấu tích dễ nằm ngoài màn hình. Cũng không thể dùng footer — footer render SAU mọi
+    /// dòng. Dòng này nằm cùng section nên đúng thứ tự, và bản thân nó là LỐI THOÁT duy nhất:
+    /// chạm lại một dòng đã chọn không bỏ chọn được, ô nhập rỗng thì cũng không xoá thêm được gì.
     @ViewBuilder
-    private var matchRow: some View {
-        if let match = typedMatch {
-            matchRowBody(match)
-        }
-    }
-
-    /// Tách thành hàm nhận tham số thay vì viết thẳng trong ViewBuilder: cần tính `count` và
-    /// dựng chuỗi trước khi trả view, mà khai báo cục bộ trong thân ViewBuilder là chỗ CI này
-    /// từng chết vì "type-check timeout". Icon dùng "folder"/"folder.badge.plus" — hai cái đã
-    /// có sẵn trong repo, nên chắc chắn tồn tại (tên SF Symbol sai KHÔNG lỗi compile, CI vẫn
-    /// xanh và chỉ lộ ô trống lúc sideload).
-    private func matchRowBody(_ match: ScanProject) -> some View {
-        let count = store.scans(in: match).count
-        let text: String = forceNewProject
-            ? L.t("Will create a separate home with the same name", "Sẽ tạo một căn RIÊNG cùng tên")
-            : L.t("Will add to: \(match.name) · \(count) scan(s)",
-                  "Sẽ thêm vào căn đã có: \(match.name) · \(count) bản quét")
-        return VStack(alignment: .leading, spacing: 8) {
-            Label(text, systemImage: forceNewProject ? "folder.badge.plus" : "folder")
+    private var pickedRow: some View {
+        if let picked = store.projects.first(where: { $0.id == pickedProjectId }) {
+            HStack {
+                Label(
+                    L.t("Adding to: \(picked.name)", "Thêm vào: \(picked.name)"),
+                    systemImage: "checkmark.circle.fill"
+                )
                 .font(.footnote)
-                .foregroundStyle(forceNewProject ? Color.orange : Color.secondary)
-            Toggle(isOn: $forceNewProject) {
-                Text(L.t("This is a different home", "Đây là căn nhà khác"))
+                .foregroundStyle(.tint)
+                Spacer(minLength: 8)
+                Button(L.t("Clear", "Bỏ chọn")) { pickedProjectId = nil }
                     .font(.footnote)
+                    .buttonStyle(.borderless)
             }
         }
     }
 
     @ViewBuilder
-    private var existingSection: some View {
-        if !store.projects.isEmpty {
-            Section(L.t("Or pick a home you already have", "Hoặc chọn căn đã có")) {
-                ForEach(store.projects) { project in
-                    Button {
-                        pickedProjectId = project.id
-                        address = ""
-                    } label: {
-                        HStack {
-                            Text(project.name)
-                                .foregroundStyle(.primary)
-                            Spacer(minLength: 8)
-                            if pickedProjectId == project.id {
-                                Image(systemName: "checkmark")
-                                    .foregroundStyle(.tint)
-                            }
-                        }
-                    }
+    private var existingRows: some View {
+        if !filteredProjects.isEmpty {
+            // Không có nhãn này thì loạt dòng bên dưới ô nhập trông như thông tin CHỈ ĐỂ XEM,
+            // và không ai đoán được gõ chữ sẽ lọc chúng.
+            Text(L.t("Already scanned — tap to reuse", "Đã quét — chạm để dùng lại"))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            ForEach(filteredProjects) { project in
+                Button {
+                    // KHÔNG xoá `address`: xoá thì danh sách bung về đầy đủ ngay lúc vừa chạm,
+                    // dòng vừa chọn nhảy đi và dấu tích trôi khỏi màn hình → người dùng tưởng
+                    // chạm hụt, gõ lại, `onChange` xoá luôn lựa chọn → tạo căn trùng tên. Giữ
+                    // nguyên chữ đã gõ thì dòng đứng im dưới ngón tay. (Không sinh vòng lặp:
+                    // `onChange` chỉ chạy khi `address` đổi, mà nhánh này không đổi nó.)
+                    pickedProjectId = project.id
+                } label: {
+                    projectRow(project)
                 }
+            }
+        }
+    }
+
+    /// Tách thành hàm nhận tham số thay vì viết trong ViewBuilder: cần tính `count` trước khi
+    /// dựng view, mà khai báo cục bộ trong thân ViewBuilder là chỗ CI này từng chết vì
+    /// "type-check timeout".
+    private func projectRow(_ project: ScanProject) -> some View {
+        let count = store.scans(in: project).count
+        return HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(project.name)
+                    .foregroundStyle(.primary)
+                Text(L.t("\(count) scan(s)", "\(count) bản quét"))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 8)
+            if pickedProjectId == project.id {
+                Image(systemName: "checkmark")
+                    .foregroundStyle(.tint)
             }
         }
     }
@@ -160,43 +189,44 @@ struct ScanAddressView: View {
             Button {
                 start()
             } label: {
-                Text(L.t("Start scanning", "Bắt đầu quét"))
+                Text(startLabel)
                     .font(.headline)
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.borderedProminent)
             .listRowInsets(EdgeInsets())
             .listRowBackground(Color.clear)
-
-            Button {
-                dismiss()
-                onStart(nil)
-            } label: {
-                Text(L.t("Skip — scan without a home", "Bỏ qua — quét không gắn căn nhà"))
-                    .frame(maxWidth: .infinity)
-            }
-            .listRowBackground(Color.clear)
         }
     }
 
+    /// Nút NÓI THẲNG hậu quả khi sắp tạo căn thứ hai trùng tên. Người dùng đọc chữ trên nút họ
+    /// đang bấm, không đọc footer — nên đây là chỗ duy nhất cảnh báo chắc chắn tới được. Rẻ hơn
+    /// mọi phương án khác: không thêm state, không thêm chạm, không thêm dòng nào trên màn hình.
+    ///
+    /// Cố ý KHÔNG chặn: tạo căn riêng cùng tên là việc hợp lệ (hai khách cùng gọi "Nhà chị Lan").
+    /// Chỉ cần người dùng biết mình đang làm gì.
+    private var startLabel: String {
+        if exactMatch != nil {
+            return L.t("Create a separate home with this name", "Tạo căn RIÊNG cùng tên")
+        }
+        return L.t("Start scanning", "Bắt đầu quét")
+    }
+    // KHÔNG có nút "Bỏ qua" riêng: để trống ô địa chỉ rồi bấm "Bắt đầu quét" đã cho đúng kết
+    // quả đó (createProject trả nil khi tên rỗng), nên nút kia vừa thừa vừa dễ lẫn với "Hủy" ở
+    // góc trên — hai lựa chọn cạnh nhau mà nghĩa ngược hẳn: Hủy = không quét, Bỏ qua = vẫn quét.
+    // Chú thích dưới ô nhập đã nói rõ là để trống được.
+
     /// dismiss() TRƯỚC onStart() — cùng khuôn với ScanModePickerView: người gọi present màn quét
     /// từ onDismiss của sheet này, nên onStart chỉ được set cờ, không được present gì.
-    /// Thứ tự ưu tiên: căn CHỌN TAY trong danh sách → căn trùng tên (trừ khi người dùng đã bảo
-    /// "đây là căn khác") → tạo mới → nil (ô rỗng, hệt như bấm Bỏ qua).
     ///
-    /// Vì sao phải dedupe: gõ lại cùng địa chỉ cho tầng 2 là hành vi MẶC ĐỊNH (ô nhập nằm TRÊN
-    /// danh sách "chọn căn đã có"), thiếu bước này là hai tầng của một nhà rơi vào hai dự án và
-    /// đơn gửi đội vẽ từ bên nào cũng thiếu một tầng. Luồng "Quét phần còn lại ngay" thoát được
-    /// nhờ giữ `pendingProjectId`, nhưng người chủ động quét hai tầng riêng không chạm alert đó.
-    ///
-    /// Cố ý CHỈ dedupe ở đây, KHÔNG sửa `ScanStore.createProject`: alert "Dự án mới" là hành
-    /// động cố ý tạo thư mục, ai muốn hai thư mục trùng tên thì đó là quyền của họ.
+    /// Chọn dòng trong danh sách → dùng căn đó. Không chọn → tạo căn mới theo chữ đã gõ. Ô rỗng
+    /// → nil, bản quét không gắn căn nào (vẫn gắn sau được bằng "Chuyển vào dự án" ở màn chính).
+    /// KHÔNG tự gộp khi trùng tên — chỉ nhắc một dòng ở footer rồi để người dùng chạm: gộp nhầm
+    /// hai căn khác nhau vào một đơn tệ hơn tách nhầm, vì đội vẽ không có cách nào phát hiện.
     private func start() {
         let id: UUID?
         if let picked = pickedProjectId {
             id = picked
-        } else if let match = typedMatch, !forceNewProject {
-            id = match.id
         } else {
             let trimmed = address.trimmingCharacters(in: .whitespacesAndNewlines)
             id = trimmed.isEmpty ? nil : store.createProject(name: trimmed)?.id
