@@ -29,7 +29,12 @@ targets:
       properties:
         CFBundleDisplayName: CedarScan
         NSCameraUsageDescription: CedarScan cần dùng camera và cảm biến LiDAR để quét không gian 3D.
-        NSMicrophoneUsageDescription: CedarScan ghi âm khi quay video khảo sát để bạn có thể thuyết minh về căn nhà.
+        # NSMicrophoneUsageDescription đã BỎ 2026-07-19 cùng luồng quay video khảo sát: chỗ duy
+        # nhất dùng micro là VideoScanFlowView (đã xoá). ScanVideoRecorder của mesh mode chỉ dựng
+        # AVAssetWriterInput video, không có input audio nào. Khai quyền cho tính năng không tồn
+        # tại là thứ App Store sẽ hỏi, và người đọc plist sau này sẽ tưởng app còn ghi âm.
+        # NẾU sau này thêm thuyết minh giọng nói cho mesh mode thì khai lại KÈM code thật —
+        # thiếu purpose string lúc xin quyền là app CRASH.
         UILaunchScreen: {}
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait

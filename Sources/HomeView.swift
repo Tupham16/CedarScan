@@ -1,10 +1,10 @@
+import ARKit
 import SwiftUI
 import RoomPlan
 
 struct HomeView: View {
     @EnvironmentObject private var store: ScanStore
     @State private var isScanning = false
-    @State private var isVideoScanning = false
     @State private var isMeshScanning = false
     @State private var showScanSetup = false
     @State private var pendingScanMode: ScanMode?
@@ -47,7 +47,12 @@ struct HomeView: View {
     /// thi về cấu trúc, thay vì phải tin rằng onDismiss luôn luôn chạy.
     @State private var startAfterGuide = false
 
-    private var isSupported: Bool { RoomCaptureSession.isSupported }
+    /// Máy có LiDAR không. Hỏi thẳng ARKit chứ KHÔNG hỏi `RoomCaptureSession.isSupported`: thứ
+    /// app thật sự cần là mesh scene reconstruction, và RoomPlan sắp bị gỡ hẳn (P6) nên đừng
+    /// buộc thêm phụ thuộc vào nó. Cùng phép thử với `MeshScanController.isSupported`.
+    private var isSupported: Bool {
+        ARWorldTrackingConfiguration.supportsSceneReconstruction(.mesh)
+    }
 
     var body: some View {
         NavigationStack {
@@ -155,21 +160,6 @@ struct HomeView: View {
                     "Mô hình 3D chạm giới hạn trước khi quét xong — phần đã lưu vẫn an toàn. Hãy quét khu còn lại thành một bản quét khác (đặt tên \"Part 1\", \"Part 2\"…) để ghép lại sau."
                 ))
             }
-            .fullScreenCover(isPresented: $isVideoScanning) {
-                VideoScanFlowView { videoURL, name in
-                    do {
-                        _ = try store.saveVideoScan(videoURL: videoURL, name: name)
-                    } catch {
-                        pendingSaveError = error.localizedDescription
-                    }
-                }
-            }
-            .onChange(of: isVideoScanning) { _, presented in
-                if !presented, let message = pendingSaveError {
-                    pendingSaveError = nil
-                    saveError = message
-                }
-            }
             .safeAreaInset(edge: .bottom) {
                 scanButton
             }
@@ -257,8 +247,8 @@ struct HomeView: View {
                     "Bấm nút bên dưới để quét không gian đầu tiên, hoặc tạo Dự án cho căn nhà nhiều tầng."
                  )
                  : L.t(
-                    "This device has no LiDAR sensor, so you can record a guided video walkthrough instead. Note: measurements from video are less accurate than a LiDAR scan (iPhone Pro).",
-                    "Máy này không có cảm biến LiDAR — bạn có thể quay video khảo sát theo hướng dẫn thay thế. Lưu ý: số đo từ video kém chính xác hơn quét LiDAR (iPhone Pro)."
+                    "CedarScan measures with the LiDAR sensor, which this iPhone does not have. You need an iPhone Pro (12 Pro or newer).",
+                    "CedarScan đo bằng cảm biến LiDAR mà iPhone này không có. Bạn cần iPhone bản Pro (12 Pro trở lên)."
                  ))
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
@@ -320,40 +310,51 @@ struct HomeView: View {
     // rồi TỰ XOÁ hẳn file — đơn giao được tự nó là bằng chứng dữ liệu đã an toàn trên R2.
 
     private func startScanning() {
-        if isSupported {
-            showScanSetup = true
-        } else {
-            isVideoScanning = true
-        }
+        showScanSetup = true
     }
 
     private var scanButton: some View {
-        Button {
-            // Guide chỉ dạy luồng quét 3D LiDAR (đi chậm, giữ 40cm, đừng dừng giữa các tầng,
-            // dựng mô hình lúc lưu). Máy KHÔNG có LiDAR đi đường quay video — không có thứ nào
-            // trong đó áp dụng được, nên đừng bắt họ đọc rồi rơi vào màn chẳng giống mô tả nào.
-            if isSupported && !UserDefaults.standard.bool(forKey: ScanGuideView.seenKey) {
-                guideThenScan = true
-                startAfterGuide = false // xem mục "reset ở LỐI VÀO" ở sheet bên trên
-                showGuide = true
-            } else {
-                startScanning()
+        // VStack chứ không overlay+offset: dòng giải thích dài 2-3 dòng trên máy nhỏ, overlay
+        // với offset cứng sẽ bị cắt hoặc đè lên danh sách.
+        VStack(spacing: 8) {
+            unsupportedNote
+            Button {
+                if !UserDefaults.standard.bool(forKey: ScanGuideView.seenKey) {
+                    guideThenScan = true
+                    startAfterGuide = false // xem mục "reset ở LỐI VÀO" ở sheet bên trên
+                    showGuide = true
+                } else {
+                    startScanning()
+                }
+            } label: {
+                Label(L.t("New scan", "Quét không gian mới"), systemImage: "viewfinder")
+                    .font(.headline)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
             }
-        } label: {
-            Label(
-                isSupported
-                    ? L.t("New scan", "Quét không gian mới")
-                    : L.t("Record video walkthrough", "Quay video khảo sát"),
-                systemImage: isSupported ? "viewfinder" : "video.fill"
-            )
-            .font(.headline)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 14)
+            .buttonStyle(.borderedProminent)
+            // Máy không có LiDAR: KHOÁ nút thay vì đưa sang đường quay video (đã gỡ 2026-07-19 —
+            // chủ app chốt "yêu cầu máy phải có lidar"). Khoá chứ KHÔNG giấu nút: nút biến mất
+            // thì người dùng tưởng app hỏng và đi tìm; nút xám kèm lý do thì hiểu ngay.
+            .disabled(!isSupported)
         }
-        .buttonStyle(.borderedProminent)
         .padding(.horizontal)
         .padding(.bottom, 8)
         .background(.ultraThinMaterial)
+    }
+
+    /// Nút xám mà không nói vì sao là lỗi UX tệ nhất — người dùng bấm mãi không được rồi bỏ app.
+    @ViewBuilder
+    private var unsupportedNote: some View {
+        if !isSupported {
+            Text(L.t(
+                "This iPhone has no LiDAR sensor. CedarScan needs an iPhone Pro (12 Pro or newer).",
+                "iPhone này không có cảm biến LiDAR. CedarScan cần iPhone bản Pro (12 Pro trở lên)."
+            ))
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .multilineTextAlignment(.center)
+        }
     }
 }
 

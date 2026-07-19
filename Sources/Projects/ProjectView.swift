@@ -1,3 +1,4 @@
+import ARKit
 import SwiftUI
 import RoomPlan
 
@@ -8,7 +9,6 @@ struct ProjectView: View {
     let projectId: UUID
 
     @State private var isScanning = false
-    @State private var isVideoScanning = false
     @State private var isMeshScanning = false
     @State private var showModePicker = false
     @State private var showGuide = false
@@ -32,7 +32,10 @@ struct ProjectView: View {
     private var project: ScanProject? { store.project(with: projectId) }
     private var scans: [ScanRecord] { project.map { store.scans(in: $0) } ?? [] }
     private var orderableScans: [ScanRecord] { scans.filter { $0.cloudOrderNumber == nil } }
-    private var isSupported: Bool { RoomCaptureSession.isSupported }
+    /// Xem ghi chú ở `HomeView.isSupported` — hỏi ARKit, không hỏi RoomPlan.
+    private var isSupported: Bool {
+        ARWorldTrackingConfiguration.supportsSceneReconstruction(.mesh)
+    }
 
     var body: some View {
         Group {
@@ -129,15 +132,6 @@ struct ProjectView: View {
                 }
             }
         }
-        .fullScreenCover(isPresented: $isVideoScanning) {
-            VideoScanFlowView { videoURL, name in
-                do {
-                    _ = try store.saveVideoScan(videoURL: videoURL, name: name, projectId: projectId)
-                } catch {
-                    pendingSaveError = error.localizedDescription
-                }
-            }
-        }
         // Bắt đầu quét từ onDismiss chứ không từ callback của guide — ScanGuideView gọi
         // dismiss() rồi onStart() cùng một transaction, present thẳng ở đó là present-trong-
         // lúc-sheet-đang-đóng. Xem giải thích đầy đủ ở HomeView.
@@ -201,12 +195,6 @@ struct ProjectView: View {
                 "Mô hình 3D chạm giới hạn trước khi quét xong — phần đã lưu vẫn an toàn. Hãy quét khu còn lại thành một bản quét khác (đặt tên \"Part 1\", \"Part 2\"…) để ghép lại sau."
             ))
         }
-        .onChange(of: isVideoScanning) { _, presented in
-            if !presented, let message = pendingSaveError {
-                pendingSaveError = nil
-                saveError = message
-            }
-        }
         .onChange(of: isScanning) { _, presented in
             if !presented, let message = pendingSaveError {
                 pendingSaveError = nil
@@ -255,41 +243,53 @@ struct ProjectView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    /// Tách khỏi thân nút để guide gọi lại được từ onDismiss — nếu để logic isSupported nằm
-    /// trong closure của nút thì nó bị lặp hai chỗ và sẽ lệch nhau về sau.
+    /// Tách khỏi thân nút để guide gọi lại được từ onDismiss.
     private func startScanning() {
-        if isSupported {
-            showModePicker = true
-        } else {
-            isVideoScanning = true
+        showModePicker = true
+    }
+
+    /// Lặp lại lời giải thích ở ĐÂY chứ không trông vào việc người dùng đã đọc ở trang chủ.
+    ///
+    /// Từng viết comment "vào được màn này nghĩa là đã qua trang chủ, nơi đã nói rõ lý do" —
+    /// SAI: lời giải thích đầy đủ của trang chủ nằm trong `emptyState`, mà `emptyState` chỉ hiện
+    /// khi CẢ records LẪN projects đều rỗng. Chỉ cần tạo một dự án là nó biến mất VĨNH VIỄN.
+    /// Mà nút "Dự án mới" lại KHÔNG bị khoá theo isSupported, nên đường đó rất dễ đi vào.
+    @ViewBuilder
+    private var unsupportedNote: some View {
+        if !isSupported {
+            Text(L.t(
+                "This iPhone has no LiDAR sensor. CedarScan needs an iPhone Pro (12 Pro or newer).",
+                "iPhone này không có cảm biến LiDAR. CedarScan cần iPhone bản Pro (12 Pro trở lên)."
+            ))
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .multilineTextAlignment(.center)
         }
     }
 
     private var bottomButtons: some View {
         VStack(spacing: 8) {
+            unsupportedNote
             Button {
                 // Guide lần đầu Y HỆT HomeView. Trước P3 màn này KHÔNG hề kiểm seenKey: khách
                 // tạo Dự án trước rồi quét từ đây sẽ không bao giờ đọc hướng dẫn, và vì seenKey
                 // vẫn false nên lần sau quét từ Home guide mới nhảy ra — sau khi bản quét đầu
-                // tiên đã hỏng. Gate theo isSupported vì guide chỉ dạy luồng LiDAR.
-                if isSupported && !UserDefaults.standard.bool(forKey: ScanGuideView.seenKey) {
+                // tiên đã hỏng.
+                if !UserDefaults.standard.bool(forKey: ScanGuideView.seenKey) {
                     startAfterGuide = false
                     showGuide = true
                 } else {
                     startScanning()
                 }
             } label: {
-                Label(
-                    isSupported
-                        ? L.t("Scan this property", "Quét căn nhà này")
-                        : L.t("Record video walkthrough", "Quay video khảo sát"),
-                    systemImage: isSupported ? "viewfinder" : "video.fill"
-                )
-                .font(.headline)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
+                Label(L.t("Scan this property", "Quét căn nhà này"), systemImage: "viewfinder")
+                    .font(.headline)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
             }
             .buttonStyle(.borderedProminent)
+            // Máy không LiDAR: khoá nút (luồng quay video đã gỡ 2026-07-19).
+            .disabled(!isSupported)
 
             if !orderableScans.isEmpty {
                 Button {

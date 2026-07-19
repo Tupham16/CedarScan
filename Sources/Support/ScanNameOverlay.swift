@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Overlay đặt tên bản quét (tầng/khu nào) — tách riêng để các luồng quét dùng chung
-/// (hiện dùng ở MeshScanFlowView; ScanFlowView/VideoScanFlowView có bản riêng từ trước).
+/// (hiện dùng ở MeshScanFlowView; ScanFlowView có bản riêng từ trước).
 struct ScanNameOverlay: View {
     @Binding var name: String
     let subtitle: String
