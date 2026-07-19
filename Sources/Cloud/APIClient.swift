@@ -102,6 +102,10 @@ struct OrderDTO: Decodable, Identifiable {
     let orderId: String
     let orderNumber: String
     let scanId: String?
+    /// MỌI bản quét thuộc đơn (đơn nhiều tầng). Server đã trả sẵn (orders/route.ts:67) nhưng
+    /// app trước đây chỉ decode `scanId` số ít — tức chỉ thấy TẦNG ĐẦU TIÊN.
+    /// Optional để bản server cũ không làm hỏng decode cả danh sách đơn.
+    let scanIds: [String]?
     let scanName: String?
     let status: String
     let placedAt: String
@@ -118,6 +122,60 @@ struct OrderDTO: Decodable, Identifiable {
     let tourUrl: String? // chỉ có sau khi đơn được giao (tour đã publish)
 
     var id: String { orderId }
+
+    /// Mọi bản quét thuộc đơn. `scanIds` là nguồn ĐÚNG; `scanId` chỉ là tầng đầu tiên
+    /// (orders/route.ts:65 lấy `orderScans[0]`), giữ làm phao cho server cũ.
+    var allScanIds: [String] {
+        if let ids = scanIds, !ids.isEmpty { return ids }
+        return [scanId].compactMap { $0 }
+    }
+
+    /// Khách ĐÃ CẦM ĐƯỢC thành phẩm NẰM TRÊN HẠ TẦNG CỦA CHỦ APP — điều kiện cho phép xoá dữ
+    /// liệu quét trên máy họ.
+    ///
+    /// ĐÒI `deliveryFiles` KHÔNG RỖNG, và CỐ Ý KHÔNG chấp nhận `deliveredUrl` một mình:
+    /// `deliveredUrl` có thể là link nhân viên gõ tay (`board-actions.ts` `buildDeliveryTarget`
+    /// trả thẳng `order.deliveryLink` nếu ô đó có chữ) — tức có thể là Dropbox/WeTransfer của
+    /// bên thứ ba, hết hạn lúc nào không biết. Tiền đề của cả tính năng này là "dữ liệu vẫn nằm
+    /// trên R2 của chủ app"; một cái link ngoài KHÔNG chứng minh được điều đó.
+    ///
+    /// `deliveredAt` một mình cũng không đủ: nó là cột DB trả thô, không gate theo stage.
+    /// ĐÒI `deliveredAt` PHẢI SAU `placedAt` một khoảng có nghĩa: `woo-sync.ts:116` gieo
+    /// `deliveredAt = placedAt` cho đơn Woo về ở trạng thái "completed" (auto-complete là mặc
+    /// định rất phổ biến với sản phẩm số). Khi đó mốc "đã giao" thực chất là mốc ĐẶT HÀNG, và
+    /// cửa sổ 14 ngày đã tiêu hết trước khi khách nhận được bất cứ thứ gì — nhân viên vừa tải
+    /// file giao lên là bản quét bị xoá ngay lần khách mở app kế tiếp.
+    var isDeliveredToCustomer: Bool {
+        guard !deliveryFiles.isEmpty,
+              let delivered = Self.isoDate(deliveredAt ?? ""),
+              let placed = Self.isoDate(placedAt) else { return false }
+        return delivered.timeIntervalSince(placed) > 60
+    }
+
+    /// Đã giao được ÍT NHẤT `days` ngày chưa.
+    ///
+    /// Vì sao cần độ trễ: **giao hàng CÓ THỂ BỊ ĐẢO NGƯỢC.** Khách bấm "Yêu cầu sửa" thì
+    /// `revision/route.ts` đẩy `stage` về `"fix"`, và `orders/route.ts` tính
+    /// `delivered = stage === "done"` nên lập tức trả `deliveryFiles: []`. Nếu app đã xoá sạch
+    /// dữ liệu gốc ngay lúc giao, khách rơi vào cảnh TRẮNG TAY suốt vòng sửa: không còn file
+    /// thành phẩm (server đã thu về), cũng không còn bản quét (máy đã dọn).
+    /// Giữ thêm vài ngày là đủ để vòng sửa kịp xảy ra.
+    ///
+    /// Parse hỏng → trả `false` (không xoá). Không chắc thì đừng đụng vào dữ liệu của khách.
+    func wasDeliveredAtLeast(daysAgo days: Int, now: Date = Date()) -> Bool {
+        guard let raw = deliveredAt, let date = Self.isoDate(raw) else { return false }
+        return now.timeIntervalSince(date) >= Double(days) * 86_400
+    }
+
+    /// Server dùng `Date.toISOString()` — LUÔN có mili-giây. Nhưng thử cả hai dạng: một thay đổi
+    /// nhỏ phía server mà parse hỏng thì `wasDeliveredAtLeast` trả false mãi và app không bao
+    /// giờ dọn nữa — hỏng thầm lặng, không ai biết.
+    private static func isoDate(_ raw: String) -> Date? {
+        let withMs = ISO8601DateFormatter()
+        withMs.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let d = withMs.date(from: raw) { return d }
+        return ISO8601DateFormatter().date(from: raw)
+    }
 }
 
 struct OrdersResponse: Decodable {

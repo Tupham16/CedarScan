@@ -22,6 +22,7 @@ struct MeshScanResult {
 /// "present" phòng như luồng cũ). Sản phẩm: mesh màu + video, KHÔNG có floorplan.
 struct MeshScanFlowView: View {
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var store: ScanStore
     @StateObject private var controller: MeshScanController
 
     /// Lỗi lưu do call-site giữ qua pendingSaveError và hiện alert SAU khi cover đóng.
@@ -84,6 +85,11 @@ struct MeshScanFlowView: View {
             }
         }
         .onAppear {
+            // Khoá việc dọn-sau-khi-giao suốt phiên quét. Không khoá thì: dọn chạy lúc app quay
+            // lại foreground (cuộc gọi, kéo Notification Center) → xoá hết bản quét của dự án →
+            // dự án bị xoá → ProjectView (view SỞ HỮU cover này) tự dismiss → cover bị tháo theo
+            // → phiên quét chết giữa chừng, onFinish KHÔNG BAO GIỜ chạy, mất trắng 10–30 phút.
+            store.beginBusy()
             if controller.isSupported {
                 controller.startSession()
             } else {
@@ -95,6 +101,7 @@ struct MeshScanFlowView: View {
         // (isStopped) nên đường Lưu/Hủy bình thường không bị ảnh hưởng.
         .onDisappear {
             controller.cancel()
+            store.endBusy()
         }
         .alert(
             L.t("LiDAR not available", "Máy không hỗ trợ LiDAR"),

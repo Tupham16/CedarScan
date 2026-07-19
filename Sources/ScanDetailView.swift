@@ -6,6 +6,7 @@ struct ScanDetailView: View {
     let record: ScanRecord
     @EnvironmentObject private var store: ScanStore
     @EnvironmentObject private var account: AccountStore
+    @Environment(\.dismiss) private var dismiss
     @StateObject private var uploader = ScanUploader()
 
     @State private var mode = 0
@@ -22,8 +23,19 @@ struct ScanDetailView: View {
     @AppStorage("autoStraighten") private var autoStraighten = true
 
     /// Bản ghi mới nhất từ store (record truyền vào có thể cũ sau khi upload/đặt hàng).
+    ///
+    /// `?? record` là bản chụp GIÁ TRỊ lúc push (NavigationPath giữ nó, không phụ thuộc store),
+    /// nên khi bản quét bị dọn mất thì màn này vẫn render dữ liệu cũ như không có chuyện gì —
+    /// xem `stillExists` bên dưới.
     private var current: ScanRecord {
         store.records.first(where: { $0.id == record.id }) ?? record
+    }
+
+    /// Bản quét còn trong store không. Việc dọn-sau-khi-giao (RootView.purgeDeliveredScans) có
+    /// thể nổ ngay dưới chân màn này: app quay lại foreground trong lúc khách đang mở chi tiết.
+    /// Không tự đóng thì họ ngồi nhìn một bản quét mà mọi file đã biến mất — bấm gì cũng hỏng.
+    private var stillExists: Bool {
+        store.records.contains { $0.id == record.id }
     }
 
     private var folder: URL { store.folderURL(for: record) }
@@ -69,6 +81,11 @@ struct ScanDetailView: View {
         }
         .safeAreaInset(edge: .bottom) {
             serviceCard
+        }
+        // Bản quét bị dọn (đơn đã giao) trong lúc màn này đang mở → thoát ra, đừng để khách
+        // ngồi trước một bản quét mà mọi file đã biến mất.
+        .onChange(of: stillExists) { _, exists in
+            if !exists { dismiss() }
         }
         .task {
             guard !current.isVideoOnly else { return }

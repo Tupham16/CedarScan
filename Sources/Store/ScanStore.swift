@@ -7,6 +7,47 @@ final class ScanStore: ObservableObject {
     @Published private(set) var records: [ScanRecord] = []
     @Published private(set) var projects: [ScanProject] = []
 
+    /// Số việc đang "đụng vào" dữ liệu bản quét: phiên quét đang mở, hoặc đang lưu.
+    /// `purgeDelivered` phải đứng NGOÀI cửa sổ này.
+    ///
+    /// ĐẾM chứ không dùng Bool: hai việc chồng nhau (đang lưu bản này thì mở phiên quét bản
+    /// khác) thì lần kết thúc trước sẽ tắt khoá của lần sau.
+    ///
+    /// Vì sao phải bao CẢ PHIÊN QUÉT chứ không chỉ lúc lưu: `ProjectView` là view SỞ HỮU
+    /// `fullScreenCover` quét. Nếu dọn xoá hết bản quét của dự án trong lúc khách đang đi bộ
+    /// quét, `ProjectView` bị dismiss → cover bị tháo theo → phiên quét chết giữa chừng,
+    /// closure lưu KHÔNG BAO GIỜ chạy, mất trắng 10–30 phút đi bộ. Cờ chỉ-khi-lưu không cứu
+    /// được vì suốt lúc đi bộ thì chưa lưu gì cả.
+    private var busyCount = 0
+    private var busySince: Date?
+
+    /// VAN AN TOÀN THEO THỜI GIAN. `max(0,...)` chỉ chặn hướng ÂM, mà hướng hỏng thật là KẸT
+    /// DƯƠNG: `.onDisappear` KHÔNG được SwiftUI bảo đảm gọi — iPad đa cửa sổ (project.yml khai
+    /// `TARGETED_DEVICE_FAMILY: "1,2"`) có thể thu hồi cả scene mà không chạy nó, nhất là khi
+    /// quét mesh đang ngốn hàng trăm MB. Kẹt một nhịp là việc dọn CHẾT VĨNH VIỄN, im lặng,
+    /// không log không dấu vết — khách chỉ thấy máy đầy dần.
+    ///
+    /// Không phiên quét + lưu nào chạm một giờ (trần 2M đỉnh chạm từ lâu trước đó), nên ngưỡng
+    /// này chỉ tha cho khoá đã MỤC RỮA. Biến hỏng-vĩnh-viễn thành hỏng-tối-đa-một-giờ.
+    private static let busyStaleAfter: TimeInterval = 3600
+
+    var isBusy: Bool {
+        guard busyCount > 0 else { return false }
+        guard let since = busySince else { return true }
+        return Date().timeIntervalSince(since) < Self.busyStaleAfter
+    }
+
+    /// Gọi khi mở phiên quét / bắt đầu lưu. PHẢI cặp đôi với `endBusy()`.
+    func beginBusy() {
+        if busyCount == 0 { busySince = Date() }
+        busyCount += 1
+    }
+
+    func endBusy() {
+        busyCount = max(0, busyCount - 1)
+        if busyCount == 0 { busySince = nil }
+    }
+
     private let fileManager = FileManager.default
 
     private var documentsURL: URL {
@@ -118,6 +159,13 @@ final class ScanStore: ObservableObject {
         projectId: UUID? = nil,
         quality: ScanQualityReport? = nil
     ) async throws -> ScanRecord {
+        // Cùng lý do với saveMeshScan: `records.insert` nằm ở CUỐI hàm, sau nhiều await (dựng
+        // USDZ, export OBJ, render ảnh mặt bằng, nén zip/GLB) — vài chục giây tới vài phút.
+        // Luồng RoomPlan hiện đã tắt lối vào (P2) nên đây là code chết, nhưng khoá vẫn phải có:
+        // code chết có ngày sống lại, và lúc đó không ai nhớ để thêm.
+        beginBusy()
+        defer { endBusy() }
+
         let planModel = FloorPlanModel(rooms: rooms)
         var record = ScanRecord(
             id: UUID(),
@@ -210,6 +258,15 @@ final class ScanStore: ObservableObject {
         projectId: UUID? = nil,
         quality: MeshQuality
     ) async throws -> ScanRecord {
+        // Khoá việc dọn-sau-khi-giao suốt quá trình lưu. Bản ghi chỉ được `records.insert` ở
+        // CUỐI hàm (dòng ~297), sau khi await nén zip/GLB — việc mất hàng chục giây tới vài
+        // phút với nhà nguyên căn. Trong cửa sổ đó bản quét mới CHƯA có trong `records`, nên
+        // nếu dọn chạy xen vào: dự án của nó trông như đã hết bản quét → bị xoá → bản quét vừa
+        // lưu xong trỏ vào dự án chết và thành mồ côi. Khoá cả hàm dọn cho chắc, vì xoá thư mục
+        // trong lúc đang ghi file cũng là chuyện không nên.
+        beginBusy()
+        defer { endBusy() }
+
         let hasVideo = videoURL.map { fileManager.fileExists(atPath: $0.path) } ?? false
         let hasMesh = meshURL.map { fileManager.fileExists(atPath: $0.path) } ?? false
         guard hasVideo || hasMesh else {
@@ -311,6 +368,62 @@ final class ScanStore: ObservableObject {
     func delete(_ record: ScanRecord) {
         try? fileManager.removeItem(at: folderURL(for: record))
         records.removeAll { $0.id == record.id }
+    }
+
+    /// Dọn hẳn khỏi máy những bản quét thuộc đơn ĐÃ GIAO (chủ app chốt 2026-07-19: "máy khách
+    /// chỉ lưu những dự án chưa đặt hàng"). Dữ liệu vẫn nằm trên R2 của chủ app; khách cần sửa
+    /// thì chủ app tra đơn trên web. Mỗi bản mesh nặng 40–200MB nên đây là thứ giữ máy khách nhẹ.
+    ///
+    /// AN TOÀN — người gọi PHẢI chỉ truyền vào scanId của đơn mà khách ĐÃ CẦM ĐƯỢC thành phẩm
+    /// (xem `OrderDTO.isDeliveredToCustomer`). Hàm này không tự kiểm tra điều đó.
+    ///
+    /// Khớp bằng `cloudScanId` — id do SERVER cấp, không phải `record.id` cục bộ. Hai không gian
+    /// id khác nhau; lẫn lộn là xoá nhầm bản quét chưa giao.
+    /// - Returns: số bản quét đã xoá (0 = không có gì để dọn).
+    @discardableResult
+    func purgeDelivered(scanIds: Set<String>) -> Int {
+        guard !scanIds.isEmpty else { return 0 }
+        // Đang quét hoặc đang lưu → hoãn tới lần sau (mỗi lần app vào foreground lại thử).
+        // Bản quét đang lưu chưa vào `records` nên dự án của nó trông như rỗng.
+        guard !isBusy else { return 0 }
+        let doomed = records.filter { record in
+            guard let cloudId = record.cloudScanId else { return false }
+            return scanIds.contains(cloudId)
+        }
+        guard !doomed.isEmpty else { return 0 }
+
+        // Nhớ TRƯỚC khi xoá: dự án nào vừa mất bản quét. Chỉ những dự án đó mới được xét dọn —
+        // dự án rỗng do người dùng VỪA TẠO mà chưa quét thì phải giữ nguyên.
+        let touchedProjects = Set(doomed.compactMap(\.projectId))
+
+        // CHỈ gỡ khỏi `records` những bản mà thư mục ĐÃ BIẾN MẤT THẬT. `try?` nuốt lỗi (file
+        // đang mở, quyền, đĩa đầy) — gỡ vô điều kiện thì dòng biến khỏi danh sách trong khi
+        // 40–200MB vẫn nằm trên đĩa, và không còn UI nào xoá được nữa (ScanRow là lối vào duy
+        // nhất tới swipe-xoá). Giữ lại thì lần mở app sau `reload()` đọc lại meta.json và thử lại.
+        var removed: [ScanRecord] = []
+        for record in doomed {
+            let folder = folderURL(for: record)
+            try? fileManager.removeItem(at: folder)
+            if !fileManager.fileExists(atPath: folder.path) {
+                removed.append(record)
+            }
+        }
+        guard !removed.isEmpty else { return 0 }
+        let removedIds = Set(removed.map(\.id))
+        records.removeAll { removedIds.contains($0.id) }
+
+        // Chỉ xét dự án mất bản quét THẬT — dùng `removed`, không dùng `doomed`.
+        let touched = touchedProjects.intersection(removed.compactMap(\.projectId))
+        let nowEmpty = projects.filter { project in
+            touched.contains(project.id)
+                && !records.contains { $0.projectId == project.id }
+        }
+        if !nowEmpty.isEmpty {
+            let emptyIds = Set(nowEmpty.map(\.id))
+            projects.removeAll { emptyIds.contains($0.id) }
+            persistProjects()
+        }
+        return removed.count
     }
 
     func rename(_ record: ScanRecord, to newName: String) {

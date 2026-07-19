@@ -38,6 +38,25 @@ struct ProjectView: View {
     }
 
     var body: some View {
+        content
+            // Dự án bị dọn (mọi tầng đã giao) trong lúc màn này đang mở → thoát ra.
+            // NavigationStack giữ `ScanProject` trong path nên màn KHÔNG tự pop: tiêu đề thành
+            // trắng, danh sách rỗng, mà nút "Quét căn nhà này" vẫn đó và trỏ vào một projectId
+            // không còn tồn tại. Xảy ra thật khi app quay lại foreground lúc khách đang ở đây.
+            // KHÔNG dismiss khi đang present cover quét: view này SỞ HỮU cover, pop nó là tháo
+            // luôn phiên quét đang chạy. `ScanStore.beginBusy()` đã chặn dọn suốt phiên quét nên
+            // ca này gần như không xảy ra, nhưng đây là lớp thứ hai — pop nhầm lúc đang quét là
+            // mất trắng 10–30 phút đi bộ, đắt hơn nhiều so với việc nán lại một màn rỗng.
+            .onChange(of: project == nil) { _, gone in
+                if gone && !isScanning && !isMeshScanning { dismiss() }
+            }
+            // Cover đóng mà dự án đã biến mất trong lúc đó → giờ mới thoát.
+            .onChange(of: isMeshScanning) { _, presented in
+                if !presented && project == nil { dismiss() }
+            }
+    }
+
+    private var content: some View {
         Group {
             if scans.isEmpty {
                 emptyState
