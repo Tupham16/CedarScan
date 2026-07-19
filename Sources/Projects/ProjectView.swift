@@ -11,6 +11,10 @@ struct ProjectView: View {
     @State private var isVideoScanning = false
     @State private var isMeshScanning = false
     @State private var showModePicker = false
+    @State private var showGuide = false
+    /// Người dùng đã BẤM "Bắt đầu quét" trong guide (khác với "guide đang mở"). Reset ở LỐI VÀO
+    /// chứ không chỉ trong onDismiss — xem giải thích đầy đủ ở HomeView.startAfterGuide.
+    @State private var startAfterGuide = false
     @State private var pendingScanMode: ScanMode?
     @State private var meshCapFollowUp = false
     @State private var showScanNextPart = false
@@ -134,6 +138,16 @@ struct ProjectView: View {
                 }
             }
         }
+        // Bắt đầu quét từ onDismiss chứ không từ callback của guide — ScanGuideView gọi
+        // dismiss() rồi onStart() cùng một transaction, present thẳng ở đó là present-trong-
+        // lúc-sheet-đang-đóng. Xem giải thích đầy đủ ở HomeView.
+        .sheet(isPresented: $showGuide, onDismiss: {
+            guard startAfterGuide else { return }
+            startAfterGuide = false
+            startScanning()
+        }) {
+            ScanGuideView { startAfterGuide = true }
+        }
         // Mở cover từ onDismiss của sheet (chờ sheet đóng XONG mới present) — như HomeView.
         .sheet(isPresented: $showModePicker, onDismiss: {
             guard let mode = pendingScanMode else { return }
@@ -241,13 +255,28 @@ struct ProjectView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
+    /// Tách khỏi thân nút để guide gọi lại được từ onDismiss — nếu để logic isSupported nằm
+    /// trong closure của nút thì nó bị lặp hai chỗ và sẽ lệch nhau về sau.
+    private func startScanning() {
+        if isSupported {
+            showModePicker = true
+        } else {
+            isVideoScanning = true
+        }
+    }
+
     private var bottomButtons: some View {
         VStack(spacing: 8) {
             Button {
-                if isSupported {
-                    showModePicker = true
+                // Guide lần đầu Y HỆT HomeView. Trước P3 màn này KHÔNG hề kiểm seenKey: khách
+                // tạo Dự án trước rồi quét từ đây sẽ không bao giờ đọc hướng dẫn, và vì seenKey
+                // vẫn false nên lần sau quét từ Home guide mới nhảy ra — sau khi bản quét đầu
+                // tiên đã hỏng. Gate theo isSupported vì guide chỉ dạy luồng LiDAR.
+                if isSupported && !UserDefaults.standard.bool(forKey: ScanGuideView.seenKey) {
+                    startAfterGuide = false
+                    showGuide = true
                 } else {
-                    isVideoScanning = true
+                    startScanning()
                 }
             } label: {
                 Label(

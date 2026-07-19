@@ -6,8 +6,22 @@ struct HomeView: View {
     @State private var isScanning = false
     @State private var isVideoScanning = false
     @State private var isMeshScanning = false
-    @State private var showModePicker = false
+    @State private var showScanSetup = false
     @State private var pendingScanMode: ScanMode?
+    /// Căn nhà (dự án) mà bản quét sắp tới sẽ thuộc về — do ScanAddressView chọn/tạo.
+    ///
+    /// CỐ Ý KHÔNG XOÁ sau mỗi bản quét: alert "Quét phần còn lại ngay" set `isMeshScanning`
+    /// THẲNG, không đi qua màn địa chỉ (xem .alert bên dưới), nên giữ giá trị lại chính là thứ
+    /// làm Part 2 rơi vào ĐÚNG căn nhà của Part 1.
+    ///
+    /// ⚠ GIÁ TRỊ NÀY CÓ THỂ CŨ. Chỉ hai nút "Bắt đầu quét"/"Bỏ qua" trong ScanAddressView mới
+    /// ghi đè nó; bấm "Hủy" hoặc vuốt đóng sheet thì nó GIỮ NGUYÊN giá trị của lần quét trước.
+    /// Hiện vô hại vì hai đường đó cũng không set `pendingScanMode` nên onDismiss return sớm,
+    /// không bản quét nào chạy. NHƯNG: pha sau mà thêm bất kỳ lối vào `isMeshScanning` nào KHÔNG
+    /// đi qua ScanAddressView thì bản quét mới sẽ lặng lẽ rơi vào căn nhà của lần quét TRƯỚC ĐÓ
+    /// — sai địa chỉ trên thẻ gửi đội vẽ mà không có dấu hiệu gì. Thêm lối vào như vậy thì phải
+    /// đặt lại `pendingProjectId` tường minh ở đó.
+    @State private var pendingProjectId: UUID?
     @State private var meshCapFollowUp = false
     @State private var showScanNextPart = false
     // Mặc định .high: file KHÔNG nặng thêm so với .medium (hình học y hệt), giá phải trả chỉ
@@ -84,7 +98,7 @@ struct HomeView: View {
             }
             // Mở cover từ onDismiss của sheet (chờ sheet đóng XONG mới present) —
             // present-trong-lúc-sheet-đang-đóng là kiểu dễ rớt presentation nhất.
-            .sheet(isPresented: $showModePicker, onDismiss: {
+            .sheet(isPresented: $showScanSetup, onDismiss: {
                 guard let mode = pendingScanMode else { return }
                 pendingScanMode = nil
                 switch mode {
@@ -92,10 +106,12 @@ struct HomeView: View {
                 case .mesh: isMeshScanning = true
                 }
             }) {
-                ScanModePickerView { mode in
-                    pendingScanMode = mode
+                // Không .presentationDetents: đây là Form nhiều mục (địa chỉ + danh sách căn đã
+                // có + độ nét), ép .medium là danh sách căn nhà bị bóp còn một hai dòng.
+                ScanAddressView { projectId in
+                    pendingProjectId = projectId
+                    pendingScanMode = .mesh
                 }
-                .presentationDetents([.medium, .large])
             }
             .fullScreenCover(isPresented: $isMeshScanning) {
                 MeshScanFlowView(quality: meshQuality) { result in
@@ -103,7 +119,8 @@ struct HomeView: View {
                         _ = try await store.saveMeshScan(
                             videoURL: result.videoURL, meshURL: result.meshURL,
                             trackURL: result.trackURL,
-                            name: result.name, quality: result.quality
+                            name: result.name, projectId: pendingProjectId,
+                            quality: result.quality
                         )
                         // Nhà rất lớn chạm trần: sau khi cover đóng sẽ mời quét phần còn lại.
                         if result.hitCap { meshCapFollowUp = true }
@@ -296,7 +313,7 @@ struct HomeView: View {
 
     private func startScanning() {
         if isSupported {
-            showModePicker = true
+            showScanSetup = true
         } else {
             isVideoScanning = true
         }
