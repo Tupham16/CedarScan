@@ -10,7 +10,10 @@ struct HomeView: View {
     @State private var pendingScanMode: ScanMode?
     @State private var meshCapFollowUp = false
     @State private var showScanNextPart = false
-    @AppStorage("meshQuality") private var meshQuality: MeshQuality = .light
+    // Mặc định .high: file KHÔNG nặng thêm so với .medium (hình học y hệt), giá phải trả chỉ
+    // là thời gian lưu — mà lúc lưu máy đã đặt xuống. Người dùng cũ còn lưu "light" trong
+    // UserDefaults sẽ tự rơi về mặc định này vì rawValue đó không còn khớp case nào.
+    @AppStorage("meshQuality") private var meshQuality: MeshQuality = MeshQuality.storageDefault
     @State private var recordToRename: ScanRecord?
     @State private var renameText = ""
     @State private var saveError: String?
@@ -387,8 +390,10 @@ struct ScanRow: View {
     private var typePart: String {
         if record.isMeshOnly {
             let base = L.t("3D mesh", "Mesh 3D")
-            guard let raw = record.meshQuality, let tier = MeshQuality(rawValue: raw) else { return base }
-            return base + " (" + tier.label + ")"
+            // storedLabel (không phải MeshQuality(rawValue:)) — bản quét cũ lưu "light" đã
+            // không còn case tương ứng, dùng init thẳng là nhãn mức nét biến mất lặng lẽ.
+            guard let raw = record.meshQuality, let tierLabel = MeshQuality.storedLabel(raw) else { return base }
+            return base + " (" + tierLabel + ")"
         }
         if record.isVideoOnly {
             return L.t("Video walkthrough", "Video khảo sát")

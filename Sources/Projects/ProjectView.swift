@@ -14,7 +14,7 @@ struct ProjectView: View {
     @State private var pendingScanMode: ScanMode?
     @State private var meshCapFollowUp = false
     @State private var showScanNextPart = false
-    @AppStorage("meshQuality") private var meshQuality: MeshQuality = .light
+    @AppStorage("meshQuality") private var meshQuality: MeshQuality = MeshQuality.storageDefault
     @State private var showOrderSheet = false
     @State private var showLowQualityConfirm = false
     @State private var recordToRename: ScanRecord?

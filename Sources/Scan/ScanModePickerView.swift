@@ -15,7 +15,7 @@ struct ScanModePickerView: View {
     // Mặc định preselect "Quét 3D nguyên căn" — workflow chính của chủ app
     // (tự sản xuất bản vẽ 2D từ mesh + video, không cần floorplan RoomPlan).
     @AppStorage("lastScanMode") private var lastScanModeRaw: String = ScanMode.mesh.rawValue
-    @AppStorage("meshQuality") private var meshQuality: MeshQuality = .light
+    @AppStorage("meshQuality") private var meshQuality: MeshQuality = MeshQuality.storageDefault
     @State private var selected: ScanMode = .floorplan
 
     var body: some View {
@@ -125,7 +125,7 @@ private struct ModeCard: View {
     }
 }
 
-/// Chọn mức nét mesh (Nhẹ/Vừa/Nét) + caption đổi theo lựa chọn — cho đợt test so 3 mức.
+/// Chọn mức nét mesh (Vừa/Nét) + caption đổi theo lựa chọn.
 private struct QualityTierPicker: View {
     @Binding var quality: MeshQuality
 
@@ -140,6 +140,11 @@ private struct QualityTierPicker: View {
             }
             .pickerStyle(.segmented)
             Text(quality.caption)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            // .secondary chứ không .tertiary: đây là câu quan trọng nhất của card (gỡ hiểu lầm
+            // "mức thấp = file nhẹ"), tertiary ở cỡ caption tương phản quá thấp để ai đọc.
+            Text(MeshQuality.sharedNote)
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }

@@ -374,8 +374,9 @@ struct ScanDetailView: View {
 
     private var meshTitle: String {
         let base = L.t("3D mesh scan", "Bản quét Mesh 3D")
-        guard let raw = current.meshQuality, let tier = MeshQuality(rawValue: raw) else { return base }
-        return base + " · " + tier.label
+        // storedLabel: giữ nhãn cho bản quét cũ lưu rawValue "light" (case đã bỏ 2026-07-19).
+        guard let raw = current.meshQuality, let tierLabel = MeshQuality.storedLabel(raw) else { return base }
+        return base + " · " + tierLabel
     }
 
     /// Bản quét video: xem lại video + lưu ý độ chính xác.

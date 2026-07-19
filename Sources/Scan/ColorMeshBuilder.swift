@@ -102,7 +102,12 @@ final class ColorMeshBuilder {
 
     init(
         arSession: ARSession,
-        preset: MeshQuality.Preset = MeshQuality.light.preset,
+        // Giá trị mặc định GIỮ NGUYÊN bộ số của mức "Nhẹ" cũ (120k/320px/40 khung). Mức .light
+        // đã bị bỏ khỏi MeshQuality (2026-07-19) nhưng luồng RoomPlan vẫn gọi init này không
+        // truyền preset — viết thẳng số ra đây để hành vi RoomPlan không đổi một byte nào.
+        preset: MeshQuality.Preset = MeshQuality.Preset(
+            maxVertices: 120_000, keyframeWidth: 320, maxKeyframes: 40, keyframeIntervalSec: 0.4
+        ),
         strictVertexCap: Bool = false,
         captureDepthForOcclusion: Bool = false,
         refineLargeTriangles: Bool = false,
