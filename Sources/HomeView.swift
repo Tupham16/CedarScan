@@ -311,6 +311,14 @@ struct HomeView: View {
         }
     }
 
+    // KHÔNG lọc bản quét đã đặt ra khỏi danh sách này. Từng thử và đó là lỗi CHẶN: `ScanRow` là
+    // NavigationLink DUY NHẤT tới ScanDetailView, và `store.delete` chỉ được gọi từ swipe của
+    // chính nó — ẩn dòng đi là bản quét mồ côi hoàn toàn, không mở/chia sẻ/xoá được, file 40-200MB
+    // kẹt vĩnh viễn. Tab Đơn hàng KHÔNG thay thế được: nó lấy đơn từ server, cần mạng + đăng nhập,
+    // và không trỏ về ScanRecord nào trên máy.
+    // Cách làm gọn máy ĐÚNG (chủ app chốt 2026-07-19): giữ nguyên hiển thị cho tới khi đơn ĐÃ GIAO,
+    // rồi TỰ XOÁ hẳn file — đơn giao được tự nó là bằng chứng dữ liệu đã an toàn trên R2.
+
     private func startScanning() {
         if isSupported {
             showScanSetup = true
@@ -362,8 +370,11 @@ struct ScanRow: View {
                 HStack(spacing: 6) {
                     Text(record.name)
                         .font(.headline)
+                    // Nhãn CHỮ chứ không chỉ icon: mở dự án ra phải đọc được NGAY tầng nào đã đặt
+                    // rồi, để biết căn nhà còn thiếu tầng nào mà quét thêm. Một icon nhỏ màu xanh
+                    // không nói được điều đó.
                     if record.cloudOrderNumber != nil {
-                        Image(systemName: "shippingbox.fill")
+                        Label(L.t("Ordered", "Đã đặt"), systemImage: "shippingbox.fill")
                             .font(.caption)
                             .foregroundStyle(.blue)
                     } else if record.cloudScanId != nil {

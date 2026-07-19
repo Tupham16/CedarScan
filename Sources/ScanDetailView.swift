@@ -216,9 +216,12 @@ struct ScanDetailView: View {
                     .buttonStyle(.borderedProminent)
                 case .preparing:
                     progressRow(L.t("Preparing upload…", "Đang chuẩn bị…"), nil)
-                case .uploading(let fileName, let index, let total, let fraction):
+                // KHÔNG in tên file (model-colored.zip / colored-mesh.ply / scan-video.mp4):
+                // đó là chuyện nội bộ, khách không cần biết app gửi những gì. Giữ (n/tổng) +
+                // thanh tiến độ để khách biết còn phải chờ bao lâu — đó là thứ họ thật sự cần.
+                case .uploading(_, let index, let total, let fraction):
                     progressRow(
-                        L.t("Uploading \(fileName) (\(index)/\(total))", "Đang tải \(fileName) (\(index)/\(total))"),
+                        L.t("Sending your scan… (\(index)/\(total))", "Đang gửi bản quét… (\(index)/\(total))"),
                         fraction
                     )
                 case .finishing:

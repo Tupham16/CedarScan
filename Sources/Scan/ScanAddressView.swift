@@ -10,12 +10,17 @@ import SwiftUI
 /// Bản quét mở từ HomeView trước đây luôn lưu `projectId = nil`, nên đơn tới tay đội vẽ
 /// KHÔNG kèm địa chỉ nào. Nhét địa chỉ vào tên bản quét sẽ không chạy tới thẻ.
 ///
-/// Địa chỉ CÓ THỂ BỎ QUA (chủ app chốt): quét trong nhà thì GPS yếu, có lúc quét thử, có lúc
-/// chưa biết địa chỉ. Chặn cứng ở đây là chặn đúng lúc người ta đang cầm máy muốn quét.
+/// ĐỊA CHỈ BẮT BUỘC (chủ app chốt 2026-07-19, đảo lại quyết định "có nút Bỏ qua" trước đó):
+/// không điền thì không quét được. Lý do: bản quét không gắn căn nhà là đơn tới tay đội vẽ
+/// không có địa chỉ — đúng thứ màn này sinh ra để chống, mà cho bỏ qua thì ai cũng bỏ qua.
+/// Chấp nhận CHỮ TỰ DO (không ép đúng định dạng địa chỉ) để người dùng luôn đi tiếp được khi
+/// GPS yếu trong nhà, mất mạng, hoặc từ chối cấp quyền vị trí.
 struct ScanAddressView: View {
     @EnvironmentObject private var store: ScanStore
     @Environment(\.dismiss) private var dismiss
-    /// projectId để gắn bản quét sắp tới; nil = không thuộc căn nhà nào (bỏ qua).
+    /// projectId để gắn bản quét sắp tới. Từ 2026-07-19 địa chỉ là BẮT BUỘC nên thực tế luôn
+    /// non-nil; giữ Optional vì `createProject` vẫn có thể trả nil (tên toàn ký tự lạ bị lọc
+    /// sạch) — lúc đó thà cho quét còn hơn nuốt mất buổi quét vì một cái tên kỳ quặc.
     let onStart: (UUID?) -> Void
 
     @AppStorage("meshQuality") private var meshQuality: MeshQuality = MeshQuality.storageDefault
@@ -93,8 +98,8 @@ struct ScanAddressView: View {
             // bên dưới" sẽ trỏ ngược lên trên). Giữ đúng một câu chung, không đổi theo tình huống
             // — việc cảnh báo trùng tên đã chuyển lên chữ trên NÚT, chỗ người dùng thật sự đọc.
             Text(L.t(
-                "Shown to the drafting team on the order. You can leave it empty and fill it in later.",
-                "Hiện trên đơn cho đội vẽ. Để trống cũng được, điền sau."
+                "Required — the drafting team needs to know which home the drawing is for.",
+                "Bắt buộc — đội vẽ cần biết bản vẽ này của căn nào."
             ))
         }
     }
@@ -194,9 +199,17 @@ struct ScanAddressView: View {
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.borderedProminent)
+            .disabled(!hasHome)
             .listRowInsets(EdgeInsets())
             .listRowBackground(Color.clear)
         }
+    }
+
+    /// Đã xác định được căn nhà chưa — chạm một dòng trong danh sách HOẶC gõ chữ đều tính.
+    /// Chạm dòng mà không gõ gì là đường đi hợp lệ (ô nhập vẫn rỗng), nên KHÔNG được chỉ xét
+    /// mỗi `address`.
+    private var hasHome: Bool {
+        pickedProjectId != nil || !address.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     /// Nút NÓI THẲNG hậu quả khi sắp tạo căn thứ hai trùng tên. Người dùng đọc chữ trên nút họ
@@ -211,10 +224,9 @@ struct ScanAddressView: View {
         }
         return L.t("Start scanning", "Bắt đầu quét")
     }
-    // KHÔNG có nút "Bỏ qua" riêng: để trống ô địa chỉ rồi bấm "Bắt đầu quét" đã cho đúng kết
-    // quả đó (createProject trả nil khi tên rỗng), nên nút kia vừa thừa vừa dễ lẫn với "Hủy" ở
-    // góc trên — hai lựa chọn cạnh nhau mà nghĩa ngược hẳn: Hủy = không quét, Bỏ qua = vẫn quét.
-    // Chú thích dưới ô nhập đã nói rõ là để trống được.
+    // KHÔNG có nút "Bỏ qua": địa chỉ giờ BẮT BUỘC, nút Bắt đầu bị khoá tới khi có căn nhà.
+    // (Nút "Bỏ qua" từng tồn tại hồi địa chỉ còn tuỳ chọn — nó vừa thừa vừa dễ lẫn với "Hủy" ở
+    // góc trên: hai lựa chọn cạnh nhau mà nghĩa ngược hẳn, Hủy = không quét, Bỏ qua = vẫn quét.)
 
     /// dismiss() TRƯỚC onStart() — cùng khuôn với ScanModePickerView: người gọi present màn quét
     /// từ onDismiss của sheet này, nên onStart chỉ được set cờ, không được present gì.
