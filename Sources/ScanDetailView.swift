@@ -619,6 +619,35 @@ struct OrderSheet: View {
 
     private var areaSqFt: Double { combinedAreaSqm * 10.7639 }
 
+    /// Câu nhắc dưới danh sách tầng. CHỈ nói diện tích khi thật sự đo được.
+    ///
+    /// Bản quét mesh KHÔNG BAO GIỜ có `areaSqm` — chỉ RoomPlan sinh ra số đó, và RoomPlan đã bị
+    /// gỡ. Chủ app chốt 2026-07-20 là tự đo tay thay vì cho app ước lượng từ mesh, nên tình trạng
+    /// này là VĨNH VIỄN chứ không phải tạm thời. Câu cũ nối cứng "Tổng diện tích: N m²" nên mọi
+    /// khách, mọi đơn, đều đọc thấy "Tổng diện tích: 0 m²" ngay tại màn chốt đơn — trông như app
+    /// đo hỏng, và tệ hơn là làm khách nghi ngờ luôn cái giá bên dưới.
+    ///
+    /// Tách thành computed property thay vì viết ternary lồng trong ViewBuilder: đó là đúng dạng
+    /// biểu thức mà CI này từng chết vì "Swift type-check timeout".
+    private var floorsFooterText: String {
+        if otherScans.isEmpty {
+            return L.t(
+                "Scan each floor separately (name them Floor 1, Floor 2…), then order them together here as one home.",
+                "Quét từng tầng riêng (đặt tên Floor 1, Floor 2…) rồi gộp vào một đơn tại đây."
+            )
+        }
+        let base = L.t(
+            "Select the other floors of the same home to order everything together.",
+            "Chọn các tầng khác của cùng căn nhà để đặt chung một đơn."
+        )
+        // Bản quét CŨ đời RoomPlan vẫn còn số đo thật trong meta.json — với chúng thì vẫn nói.
+        guard combinedAreaSqm > 0 else { return base }
+        return base + " " + L.t(
+            "Total area: \(Int(combinedAreaSqm)) m².",
+            "Tổng diện tích: \(Int(combinedAreaSqm)) m²."
+        )
+    }
+
     /// Đơn có chứa bản quét CHỈ VIDEO (không LiDAR) → nhắc độ chính xác.
     private var selectionHasVideoScan: Bool {
         record.isVideoOnly || otherScans.contains { extraFloors.contains($0.id) && $0.isVideoOnly }
@@ -773,15 +802,7 @@ struct OrderSheet: View {
                     }
                     .foregroundStyle(.blue)
                 } else {
-                    Text(otherScans.isEmpty
-                        ? L.t(
-                            "Scan each floor separately (name them Floor 1, Floor 2…), then order them together here as one home.",
-                            "Quét từng tầng riêng (đặt tên Floor 1, Floor 2…) rồi gộp vào một đơn tại đây."
-                        )
-                        : L.t(
-                            "Select the other floors of the same home to order everything together. Total area: \(Int(combinedAreaSqm)) m².",
-                            "Chọn các tầng khác của cùng căn nhà để đặt chung một đơn. Tổng diện tích: \(Int(combinedAreaSqm)) m²."
-                        ))
+                    Text(floorsFooterText)
                 }
             }
 
