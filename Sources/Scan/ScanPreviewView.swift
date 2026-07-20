@@ -2,7 +2,7 @@ import SwiftUI
 import AVKit
 
 /// Màn hiện NGAY sau khi bản quét đã lưu xong, trước khi đóng phiên quét: căn nhà + video vừa
-/// quay + ba lối đi (quét thêm / xong / đặt hàng ngay).
+/// quay + ba lối đi (quét thêm / đặt hàng sau / đặt hàng ngay).
 ///
 /// VÌ SAO ĐỨNG Ở ĐÂY chứ không để khách tự tìm vào trang bản quét: đây là khoảnh khắc DUY NHẤT
 /// khách còn đứng trong căn nhà vừa quét. Xem lại video ngay lúc này mà phát hiện thiếu phòng
@@ -123,12 +123,11 @@ struct ScanPreviewView: View {
 
     private var footer: some View {
         VStack(spacing: 10) {
-            // Câu thứ hai BẮT BUỘC phải còn, vì nhãn nút là "Xong": bỏ nó đi thì màn hình không
-            // còn tín hiệu nào nói rằng vẫn đặt được sau, và "Xong" đọc thành "xong hẳn, thôi
-            // không đặt nữa" — khách rời màn, mất đơn.
+            // Chỉ còn một việc: soi video. Chuyện "đặt sau vẫn được" đã nằm ngay trên nhãn nút
+            // nên nhắc lại ở đây là thừa.
             Text(L.t(
-                "Check the video for any room you missed. You can still order it later.",
-                "Xem lại video để chắc không sót phòng nào. Bạn vẫn đặt bản vẽ sau được."
+                "Check the video for any room you missed.",
+                "Xem lại video để chắc không sót phòng nào."
             ))
             .font(.caption)
             .foregroundStyle(.secondary)
@@ -155,9 +154,14 @@ struct ScanPreviewView: View {
 
             HStack(spacing: 12) {
                 Button(action: onOrderLater) {
-                    // "Xong" chứ không phải "Để sau": từ khi có lối "Quét thêm" ngay trên, màn này
-                    // có ba lối đi và "Để sau" dễ đọc thành "để sau hãy quét".
-                    Text(L.t("Done", "Xong"))
+                    // "Đặt hàng sau", KHÔNG phải "Để sau" và cũng không phải "Xong" (chủ app chốt
+                    // 2026-07-20 sau khi dùng thử cả hai):
+                    //  • "Để sau" trống nghĩa — từ khi có lối "Quét thêm" ngay trên, nó đọc được
+                    //    thành "để sau hãy QUÉT".
+                    //  • "Xong" nghe như đóng hẳn việc, khách tưởng hết cơ hội đặt.
+                    // "Đặt hàng sau" thành cặp song song với "Đặt hàng ngay": cùng nói về ĐẶT
+                    // HÀNG, chỉ khác thời điểm, nên không nhánh nào đọc nhầm sang chuyện quét.
+                    Text(L.t("Order later", "Đặt hàng sau"))
                         .font(.headline)
                         .lineLimit(1)
                         .minimumScaleFactor(0.7)

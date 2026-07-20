@@ -317,7 +317,7 @@ struct MeshScanFlowView: View {
         }
     }
 
-    /// Màn preview sau khi lưu: căn nhà + video vừa quay + "Quét thêm"/"Xong"/"Đặt hàng ngay".
+    /// Màn preview sau khi lưu: căn nhà + video vừa quay + "Quét thêm"/"Đặt hàng sau"/"Đặt hàng ngay".
     ///
     /// Lấy đường dẫn video từ THƯ MỤC BẢN QUÉT chứ không dùng lại `exported.videoURL` của
     /// controller: file tạm đó đã bị `saveMeshScan` MOVE đi rồi, URL cũ trỏ vào chỗ trống.
