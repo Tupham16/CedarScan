@@ -1168,7 +1168,7 @@ struct OrderSheet: View {
                 // Thứ tự với `placedOrder` ở trên KHÔNG phải một bảo đảm render — SwiftUI gộp cả
                 // hai thay đổi vào cùng một nhịp, nên đừng dựa vào "cái nào vẽ trước". Điều thật
                 // sự giữ màn thành công là màn gọi không được để nội dung sheet phụ thuộc vào
-                // `cloudOrderNumber` (xem `ProjectView.orderSheetScanIds`).
+                // `cloudOrderNumber` (xem `ProjectView.orderTarget` / `liveScans(of:)`).
                 store.setOrderNumber(record, orderNumber: result.orderNumber)
                 for extra in extras {
                     store.setOrderNumber(extra, orderNumber: result.orderNumber)

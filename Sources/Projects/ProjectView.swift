@@ -28,26 +28,30 @@ struct ProjectView: View {
     @State private var meshCapFollowUp = false
     @State private var showScanNextPart = false
     @AppStorage("meshQuality") private var meshQuality: MeshQuality = MeshQuality.storageDefault
-    @State private var showOrderSheet = false
-    /// DANH TÍNH các bản quét đi vào form đặt hàng, chốt đúng lúc mở form.
+    /// Mục tiêu của form đặt hàng: DANH TÍNH các bản quét đã chốt đúng lúc mở form.
     ///
-    /// 🔴 Nội dung sheet KHÔNG được tính trực tiếp từ `orderableScans`, dù viết vậy gọn hơn hẳn.
-    /// Đó là filter SỐNG (`cloudOrderNumber == nil`): ngay giây đơn đặt xong, mọi bản quét trong
-    /// đơn được đóng dấu số đơn → filter rỗng đi → `if let primary` fail → SwiftUI THÁO
-    /// `OrderSheet` khỏi cây view trong khi nó vẫn đang hiện, huỷ luôn toàn bộ `@State` của nó
-    /// (`placedOrder`, số đơn, link thanh toán). Khách vừa bấm "Đặt hàng" nhìn thấy một sheet
-    /// TRẮNG: không số đơn, không nút "Thanh toán ngay", không một câu xác nhận nào — trông hệt
-    /// như app hỏng đúng khoảnh khắc chốt đơn, mà đây là đường TIỀN.
+    /// 🔴 Dùng `.sheet(item:)`, KHÔNG dùng `.sheet(isPresented:)` + cờ Bool riêng. Đây là chỗ đã
+    /// trả giá một lần: bản trước để `@State showOrderSheet` (Bool) và một `@State` thứ hai chứa
+    /// danh sách id, cả hai set CÙNG một nhịp trong `presentOrderSheet()`. Nhưng `.sheet(isPresented:)`
+    /// dựng nội dung khi cờ lật true, và ở nhịp đó `@State` thứ hai CHƯA kịp commit — lần ĐẦU mở
+    /// form của mỗi `ProjectView` (giá trị còn nil) cho ra một sheet TRẮNG trượt lên rồi phải vuốt
+    /// xuống; lần sau đã có giá trị nên hết, mở dự án khác (ProjectView mới) lại nil → trắng lại.
+    /// Đúng triệu chứng khách báo trên máy thật, mà hai vòng review đối kháng KHÔNG bắt được vì nó
+    /// là race lúc CHẠY, không phải lỗi logic đọc trên máy Windows.
+    /// `.sheet(item:)` truyền thẳng `target` (đã unwrap) vào closure nên nội dung LUÔN có dữ liệu
+    /// ngay lần đầu — không còn khe nil.
     ///
-    /// 🔴 CHỈ giữ `[UUID]`, TUYỆT ĐỐI KHÔNG giữ `[ScanRecord]` — đã thử và phải sửa lại. Chụp cả
-    /// bản ghi là đóng băng luôn `cloudScanId`, mà `OrderSheet.ensureUploaded` đọc đúng trường đó
-    /// để biết "tầng này đã lên server chưa". Đóng băng nó thì lần đặt hàng thứ hai (sau timeout
-    /// 30s, sau 403 chưa xác minh, sau rớt 4G — đều là ca thật) sẽ TẢI LÊN LẠI 40–200MB mỗi tầng
-    /// và đẻ ra scan id MỚI trên server; mà hai chốt chống-đơn-trùng phía server đều khoá theo
-    /// scan id, nên id mới lọt cả hai → đơn thứ hai cho cùng căn nhà, trừ hai lần suất miễn phí.
-    /// Giữ danh tính thì TẬP vẫn đông cứng (đủ để sheet sống qua nhịp đóng dấu) mà GIÁ TRỊ vẫn
-    /// tươi mỗi lần render.
-    @State private var orderSheetScanIds: [UUID]?
+    /// 🔴 `scanIds` CHỈ giữ `[UUID]`, TUYỆT ĐỐI KHÔNG giữ `[ScanRecord]`. Chụp cả bản ghi là đóng
+    /// băng luôn `cloudScanId`, mà `OrderSheet.ensureUploaded` đọc đúng trường đó để biết "tầng này
+    /// đã lên server chưa". Đóng băng nó thì lần đặt thứ hai (sau timeout 30s / 403 chưa xác minh /
+    /// rớt 4G — đều là ca thật) sẽ TẢI LÊN LẠI 40–200MB mỗi tầng và đẻ scan id MỚI; hai chốt
+    /// chống-đơn-trùng phía server đều khoá theo scan id nên id mới lọt cả hai → đơn thứ hai cho
+    /// cùng căn nhà, trừ hai lần suất miễn phí. Chốt danh tính, giải GIÁ TRỊ sống mỗi lần render.
+    private struct OrderSheetTarget: Identifiable {
+        let id = UUID()
+        let scanIds: [UUID]
+    }
+    @State private var orderTarget: OrderSheetTarget?
     /// Cổng đăng nhập/xác minh mở tại chỗ — xem `AccountGateSheet`.
     @State private var showAccountGate = false
     @State private var showLowQualityConfirm = false
@@ -257,8 +261,8 @@ struct ProjectView: View {
                 "Mô hình 3D chạm giới hạn trước khi quét xong — phần đã lưu vẫn an toàn. Hãy quét khu còn lại thành một bản quét khác (đặt tên \"Part 1\", \"Part 2\"…) để ghép lại sau."
             ))
         }
-        .sheet(isPresented: $showOrderSheet) {
-            orderSheetContent
+        .sheet(item: $orderTarget) { target in
+            orderSheetBody(target)
         }
         .sheet(isPresented: $showAccountGate, onDismiss: {
             // Qua được cổng thì ĐI TIẾP việc khách đang làm dở, đừng bắt họ bấm lại đúng cái nút
@@ -308,47 +312,47 @@ struct ProjectView: View {
 
     /// LỐI VÀO DUY NHẤT của form đặt hàng.
     ///
-    /// Mọi chỗ muốn mở sheet phải gọi hàm này, ĐỪNG set `showOrderSheet = true` thẳng: chốt
-    /// `orderSheetScanIds` và bật cờ là một CẶP không tách rời — thiếu vế chốt thì sheet dựng ra
-    /// rỗng trơn. Có đúng hai lối vào (nút "Đặt làm mặt bằng" và nút "Vẫn đặt hàng" của cảnh báo
-    /// chất lượng thấp), và lối thứ hai đã một lần bị bỏ quên khi sửa lối thứ nhất.
+    /// Mọi chỗ muốn mở sheet phải gọi hàm này, ĐỪNG gán `orderTarget` thẳng ở nơi khác: đóng gói
+    /// việc chốt danh tính vào một chỗ. Có đúng hai lối vào (nút "Đặt làm mặt bằng" và nút "Vẫn
+    /// đặt hàng" của cảnh báo chất lượng thấp), và lối thứ hai đã một lần bị bỏ quên khi sửa lối
+    /// thứ nhất.
     private func presentOrderSheet() {
-        // Tập rỗng thì không có gì để đặt: mở sheet ra chỉ được một màn trắng không cả nút Hủy.
-        // Nút gọi hàm này vốn đã ẩn khi rỗng, nên đây là lớp thứ hai — fail-closed.
-        guard !orderableScans.isEmpty else { return }
-        orderSheetScanIds = orderableScans.map(\.id)
-        showOrderSheet = true
+        // Tập rỗng thì không có gì để đặt. Nút gọi hàm này vốn đã ẩn khi rỗng, nên đây là lớp thứ
+        // hai — fail-closed. Tính `ids` TRƯỚC rồi mới dựng target: gán `orderTarget` là thao tác
+        // DUY NHẤT bật sheet (sheet(item:) hiện khi item != nil), nên target phải đủ dữ liệu ngay.
+        let ids = orderableScans.map(\.id)
+        guard !ids.isEmpty else { return }
+        orderTarget = OrderSheetTarget(scanIds: ids)
     }
 
-    /// Nội dung form đặt hàng: DANH TÍNH chốt lúc mở, GIÁ TRỊ đọc SỐNG từ store mỗi lần render.
+    /// Nội dung form đặt hàng: DANH TÍNH chốt lúc mở (trong `target`), GIÁ TRỊ đọc SỐNG từ store
+    /// mỗi lần render.
     ///
-    /// Tách khỏi thân `.sheet` thành computed property riêng theo đúng lệ của repo — biểu thức
-    /// SwiftUI lồng nhiều tầng là thứ CI này từng chết vì "Swift type-check timeout". Cũng vì lẽ
-    /// đó mà ở đây gọi `orderSheetLiveScans` HAI LẦN thay vì hứng vào một `let` cục bộ cho gọn:
-    /// khai báo cục bộ trong thân ViewBuilder là đúng mẫu bị cấm ở `ScanAddressView.expandRow`.
-    /// Gọi hai lần vô hại — cùng một nhịp render, cùng một trạng thái store, và chỉ chạy lúc
-    /// sheet đang mở.
+    /// Tách thành hàm nhận `target` theo đúng lệ của repo — biểu thức SwiftUI lồng nhiều tầng là
+    /// thứ CI này từng chết vì "Swift type-check timeout". Cũng vì lẽ đó mà gọi `liveScans(of:)`
+    /// HAI LẦN thay vì hứng vào một `let` cục bộ: khai báo cục bộ trong thân ViewBuilder là đúng
+    /// mẫu bị cấm ở `ScanAddressView.expandRow`. Gọi hai lần vô hại — cùng một nhịp render, cùng
+    /// một trạng thái store.
     ///
     /// 🔴 KHÔNG có callback đóng dấu "đã đặt" ở đây, và đừng thêm lại. Chỗ này từng chạy
     /// `for record in orderableScans { store.setOrderNumber(...) }`, tức đóng dấu lên cả tầng
     /// khách vừa BỎ CHỌN trong form — hậu quả ghi đầy đủ ở `OrderSheet.submit()`, nơi duy nhất
     /// biết khách đã tick những tầng nào và nay tự lo việc đóng dấu.
     @ViewBuilder
-    private var orderSheetContent: some View {
-        if let primary = orderSheetLiveScans.first {
+    private func orderSheetBody(_ target: OrderSheetTarget) -> some View {
+        if let primary = liveScans(of: target).first {
             OrderSheet(
                 record: primary,
                 projectName: project?.name,
-                candidateScans: orderSheetLiveScans
+                candidateScans: liveScans(of: target)
             )
         }
     }
 
     /// Giải danh tính đã chốt thành bản ghi SỐNG. Bản quét bị dọn mất giữa chừng thì rơi khỏi
     /// danh sách (compactMap) thay vì kéo theo dữ liệu ma.
-    private var orderSheetLiveScans: [ScanRecord] {
-        guard let ids = orderSheetScanIds else { return [] }
-        return ids.compactMap { id in store.records.first { $0.id == id } }
+    private func liveScans(of target: OrderSheetTarget) -> [ScanRecord] {
+        target.scanIds.compactMap { id in store.records.first { $0.id == id } }
     }
 
     private var renameAlertBinding: Binding<Bool> {
