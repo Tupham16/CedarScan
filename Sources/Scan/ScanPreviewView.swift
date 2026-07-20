@@ -2,14 +2,14 @@ import SwiftUI
 import AVKit
 
 /// Màn hiện NGAY sau khi bản quét đã lưu xong, trước khi đóng phiên quét: căn nhà + video vừa
-/// quay + hai lối đi (đặt hàng ngay / để sau).
+/// quay + ba lối đi (quét thêm / xong / đặt hàng ngay).
 ///
 /// VÌ SAO ĐỨNG Ở ĐÂY chứ không để khách tự tìm vào trang bản quét: đây là khoảnh khắc DUY NHẤT
 /// khách còn đứng trong căn nhà vừa quét. Xem lại video ngay lúc này mà phát hiện thiếu phòng
 /// thì quét bù mất vài phút; phát hiện ở nhà thì phải quay lại một chuyến.
 ///
-/// KHÔNG có nút thoát nào khác ngoài hai nút này (fullScreenCover không vuốt đóng được) — cố ý:
-/// hai lối đi đã phủ hết mọi ý định, và cả hai đều an toàn vì BẢN QUÉT ĐÃ LƯU XONG trước khi màn
+/// KHÔNG có nút thoát nào khác ngoài ba nút này (fullScreenCover không vuốt đóng được) — cố ý:
+/// ba lối đi đã phủ hết mọi ý định, và cả ba đều an toàn vì BẢN QUÉT ĐÃ LƯU XONG trước khi màn
 /// này xuất hiện. Không đường nào ở đây làm mất dữ liệu.
 struct ScanPreviewView: View {
     /// Tên căn nhà (dự án). nil khi không tra ra dự án: bản quét không gắn căn nào (`projectId`
@@ -20,6 +20,13 @@ struct ScanPreviewView: View {
     /// Đã kiểm `fileExists` TRƯỚC khi truyền vào. nil = không có video (recorder fail lặng lẽ,
     /// hoặc `moveItem` lúc lưu hỏng — `ScanStore.saveMeshScan` dùng `try?` và không kiểm lại).
     let videoURL: URL?
+    /// "Quét thêm khu vực còn thiếu" — mở một phiên quét MỚI cho CÙNG căn nhà.
+    ///
+    /// KHÔNG phải "quét tiếp": `stopAndExport` đã giải phóng bộ tích lũy mesh, đóng recorder và
+    /// pause ARSession, nên phiên sau là một `ARSession` mới với GỐC TOẠ ĐỘ MỚI — hai mesh nằm ở
+    /// hai hệ toạ độ không liên quan nhau và đội vẽ ghép tay lúc dựng, y như nhà nhiều tầng.
+    /// (Muốn máy tự ghép thì phải đi đường `ARWorldMap` + relocalize — dự án riêng.)
+    let onScanMore: () -> Void
     let onOrderLater: () -> Void
     let onOrderNow: () -> Void
 
@@ -112,21 +119,45 @@ struct ScanPreviewView: View {
         }
     }
 
-    // MARK: - Hai lối đi
+    // MARK: - Ba lối đi
 
     private var footer: some View {
         VStack(spacing: 10) {
+            // Câu thứ hai BẮT BUỘC phải còn, vì nhãn nút là "Xong": bỏ nó đi thì màn hình không
+            // còn tín hiệu nào nói rằng vẫn đặt được sau, và "Xong" đọc thành "xong hẳn, thôi
+            // không đặt nữa" — khách rời màn, mất đơn.
             Text(L.t(
-                "Check the video for any room you missed. You can order the floor plan now or later.",
-                "Xem lại video để chắc không sót phòng nào. Bạn có thể đặt bản vẽ ngay hoặc để sau."
+                "Check the video for any room you missed. You can still order it later.",
+                "Xem lại video để chắc không sót phòng nào. Bạn vẫn đặt bản vẽ sau được."
             ))
             .font(.caption)
             .foregroundStyle(.secondary)
             .multilineTextAlignment(.center)
 
+            // DÒNG RIÊNG, không phải nút thứ ba trong hàng: đây là hành động KHÁC LOẠI với hai
+            // nút dưới — quay lại làm việc, chứ không phải rời màn. Nhét cả ba vào một hàng thì
+            // trên máy nhỏ chữ bị bóp, mà khu video vốn đã hẹp.
+            //
+            // LUÔN hiện, không chỉ khi mô hình chạm trần: nhà cỡ thường không bao giờ chạm trần
+            // 2M nhưng khách vẫn quên nguyên một phòng — và phát hiện được lúc còn đứng trong nhà
+            // chính là lý do màn preview này tồn tại.
+            Button(action: onScanMore) {
+                Label(
+                    L.t("Scan another area of this home", "Quét thêm khu vực còn thiếu"),
+                    systemImage: "viewfinder"
+                )
+                .font(.subheadline.weight(.semibold))
+                // Không có hai dòng này thì vùng chạm chỉ cao bằng chữ (~20pt) — dưới chuẩn 44pt
+                // của Apple, mà nó lại nằm cách nút "Đặt hàng ngay" đúng 10pt.
+                .padding(.vertical, 8)
+                .contentShape(Rectangle())
+            }
+
             HStack(spacing: 12) {
                 Button(action: onOrderLater) {
-                    Text(L.t("Order later", "Để sau"))
+                    // "Xong" chứ không phải "Để sau": từ khi có lối "Quét thêm" ngay trên, màn này
+                    // có ba lối đi và "Để sau" dễ đọc thành "để sau hãy quét".
+                    Text(L.t("Done", "Xong"))
                         .font(.headline)
                         .lineLimit(1)
                         .minimumScaleFactor(0.7)

@@ -36,6 +36,10 @@ struct MeshScanFlowView: View {
     /// vẫn compile sạch, và nút "Đặt hàng ngay" hiện đầy đủ rồi đóng cover mà KHÔNG LÀM GÌ — hỏng
     /// lặng lẽ đúng ở bước chốt đơn. Bắt buộc truyền thì lỗi nổ ngay lúc build.
     let onOrderNow: (ScanRecord) -> Void
+    /// Khách bấm "Quét thêm khu vực còn thiếu" ở màn preview. Call-site ghi nhớ ý định rồi mở
+    /// lại phiên quét TỪ `onDismiss` của cover — xem giải thích ở đó, đặt cờ trong `onChange`
+    /// là cover không bao giờ được dựng lại.
+    let onScanMore: () -> Void
 
     @State private var showNaming = false
     @State private var showEmptyMeshConfirm = false
@@ -47,16 +51,18 @@ struct MeshScanFlowView: View {
     @State private var savedRecord: ScanRecord?
     @AppStorage("showScanMesh") private var showScanMesh = true
 
-    /// ⚠ `onOrderNow` PHẢI được truyền kèm NHÃN ở call-site. Viết trailing closure mà bỏ nhãn thì
+    /// ⚠ `onOrderNow` VÀ `onScanMore` PHẢI được truyền kèm NHÃN ở call-site. Viết trailing closure mà bỏ nhãn thì
     /// forward-scan (SE-0286) khớp closure đó vào `onOrderNow` chứ không phải `onFinish` → lỗi
     /// kiểu khó đọc, mất một vòng CI. Xem hai call-site đang có: HomeView và ProjectView.
     init(
         quality: MeshQuality,
         onOrderNow: @escaping (ScanRecord) -> Void,
+        onScanMore: @escaping () -> Void,
         onFinish: @escaping (MeshScanResult) async -> ScanRecord?
     ) {
         _controller = StateObject(wrappedValue: MeshScanController(quality: quality))
         self.onOrderNow = onOrderNow
+        self.onScanMore = onScanMore
         self.onFinish = onFinish
     }
 
@@ -311,7 +317,7 @@ struct MeshScanFlowView: View {
         }
     }
 
-    /// Màn preview sau khi lưu: căn nhà + video vừa quay + "Để sau"/"Đặt hàng ngay".
+    /// Màn preview sau khi lưu: căn nhà + video vừa quay + "Quét thêm"/"Xong"/"Đặt hàng ngay".
     ///
     /// Lấy đường dẫn video từ THƯ MỤC BẢN QUÉT chứ không dùng lại `exported.videoURL` của
     /// controller: file tạm đó đã bị `saveMeshScan` MOVE đi rồi, URL cũ trỏ vào chỗ trống.
@@ -324,6 +330,10 @@ struct MeshScanFlowView: View {
             addressName: store.project(with: record.projectId)?.name,
             scanName: record.name,
             videoURL: playable,
+            onScanMore: {
+                onScanMore()
+                dismiss()
+            },
             onOrderLater: { dismiss() },
             onOrderNow: {
                 onOrderNow(record)

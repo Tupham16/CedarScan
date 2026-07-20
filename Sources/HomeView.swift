@@ -10,6 +10,8 @@ struct HomeView: View {
     /// PHẢI giữ nguyên: bấm "Hủy" hay vuốt đóng sheet cũng chạy onDismiss, và không có cờ này
     /// thì hai đường đó cũng nhảy thẳng vào màn quét.
     @State private var pendingScanStart = false
+    /// Khách bấm "Quét thêm khu vực còn thiếu" ở màn preview → mở lại phiên quét cho CÙNG căn.
+    @State private var pendingScanMore = false
     /// Bản quét khách vừa bấm "Đặt hàng ngay" ở màn preview — điều hướng SAU khi cover đóng.
     @State private var pendingOrderRecord: ScanRecord?
     /// Đường dẫn điều hướng. Trước đây NavigationStack không có path (mọi lần đẩy đều qua
@@ -17,9 +19,10 @@ struct HomeView: View {
     @State private var path = NavigationPath()
     /// Căn nhà (dự án) mà bản quét sắp tới sẽ thuộc về — do ScanAddressView chọn/tạo.
     ///
-    /// CỐ Ý KHÔNG XOÁ sau mỗi bản quét: alert "Quét phần còn lại ngay" set `isMeshScanning`
-    /// THẲNG, không đi qua màn địa chỉ (xem .alert bên dưới), nên giữ giá trị lại chính là thứ
-    /// làm Part 2 rơi vào ĐÚNG căn nhà của Part 1.
+    /// CỐ Ý KHÔNG XOÁ sau mỗi bản quét: có HAI lối vào `isMeshScanning` KHÔNG đi qua màn địa chỉ
+    /// — alert "Quét phần còn lại ngay", và `onDismiss` của cover khi khách bấm "Quét thêm" ở màn
+    /// preview. Cả hai cố ý dùng lại giá trị cũ, và đó chính là thứ làm bản quét thứ hai rơi vào
+    /// ĐÚNG căn nhà của bản đầu.
     ///
     /// ⚠ GIÁ TRỊ NÀY CÓ THỂ CŨ. Chỉ nút "Bắt đầu quét" trong ScanAddressView mới ghi đè nó;
     /// bấm "Hủy" hoặc vuốt đóng sheet thì nó GIỮ NGUYÊN giá trị của lần quét trước.
@@ -122,10 +125,22 @@ struct HomeView: View {
                     pendingScanStart = true
                 }
             }
-            .fullScreenCover(isPresented: $isMeshScanning) {
+            .fullScreenCover(
+                isPresented: $isMeshScanning,
+                // Mở lại phiên quét cho "Quét thêm" PHẢI chờ cover đóng HẲN (onDismiss), không được
+                // set cờ trong onChange bên dưới: onChange chạy ngay lúc binding lật false, và set lại
+                // true trong cùng nhịp đó thì SwiftUI gộp false→true thành KHÔNG ĐỔI — cover không bao
+                // giờ được tháo và dựng lại, nên nó treo nguyên ở màn preview của bản quét vừa xong.
+                onDismiss: {
+                    guard pendingScanMore else { return }
+                    pendingScanMore = false
+                    isMeshScanning = true
+                }
+            ) {
                 MeshScanFlowView(
                     quality: meshQuality,
-                    onOrderNow: { record in pendingOrderRecord = record }
+                    onOrderNow: { record in pendingOrderRecord = record },
+                    onScanMore: { pendingScanMore = true }
                 ) { result in
                     do {
                         let saved = try await store.saveMeshScan(
@@ -150,7 +165,13 @@ struct HomeView: View {
                     pendingSaveError = nil
                     meshCapFollowUp = false
                     pendingOrderRecord = nil // không mời đặt hàng một bản quét vừa lưu hụt
+                    pendingScanMore = false
                     saveError = message
+                } else if pendingScanMore {
+                    // Việc mở lại phiên quét do onDismiss của cover lo. Ở đây chỉ dọn các ý định
+                    // khác để chúng không nổ chồng lên phiên quét mới.
+                    meshCapFollowUp = false
+                    pendingOrderRecord = nil
                 } else if meshCapFollowUp {
                     // Mô hình chạm trần = bản quét THIẾU dữ liệu. Lời mời quét bù phải đi TRƯỚC
                     // việc đưa sang trang đặt hàng, kể cả khi khách đã bấm "Đặt hàng ngay":
@@ -335,6 +356,7 @@ struct HomeView: View {
     private func startScanning() {
         pendingScanStart = false
         pendingOrderRecord = nil
+        pendingScanMore = false
         showScanSetup = true
     }
 

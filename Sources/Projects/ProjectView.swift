@@ -18,6 +18,8 @@ struct ProjectView: View {
     @State private var startAfterGuide = false
     /// Khách đã bấm "Bắt đầu quét" ở sheet độ nét — xem HomeView.pendingScanStart.
     @State private var pendingScanStart = false
+    /// Khách bấm "Quét thêm khu vực còn thiếu" ở màn preview → mở lại phiên quét cho CÙNG căn.
+    @State private var pendingScanMore = false
     /// Bản quét khách vừa bấm "Đặt hàng ngay" ở màn preview.
     @State private var pendingOrderRecord: ScanRecord?
     @State private var meshCapFollowUp = false
@@ -162,10 +164,22 @@ struct ProjectView: View {
             }
             .presentationDetents([.medium, .large])
         }
-        .fullScreenCover(isPresented: $isMeshScanning) {
+        .fullScreenCover(
+            isPresented: $isMeshScanning,
+            // Mở lại phiên quét cho "Quét thêm" PHẢI chờ cover đóng HẲN (onDismiss), không được
+            // set cờ trong onChange bên dưới: onChange chạy ngay lúc binding lật false, và set lại
+            // true trong cùng nhịp đó thì SwiftUI gộp false→true thành KHÔNG ĐỔI — cover không bao
+            // giờ được tháo và dựng lại, nên nó treo nguyên ở màn preview của bản quét vừa xong.
+            onDismiss: {
+                guard pendingScanMore else { return }
+                pendingScanMore = false
+                isMeshScanning = true
+            }
+        ) {
             MeshScanFlowView(
                 quality: meshQuality,
-                onOrderNow: { record in pendingOrderRecord = record }
+                onOrderNow: { record in pendingOrderRecord = record },
+                onScanMore: { pendingScanMore = true }
             ) { result in
                 do {
                     let saved = try await store.saveMeshScan(
@@ -187,7 +201,13 @@ struct ProjectView: View {
                 pendingSaveError = nil
                 meshCapFollowUp = false
                 pendingOrderRecord = nil
+                pendingScanMore = false
                 saveError = message
+            } else if pendingScanMore {
+                // Việc mở lại phiên quét do onDismiss của cover lo. Ở đây chỉ dọn các ý định khác
+                // để chúng không nổ chồng lên phiên quét mới.
+                meshCapFollowUp = false
+                pendingOrderRecord = nil
             } else if meshCapFollowUp {
                 // Xem giải thích thứ tự ưu tiên ở HomeView.
                 meshCapFollowUp = false
@@ -260,6 +280,7 @@ struct ProjectView: View {
     private func startScanning() {
         pendingScanStart = false
         pendingOrderRecord = nil
+        pendingScanMore = false
         showQualityPicker = true
     }
 
