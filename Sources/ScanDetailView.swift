@@ -122,12 +122,12 @@ struct ScanDetailView: View {
             ShareSheet(items: [url])
         }
         .sheet(isPresented: $showOrderSheet) {
+            // Không còn callback "đã đặt" ở đây: `OrderSheet.submit()` tự đóng dấu số đơn cho
+            // đúng tập bản quét trong đơn. Đừng thêm lại — giải thích ở `OrderSheet.submit()`.
             OrderSheet(
                 record: current,
                 projectName: store.project(with: current.projectId)?.name
-            ) { orderNumber in
-                store.setOrderNumber(current, orderNumber: orderNumber)
-            }
+            )
         }
         .sheet(isPresented: $showAccountGate) {
             AccountGateSheet()
@@ -620,7 +620,6 @@ struct OrderSheet: View {
     let record: ScanRecord
     var projectName: String? = nil // tên dự án/địa chỉ nhà — hiện trên thẻ đơn cho đội xử lý
     var candidateScans: [ScanRecord]? = nil // chế độ dự án: danh sách tầng, chọn sẵn tất cả
-    let onOrdered: (String) -> Void
 
     @State private var catalog: CatalogResponse?
     @State private var loadError: String?
@@ -1098,17 +1097,28 @@ struct OrderSheet: View {
             // Tải lên mọi bản quét CHƯA có trên server (kể cả bản chính — khi đặt từ trang dự án)
             @MainActor
             func ensureUploaded(_ scan: ScanRecord) async -> String? {
-                if let existing = scan.cloudScanId { return existing }
-                busyLabel = L.t("Uploading \(scan.name)…", "Đang tải \(scan.name)…")
+                // 🔴 Hỏi STORE, đừng tin bản ghi được truyền vào. `scan` đến từ `record`/
+                // `candidateScans` — hai thứ do màn gọi cấp và có thể là bản chụp đã cũ. Trường
+                // `cloudScanId` là guard DUY NHẤT chống tải lên lại: đọc nhầm bản cũ là gửi lại
+                // 40–200MB mỗi tầng qua 4G VÀ đẻ scan id mới trên server, mà hai chốt chống-đơn-
+                // trùng phía server đều khoá theo scan id nên id mới lọt cả hai → đơn thứ hai cho
+                // cùng căn nhà. Đúng lỗi này đã lọt vào một bản vá của màn Dự án và bị review chặn.
+                // Giải MỘT LẦN rồi dùng `live` xuyên suốt, đừng trộn `live` với `scan`: guard đọc
+                // bản mới mà thân hàm gửi bản cũ là kiểu "đúng một nửa" khiến người sửa sau tưởng
+                // cả hàm đã an toàn. `?? scan` là ca bản quét vừa bị dọn khỏi store — giữ nguyên
+                // hành vi cũ (upload sẽ tự hỏng và báo lỗi) thay vì im lặng bỏ qua.
+                let live = store.records.first { $0.id == scan.id } ?? scan
+                if let existing = live.cloudScanId { return existing }
+                busyLabel = L.t("Uploading \(live.name)…", "Đang tải \(live.name)…")
                 let uploader = ScanUploader()
-                if let cloudId = await uploader.upload(record: scan, folder: store.folderURL(for: scan)) {
-                    store.setCloudScanId(scan, cloudScanId: cloudId)
+                if let cloudId = await uploader.upload(record: live, folder: store.folderURL(for: live)) {
+                    store.setCloudScanId(live, cloudScanId: cloudId)
                     return cloudId
                 }
                 if case .failed(let message) = uploader.phase {
-                    errorMessage = "\(scan.name): \(message)"
+                    errorMessage = "\(live.name): \(message)"
                 } else {
-                    errorMessage = L.t("Could not upload \(scan.name).", "Không tải được \(scan.name).")
+                    errorMessage = L.t("Could not upload \(live.name).", "Không tải được \(live.name).")
                 }
                 return nil
             }
@@ -1143,7 +1153,23 @@ struct OrderSheet: View {
                     coupon: couponCode.trimmingCharacters(in: .whitespacesAndNewlines)
                 )
                 placedOrder = result
-                onOrdered(result.orderNumber)
+                // Đóng dấu số đơn cho ĐÚNG tập đã vào đơn: bản chính + các tầng khách còn tick.
+                //
+                // 🔴 Việc này nằm ở ĐÂY chứ không ở callback của màn gọi, và đó là CỐ Ý — đừng
+                // trả nó về cho caller "cho gọn". Trạng thái tick (`extraFloors`) chỉ tồn tại
+                // trong sheet này, nên màn gọi không có cách nào biết tập đúng; nó chỉ đoán được.
+                // `ProjectView` đã đoán sai đúng kiểu đó: nó đóng dấu lên MỌI bản quét chưa đặt
+                // của dự án, kể cả tầng khách vừa BỎ CHỌN ngay trong form này. Tầng đó chưa hề
+                // lên server nhưng mang nhãn "Đã đặt · #LS-…", mất luôn nút đặt hàng VĨNH VIỄN
+                // (không code nào trả `cloudOrderNumber` về nil) và rơi khỏi `otherScans` nên
+                // không gộp được vào đơn nào về sau — khách trả tiền cho "cả căn" mà đội vẽ
+                // không bao giờ nhận được tầng ấy.
+                //
+                // Thứ tự với `placedOrder` ở trên KHÔNG phải một bảo đảm render — SwiftUI gộp cả
+                // hai thay đổi vào cùng một nhịp, nên đừng dựa vào "cái nào vẽ trước". Điều thật
+                // sự giữ màn thành công là màn gọi không được để nội dung sheet phụ thuộc vào
+                // `cloudOrderNumber` (xem `ProjectView.orderSheetScanIds`).
+                store.setOrderNumber(record, orderNumber: result.orderNumber)
                 for extra in extras {
                     store.setOrderNumber(extra, orderNumber: result.orderNumber)
                 }
