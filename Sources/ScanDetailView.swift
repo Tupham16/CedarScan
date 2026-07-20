@@ -27,6 +27,8 @@ struct ScanDetailView: View {
     /// tiến độ, tức body dựng lại nhiều lần mỗi giây suốt lúc tải 40–200MB.
     @State private var player: AVPlayer?
     @State private var showOrderSheet = false
+    /// Cổng đăng nhập/xác minh mở tại chỗ — xem `AccountGateSheet`.
+    @State private var showAccountGate = false
     @State private var showLowQualityConfirm = false
     @State private var coloredZipExists = false
     @State private var coloredGLBExists = false
@@ -127,6 +129,9 @@ struct ScanDetailView: View {
                 store.setOrderNumber(current, orderNumber: orderNumber)
             }
         }
+        .sheet(isPresented: $showAccountGate) {
+            AccountGateSheet()
+        }
         // Chặn mềm: chất lượng thấp → khuyên quét lại nhưng vẫn cho gửi (đội vẽ được báo trước)
         .confirmationDialog(
             L.t("Scan quality is low", "Chất lượng bản quét thấp"),
@@ -146,6 +151,43 @@ struct ScanDetailView: View {
     }
 
     // MARK: - Dịch vụ Cedar247
+
+    /// Dòng "bị chặn vì tài khoản" kèm NÚT mở cổng đăng nhập/xác minh ngay tại chỗ.
+    ///
+    /// Trước 2026-07-20 đây chỉ là chữ xám cỡ `.caption` bảo khách tự đi tìm "mục Tài khoản" —
+    /// không nút, và không code nào trong app chuyển tab được. Khách vừa quét xong 10–30 phút,
+    /// bấm "Đặt hàng ngay", rồi nhận đúng một dòng chữ thay cho nút đặt hàng.
+    ///
+    /// Giữ nguyên dòng chữ giải thích BÊN TRÊN nút chứ không bỏ đi cho gọn: nút "Đăng nhập" đứng
+    /// một mình ở màn bản quét không nói được vì sao tự dưng phải đăng nhập, mà lý do ("để đặt
+    /// bản vẽ") mới là thứ khiến khách chịu bỏ công gõ email.
+    @ViewBuilder
+    private func accountGateRow(
+        icon: String,
+        iconTint: Color,
+        message: String,
+        action: String
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: icon)
+                    .foregroundStyle(iconTint)
+                Text(message)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Spacer()
+            }
+            Button {
+                showAccountGate = true
+            } label: {
+                Text(action)
+                    .font(.headline)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+            }
+            .buttonStyle(.borderedProminent)
+        }
+    }
 
     @ViewBuilder
     private var serviceCard: some View {
@@ -179,29 +221,27 @@ struct ScanDetailView: View {
                     Spacer()
                 }
             } else if !account.isSignedIn {
-                HStack(spacing: 8) {
-                    Image(systemName: "person.crop.circle.badge.exclamationmark")
-                        .foregroundStyle(.secondary)
-                    Text(L.t(
-                        "Sign in (Account tab) to order a professional floor plan from this scan.",
-                        "Đăng nhập (mục Tài khoản) để đặt làm bản vẽ mặt bằng chuyên nghiệp từ bản quét này."
-                    ))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    Spacer()
-                }
+                // Câu chữ đã BỎ phần "(mục Tài khoản)": giờ đã có nút mở thẳng màn đăng nhập ngay
+                // tại chỗ, chỉ đường sang tab khác vừa thừa vừa SAI (sheet không chuyển tab).
+                accountGateRow(
+                    icon: "person.crop.circle.badge.exclamationmark",
+                    iconTint: .secondary,
+                    message: L.t(
+                        "Sign in to order a professional floor plan from this scan.",
+                        "Đăng nhập để đặt làm bản vẽ mặt bằng chuyên nghiệp từ bản quét này."
+                    ),
+                    action: L.t("Sign in", "Đăng nhập")
+                )
             } else if account.needsVerification {
-                HStack(spacing: 8) {
-                    Image(systemName: "envelope.badge")
-                        .foregroundStyle(.orange)
-                    Text(L.t(
-                        "Verify your email (Account tab) to place an order.",
-                        "Xác minh email (mục Tài khoản) để đặt hàng."
-                    ))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    Spacer()
-                }
+                accountGateRow(
+                    icon: "envelope.badge",
+                    iconTint: .orange,
+                    message: L.t(
+                        "Verify your email to place an order.",
+                        "Xác minh email để đặt hàng."
+                    ),
+                    action: L.t("Verify email", "Xác minh email")
+                )
             } else {
                 switch uploader.phase {
                 case .idle, .failed:

@@ -4,6 +4,9 @@ import SwiftUI
 /// Trang một dự án (căn nhà): danh sách bản quét các tầng, quét thêm, đặt hàng cả căn.
 struct ProjectView: View {
     @EnvironmentObject private var store: ScanStore
+    /// Cần cho CỔNG CHẶN ĐẶT HÀNG ở cuối file. Màn này từng không đọc `AccountStore` một dòng
+    /// nào — xem giải thích ở nút "Đặt làm mặt bằng".
+    @EnvironmentObject private var account: AccountStore
     @Environment(\.dismiss) private var dismiss
     let projectId: UUID
     /// Đường dẫn điều hướng của NavigationStack đang chứa màn này (sở hữu bởi HomeView) — cần
@@ -26,6 +29,8 @@ struct ProjectView: View {
     @State private var showScanNextPart = false
     @AppStorage("meshQuality") private var meshQuality: MeshQuality = MeshQuality.storageDefault
     @State private var showOrderSheet = false
+    /// Cổng đăng nhập/xác minh mở tại chỗ — xem `AccountGateSheet`.
+    @State private var showAccountGate = false
     @State private var showLowQualityConfirm = false
     @State private var recordToRename: ScanRecord?
     @State private var renameText = ""
@@ -246,6 +251,50 @@ struct ProjectView: View {
                 }
             }
         }
+        .sheet(isPresented: $showAccountGate, onDismiss: {
+            // Qua được cổng thì ĐI TIẾP việc khách đang làm dở, đừng bắt họ bấm lại đúng cái nút
+            // vừa bấm.
+            //
+            // Màn này khác `ScanDetailView` ở chỗ nguy hiểm: ở đó thẻ dịch vụ vẽ THEO TRẠNG THÁI
+            // nên cổng vừa đóng là dòng chữ + nút "Đăng nhập" tự biến thành nút "Đặt làm mặt bằng"
+            // ngay tại chỗ vừa bấm — khách thấy rõ mình vừa tiến một bước. Ở đây nhãn nút KHÔNG
+            // phụ thuộc `account`, nên thiếu đoạn này thì đăng nhập xong màn hình không đổi MỘT
+            // PIXEL: khách đọc thành "đăng ký xong vẫn không đặt được" rồi bỏ đi.
+            //
+            // 🔴 Phải nằm ở `onDismiss`, KHÔNG được đổi sang `.onChange` của trạng thái tài khoản:
+            // mở sheet thứ hai trong lúc sheet thứ nhất chưa tháo xong là đúng họ lỗi trình bày
+            // lồng nhau mà repo đã trả giá ở luồng "Quét thêm" (SESSION-HANDOFF mục 2.E).
+            // 🔴 Điều kiện ở đây HẸP HƠN guard ở nút bấm, và đó là CỐ Ý — đừng "sửa cho khớp".
+            // Hai chỗ hỏi hai câu khác nhau:
+            //  · Nút bấm hỏi "có CHẶN khách không?" → chỉ `isSignedIn`. Gác thêm `needsVerification`
+            //    ở đó là khoá nhầm người đã xác minh khi cờ còn cũ (giải thích dài ở nút).
+            //  · Chỗ này hỏi "có TỰ ĐI TIẾP HỘ khách không?" → phải đủ điều kiện đặt hàng thật.
+            //    Gác hẹp ở đây KHÔNG chặn ai: khách bấm lại nút là qua ngay, vì nút chỉ gác
+            //    `isSignedIn`. Nên hướng sai duy nhất có thể xảy ra là "bắt bấm thêm một lần".
+            //
+            // Vì sao phải hẹp: `isSignedIn` bật lên NGAY GIỮA LÚC sheet còn mở — khách đăng ký
+            // xong thì rơi sang màn nhập mã, sheet chưa đóng vì chưa đủ điều kiện. Từ giây đó MỌI
+            // kiểu đóng sheet đều thoả `isSignedIn`, kể cả VUỐT XUỐNG hoặc bấm "Hủy" — tức đúng
+            // lúc khách vừa nói THÔI thì form đặt hàng lại tự bật ra, rồi kết thúc bằng lỗi server
+            // vì chưa xác minh. Gác hẹp là để cú rút lui đó được tôn trọng.
+            guard account.isSignedIn, !account.needsVerification else { return }
+            startOrderFlow()
+        }) {
+            AccountGateSheet()
+        }
+    }
+
+    /// Mở luồng đặt hàng SAU khi đã qua cổng tài khoản.
+    ///
+    /// Dùng chung cho nút bấm và cho `onDismiss` của cổng: hai lối vào phải cư xử y hệt. Tách ra
+    /// để không lối nào lỡ quên bước cảnh báo chất lượng thấp.
+    private func startOrderFlow() {
+        // Chặn mềm: có bản quét chất lượng thấp → khuyên quét lại, vẫn cho gửi
+        if orderableScans.contains(where: { $0.qualityRescan == true }) {
+            showLowQualityConfirm = true
+        } else {
+            showOrderSheet = true
+        }
     }
 
     private var renameAlertBinding: Binding<Bool> {
@@ -336,12 +385,38 @@ struct ProjectView: View {
 
             if !orderableScans.isEmpty {
                 Button {
-                    // Chặn mềm: có bản quét chất lượng thấp → khuyên quét lại, vẫn cho gửi
-                    if orderableScans.contains(where: { $0.qualityRescan == true }) {
-                        showLowQualityConfirm = true
-                    } else {
-                        showOrderSheet = true
+                    // 🔴 CỔNG CHẶN TÀI KHOẢN — ĐỨNG TRƯỚC cả cảnh báo chất lượng. Chưa đăng nhập
+                    // thì hỏi chuyện "có muốn quét lại không" là vô nghĩa: khách còn chưa có tài
+                    // khoản để đặt.
+                    //
+                    // Cổng này TỪNG KHÔNG TỒN TẠI và đó là ngõ cụt tệ nhất của luồng đặt hàng.
+                    // `OrderSheet` KHÔNG tự kiểm tra đăng nhập (nó chỉ khai `store`), nên nút này
+                    // mở thẳng sheet → `.task` gọi `catalog()` với token nil → hỏng → khách thấy
+                    // chuỗi lỗi thô kèm nút "Thử lại" bấm mãi không bao giờ chạy được, và KHÔNG
+                    // câu nào nhắc tới đăng nhập. Khách không hiểu vì sao mình bị chặn.
+                    //
+                    // Lỗi tồn tại được là vì màn này là BẢN SAO gần-y-hệt của HomeView và cổng
+                    // chặn chỉ được thêm ở `ScanDetailView.serviceCard`. Ai sửa luồng đặt hàng ở
+                    // một bên thì phải soi bên kia — hai đường vào cùng một `OrderSheet`.
+                    //
+                    // 🔴 CHỈ gác `isSignedIn`, CỐ Ý KHÔNG gác `needsVerification` — đừng "thêm cho
+                    // nhất quán với ScanDetailView". Đã thử và phải gỡ ra sau ba vòng review:
+                    // `emailVerified` chỉ đúng sau khi `refresh()` nói chuyện được với server, mà
+                    // `refresh()` nuốt lỗi mạng. Gác thêm cờ đó nghĩa là khách ĐÃ xác minh, mở app
+                    // ở công trường sóng yếu, bị khoá khỏi nút đặt hàng của cả căn nhà — một hồi
+                    // quy do chính cổng chặn tạo ra, vì màn này TRƯỚC GIỜ KHÔNG chặn xác minh.
+                    // Mọi cách chống đỡ (lưu cờ xuống đĩa, cờ "đã biết chắc", fail-open, thêm mốc
+                    // thử lại) đều đẻ ra lỗi mới ở vòng sau — nặng nhất là làm `VerifyEmailView`
+                    // biến mất khỏi app vì `needsVerification` là lối vào DUY NHẤT tới nó.
+                    //
+                    // Ngõ cụt cần sửa ở đây là "chưa đăng nhập → sheet lỗi thô + Thử lại vô tận",
+                    // và nó thuộc về `isSignedIn`. Việc chưa xác minh vẫn để server từ chối như
+                    // trước bản vá — chưa đẹp, nhưng KHÔNG phải hồi quy, và có việc riêng theo dõi.
+                    guard account.isSignedIn else {
+                        showAccountGate = true
+                        return
                     }
+                    startOrderFlow()
                 } label: {
                     Label(
                         L.t("Order Floor Plan (\(orderableScans.count) scan(s))",
