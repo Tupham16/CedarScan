@@ -147,6 +147,9 @@ sau khi nhận thanh toán.
 
 ### Virtual Tour (dịch vụ thêm)
 
+> Dịch vụ này Cedar247 bật/tắt theo từng thời điểm. Nếu bạn không thấy nó trong mục **Dịch vụ thêm**
+> lúc đặt hàng thì hiện chưa nhận — cứ hỏi Cedar247.
+
 Chọn add-on này thì sau khi đặt, bạn thêm **ảnh cho từng phòng** — app hiện sẵn số ảnh tối đa mỗi
 phòng ngay trên ô thêm ảnh, dạng `0/3` (thường là 3, con số do Cedar247 đặt). Đơn cũng có thể có
 trần tổng số ảnh; vượt thì app báo lỗi ngay tại màn thêm ảnh. Đội ngũ ghim ảnh vào đúng vị trí trên
@@ -165,6 +168,14 @@ Ngoài ba mốc chính còn hai trạng thái khác: **Tạm giữ** (đơn tạ
 lý do) và **Hoàn tiền**.
 
 Khi đơn **Đã giao**, bấm **"Tải file thành phẩm"** để tải bản vẽ về.
+
+**Bạn nhận được định dạng nào**
+
+| | |
+|---|---|
+| **Mặc định, mọi đơn** | **PDF + JPG** |
+| Yêu cầu thêm được | **SVG, PNG** — ghi vào ô *"Ghi chú thêm"* lúc đặt, hoặc nhắn cho Cedar247 |
+| **DWG (file CAD)** | **Dịch vụ thêm, tính tiền riêng** — tick add-on **"CAD file (DWG)"** lúc đặt hàng |
 
 **Chưa ưng?** Bấm **"Yêu cầu sửa"** (chỉ hiện sau khi đã giao), mô tả cần sửa gì. **Sửa lỗi thuộc
 về Cedar247 là miễn phí.**

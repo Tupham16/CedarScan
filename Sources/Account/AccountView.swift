@@ -30,9 +30,20 @@ struct AccountView: View {
                         } header: {
                             Text(L.t("About", "Giới thiệu"))
                         } footer: {
+                            // 🔴 Câu này TỪNG ghi "(PDF/PNG/DWG)" và sai theo hướng TỐN TIỀN CHỦ APP:
+                            // nó gộp DWG vào như thể đã bao gồm, trong khi DWG là ADD-ON TÍNH TIỀN
+                            // riêng (`id: "dwg"`, "CAD file (DWG)" trong catalog server). Khách đọc
+                            // xong tưởng có sẵn, tới lúc nhận hàng không thấy → hoặc khiếu nại, hoặc
+                            // chủ app phải làm không công. Nó cũng bỏ sót JPG (mặc định) và kể PNG
+                            // như mặc định (thật ra chỉ có khi khách yêu cầu).
+                            //
+                            // Chính sách chủ app chốt 2026-07-20: mặc định PDF + JPG · yêu cầu thì
+                            // thêm được SVG/PNG · DWG là add-on. Đừng liệt kê định dạng ở chỗ nào
+                            // khác nữa — đây là chỗ DUY NHẤT trong app nói về định dạng file giao,
+                            // giữ một nguồn sự thật thì sau này đổi chính sách chỉ phải sửa một chỗ.
                             Text(L.t(
-                                "Scan your space with LiDAR, send it to Cedar247, and our team will produce professional 2D floor plans (PDF/PNG/DWG) for you.",
-                                "Quét không gian bằng LiDAR, gửi cho Cedar247 — đội ngũ của chúng tôi sẽ làm bản vẽ mặt bằng chuyên nghiệp (PDF/PNG/DWG) cho bạn."
+                                "Scan your space with LiDAR, send it to Cedar247, and our team will produce professional 2D floor plans. Delivered as PDF + JPG (SVG/PNG on request). DWG is a paid add-on.",
+                                "Quét không gian bằng LiDAR, gửi cho Cedar247 — đội ngũ của chúng tôi sẽ làm bản vẽ mặt bằng chuyên nghiệp. Giao PDF + JPG (cần SVG/PNG thì báo). DWG là dịch vụ thêm, tính tiền riêng."
                             ))
                         }
                         Section {
