@@ -3,3 +3,12 @@ build/
 DerivedData/
 .DS_Store
 Sources/Info.plist
+
+# Không bao giờ đưa lên repo (repo này PUBLIC):
+#  • IPA build ra — nặng, và tải lại từ CI artifact được.
+#  • Bàn giao nội bộ — chứa số đơn thật, giá, chi tiết prod, quyết định kinh doanh.
+#  • File nháp của các phiên làm việc.
+# Trước đây chỉ có một câu dặn "tránh git add" trong bàn giao; một lần `git add -A` là lộ.
+CedarScan.ipa
+SESSION-HANDOFF.md
+scratch_*
