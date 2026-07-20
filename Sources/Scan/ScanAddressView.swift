@@ -26,6 +26,13 @@ struct ScanAddressView: View {
     @AppStorage("meshQuality") private var meshQuality: MeshQuality = MeshQuality.storageDefault
     @State private var address = ""
     @State private var pickedProjectId: UUID?
+    /// Đã bung xem hết danh sách căn đã quét chưa. Mặc định chỉ hiện vài dòng đầu.
+    @State private var showAllProjects = false
+
+    /// Số căn hiện tối đa khi chưa bung. Danh sách đầy đủ vẫn tới được bằng nút "Xem tất cả",
+    /// và gõ vào ô địa chỉ vẫn lọc trên TOÀN BỘ danh sách chứ không phải trên phần đang hiện —
+    /// nên giới hạn này không giấu mất căn nào.
+    private static let collapsedRowLimit = 5
 
     /// Căn đã quét, lọc theo chữ đang gõ. Ô nhập và danh sách là MỘT khối: gõ để lọc, chạm một
     /// dòng để dùng lại căn đó, không chạm mà bấm Bắt đầu thì tạo căn mới theo chữ vừa gõ.
@@ -55,7 +62,6 @@ struct ScanAddressView: View {
             Form {
                 homeSection
                 qualitySection
-                actionSection
             }
             .navigationTitle(L.t("Before scanning", "Trước khi quét"))
             .navigationBarTitleDisplayMode(.inline)
@@ -63,6 +69,16 @@ struct ScanAddressView: View {
                 ToolbarItem(placement: .topBarLeading) {
                     Button(L.t("Cancel", "Hủy")) { dismiss() }
                 }
+            }
+            // Nút GHIM ĐÁY, không nằm trong Form nữa.
+            //
+            // Trước đây nó là section CUỐI của Form, tức nằm SAU danh sách căn đã quét — mà danh
+            // sách đó không giới hạn số dòng. Khách có nhiều căn là nút bị đẩy khỏi màn hình và
+            // phải cuộn xuống đáy mới bấm được (chủ app báo 2026-07-20). Nút chính của một màn
+            // bắt buộc thì không được phụ thuộc vào việc người dùng có bao nhiêu dữ liệu cũ.
+            // Cùng khuôn với HomeView/ProjectView — cả hai đã ghim nút quét bằng safeAreaInset.
+            .safeAreaInset(edge: .bottom) {
+                startBar
             }
         }
     }
@@ -128,6 +144,14 @@ struct ScanAddressView: View {
         }
     }
 
+    /// Phần danh sách thật sự render. Cắt bớt để màn hình không bị một danh sách dài nuốt mất
+    /// phần chọn độ nét bên dưới.
+    private var visibleProjects: [ScanProject] {
+        let all = filteredProjects
+        guard !showAllProjects, all.count > Self.collapsedRowLimit else { return all }
+        return Array(all.prefix(Self.collapsedRowLimit))
+    }
+
     @ViewBuilder
     private var existingRows: some View {
         if !filteredProjects.isEmpty {
@@ -136,7 +160,7 @@ struct ScanAddressView: View {
             Text(L.t("Already scanned — tap to reuse", "Đã quét — chạm để dùng lại"))
                 .font(.caption)
                 .foregroundStyle(.secondary)
-            ForEach(filteredProjects) { project in
+            ForEach(visibleProjects) { project in
                 Button {
                     // KHÔNG xoá `address`: xoá thì danh sách bung về đầy đủ ngay lúc vừa chạm,
                     // dòng vừa chọn nhảy đi và dấu tích trôi khỏi màn hình → người dùng tưởng
@@ -148,23 +172,45 @@ struct ScanAddressView: View {
                     projectRow(project)
                 }
             }
+            expandRow
+        }
+    }
+
+    /// Lối vào phần danh sách bị cắt. Chỉ bung THÊM, không bao giờ thu lại: thu lại giữa chừng là
+    /// dòng dưới ngón tay nhảy đi — đúng lỗi mà chú thích ở nhánh chạm-chọn phía trên cảnh báo.
+    @ViewBuilder
+    private var expandRow: some View {
+        // So thẳng trong `if`, KHÔNG khai `let` cục bộ: chú thích ở `projectRow` bên dưới ghi rõ
+        // khai báo cục bộ trong thân ViewBuilder là chỗ CI này từng chết vì type-check timeout.
+        if filteredProjects.count > visibleProjects.count {
+            Button {
+                showAllProjects = true
+            } label: {
+                Label(
+                    L.t("Show all \(filteredProjects.count) homes", "Xem tất cả \(filteredProjects.count) căn"),
+                    systemImage: "chevron.down"
+                )
+                .font(.footnote)
+            }
         }
     }
 
     /// Tách thành hàm nhận tham số thay vì viết trong ViewBuilder: cần tính `count` trước khi
     /// dựng view, mà khai báo cục bộ trong thân ViewBuilder là chỗ CI này từng chết vì
     /// "type-check timeout".
+    ///
+    /// MỘT DÒNG, không phải hai: mỗi dòng hai tầng thì năm căn đã chiếm gần nửa màn hình.
     private func projectRow(_ project: ScanProject) -> some View {
         let count = store.scans(in: project).count
-        return HStack {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(project.name)
-                    .foregroundStyle(.primary)
-                Text(L.t("\(count) scan(s)", "\(count) bản quét"))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
+        return HStack(spacing: 8) {
+            Text(project.name)
+                .foregroundStyle(.primary)
+                .lineLimit(1)
             Spacer(minLength: 8)
+            Text(L.t("\(count) scan(s)", "\(count) bản quét"))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .layoutPriority(1)
             if pickedProjectId == project.id {
                 Image(systemName: "checkmark")
                     .foregroundStyle(.tint)
@@ -189,20 +235,40 @@ struct ScanAddressView: View {
         }
     }
 
-    private var actionSection: some View {
-        Section {
+    /// Thanh nút ghim đáy màn — LUÔN nhìn thấy, không phụ thuộc danh sách dài bao nhiêu.
+    ///
+    /// Lý do nút xám nằm NGAY TRONG thanh, không trông vào footer của section: từ khi ghim đáy,
+    /// nút hiện ngay lúc mở màn, còn footer "Bắt buộc — đội vẽ cần biết…" render SAU mọi dòng gợi
+    /// ý nên với khách đã có vài căn thì nó nằm dưới đáy màn. Nút xám mà không nói vì sao là lỗi
+    /// UX tệ nhất — cùng khuôn `unsupportedNote` của HomeView.
+    private var startBar: some View {
+        VStack(spacing: 6) {
+            if !hasHome {
+                Text(L.t(
+                    "Enter the address first — the drafting team needs it.",
+                    "Điền địa chỉ trước — đội vẽ cần biết bản vẽ này của căn nào."
+                ))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+            }
             Button {
                 start()
             } label: {
                 Text(startLabel)
                     .font(.headline)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
                     .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
             }
             .buttonStyle(.borderedProminent)
             .disabled(!hasHome)
-            .listRowInsets(EdgeInsets())
-            .listRowBackground(Color.clear)
         }
+        .padding(.horizontal)
+        .padding(.bottom, 8)
+        .padding(.top, 8)
+        .background(.ultraThinMaterial)
     }
 
     /// Đã xác định được căn nhà chưa — chạm một dòng trong danh sách HOẶC gõ chữ đều tính.
