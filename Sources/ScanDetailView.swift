@@ -671,9 +671,21 @@ struct OrderSheet: View {
     /// biểu thức mà CI này từng chết vì "Swift type-check timeout".
     private var floorsFooterText: String {
         if otherScans.isEmpty {
+            // 🔴 Câu này TỪNG dạy ngược hẳn hướng dẫn trong app: "Quét từng tầng riêng (đặt tên
+            // Floor 1, Floor 2…)". Đó là tàn dư đời RoomPlan — hồi đó quét từng phòng rồi framework
+            // tự ghép nên "quét riêng rồi gộp" mới đúng. Với mesh thì MỖI lần Dừng & Lưu là một hệ
+            // toạ độ MỚI, hai bản quét riêng KHÔNG tự khớp, đội vẽ phải ghép tay và chỉ ghép được
+            // nếu có phần chồng lấn — xem `ScanGuideView` mục "Nhiều tầng — quét liền một mạch".
+            //
+            // Khách đọc dòng này TRONG FORM ĐẶT HÀNG, tức sau khi đã quét xong, nên lời khuyên sai
+            // ở đây chỉ kịp làm hỏng lần quét SAU. Nó cũng đã lừa được người viết HUONG-DAN.md
+            // 2026-07-20: bản đầu chép nguyên cái sai này vào tài liệu cho khách.
+            //
+            // Giữ vế "gộp vào một đơn" — đó là phần ĐÚNG và có lợi (một đơn tính giá cả căn).
+            // Câu chữ do chủ app chốt 2026-07-20: mời chứ không ra lệnh, vì việc đã lỡ rồi.
             return L.t(
-                "Scan each floor separately (name them Floor 1, Floor 2…), then order them together here as one home.",
-                "Quét từng tầng riêng (đặt tên Floor 1, Floor 2…) rồi gộp vào một đơn tại đây."
+                "You can scan every floor in one continuous pass — no need for a separate scan per floor. If a large home needs several scans, you can order them together here.",
+                "Bạn có thể quét liền một mạch các tầng trong một lần, không cần tách riêng từng bản quét cho mỗi tầng. Nếu nhà lớn phải chia thành nhiều bản quét, bạn gộp chúng vào một đơn ngay tại đây."
             )
         }
         let base = L.t(

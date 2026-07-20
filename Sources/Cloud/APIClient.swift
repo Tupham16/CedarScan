@@ -241,8 +241,21 @@ final class APIClient {
 
     private struct ServerError: Decodable { let error: String }
 
-    private func makeRequest(path: String, method: String, json: [String: Any]?) throws -> URLRequest {
-        var request = URLRequest(url: baseURL.appendingPathComponent(path))
+    private func makeRequest(
+        path: String,
+        method: String,
+        json: [String: Any]?,
+        query: [String: String]? = nil
+    ) throws -> URLRequest {
+        var url = baseURL.appendingPathComponent(path)
+        // Query PHẢI dựng bằng URLComponents, đừng nối "path?a=b" vào `appendingPathComponent` —
+        // hàm đó escape dấu "?" thành %3F nên server nhận nguyên chuỗi làm tên path và trả 404.
+        if let query, !query.isEmpty,
+           var components = URLComponents(url: url, resolvingAgainstBaseURL: false) {
+            components.queryItems = query.map { URLQueryItem(name: $0.key, value: $0.value) }
+            if let built = components.url { url = built }
+        }
+        var request = URLRequest(url: url)
         request.httpMethod = method
         request.timeoutInterval = 30
         if let token {
@@ -255,8 +268,13 @@ final class APIClient {
         return request
     }
 
-    private func send<T: Decodable>(_ path: String, method: String = "GET", json: [String: Any]? = nil) async throws -> T {
-        let request = try makeRequest(path: path, method: method, json: json)
+    private func send<T: Decodable>(
+        _ path: String,
+        method: String = "GET",
+        json: [String: Any]? = nil,
+        query: [String: String]? = nil
+    ) async throws -> T {
+        let request = try makeRequest(path: path, method: method, json: json, query: query)
         let (data, response) = try await URLSession.shared.data(for: request)
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
         if !(200...299).contains(status) {
@@ -341,7 +359,15 @@ final class APIClient {
     }
 
     func catalog() async throws -> CatalogResponse {
-        let response: CatalogResponse = try await send("catalog")
+        // 🔴 PHẢI gửi kèm deviceId. Suất khuyến mãi được tính bằng MIN(tài khoản, THIẾT BỊ) — xem
+        // `catalog/route.ts:18-23`, server đã được viết sẵn để đọc `?deviceId=` và comment ở đó mô
+        // tả đúng lỗi này: thiếu nó thì server rơi về `signupDeviceId` (thiết bị lúc ĐĂNG KÝ).
+        //
+        // Hậu quả khi thiếu: tài khoản đăng ký ở máy KHÁC mở app trên máy này → catalog báo còn
+        // suất → form in "Đơn này MIỄN PHÍ!" và nút ghi "MIỄN PHÍ 🎁" → nhưng `orderScan` CÓ gửi
+        // deviceId (:373) nên lúc đặt server thấy máy hết suất và THU ĐỦ TIỀN. Khách bấm một nút
+        // ghi MIỄN PHÍ rồi nhận link thanh toán.
+        let response: CatalogResponse = try await send("catalog", query: ["deviceId": DeviceID.current])
         // Server có thể tinh chỉnh ngưỡng Accuracy Suite — cache lại cho lần quét sau.
         // Server KHÔNG có override (null) → về mặc định, để xóa AppSetting là hồi phục được.
         ScanQualityConfig.current = response.scanQuality ?? .defaults
