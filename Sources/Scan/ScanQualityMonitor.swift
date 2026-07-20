@@ -1,6 +1,5 @@
 import Foundation
 import ARKit
-import RoomPlan
 import AVFoundation
 import UIKit
 import simd
@@ -9,7 +8,7 @@ import simd
 struct QualityAlert: Equatable {
     enum Severity { case caution, critical }
     enum Code {
-        case trackingLost, doorAhead, doorTooFast, slowDown, turnSlowly, lowLight, overheating, tooClose
+        case trackingLost, slowDown, turnSlowly, lowLight, overheating, tooClose
     }
 
     var severity: Severity
@@ -18,8 +17,6 @@ struct QualityAlert: Equatable {
     var message: String {
         switch code {
         case .trackingLost: return L.t("Hold still", "Đứng yên một chút")
-        case .doorAhead: return L.t("Slow through doorway", "Đi chậm qua cửa")
-        case .doorTooFast: return L.t("Too fast through door", "Qua cửa nhanh quá")
         case .slowDown: return L.t("Slow down", "Đi chậm lại")
         case .turnSlowly: return L.t("Turn slowly", "Xoay chậm lại")
         case .lowLight: return L.t("Turn on lights", "Bật thêm đèn")
@@ -29,9 +26,17 @@ struct QualityAlert: Equatable {
     }
 }
 
-/// Theo dõi chất lượng quét real-time: tốc độ di chuyển/xoay, ánh sáng, tracking, đi qua cửa.
+/// Theo dõi chất lượng quét real-time: tốc độ di chuyển/xoay, ánh sáng, tracking, khoảng cách.
 /// CHỈ ĐỌC arSession.currentFrame qua CADisplayLink riêng (không chiếm ARSession.delegate —
-/// RoomPlan vẫn toàn quyền, đúng pattern của ColorMeshBuilder/ScanVideoRecorder).
+/// MeshScanController vẫn toàn quyền, đúng pattern của ColorMeshBuilder/ScanVideoRecorder).
+///
+/// CHỈ CÒN LÀ HUẤN LUYỆN VIÊN THỜI GIAN THỰC (2026-07-20, cùng đợt gỡ RoomPlan). Phần tích lũy
+/// số liệu (`finish() -> ScanMonitorMetrics`) đã xoá cùng `ScanQualityReport`: người tiêu thụ duy
+/// nhất của nó là báo cáo chấm điểm, mà báo cáo đó cần kết quả đối chiếu tường của RoomPlan
+/// (`WallCrossCheck`) để có nghĩa. Giữ lại bộ đếm không ai đọc là đúng kiểu hỏng-lặng-lẽ: nó tốn
+/// mỗi tick, trông như còn chạy, và người sửa sau sẽ tưởng `quality.json` vẫn được ghi.
+/// Hệ quả có chủ đích: bản quét MỚI không còn `quality.json`, nên thẻ Kanban không còn mục
+/// "📐 Scan quality". Bản quét CŨ đã có file đó trên máy thì `ScanUploader` vẫn gửi như trước.
 final class ScanQualityMonitor: NSObject, ObservableObject {
     @Published private(set) var alert: QualityAlert?
 
@@ -39,7 +44,7 @@ final class ScanQualityMonitor: NSObject, ObservableObject {
     private var displayLink: CADisplayLink?
     private let config = ScanQualityConfig.current
 
-    // Người dùng đang thật sự quét (false trong lúc processing/roomReady — không tính metrics)
+    // Người dùng đang thật sự quét (false trong lúc đặt tên/đang lưu — không cảnh báo gì)
     private var isActive = false
     private var sessionStartTime: TimeInterval = -1
 
@@ -51,22 +56,6 @@ final class ScanQualityMonitor: NSObject, ObservableObject {
     }
     private var poses: [PoseSample] = []
 
-    // Tích lũy metrics
-    private var lastTickTime: TimeInterval = -1
-    private var activeTime: Double = 0
-    private var limitedTime: Double = 0
-    private var overspeedTime: Double = 0
-    private var overRotationTime: Double = 0
-    private var lowLightTime: Double = 0
-    private var lightSum: Double = 0
-    private var lightSamples: Int = 0
-    private var minLight: Double = .greatestFiniteMagnitude
-    private var speedSamples: [Float] = []
-    private var relocalizations = 0
-    private var longestLimited: Double = 0
-    private var currentLimitedEpisode: Double = 0
-    private var instructionCounts: [String: Int] = [:]
-
     // Nhiệt: quét LiDAR + meshing + H.264 hàng chục phút dễ lên .serious — iOS hạ camera
     // xuống 30fps và meshing chậm lại mà không báo ai. Theo dõi qua notification.
     private var isHot = false
@@ -77,8 +66,8 @@ final class ScanQualityMonitor: NSObject, ObservableObject {
     private static let tooCloseMeters: Float = 0.35
     private var tooCloseSince: TimeInterval = -1
     /// Coach "quá gần" CHỈ bật tường minh từ chế độ quét Mesh (nơi tự bật .sceneDepth).
-    /// KHÔNG suy từ frame.sceneDepth != nil: RoomPlan có thể tự bật depth nội bộ tùy
-    /// phiên bản iOS → suy như vậy sẽ lén đổi hành vi luồng RoomPlan (vốn có coach riêng).
+    /// KHÔNG suy từ frame.sceneDepth != nil: giữ cờ tường minh thì người thêm luồng quét mới
+    /// sau này phải tự quyết định, thay vì âm thầm thừa hưởng một hành vi không ai chọn.
     var tooCloseCoachEnabled = false
 
     // Trạng thái cảnh báo (debounce để không nhấp nháy)
@@ -88,30 +77,6 @@ final class ScanQualityMonitor: NSObject, ObservableObject {
     private var limitedSince: TimeInterval = -1
     private var alertRaisedAt: TimeInterval = -1
     private var allClearSince: TimeInterval = -1
-    private var transientAlert: (alert: QualityAlert, until: TimeInterval)?
-
-    // Cửa: lấy từ CapturedRoom live (qua delegate proxy), state machine per-door
-    private struct DoorRef {
-        var center: SIMD3<Float>
-        var rotT: simd_float3x3   // transpose của rotation — đưa điểm về hệ local cửa
-        var normal: SIMD3<Float>
-        var halfW: Float
-        var halfH: Float
-    }
-    private enum DoorPhase { case idle, approaching, crossing }
-    private struct DoorState {
-        var phase: DoorPhase = .idle
-        var enterSign: Float = 0
-        var speedSum: Double = 0
-        var speedCount: Int = 0
-        var lastEventTime: TimeInterval = -100
-        var lastPrewarnTime: TimeInterval = -100
-    }
-    private var doors: [UUID: DoorRef] = [:]
-    private var doorStates: [UUID: DoorState] = [:]
-    private var doorIdsSeen: Set<UUID> = []
-    private var doorCrossings = 0
-    private var doorTooFast = 0
 
     // Phản hồi không cần nhìn màn hình
     private let cautionHaptic = UIImpactFeedbackGenerator(style: .medium)
@@ -167,74 +132,7 @@ final class ScanQualityMonitor: NSObject, ObservableObject {
         if !active {
             alert = nil
             poses.removeAll()
-            lastTickTime = -1
         }
-    }
-
-    /// Gọi từ delegate proxy mỗi khi RoomPlan cập nhật phòng — lấy danh sách cửa live.
-    /// Cửa mở toang hay bị nhận thành opening → gộp cả doors lẫn openings.
-    func noteRoomUpdate(_ room: CapturedRoom) {
-        guard config.enableDoorCoach else { return }
-        var refs: [UUID: DoorRef] = [:]
-        for surface in room.doors + room.openings {
-            let m = surface.transform
-            let rot = simd_float3x3(
-                SIMD3(m.columns.0.x, m.columns.0.y, m.columns.0.z),
-                SIMD3(m.columns.1.x, m.columns.1.y, m.columns.1.z),
-                SIMD3(m.columns.2.x, m.columns.2.y, m.columns.2.z)
-            )
-            refs[surface.identifier] = DoorRef(
-                center: SIMD3(m.columns.3.x, m.columns.3.y, m.columns.3.z),
-                rotT: rot.transpose,
-                normal: simd_normalize(SIMD3(m.columns.2.x, m.columns.2.y, m.columns.2.z)),
-                halfW: surface.dimensions.x / 2,
-                halfH: surface.dimensions.y / 2
-            )
-            doorIdsSeen.insert(surface.identifier)
-        }
-        doors = refs
-    }
-
-    /// Gọi từ delegate proxy khi RoomPlan phát instruction — đếm + dùng làm tín hiệu thứ hai.
-    func noteInstruction(_ instruction: RoomCaptureSession.Instruction) {
-        let name: String
-        switch instruction {
-        case .normal: return
-        case .moveCloseToWall: name = "moveCloseToWall"
-        case .moveAwayFromWall: name = "moveAwayFromWall"
-        case .slowDown: name = "slowDown"
-        case .turnOnLight: name = "turnOnLight"
-        case .lowTexture: name = "lowTexture"
-        @unknown default: name = "other"
-        }
-        instructionCounts[name, default: 0] += 1
-    }
-
-    /// Chốt số liệu khi kết thúc quét (gọi 1 lần lúc Hoàn tất & Lưu).
-    func finish() -> ScanMonitorMetrics {
-        stop()
-        var m = ScanMonitorMetrics()
-        m.activeDurationSec = activeTime
-        guard activeTime > 1 else { return m }
-        m.normalPct = max(0, min(100, (activeTime - limitedTime) / activeTime * 100))
-        m.limitedPct = min(100, limitedTime / activeTime * 100)
-        m.relocalizations = relocalizations
-        m.longestLimitedSec = max(longestLimited, currentLimitedEpisode)
-        m.overspeedPct = min(100, overspeedTime / activeTime * 100)
-        m.overRotationPct = min(100, overRotationTime / activeTime * 100)
-        m.lowLightPct = min(100, lowLightTime / activeTime * 100)
-        m.avgIntensity = lightSamples > 0 ? lightSum / Double(lightSamples) : 0
-        m.minIntensity = minLight == .greatestFiniteMagnitude ? 0 : minLight
-        if !speedSamples.isEmpty {
-            let sorted = speedSamples.sorted()
-            m.avgSpeedMps = Double(sorted.reduce(0, +)) / Double(sorted.count)
-            m.p95SpeedMps = Double(sorted[min(sorted.count - 1, Int(Double(sorted.count) * 0.95))])
-        }
-        m.doorsDetected = doorIdsSeen.count
-        m.doorCrossings = doorCrossings
-        m.doorTooFast = doorTooFast
-        m.instructionCounts = instructionCounts
-        return m
     }
 
     // MARK: - Vòng lặp chính (12 Hz, chỉ đọc — không giữ ARFrame)
@@ -269,7 +167,6 @@ final class ScanQualityMonitor: NSObject, ObservableObject {
         // Vận tốc trên cửa sổ trượt
         var speed: Float = 0
         var rotationDps: Float = 0
-        var speedMeasured = false
         if let first = poses.first, t - first.t >= 0.25 {
             let span = Float(t - first.t)
             speed = simd_distance(pos, first.pos) / span
@@ -277,7 +174,6 @@ final class ScanQualityMonitor: NSObject, ObservableObject {
             var angle = abs(dq.angle)
             if angle > .pi { angle = 2 * .pi - angle }
             rotationDps = angle * 180 / .pi / span
-            speedMeasured = true
         }
 
         let trackingLimited: Bool
@@ -290,31 +186,6 @@ final class ScanQualityMonitor: NSObject, ObservableObject {
             trackingLimited = false
         }
 
-        // Tích lũy metrics (chỉ khi đang thật sự quét, sau warmup)
-        let dt = lastTickTime > 0 ? min(0.5, t - lastTickTime) : 0
-        lastTickTime = t
-        if isActive && warmedUp && dt > 0 {
-            activeTime += dt
-            // Chỉ ghi khi cửa sổ đo đã đủ dài — ghi 0 giả làm tụt avg/p95
-            if speedMeasured { speedSamples.append(speed) }
-            if Double(speed) > config.maxSpeedSoft { overspeedTime += dt }
-            if Double(rotationDps) > config.maxRotationSoft { overRotationTime += dt }
-            if let light {
-                lightSum += light
-                lightSamples += 1
-                minLight = min(minLight, light)
-                if light < config.lowLightSoft { lowLightTime += dt }
-            }
-            if trackingLimited {
-                limitedTime += dt
-                currentLimitedEpisode += dt
-            } else if currentLimitedEpisode > 0 {
-                if currentLimitedEpisode > 1.0 { relocalizations += 1 }
-                longestLimited = max(longestLimited, currentLimitedEpisode)
-                currentLimitedEpisode = 0
-            }
-        }
-
         guard isActive else { return }
 
         // Debounce từng điều kiện
@@ -322,15 +193,11 @@ final class ScanQualityMonitor: NSObject, ObservableObject {
         updateCondition(&overRotationSince, active: Double(rotationDps) > config.maxRotationSoft, now: t)
         updateCondition(&lowLightSince, active: (light ?? .greatestFiniteMagnitude) < config.lowLightSoft, now: t)
         updateCondition(&limitedSince, active: trackingLimited, now: t)
-        // Bỏ qua hẳn khi coach tắt — khỏi tốn lock CVPixelBuffer mỗi tick ở luồng RoomPlan.
+        // Bỏ qua hẳn khi coach tắt — khỏi tốn lock CVPixelBuffer mỗi tick.
         let frontDepth: Float = tooCloseCoachEnabled
             ? (Self.centerDepth(of: frame) ?? .greatestFiniteMagnitude)
             : .greatestFiniteMagnitude
         updateCondition(&tooCloseSince, active: frontDepth < Self.tooCloseMeters, now: t)
-
-        if config.enableDoorCoach {
-            processDoors(pos: pos, speed: speed, now: t)
-        }
 
         updateAlert(now: t, speed: speed, rotationDps: rotationDps)
     }
@@ -344,7 +211,7 @@ final class ScanQualityMonitor: NSObject, ObservableObject {
     }
 
     /// Khoảng cách bề mặt trước camera (m) — median 5 điểm quanh tâm depth map LiDAR.
-    /// nil khi phiên không bật .sceneDepth (luồng RoomPlan) hoặc buffer khác định dạng.
+    /// nil khi phiên không bật .sceneDepth hoặc buffer khác định dạng.
     private static func centerDepth(of frame: ARFrame) -> Float? {
         guard let depth = frame.sceneDepth?.depthMap,
               CVPixelBufferGetPixelFormatType(depth) == kCVPixelFormatType_DepthFloat32
@@ -376,78 +243,14 @@ final class ScanQualityMonitor: NSObject, ObservableObject {
         return samples.sorted()[samples.count / 2]
     }
 
-    // MARK: - Cửa (state machine per-door)
-
-    private func processDoors(pos: SIMD3<Float>, speed: Float, now: TimeInterval) {
-        // Hướng di chuyển từ cửa sổ pose
-        guard let first = poses.first, now - first.t >= 0.2 else { return }
-        let velocity = (pos - first.pos) / Float(now - first.t)
-
-        for (id, door) in doors {
-            var st = doorStates[id] ?? DoorState()
-            if now - st.lastEventTime < 3.0 {
-                doorStates[id] = st
-                continue
-            }
-
-            let q = door.rotT * (pos - door.center)   // x ngang, y dọc, z = khoảng cách có dấu
-            let lateralOK = abs(q.x) < door.halfW + 0.4 && abs(q.y) < door.halfH + 0.5
-            let approachSpeed = -sign(q.z) * simd_dot(velocity, door.normal)
-
-            switch st.phase {
-            case .idle:
-                if lateralOK && abs(q.z) < Float(config.doorApproachDistance) && approachSpeed > 0.15 {
-                    st.phase = .approaching
-                }
-            case .approaching:
-                if !lateralOK || abs(q.z) > Float(config.doorApproachDistance) + 0.3 || approachSpeed < -0.1 {
-                    st.phase = .idle
-                    break
-                }
-                if Double(speed) > config.doorMaxCrossSpeed && now - st.lastPrewarnTime > 5.0 {
-                    st.lastPrewarnTime = now
-                    raiseTransient(QualityAlert(severity: .caution, code: .doorAhead), now: now)
-                }
-                if abs(q.z) < Float(config.doorCrossBand) {
-                    st.phase = .crossing
-                    st.enterSign = sign(q.z)
-                    st.speedSum = 0
-                    st.speedCount = 0
-                }
-            case .crossing:
-                st.speedSum += Double(speed)
-                st.speedCount += 1
-                if sign(q.z) != st.enterSign && abs(q.z) > 0.05 {
-                    let crossSpeed = st.speedCount > 0 ? st.speedSum / Double(st.speedCount) : 0
-                    doorCrossings += 1
-                    if crossSpeed > config.doorMaxCrossSpeed {
-                        doorTooFast += 1
-                        raiseTransient(QualityAlert(severity: .caution, code: .doorTooFast), now: now)
-                    }
-                    st.phase = .idle
-                    st.lastEventTime = now
-                } else if sign(q.z) == st.enterSign && abs(q.z) > 1.0 {
-                    st.phase = .idle   // quay lui, không tính
-                }
-            }
-            doorStates[id] = st
-        }
-    }
-
     // MARK: - Chọn cảnh báo hiển thị (ưu tiên + giữ tối thiểu, không chồng nhau)
-
-    private func raiseTransient(_ a: QualityAlert, now: TimeInterval) {
-        transientAlert = (a, now + 2.5)
-    }
 
     private func updateAlert(now: TimeInterval, speed: Float, rotationDps: Float) {
         var candidate: QualityAlert?
 
-        // Ưu tiên: mất tracking > cửa > tốc độ > xoay > ánh sáng
+        // Ưu tiên: mất tracking > quá gần > tốc độ > xoay > nhiệt > ánh sáng
         if limitedSince > 0 && now - limitedSince > config.trackingWarnAfterSec {
             candidate = QualityAlert(severity: .critical, code: .trackingLost)
-        } else if let transient = transientAlert, now < transient.until {
-            candidate = transient.alert
         } else if tooCloseSince > 0 && now - tooCloseSince > 0.7,
                   Double(speed) <= config.maxSpeedHard,
                   Double(rotationDps) <= config.maxRotationHard {
@@ -505,48 +308,5 @@ final class ScanQualityMonitor: NSObject, ObservableObject {
             utterance.rate = AVSpeechUtteranceDefaultSpeechRate
             speech.speak(utterance)
         }
-    }
-}
-
-/// Proxy "nghe ké" RoomCaptureSessionDelegate: giữ nguyên MỌI callback cho RoomCaptureView
-/// (delegate gốc), chỉ chép thêm sự kiện cửa + instruction cho ScanQualityMonitor.
-/// Nếu gây vấn đề trên máy thật → tắt bằng enableDelegateProxy=false từ server;
-/// mất doorway coach + đếm instruction nhưng mọi thứ khác vẫn chạy.
-final class RoomCaptureSessionDelegateProxy: NSObject, RoomCaptureSessionDelegate {
-    weak var original: RoomCaptureSessionDelegate?
-    weak var monitor: ScanQualityMonitor?
-
-    func captureSession(_ session: RoomCaptureSession, didUpdate room: CapturedRoom) {
-        monitor?.noteRoomUpdate(room)
-        original?.captureSession(session, didUpdate: room)
-    }
-
-    func captureSession(_ session: RoomCaptureSession, didAdd room: CapturedRoom) {
-        original?.captureSession(session, didAdd: room)
-    }
-
-    func captureSession(_ session: RoomCaptureSession, didChange room: CapturedRoom) {
-        original?.captureSession(session, didChange: room)
-    }
-
-    func captureSession(_ session: RoomCaptureSession, didRemove room: CapturedRoom) {
-        original?.captureSession(session, didRemove: room)
-    }
-
-    func captureSession(
-        _ session: RoomCaptureSession, didProvide instruction: RoomCaptureSession.Instruction
-    ) {
-        monitor?.noteInstruction(instruction)
-        original?.captureSession(session, didProvide: instruction)
-    }
-
-    func captureSession(
-        _ session: RoomCaptureSession, didStartWith configuration: RoomCaptureSession.Configuration
-    ) {
-        original?.captureSession(session, didStartWith: configuration)
-    }
-
-    func captureSession(_ session: RoomCaptureSession, didEndWith data: CapturedRoomData, error: Error?) {
-        original?.captureSession(session, didEndWith: data, error: error)
     }
 }

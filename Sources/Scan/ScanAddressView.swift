@@ -228,7 +228,7 @@ struct ScanAddressView: View {
     // (Nút "Bỏ qua" từng tồn tại hồi địa chỉ còn tuỳ chọn — nó vừa thừa vừa dễ lẫn với "Hủy" ở
     // góc trên: hai lựa chọn cạnh nhau mà nghĩa ngược hẳn, Hủy = không quét, Bỏ qua = vẫn quét.)
 
-    /// dismiss() TRƯỚC onStart() — cùng khuôn với ScanModePickerView: người gọi present màn quét
+    /// dismiss() TRƯỚC onStart() — cùng khuôn với ScanQualityPickerView: người gọi present màn quét
     /// từ onDismiss của sheet này, nên onStart chỉ được set cờ, không được present gì.
     ///
     /// Chọn dòng trong danh sách → dùng căn đó. Không chọn → tạo căn mới theo chữ đã gõ. Ô rỗng

@@ -96,10 +96,10 @@ enum MeshQuality: String, CaseIterable, Identifiable {
             "Cả hai mức cho hình học và dung lượng file như nhau.")
     }
 
-    /// Mặc định của @AppStorage("meshQuality"). Khoá này được khai báo ở BA nơi (HomeView,
-    /// ProjectView, ScanModePickerView) — @AppStorage không bao giờ ghi mặc định ngược vào
-    /// UserDefaults, nên ba chỗ lệch nhau là ba màn hình đọc ra ba giá trị khác nhau cho cùng
-    /// một khoá. Giữ ở một nguồn duy nhất để không thể lệch.
+    /// Mặc định của @AppStorage("meshQuality"). Khoá này được khai báo ở BỐN nơi: HomeView,
+    /// ProjectView, ScanAddressView, ScanQualityPickerView — @AppStorage không bao giờ ghi mặc
+    /// định ngược vào UserDefaults, nên bốn chỗ lệch nhau là bốn màn hình đọc ra giá trị khác
+    /// nhau cho cùng một khoá. Giữ ở một nguồn duy nhất để không thể lệch.
     static let storageDefault: MeshQuality = .high
 
     /// Nhãn cho rawValue ĐỌC TỪ ĐĨA (meta.json của bản quét đã lưu), khác với `label` của một

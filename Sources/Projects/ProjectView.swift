@@ -1,21 +1,25 @@
 import ARKit
 import SwiftUI
-import RoomPlan
 
 /// Trang một dự án (căn nhà): danh sách bản quét các tầng, quét thêm, đặt hàng cả căn.
 struct ProjectView: View {
     @EnvironmentObject private var store: ScanStore
     @Environment(\.dismiss) private var dismiss
     let projectId: UUID
+    /// Đường dẫn điều hướng của NavigationStack đang chứa màn này (sở hữu bởi HomeView) — cần
+    /// để màn preview sau khi quét đẩy được sang trang bản quét.
+    @Binding var path: NavigationPath
 
-    @State private var isScanning = false
     @State private var isMeshScanning = false
-    @State private var showModePicker = false
+    @State private var showQualityPicker = false
     @State private var showGuide = false
     /// Người dùng đã BẤM "Bắt đầu quét" trong guide (khác với "guide đang mở"). Reset ở LỐI VÀO
     /// chứ không chỉ trong onDismiss — xem giải thích đầy đủ ở HomeView.startAfterGuide.
     @State private var startAfterGuide = false
-    @State private var pendingScanMode: ScanMode?
+    /// Khách đã bấm "Bắt đầu quét" ở sheet độ nét — xem HomeView.pendingScanStart.
+    @State private var pendingScanStart = false
+    /// Bản quét khách vừa bấm "Đặt hàng ngay" ở màn preview.
+    @State private var pendingOrderRecord: ScanRecord?
     @State private var meshCapFollowUp = false
     @State private var showScanNextPart = false
     @AppStorage("meshQuality") private var meshQuality: MeshQuality = MeshQuality.storageDefault
@@ -48,7 +52,7 @@ struct ProjectView: View {
             // ca này gần như không xảy ra, nhưng đây là lớp thứ hai — pop nhầm lúc đang quét là
             // mất trắng 10–30 phút đi bộ, đắt hơn nhiều so với việc nán lại một màn rỗng.
             .onChange(of: project == nil) { _, gone in
-                if gone && !isScanning && !isMeshScanning { dismiss() }
+                if gone && !isMeshScanning { dismiss() }
             }
             // Cover đóng mà dự án đã biến mất trong lúc đó → giờ mới thoát.
             .onChange(of: isMeshScanning) { _, presented in
@@ -137,20 +141,6 @@ struct ProjectView: View {
         } message: {
             Text(saveError ?? "")
         }
-        .fullScreenCover(isPresented: $isScanning) {
-            ScanFlowView { rooms, videoURL, meshURL, name, quality in
-                do {
-                    _ = try await store.save(
-                        rooms: rooms, videoURL: videoURL, coloredMeshURL: meshURL,
-                        name: name, projectId: projectId, quality: quality
-                    )
-                    return true
-                } catch {
-                    pendingSaveError = error.localizedDescription
-                    return false
-                }
-            }
-        }
         // Bắt đầu quét từ onDismiss chứ không từ callback của guide — ScanGuideView gọi
         // dismiss() rồi onStart() cùng một transaction, present thẳng ở đó là present-trong-
         // lúc-sheet-đang-đóng. Xem giải thích đầy đủ ở HomeView.
@@ -162,30 +152,32 @@ struct ProjectView: View {
             ScanGuideView { startAfterGuide = true }
         }
         // Mở cover từ onDismiss của sheet (chờ sheet đóng XONG mới present) — như HomeView.
-        .sheet(isPresented: $showModePicker, onDismiss: {
-            guard let mode = pendingScanMode else { return }
-            pendingScanMode = nil
-            switch mode {
-            case .floorplan: isScanning = true
-            case .mesh: isMeshScanning = true
-            }
+        .sheet(isPresented: $showQualityPicker, onDismiss: {
+            guard pendingScanStart else { return }
+            pendingScanStart = false
+            isMeshScanning = true
         }) {
-            ScanModePickerView { mode in
-                pendingScanMode = mode
+            ScanQualityPickerView {
+                pendingScanStart = true
             }
             .presentationDetents([.medium, .large])
         }
         .fullScreenCover(isPresented: $isMeshScanning) {
-            MeshScanFlowView(quality: meshQuality) { result in
+            MeshScanFlowView(
+                quality: meshQuality,
+                onOrderNow: { record in pendingOrderRecord = record }
+            ) { result in
                 do {
-                    _ = try await store.saveMeshScan(
+                    let saved = try await store.saveMeshScan(
                         videoURL: result.videoURL, meshURL: result.meshURL,
                         trackURL: result.trackURL,
                         name: result.name, projectId: projectId, quality: result.quality
                     )
                     if result.hitCap { meshCapFollowUp = true }
+                    return saved
                 } catch {
                     pendingSaveError = error.localizedDescription
+                    return nil
                 }
             }
         }
@@ -194,10 +186,14 @@ struct ProjectView: View {
             if let message = pendingSaveError {
                 pendingSaveError = nil
                 meshCapFollowUp = false
+                pendingOrderRecord = nil
                 saveError = message
             } else if meshCapFollowUp {
+                // Xem giải thích thứ tự ưu tiên ở HomeView.
                 meshCapFollowUp = false
                 showScanNextPart = true
+            } else {
+                goToPendingOrder()
             }
         }
         .alert(
@@ -205,20 +201,17 @@ struct ProjectView: View {
             isPresented: $showScanNextPart
         ) {
             Button(L.t("Scan the rest now", "Quét phần còn lại ngay")) {
+                pendingOrderRecord = nil
                 isMeshScanning = true
             }
-            Button(L.t("Later", "Để sau"), role: .cancel) {}
+            Button(L.t("Scan later", "Quét sau"), role: .cancel) {
+                goToPendingOrder()
+            }
         } message: {
             Text(L.t(
                 "The 3D model hit its size limit before you finished — the saved part is safe. Scan the remaining area as another scan (name them \"Part 1\", \"Part 2\"…) and they can be merged later.",
                 "Mô hình 3D chạm giới hạn trước khi quét xong — phần đã lưu vẫn an toàn. Hãy quét khu còn lại thành một bản quét khác (đặt tên \"Part 1\", \"Part 2\"…) để ghép lại sau."
             ))
-        }
-        .onChange(of: isScanning) { _, presented in
-            if !presented, let message = pendingSaveError {
-                pendingSaveError = nil
-                saveError = message
-            }
         }
         .sheet(isPresented: $showOrderSheet) {
             if let primary = orderableScans.first {
@@ -263,8 +256,18 @@ struct ProjectView: View {
     }
 
     /// Tách khỏi thân nút để guide gọi lại được từ onDismiss.
+    /// Reset hai cờ ở LỐI VÀO — xem giải thích đầy đủ ở HomeView.startScanning.
     private func startScanning() {
-        showModePicker = true
+        pendingScanStart = false
+        pendingOrderRecord = nil
+        showQualityPicker = true
+    }
+
+    /// Xem HomeView.goToPendingOrder — cùng một việc, trên cùng một NavigationStack.
+    private func goToPendingOrder() {
+        guard let record = pendingOrderRecord else { return }
+        pendingOrderRecord = nil
+        path.append(record)
     }
 
     /// Lặp lại lời giải thích ở ĐÂY chứ không trông vào việc người dùng đã đọc ở trang chủ.

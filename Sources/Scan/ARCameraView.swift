@@ -4,7 +4,7 @@ import ARKit
 
 /// ARSCNView chỉ để HIỆN HÌNH CAMERA cho phiên AR do MeshScanController tự chạy.
 /// ARSCNView không tự run/pause/đổi config session được gán vào — controller giữ toàn
-/// quyền vòng đời (giống RoomCaptureViewRepresentable: dismantle KHÔNG pause session).
+/// quyền vòng đời — dismantle KHÔNG pause session.
 /// Lưới quét vẽ bằng MeshOverlayView chồng lên trên (tái dùng, đã chạy ổn với RoomPlan).
 struct ARCameraViewRepresentable: UIViewRepresentable {
     let arSession: ARSession

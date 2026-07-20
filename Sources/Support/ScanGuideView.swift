@@ -6,9 +6,8 @@ import SwiftUI
 /// này" / "Quét phòng tiếp theo" (nút của RoomPlan, chế độ mesh KHÔNG có) và bảo "mỗi tầng quét
 /// một bản riêng" (ngược hẳn — mesh mode quét liền mạch qua cầu thang).
 ///
-/// TẠM THỜI (pha 1): chế độ RoomPlan vẫn còn trong app nhưng sẽ bị xóa ở pha sau, nên hướng
-/// dẫn này cố ý chỉ dạy luồng mesh. Ai còn chọn RoomPlan trong lúc chuyển tiếp sẽ thấy vài
-/// lời khuyên không áp dụng cho họ — chấp nhận, vì luồng đó sắp biến mất.
+/// (Ghi chú "tạm thời" của pha 1 đã hết hiệu lực: RoomPlan bị gỡ HẲN 2026-07-20, nên hướng dẫn
+/// chỉ-dạy-luồng-mesh này giờ đúng cho mọi bản quét app tạo ra.)
 ///
 /// Mốc "khoảng 10 phút" ở mục đầu KHÔNG phải con số cho đẹp, nó chống hai thứ đo được:
 ///  1. NHIỆT — máy dòng 12→15 Pro throttle sau ~15–30 phút tải nặng; iOS lặng lẽ hạ camera

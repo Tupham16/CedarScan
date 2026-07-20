@@ -1,26 +1,21 @@
 import SwiftUI
 
-/// Kiểu quét — chọn ở sheet trước khi bắt đầu.
+/// Sheet trước khi quét từ TRANG DỰ ÁN: chỉ còn chọn độ nét.
 ///
-/// P2 (2026-07-19): luồng RoomPlan đã TẮT LỐI VÀO, `.floorplan` không còn được sinh ra ở đâu
-/// nữa. Giữ case lại vì `pendingScanMode` ở HomeView/ProjectView vẫn switch trên nó — xóa case
-/// bây giờ là phải sửa cả hai call site, mà chỗ đó chứa cơ chế present-trong-onDismiss viết rất
-/// cẩn thận (không được đụng vô cớ). Cả enum này sẽ biến mất ở P6 khi xóa RoomPlan thật.
-enum ScanMode: String {
-    case floorplan   // RoomPlan: từng phòng/từng tầng → floorplan + USDZ (KHÔNG còn lối vào)
-    case mesh        // Mesh 3D: one-shot nhiều tầng → mesh màu + video, không floorplan
-}
-
-/// Sheet trước khi quét. TÊN CÒN LÀ "ModePicker" NHƯNG GIỜ CHỈ CHỌN ĐỘ NÉT — từ P2 app chỉ còn
-/// một kiểu quét (3D nguyên căn) nên không còn gì để chọn kiểu nữa. Cố ý KHÔNG đổi tên struct ở
-/// pha này: đổi tên là chạm vào HomeView + ProjectView, mà mục tiêu của P2 là chỉ sửa ĐÚNG MỘT
-/// FILE để hoàn tác được bằng cách khôi phục file đó. Đổi tên/gộp vào màn địa chỉ ở P3–P6.
+/// Từng tên là `ScanModePickerView` (chọn RoomPlan hay Mesh). Từ 2026-07-20 RoomPlan bị gỡ hẳn
+/// nên `enum ScanMode` biến mất cùng nó và cái tên cũ thành nói dối. Đổi tên ở đây được vì đợt
+/// này đằng nào cũng phải sửa cả hai call site.
+///
+/// TRANG CHỦ KHÔNG dùng màn này — nó đi qua `ScanAddressView` (hỏi căn nhà rồi mới tới độ nét).
+/// Ở trang dự án thì căn nhà đã biết rồi, nên chỉ còn độ nét để hỏi.
 ///
 /// Vẫn giữ sheet (thay vì vào thẳng màn quét) vì lựa chọn Vừa/Nét là thứ đáng hỏi: nó đổi
 /// thời gian lưu gần gấp đôi, và chọn nhầm thì phải quét lại cả buổi.
-struct ScanModePickerView: View {
+struct ScanQualityPickerView: View {
     @Environment(\.dismiss) private var dismiss
-    let onStart: (ScanMode) -> Void
+    /// Chỉ báo "khách đã bấm Bắt đầu" — KHÔNG mang tham số nào nữa. Người gọi present màn quét
+    /// từ onDismiss của sheet này, nên closure này chỉ được set cờ, không được present gì.
+    let onStart: () -> Void
 
     @AppStorage("meshQuality") private var meshQuality: MeshQuality = MeshQuality.storageDefault
 
@@ -47,8 +42,7 @@ struct ScanModePickerView: View {
     private var startButton: some View {
         Button {
             dismiss()
-            // Luôn .mesh: đây là kiểu quét duy nhất còn lại.
-            onStart(.mesh)
+            onStart()
         } label: {
             Text(L.t("Start scanning", "Bắt đầu quét"))
                 .font(.headline)

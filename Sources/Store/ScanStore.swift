@@ -1,6 +1,5 @@
 import Foundation
 import SwiftUI
-import RoomPlan
 
 @MainActor
 final class ScanStore: ObservableObject {
@@ -27,8 +26,10 @@ final class ScanStore: ObservableObject {
     /// quét mesh đang ngốn hàng trăm MB. Kẹt một nhịp là việc dọn CHẾT VĨNH VIỄN, im lặng,
     /// không log không dấu vết — khách chỉ thấy máy đầy dần.
     ///
-    /// Không phiên quét + lưu nào chạm một giờ (trần 2M đỉnh chạm từ lâu trước đó), nên ngưỡng
-    /// này chỉ tha cho khoá đã MỤC RỮA. Biến hỏng-vĩnh-viễn thành hỏng-tối-đa-một-giờ.
+    /// Cửa sổ này bao CẢ màn preview sau khi quét (khách ngồi xem lại video), nên nó có thể dài
+    /// hơn "quét + lưu" nhiều — bỏ máy trong túi lúc preview đang mở là vượt một giờ. Chấp nhận:
+    /// bản ghi mới lúc đó đã nằm trong `records` nên việc dọn không đụng được dự án của nó.
+    /// Ngưỡng này chỉ tha cho khoá đã MỤC RỮA — biến hỏng-vĩnh-viễn thành hỏng-tối-đa-một-giờ.
     private static let busyStaleAfter: TimeInterval = 3600
 
     var isBusy: Bool {
@@ -147,103 +148,11 @@ final class ScanStore: ObservableObject {
         rootURL.appendingPathComponent(record.id.uuidString, isDirectory: true)
     }
 
+    /// Mô hình USDZ — CHỈ bản quét RoomPlan CŨ mới có. Luồng mesh không sinh USDZ bao giờ.
+    /// Giữ lại để `ScanDetailView` còn mở được bản cũ trên máy khách (xem chú thích ở
+    /// `delete(_:)` bên dưới); người gọi PHẢI tự `fileExists` trước khi dùng.
     func usdzURL(for record: ScanRecord) -> URL {
         folderURL(for: record).appendingPathComponent("model.usdz")
-    }
-
-    func save(
-        rooms: [CapturedRoom],
-        videoURL: URL?,
-        coloredMeshURL: URL?,
-        name: String? = nil,
-        projectId: UUID? = nil,
-        quality: ScanQualityReport? = nil
-    ) async throws -> ScanRecord {
-        // Cùng lý do với saveMeshScan: `records.insert` nằm ở CUỐI hàm, sau nhiều await (dựng
-        // USDZ, export OBJ, render ảnh mặt bằng, nén zip/GLB) — vài chục giây tới vài phút.
-        // Luồng RoomPlan hiện đã tắt lối vào (P2) nên đây là code chết, nhưng khoá vẫn phải có:
-        // code chết có ngày sống lại, và lúc đó không ai nhớ để thêm.
-        beginBusy()
-        defer { endBusy() }
-
-        let planModel = FloorPlanModel(rooms: rooms)
-        var record = ScanRecord(
-            id: UUID(),
-            name: name?.isEmpty == false ? name! : Self.defaultName(),
-            createdAt: Date(),
-            roomCount: rooms.count,
-            areaSqm: planModel.areaSquareMeters,
-            projectId: projectId,
-            qualityScore: quality?.score,
-            qualityGrade: quality?.grade,
-            qualityRescan: quality?.rescanRecommended
-        )
-        let folder = folderURL(for: record)
-        try fileManager.createDirectory(at: folder, withIntermediateDirectories: true)
-
-        // 1. Mô hình 3D USDZ
-        let usdzURL = folder.appendingPathComponent("model.usdz")
-        if rooms.count > 1 {
-            let builder = StructureBuilder(options: [])
-            let structure = try await builder.capturedStructure(from: rooms)
-            try structure.export(to: usdzURL)
-        } else if let room = rooms.first {
-            try room.export(to: usdzURL)
-        }
-
-        // 2. OBJ (+ MTL) từ USDZ — hỏng cũng không chặn việc lưu
-        let objURL = folder.appendingPathComponent("model.obj")
-        try? OBJExporter.export(usdzURL: usdzURL, to: objURL)
-
-        // 3. Dữ liệu RoomPlan gốc
-        try JSONEncoder().encode(rooms)
-            .write(to: folder.appendingPathComponent("rooms.json"))
-
-        // 4. Ảnh mặt bằng PNG
-        if !planModel.isEmpty {
-            let exportView = FloorPlanExportView(model: planModel, title: record.name)
-                .frame(width: 1400, height: 1600)
-            let renderer = ImageRenderer(content: exportView)
-            renderer.scale = 2
-            if let image = renderer.uiImage, let data = image.pngData() {
-                try? data.write(to: folder.appendingPathComponent("floorplan.png"))
-            }
-        }
-
-        // 5. Video quá trình quét (nếu có)
-        if let videoURL, fileManager.fileExists(atPath: videoURL.path) {
-            try? fileManager.moveItem(
-                at: videoURL,
-                to: folder.appendingPathComponent("scan-video.mp4")
-            )
-        }
-
-        // 6. Mô hình 3D có màu (.ply) — nguyên liệu nội bộ (nếu dựng được)
-        if let coloredMeshURL, fileManager.fileExists(atPath: coloredMeshURL.path) {
-            let plyURL = folder.appendingPathComponent("colored-mesh.ply")
-            try? fileManager.moveItem(at: coloredMeshURL, to: plyURL)
-
-            // 6b. Gói màu để khách tự mở/chia sẻ — dựng nền vì nặng, hỏng cũng không chặn lưu:
-            //   • GLB (glTF): Blender kéo vào là có màu ngay cả khi render.
-            //   • OBJ+MTL (zip): màu theo đỉnh, hợp MeshLab/CloudCompare.
-            if fileManager.fileExists(atPath: plyURL.path) {
-                let zipURL = folder.appendingPathComponent("model-colored.zip")
-                let glbURL = folder.appendingPathComponent("model-colored.glb")
-                try? await Task.detached(priority: .utility) {
-                    try? ColoredOBJExporter.makeOBJZip(fromPLY: plyURL, to: zipURL)
-                    try GLBExporter.makeGLB(fromPLY: plyURL, to: glbURL)
-                }.value
-            }
-        }
-
-        // 7. Báo cáo chất lượng quét — gửi kèm khi upload để đội vẽ biết scan tin được đến đâu
-        if let quality, let data = try? JSONEncoder().encode(quality) {
-            try? data.write(to: folder.appendingPathComponent("quality.json"))
-        }
-
-        try writeMeta(record)
-        records.insert(record, at: 0)
-        return record
     }
 
     /// Lưu bản quét CHẾ ĐỘ MESH 3D (không RoomPlan): model.obj màu (+mtl) + video —
@@ -356,14 +265,11 @@ final class ScanStore: ObservableObject {
     }
 
     // `saveVideoScan` ĐÃ XOÁ 2026-07-19 cùng luồng quay video khảo sát (chủ app chốt "yêu cầu
-    // máy phải có lidar"). KHÔNG xoá theo: `ScanRecord.captureType == "video"` và
-    // `isVideoOnly` + các nhánh video trong ScanDetailView — người dùng đang có bản quét video
-    // CŨ trên máy, phải xem/chia sẻ/xoá được. Gỡ đường TẠO khác hẳn gỡ đường XEM.
-
-    func loadRooms(for record: ScanRecord) throws -> [CapturedRoom] {
-        let data = try Data(contentsOf: folderURL(for: record).appendingPathComponent("rooms.json"))
-        return try JSONDecoder().decode([CapturedRoom].self, from: data)
-    }
+    // máy phải có lidar"). `save(rooms:)` + `loadRooms` ĐÃ XOÁ 2026-07-20 cùng RoomPlan.
+    // KHÔNG xoá theo, và đây là điểm dễ sai nhất của cả hai lần gỡ: `ScanRecord.captureType`
+    // (nil/"lidar"/"video") + `isVideoOnly` + `usdzURL` + các nhánh xem bản cũ trong
+    // ScanDetailView + toàn bộ `fileKinds` của ScanUploader. Người dùng đang có bản quét CŨ
+    // trên máy, phải xem/chia sẻ/đặt hàng/xoá được. **Gỡ đường TẠO khác hẳn gỡ đường XEM.**
 
     func delete(_ record: ScanRecord) {
         try? fileManager.removeItem(at: folderURL(for: record))

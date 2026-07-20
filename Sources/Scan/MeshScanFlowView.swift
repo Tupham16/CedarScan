@@ -25,18 +25,38 @@ struct MeshScanFlowView: View {
     @EnvironmentObject private var store: ScanStore
     @StateObject private var controller: MeshScanController
 
-    /// Lỗi lưu do call-site giữ qua pendingSaveError và hiện alert SAU khi cover đóng.
-    let onFinish: (MeshScanResult) async -> Void
+    /// Lưu bản quét. Trả về bản ghi đã lưu, hoặc **nil khi lưu HỎNG** — lúc đó cover đóng ngay
+    /// và call-site hiện alert lỗi qua pendingSaveError (không hiện alert khi cover còn mở, sẽ
+    /// bị nuốt lúc dismiss).
+    let onFinish: (MeshScanResult) async -> ScanRecord?
+    /// Khách bấm "Đặt hàng ngay" ở màn preview. Call-site CHỈ được ghi nhớ ý định ở đây rồi điều
+    /// hướng SAU khi cover đóng — cùng lý do với mọi present-trong-onDismiss khác của app này.
+    ///
+    /// CỐ Ý KHÔNG CÓ GIÁ TRỊ MẶC ĐỊNH. Có `= { _ in }` thì call-site thứ ba ở pha sau quên truyền
+    /// vẫn compile sạch, và nút "Đặt hàng ngay" hiện đầy đủ rồi đóng cover mà KHÔNG LÀM GÌ — hỏng
+    /// lặng lẽ đúng ở bước chốt đơn. Bắt buộc truyền thì lỗi nổ ngay lúc build.
+    let onOrderNow: (ScanRecord) -> Void
 
     @State private var showNaming = false
     @State private var showEmptyMeshConfirm = false
     @State private var showUnsupported = false
     @State private var isSaving = false
     @State private var scanName = ""
+    /// Khác nil = đã lưu xong, đang hiện màn preview. Phiên quét lúc này đã kết thúc hoàn toàn
+    /// (`stopAndExport` đã pause ARSession) nên mọi đường thoát đều an toàn.
+    @State private var savedRecord: ScanRecord?
     @AppStorage("showScanMesh") private var showScanMesh = true
 
-    init(quality: MeshQuality, onFinish: @escaping (MeshScanResult) async -> Void) {
+    /// ⚠ `onOrderNow` PHẢI được truyền kèm NHÃN ở call-site. Viết trailing closure mà bỏ nhãn thì
+    /// forward-scan (SE-0286) khớp closure đó vào `onOrderNow` chứ không phải `onFinish` → lỗi
+    /// kiểu khó đọc, mất một vòng CI. Xem hai call-site đang có: HomeView và ProjectView.
+    init(
+        quality: MeshQuality,
+        onOrderNow: @escaping (ScanRecord) -> Void,
+        onFinish: @escaping (MeshScanResult) async -> ScanRecord?
+    ) {
         _controller = StateObject(wrappedValue: MeshScanController(quality: quality))
+        self.onOrderNow = onOrderNow
         self.onFinish = onFinish
     }
 
@@ -51,8 +71,10 @@ struct MeshScanFlowView: View {
             ARCameraViewRepresentable(arSession: controller.arSession, sessionDelegate: controller)
                 .ignoresSafeArea()
 
-            // Lưới quét trực tiếp (tái dùng từ luồng RoomPlan — chỉ đọc chung ARSession)
-            if showScanMesh {
+            // Lưới quét trực tiếp (chỉ đọc chung ARSession).
+            // Tháo khi đã sang màn preview: `dismantleUIView` gọi `stop()` nên CADisplayLink 30Hz
+            // không quay không tải suốt lúc khách ngồi xem lại video.
+            if showScanMesh && savedRecord == nil {
                 // Trần hiển thị 600k (RoomPlan chỉ 150k): khách quay lại khu đã quét phải
                 // còn THẤY lưới để biết chỗ nào đã phủ — nhà thường sẽ không bị "quên" nữa.
                 // Nếu test thấy nóng/giật thì hạ số này.
@@ -67,14 +89,22 @@ struct MeshScanFlowView: View {
                 .allowsHitTesting(false)
             }
 
-            if !isSaving && !showNaming {
+            if !isSaving && !showNaming && savedRecord == nil {
                 QualityAlertOverlay(monitor: controller.qualityMonitor)
             }
 
-            VStack {
-                topBar
-                Spacer()
-                bottomControls
+            // Gác bằng `savedRecord == nil` chứ KHÔNG chỉ dựa vào nền đục của màn preview đè
+            // lên: nền đục chặn CHẠM nhưng KHÔNG chặn VoiceOver focus. Để lớp này sống dưới màn
+            // preview thì người dùng VoiceOver vuốt trúng "Hủy" (thoát cover mà không đi qua
+            // onOrderNow — mất im lặng ý định đặt hàng) hoặc trúng "Dừng & Lưu" (bật
+            // `namingOverlay`, mà overlay đó khai TRƯỚC preview trong ZStack nên nằm DƯỚI: vô
+            // hình, vẫn focus được, không lối ra — app trông như treo).
+            if savedRecord == nil {
+                VStack {
+                    topBar
+                    Spacer()
+                    bottomControls
+                }
             }
 
             if showNaming {
@@ -82,6 +112,9 @@ struct MeshScanFlowView: View {
             }
             if isSaving {
                 savingOverlay
+            }
+            if let savedRecord {
+                previewOverlay(savedRecord)
             }
         }
         .onAppear {
@@ -278,6 +311,27 @@ struct MeshScanFlowView: View {
         }
     }
 
+    /// Màn preview sau khi lưu: căn nhà + video vừa quay + "Để sau"/"Đặt hàng ngay".
+    ///
+    /// Lấy đường dẫn video từ THƯ MỤC BẢN QUÉT chứ không dùng lại `exported.videoURL` của
+    /// controller: file tạm đó đã bị `saveMeshScan` MOVE đi rồi, URL cũ trỏ vào chỗ trống.
+    /// Và phải `fileExists` thật — `saveMeshScan` move bằng `try?` không kiểm lại, nên "đã lưu
+    /// xong" KHÔNG bảo đảm có video.
+    private func previewOverlay(_ record: ScanRecord) -> some View {
+        let videoURL = store.folderURL(for: record).appendingPathComponent("scan-video.mp4")
+        let playable = FileManager.default.fileExists(atPath: videoURL.path) ? videoURL : nil
+        return ScanPreviewView(
+            addressName: store.project(with: record.projectId)?.name,
+            scanName: record.name,
+            videoURL: playable,
+            onOrderLater: { dismiss() },
+            onOrderNow: {
+                onOrderNow(record)
+                dismiss()
+            }
+        )
+    }
+
     private func saveAndClose() {
         guard !isSaving else { return } // chống double-tap nút Lưu
         isSaving = true
@@ -288,7 +342,8 @@ struct MeshScanFlowView: View {
             let bgTask = UIApplication.shared.beginBackgroundTask(expirationHandler: nil)
             defer {
                 // Trả lại auto-lock CHỈ khi đã lưu xong hẳn (stopAndExport giữ màn hình
-                // thức qua cả export lẫn giai đoạn nén zip trong onFinish).
+                // thức qua cả export lẫn giai đoạn nén zip trong onFinish). Từ đây trở đi
+                // khách chỉ ngồi xem video ở màn preview — khoá máy lúc đó là chuyện thường.
                 UIApplication.shared.isIdleTimerDisabled = false
                 if bgTask != .invalid {
                     UIApplication.shared.endBackgroundTask(bgTask)
@@ -303,9 +358,15 @@ struct MeshScanFlowView: View {
                 quality: controller.quality,
                 hitCap: exported.hitCap
             )
-            await onFinish(result)
+            let saved = await onFinish(result)
             isSaving = false
-            dismiss()
+            // Lưu HỎNG → đóng ngay để call-site hiện alert lỗi. KHÔNG hiện màn preview: không có
+            // bản ghi nào để trỏ tới, và mời "Đặt hàng ngay" một bản quét vừa lưu hụt là tệ nhất.
+            guard let saved else {
+                dismiss()
+                return
+            }
+            savedRecord = saved
         }
     }
 }

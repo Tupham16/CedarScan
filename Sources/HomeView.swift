@@ -1,22 +1,29 @@
 import ARKit
 import SwiftUI
-import RoomPlan
 
 struct HomeView: View {
     @EnvironmentObject private var store: ScanStore
-    @State private var isScanning = false
     @State private var isMeshScanning = false
     @State private var showScanSetup = false
-    @State private var pendingScanMode: ScanMode?
+    /// Khách đã bấm "Bắt đầu quét" trong `ScanAddressView` (khác hẳn "sheet đã đóng"). Thay cho
+    /// `pendingScanMode: ScanMode?` cũ — enum ScanMode chết cùng RoomPlan, nhưng cơ chế thì
+    /// PHẢI giữ nguyên: bấm "Hủy" hay vuốt đóng sheet cũng chạy onDismiss, và không có cờ này
+    /// thì hai đường đó cũng nhảy thẳng vào màn quét.
+    @State private var pendingScanStart = false
+    /// Bản quét khách vừa bấm "Đặt hàng ngay" ở màn preview — điều hướng SAU khi cover đóng.
+    @State private var pendingOrderRecord: ScanRecord?
+    /// Đường dẫn điều hướng. Trước đây NavigationStack không có path (mọi lần đẩy đều qua
+    /// NavigationLink), nhưng màn preview cần ĐẨY BẰNG CODE tới trang bản quét.
+    @State private var path = NavigationPath()
     /// Căn nhà (dự án) mà bản quét sắp tới sẽ thuộc về — do ScanAddressView chọn/tạo.
     ///
     /// CỐ Ý KHÔNG XOÁ sau mỗi bản quét: alert "Quét phần còn lại ngay" set `isMeshScanning`
     /// THẲNG, không đi qua màn địa chỉ (xem .alert bên dưới), nên giữ giá trị lại chính là thứ
     /// làm Part 2 rơi vào ĐÚNG căn nhà của Part 1.
     ///
-    /// ⚠ GIÁ TRỊ NÀY CÓ THỂ CŨ. Chỉ hai nút "Bắt đầu quét"/"Bỏ qua" trong ScanAddressView mới
-    /// ghi đè nó; bấm "Hủy" hoặc vuốt đóng sheet thì nó GIỮ NGUYÊN giá trị của lần quét trước.
-    /// Hiện vô hại vì hai đường đó cũng không set `pendingScanMode` nên onDismiss return sớm,
+    /// ⚠ GIÁ TRỊ NÀY CÓ THỂ CŨ. Chỉ nút "Bắt đầu quét" trong ScanAddressView mới ghi đè nó;
+    /// bấm "Hủy" hoặc vuốt đóng sheet thì nó GIỮ NGUYÊN giá trị của lần quét trước.
+    /// Hiện vô hại vì hai đường đó cũng không set `pendingScanStart` nên onDismiss return sớm,
     /// không bản quét nào chạy. NHƯNG: pha sau mà thêm bất kỳ lối vào `isMeshScanning` nào KHÔNG
     /// đi qua ScanAddressView thì bản quét mới sẽ lặng lẽ rơi vào căn nhà của lần quét TRƯỚC ĐÓ
     /// — sai địa chỉ trên thẻ gửi đội vẽ mà không có dấu hiệu gì. Thêm lối vào như vậy thì phải
@@ -47,15 +54,15 @@ struct HomeView: View {
     /// thi về cấu trúc, thay vì phải tin rằng onDismiss luôn luôn chạy.
     @State private var startAfterGuide = false
 
-    /// Máy có LiDAR không. Hỏi thẳng ARKit chứ KHÔNG hỏi `RoomCaptureSession.isSupported`: thứ
-    /// app thật sự cần là mesh scene reconstruction, và RoomPlan sắp bị gỡ hẳn (P6) nên đừng
-    /// buộc thêm phụ thuộc vào nó. Cùng phép thử với `MeshScanController.isSupported`.
+    /// Máy có LiDAR không. Hỏi thẳng ARKit: thứ app thật sự cần là mesh scene reconstruction.
+    /// (RoomPlan đã bị gỡ hẳn 2026-07-20 nên `RoomCaptureSession.isSupported` cũng không còn.)
+    /// Cùng phép thử với `MeshScanController.isSupported`.
     private var isSupported: Bool {
         ARWorldTrackingConfiguration.supportsSceneReconstruction(.mesh)
     }
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             Group {
                 if store.records.isEmpty && store.projects.isEmpty {
                     emptyState
@@ -104,24 +111,24 @@ struct HomeView: View {
             // Mở cover từ onDismiss của sheet (chờ sheet đóng XONG mới present) —
             // present-trong-lúc-sheet-đang-đóng là kiểu dễ rớt presentation nhất.
             .sheet(isPresented: $showScanSetup, onDismiss: {
-                guard let mode = pendingScanMode else { return }
-                pendingScanMode = nil
-                switch mode {
-                case .floorplan: isScanning = true
-                case .mesh: isMeshScanning = true
-                }
+                guard pendingScanStart else { return }
+                pendingScanStart = false
+                isMeshScanning = true
             }) {
                 // Không .presentationDetents: đây là Form nhiều mục (địa chỉ + danh sách căn đã
                 // có + độ nét), ép .medium là danh sách căn nhà bị bóp còn một hai dòng.
                 ScanAddressView { projectId in
                     pendingProjectId = projectId
-                    pendingScanMode = .mesh
+                    pendingScanStart = true
                 }
             }
             .fullScreenCover(isPresented: $isMeshScanning) {
-                MeshScanFlowView(quality: meshQuality) { result in
+                MeshScanFlowView(
+                    quality: meshQuality,
+                    onOrderNow: { record in pendingOrderRecord = record }
+                ) { result in
                     do {
-                        _ = try await store.saveMeshScan(
+                        let saved = try await store.saveMeshScan(
                             videoURL: result.videoURL, meshURL: result.meshURL,
                             trackURL: result.trackURL,
                             name: result.name, projectId: pendingProjectId,
@@ -129,9 +136,11 @@ struct HomeView: View {
                         )
                         // Nhà rất lớn chạm trần: sau khi cover đóng sẽ mời quét phần còn lại.
                         if result.hitCap { meshCapFollowUp = true }
+                        return saved
                     } catch {
                         // Không hiện alert khi cover còn mở — sẽ bị nuốt lúc dismiss.
                         pendingSaveError = error.localizedDescription
+                        return nil
                     }
                 }
             }
@@ -140,10 +149,17 @@ struct HomeView: View {
                 if let message = pendingSaveError {
                     pendingSaveError = nil
                     meshCapFollowUp = false
+                    pendingOrderRecord = nil // không mời đặt hàng một bản quét vừa lưu hụt
                     saveError = message
                 } else if meshCapFollowUp {
+                    // Mô hình chạm trần = bản quét THIẾU dữ liệu. Lời mời quét bù phải đi TRƯỚC
+                    // việc đưa sang trang đặt hàng, kể cả khi khách đã bấm "Đặt hàng ngay":
+                    // đặt một bản thiếu phòng là đơn phải làm lại. Hai nút của alert tự quyết
+                    // định số phận `pendingOrderRecord`.
                     meshCapFollowUp = false
                     showScanNextPart = true
+                } else {
+                    goToPendingOrder()
                 }
             }
             .alert(
@@ -151,9 +167,12 @@ struct HomeView: View {
                 isPresented: $showScanNextPart
             ) {
                 Button(L.t("Scan the rest now", "Quét phần còn lại ngay")) {
+                    pendingOrderRecord = nil // đổi ý: quét tiếp đã, đặt hàng sau
                     isMeshScanning = true
                 }
-                Button(L.t("Later", "Để sau"), role: .cancel) {}
+                Button(L.t("Scan later", "Quét sau"), role: .cancel) {
+                    goToPendingOrder()
+                }
             } message: {
                 Text(L.t(
                     "The 3D model hit its size limit before you finished — the saved part is safe. Scan the remaining area as another scan (name them \"Part 1\", \"Part 2\"…) and they can be merged later.",
@@ -190,34 +209,29 @@ struct HomeView: View {
             } message: {
                 Text(saveError ?? "")
             }
-            .fullScreenCover(isPresented: $isScanning) {
-                ScanFlowView { rooms, videoURL, meshURL, name, quality in
-                    do {
-                        _ = try await store.save(
-                            rooms: rooms, videoURL: videoURL, coloredMeshURL: meshURL,
-                            name: name, quality: quality
-                        )
-                        return true
-                    } catch {
-                        // Không hiện alert khi cover còn mở — sẽ bị nuốt lúc dismiss.
-                        pendingSaveError = error.localizedDescription
-                        return false
-                    }
-                }
-            }
-            .onChange(of: isScanning) { _, presented in
-                if !presented, let message = pendingSaveError {
-                    pendingSaveError = nil
-                    saveError = message
-                }
-            }
             .navigationDestination(for: ScanRecord.self) { record in
                 ScanDetailView(record: record)
             }
             .navigationDestination(for: ScanProject.self) { project in
-                ProjectView(projectId: project.id)
+                // Truyền `path` xuống: ProjectView nằm TRONG stack này (nó không có
+                // NavigationStack riêng) nên muốn đẩy trang bản quét bằng code thì phải dùng
+                // chính đường dẫn ở đây.
+                ProjectView(projectId: project.id, path: $path)
             }
         }
+    }
+
+    /// Đưa khách tới trang bản quét vừa lưu (nơi có nút đặt hàng) nếu họ đã bấm "Đặt hàng ngay"
+    /// ở màn preview. CHỈ gọi sau khi cover quét đã đóng hẳn.
+    ///
+    /// Đích là `ScanDetailView` chứ không phải mở thẳng form đặt hàng: mọi cửa kiểm trước khi đặt
+    /// (đăng nhập, xác minh email, cảnh báo chất lượng thấp) đều nằm ở đó, và bước đầu tiên của
+    /// việc đặt là TẢI LÊN 40–200MB — thứ không được tự chạy khi khách chưa bấm nút nào trên
+    /// mạng di động của họ.
+    private func goToPendingOrder() {
+        guard let record = pendingOrderRecord else { return }
+        pendingOrderRecord = nil
+        path.append(record)
     }
 
     private var renameAlertBinding: Binding<Bool> {
@@ -309,7 +323,18 @@ struct HomeView: View {
     // Cách làm gọn máy ĐÚNG (chủ app chốt 2026-07-19): giữ nguyên hiển thị cho tới khi đơn ĐÃ GIAO,
     // rồi TỰ XOÁ hẳn file — đơn giao được tự nó là bằng chứng dữ liệu đã an toàn trên R2.
 
+    /// RESET Ở LỐI VÀO, không chỉ ở lối ra — cùng giáo lý với `startAfterGuide` ở trên.
+    ///
+    /// Cả hai cờ này đều được "tiêu thụ" ở lối ra (onDismiss của sheet, onChange của cover). Nếu
+    /// có ĐÚNG MỘT lần lối ra không chạy — alert bị hệ thống tháo, view đổi identity — thì cờ kẹt
+    /// lại và lần quét SAU dùng nhầm giá trị cũ:
+    ///   • `pendingScanStart` kẹt true → bấm "Hủy" ở màn địa chỉ vẫn mở phiên quét, và nó chạy
+    ///     với `pendingProjectId` của lần trước → SAI ĐỊA CHỈ trên đơn gửi đội vẽ, không dấu hiệu.
+    ///   • `pendingOrderRecord` kẹt → bấm "Để sau" ở bản quét MỚI lại đẩy sang trang bản quét CŨ.
+    /// Đặt lại ở đây biến cả hai thành bất khả thi về cấu trúc thay vì phải tin lối ra luôn chạy.
     private func startScanning() {
+        pendingScanStart = false
+        pendingOrderRecord = nil
         showScanSetup = true
     }
 

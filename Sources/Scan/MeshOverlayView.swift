@@ -3,11 +3,11 @@ import SceneKit
 import ARKit
 import simd
 
-/// Lớp phủ LƯỚI LiDAR (wireframe) lên trên RoomCaptureView, canh theo camera AR theo thời
+/// Lớp phủ LƯỚI LiDAR (wireframe) lên trên hình camera AR, canh theo camera AR theo thời
 /// gian thực — để người quét biết bề mặt nào đã được quét (giống CubiCasa/Polycam).
 ///
 /// Chỉ ĐỌC arSession.currentFrame (không đổi cấu hình, không đụng phiên RoomPlan) nên an toàn
-/// với luồng quét. Nền trong suốt để thấy hình camera của RoomCaptureView bên dưới.
+/// với luồng quét. Nền trong suốt để thấy hình camera của ARSCNView bên dưới.
 ///
 /// Canh camera: đặt transform + ma trận chiếu của camera SceneKit đúng bằng của ARKit mỗi
 /// khung hình. App chỉ chạy dọc (portrait) nên dùng .portrait cho ma trận chiếu.
@@ -77,7 +77,7 @@ final class MeshOverlayView: SCNView {
         scene = SCNScene()
         backgroundColor = .clear
         isOpaque = false
-        isUserInteractionEnabled = false   // để chạm đi xuyên xuống RoomCaptureView
+        isUserInteractionEnabled = false   // để chạm đi xuyên xuống lớp camera bên dưới
         rendersContinuously = true
         antialiasingMode = .none            // giảm tải GPU khi chạy cùng RoomPlan
         cameraNode.camera = SCNCamera()
@@ -317,8 +317,8 @@ final class MeshOverlayView: SCNView {
     }
 }
 
-/// Cầu nối SwiftUI cho lớp phủ lưới. Gắn phía trên RoomCaptureView (ScanFlowView)
-/// hoặc ARSCNView camera (MeshScanFlowView) — chỉ cần ARSession dùng chung.
+/// Cầu nối SwiftUI cho lớp phủ lưới. Gắn phía trên ARSCNView camera của MeshScanFlowView —
+/// chỉ cần dùng chung ARSession.
 struct MeshOverlayRepresentable: UIViewRepresentable {
     let arSession: ARSession
     var maxVerts: Int = 150_000
