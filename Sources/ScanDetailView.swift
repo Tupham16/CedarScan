@@ -633,8 +633,11 @@ struct OrderSheet: View {
     @State private var catalog: CatalogResponse?
     @State private var loadError: String?
 
-    @State private var packageId = ""
+    /// Đa gói: khách chọn 2D / 3D / cả hai — giá cộng dồn (chủ app chốt 2026-07-21).
+    @State private var selectedPackages: Set<String> = []
     @State private var selectedAddons: Set<String> = []
+    /// Mẫu đã chọn cho addon có picker: addonId → templateId (color, siteplan).
+    @State private var selectedTemplates: [String: String] = [:]
     @State private var extraFloors: Set<UUID> = []
     @State private var unitSystem = "metric"
     @State private var language = "English"
@@ -733,7 +736,11 @@ struct OrderSheet: View {
 
     private var totalUSD: Int {
         guard let catalog else { return 0 }
-        var total = catalog.packages.first(where: { $0.id == packageId })?.price ?? 0
+        // Đa gói: cộng dồn giá mọi gói đã chọn (khớp computeQuote phía server).
+        var total = 0
+        for pkg in catalog.packages where selectedPackages.contains(pkg.id) {
+            total += pkg.price
+        }
         for addon in catalog.addons where selectedAddons.contains(addon.id) {
             total += addon.price
         }
@@ -807,21 +814,103 @@ struct OrderSheet: View {
         do {
             let result = try await APIClient.shared.catalog()
             catalog = result
-            // Điền mặc định: lựa chọn lần trước > gói default > gói đầu
+            // Điền mặc định gói: `packageIds` (app mới) > `packageId` (default cũ) > gói default > gói đầu.
             let d = result.defaults
-            if let saved = d?.packageId, result.packages.contains(where: { $0.id == saved }) {
-                packageId = saved
-            } else {
-                packageId = result.packages.first(where: { $0.isDefault })?.id
-                    ?? result.packages.first?.id ?? ""
+            let validPkgIds = Set(result.packages.map(\.id))
+            var pkgs = Set((d?.packageIds ?? []).filter { validPkgIds.contains($0) })
+            if pkgs.isEmpty, let saved = d?.packageId, validPkgIds.contains(saved) {
+                pkgs = [saved]
             }
+            if pkgs.isEmpty, let def = result.packages.first(where: { $0.isDefault })?.id ?? result.packages.first?.id {
+                pkgs = [def]
+            }
+            selectedPackages = pkgs
             let validAddonIds = Set(result.addons.map(\.id))
             selectedAddons = Set((d?.addonIds ?? []).filter { validAddonIds.contains($0) })
+            // Mẫu mặc định cho addon đã chọn sẵn + có picker: lấy mẫu lần trước nếu còn hợp lệ, không
+            // thì mẫu đầu. Addon chưa chọn thì để trống — tự chọn mẫu đầu khi khách bật (xem toggle).
+            var tpls: [String: String] = [:]
+            for addon in result.addons {
+                guard let templates = addon.templates, !templates.isEmpty,
+                      selectedAddons.contains(addon.id) else { continue }
+                let saved = d?.templates?[addon.id]
+                tpls[addon.id] = (saved != nil && templates.contains { $0.id == saved }) ? saved! : templates.first!.id
+            }
+            selectedTemplates = tpls
             if let u = d?.unitSystem, u == "imperial" || u == "metric" { unitSystem = u }
             if let lang = d?.language, !lang.isEmpty { language = lang }
             if let fn = d?.floorNaming { floorNaming = fn }
         } catch {
             loadError = error.localizedDescription
+        }
+    }
+
+    /// Toggle bật/tắt một add-on. Bật addon CÓ picker mẫu mà chưa có mẫu nào → tự chọn mẫu đầu để
+    /// luôn có một lựa chọn (server ghi "(no template chosen)" nếu để trống — tránh ca đó).
+    private func addonBinding(_ addon: CatalogAddon) -> Binding<Bool> {
+        Binding(
+            get: { selectedAddons.contains(addon.id) },
+            set: { on in
+                if on {
+                    selectedAddons.insert(addon.id)
+                    if selectedTemplates[addon.id] == nil, let firstTpl = addon.templates?.first?.id {
+                        selectedTemplates[addon.id] = firstTpl
+                    }
+                } else {
+                    selectedAddons.remove(addon.id)
+                    selectedTemplates.removeValue(forKey: addon.id)
+                }
+            }
+        )
+    }
+
+    /// List mẫu cuộn NGANG cho color/siteplan — bấm để chọn (viền xanh = đang chọn).
+    private func templatePicker(addonId: String, templates: [CatalogTemplate]) -> some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 10) {
+                ForEach(templates) { tpl in
+                    Button {
+                        selectedTemplates[addonId] = tpl.id
+                    } label: {
+                        VStack(spacing: 4) {
+                            templateThumb(tpl)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 8).strokeBorder(
+                                        selectedTemplates[addonId] == tpl.id ? Color.accentColor : Color.secondary.opacity(0.3),
+                                        lineWidth: selectedTemplates[addonId] == tpl.id ? 2.5 : 1
+                                    )
+                                )
+                            Text(tpl.name)
+                                .font(.caption2)
+                                .foregroundStyle(selectedTemplates[addonId] == tpl.id ? Color.accentColor : Color.secondary)
+                                .lineLimit(1)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.vertical, 4)
+        }
+    }
+
+    /// Ô ảnh mẫu 64pt. Có imageUrl → AsyncImage; chưa có (placeholder) → ô màu + icon.
+    @ViewBuilder
+    private func templateThumb(_ tpl: CatalogTemplate) -> some View {
+        if let s = tpl.imageUrl, !s.isEmpty, let url = URL(string: s) {
+            AsyncImage(url: url) { phase in
+                if let image = phase.image {
+                    image.resizable().scaledToFill()
+                } else {
+                    Color.secondary.opacity(0.12)
+                }
+            }
+            .frame(width: 64, height: 64)
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+        } else {
+            RoundedRectangle(cornerRadius: 8)
+                .fill(Color.secondary.opacity(0.12))
+                .frame(width: 64, height: 64)
+                .overlay(Image(systemName: "paintpalette").foregroundStyle(.secondary))
         }
     }
 
@@ -891,12 +980,18 @@ struct OrderSheet: View {
             }
 
             Section {
+                // ĐA GÓI: khách chọn 2D / 3D / cả hai — check nhiều được, giá cộng dồn (checkmark thay
+                // cho radio để báo hiệu chọn-nhiều). Ít nhất một gói (nút Đặt hàng khoá khi rỗng).
                 ForEach(catalog.packages) { pkg in
                     Button {
-                        packageId = pkg.id
+                        if selectedPackages.contains(pkg.id) {
+                            selectedPackages.remove(pkg.id)
+                        } else {
+                            selectedPackages.insert(pkg.id)
+                        }
                     } label: {
                         HStack {
-                            Image(systemName: packageId == pkg.id ? "largecircle.fill.circle" : "circle")
+                            Image(systemName: selectedPackages.contains(pkg.id) ? "checkmark.circle.fill" : "circle")
                                 .foregroundStyle(.tint)
                             Text(pkg.name)
                                 .foregroundStyle(.primary)
@@ -907,23 +1002,22 @@ struct OrderSheet: View {
                     }
                 }
             } header: {
-                Text(L.t("Package", "Gói dịch vụ"))
+                Text(L.t("Packages (choose one or more)", "Gói dịch vụ (chọn một hoặc nhiều)"))
             }
 
             Section {
                 ForEach(catalog.addons) { addon in
-                    Toggle(isOn: Binding(
-                        get: { selectedAddons.contains(addon.id) },
-                        set: { on in
-                            if on { selectedAddons.insert(addon.id) } else { selectedAddons.remove(addon.id) }
-                        }
-                    )) {
+                    Toggle(isOn: addonBinding(addon)) {
                         HStack {
                             Text(addon.name)
                             Spacer()
                             Text("+$\(addon.price)")
                                 .foregroundStyle(.secondary)
                         }
+                    }
+                    // Addon có picker mẫu (color/siteplan) + đang được chọn → hiện list mẫu cuộn ngang.
+                    if selectedAddons.contains(addon.id), let templates = addon.templates, !templates.isEmpty {
+                        templatePicker(addonId: addon.id, templates: templates)
                     }
                 }
             } header: {
@@ -1041,7 +1135,7 @@ struct OrderSheet: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .listRowInsets(EdgeInsets())
-                .disabled(isBusy || packageId.isEmpty)
+                .disabled(isBusy || selectedPackages.isEmpty)
             } footer: {
                 // Tách theo `isFreePromo`: câu "sẽ có link thanh toán" hiện VÔ ĐIỀU KIỆN sẽ mâu thuẫn
                 // với banner "Đơn này MIỄN PHÍ" + nút "MIỄN PHÍ 🎁" ngay trên (đơn free server không
@@ -1237,8 +1331,9 @@ struct OrderSheet: View {
                 let result = try await APIClient.shared.orderScan(
                     scanId: primaryCloudId,
                     extraScanIds: extraCloudIds,
-                    packageId: packageId,
+                    packageIds: Array(selectedPackages),
                     addonIds: Array(selectedAddons),
+                    templates: selectedTemplates,
                     notes: notes,
                     unitSystem: unitSystem,
                     language: language,

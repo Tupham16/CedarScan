@@ -62,10 +62,19 @@ struct CatalogPackage: Decodable, Identifiable {
     let isDefault: Bool
 }
 
+/// Mẫu cho addon có picker (color / siteplan). imageUrl có thể rỗng (placeholder) → app hiện ô màu + tên.
+struct CatalogTemplate: Decodable, Identifiable, Hashable {
+    let id: String
+    let name: String
+    let imageUrl: String?
+}
+
 struct CatalogAddon: Decodable, Identifiable {
     let id: String
     let name: String
     let price: Int
+    /// Chỉ addon có picker mẫu (color, siteplan) mới có. Server cũ / addon thường → nil.
+    let templates: [CatalogTemplate]?
 }
 
 struct CatalogSurcharge: Decodable {
@@ -74,8 +83,10 @@ struct CatalogSurcharge: Decodable {
 }
 
 struct OrderDefaults: Decodable {
-    let packageId: String?
+    let packageId: String? // app cũ: gói đơn. Giữ để tương thích ngược khi đọc default cũ.
+    let packageIds: [String]? // app mới: đa gói
     let addonIds: [String]?
+    let templates: [String: String]? // addonId → templateId đã chọn lần trước
     let unitSystem: String?
     let language: String?
     let floorNaming: String?
@@ -377,8 +388,9 @@ final class APIClient {
     func orderScan(
         scanId: String,
         extraScanIds: [String],
-        packageId: String,
+        packageIds: [String],
         addonIds: [String],
+        templates: [String: String],
         notes: String,
         unitSystem: String,
         language: String,
@@ -387,8 +399,9 @@ final class APIClient {
         coupon: String
     ) async throws -> OrderScanResponse {
         try await send("scans/\(scanId)/order", method: "POST", json: [
-            "packageId": packageId,
+            "packageIds": packageIds, // đa gói (server cũng nhận `packageId` đơn, nhưng app mới gửi mảng)
             "addons": addonIds,
+            "templates": templates, // addonId → templateId (color / siteplan)
             "extraScanIds": extraScanIds,
             "notes": notes,
             "unitSystem": unitSystem,
