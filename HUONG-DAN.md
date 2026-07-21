@@ -58,7 +58,7 @@ Bấm **"Bắt đầu quét"** rồi đi một vòng. Trong lúc quét:
   (Tắt/bật lưới bằng nút góc trên phải.)
 - App **nhắc bạn theo thời gian thực** bằng viền màn hình nhấp nháy + rung: *Đi chậm lại*,
   *Xoay chậm lại*, *Bật thêm đèn*, *Lùi ra xa một chút*, *Máy nóng — nghỉ chút cho nguội*,
-  *Đứng yên một chút*. Có thể bật thêm nhắc **bằng giọng nói** ở tab Tài khoản.
+  *Đứng yên một chút*. Có thể bật thêm nhắc **bằng giọng nói** ở tab Tài khoản (sau khi đăng nhập).
 - Xong thì bấm **"Dừng & Lưu"**, đặt tên bản quét, **rồi bấm Lưu** — chưa bấm Lưu là **máy vẫn
   đang quét tiếp**. Xong bước đó mới đặt máy xuống.
 - Nếu app hiện *"Chưa quét được mô hình 3D"* nghĩa là bạn mới thu được rất ít dữ liệu: chọn

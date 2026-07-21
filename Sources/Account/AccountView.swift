@@ -57,8 +57,8 @@ struct AccountView: View {
                             Text(L.t("Scan coaching", "Trợ giúp khi quét"))
                         } footer: {
                             Text(L.t(
-                                "Alerts while scanning when you move too fast, light is low, or you pass through a doorway.",
-                                "Cảnh báo trong lúc quét khi đi nhanh quá, thiếu sáng hoặc đi qua cửa."
+                                "Alerts while scanning when you move or turn too fast, light is low, you get too close, or the phone gets hot.",
+                                "Cảnh báo trong lúc quét khi đi/xoay nhanh quá, thiếu sáng, dí quá sát hoặc máy nóng."
                             ))
                         }
                         Section {

@@ -935,6 +935,13 @@ struct OrderSheet: View {
                 }
                 TextField(L.t("Language (e.g. English)", "Ngôn ngữ bản vẽ (vd English)"), text: $language)
                 TextField(L.t("Floor naming style (optional)", "Kiểu đặt tên tầng (không bắt buộc)"), text: $floorNaming)
+            } header: {
+                Text(L.t("Preferences (saved for next time)", "Tùy chọn (lưu cho lần sau)"))
+            }
+
+            // Ghi chú TÁCH khỏi mục "lưu cho lần sau": server chỉ lưu gói/add-on/đơn vị/ngôn ngữ/kiểu
+            // tên tầng làm mặc định (orderDefaults), KHÔNG lưu `notes` — để chung header cũ là hứa sai.
+            Section {
                 TextField(
                     L.t("Anything we should know? (optional)", "Ghi chú thêm (không bắt buộc)"),
                     text: $notes,
@@ -942,7 +949,7 @@ struct OrderSheet: View {
                 )
                 .lineLimit(3...6)
             } header: {
-                Text(L.t("Preferences (saved for next time)", "Tùy chọn (lưu cho lần sau)"))
+                Text(L.t("Note for this order", "Ghi chú cho đơn này"))
             }
 
             Section {
@@ -1017,10 +1024,20 @@ struct OrderSheet: View {
                 .listRowInsets(EdgeInsets())
                 .disabled(isBusy || packageId.isEmpty)
             } footer: {
-                Text(L.t(
-                    "You will get a secure payment link (Stripe/PayPal) after placing the order.",
-                    "Sau khi đặt sẽ có link thanh toán bảo mật (Stripe/PayPal)."
-                ))
+                // Tách theo `isFreePromo`: câu "sẽ có link thanh toán" hiện VÔ ĐIỀU KIỆN sẽ mâu thuẫn
+                // với banner "Đơn này MIỄN PHÍ" + nút "MIỄN PHÍ 🎁" ngay trên (đơn free server không
+                // gửi link nào). Đường free là mặc định (24/27 đơn prod) nên đây là ca chính.
+                if isFreePromo {
+                    Text(L.t(
+                        "Free order — no payment needed. Our team starts right after you place it.",
+                        "Đơn miễn phí — không cần thanh toán, đội ngũ bắt đầu ngay sau khi đặt."
+                    ))
+                } else {
+                    Text(L.t(
+                        "You will get a secure payment link (Stripe/PayPal) after placing the order.",
+                        "Sau khi đặt sẽ có link thanh toán bảo mật (Stripe/PayPal)."
+                    ))
+                }
             }
         }
     }
@@ -1054,10 +1071,13 @@ struct OrderSheet: View {
                     .font(.footnote)
                     .foregroundStyle(.orange)
             }
-            Text(L.t(
-                "Our team will start after payment is received. Track progress in the Orders tab.",
-                "Đội ngũ Cedar247 sẽ bắt đầu sau khi nhận thanh toán. Theo dõi tiến độ ở mục Đơn hàng."
-            ))
+            // Đơn miễn phí server set `paidAt` sẵn + vào thẳng hàng xử lý → KHÔNG có thanh toán nào để
+            // "chờ". In "bắt đầu sau khi nhận thanh toán" ngay dưới dòng "MIỄN PHÍ 🎁" là tự mâu thuẫn.
+            Text(order.free == true
+                ? L.t("Our team will start right away. Track progress in the Orders tab.",
+                      "Đội ngũ Cedar247 sẽ bắt đầu ngay. Theo dõi tiến độ ở mục Đơn hàng.")
+                : L.t("Our team will start after payment is received. Track progress in the Orders tab.",
+                      "Đội ngũ Cedar247 sẽ bắt đầu sau khi nhận thanh toán. Theo dõi tiến độ ở mục Đơn hàng."))
             .font(.footnote)
             .foregroundStyle(.secondary)
             .multilineTextAlignment(.center)

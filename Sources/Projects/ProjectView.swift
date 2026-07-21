@@ -108,8 +108,8 @@ struct ProjectView: View {
                         }
                     } footer: {
                         Text(L.t(
-                            "Name each scan by floor (Floor 1, Floor 2, Shed…) so we can assemble the home correctly.",
-                            "Đặt tên từng bản quét theo tầng (Floor 1, Floor 2, Shed…) để đội xử lý ghép nhà chính xác."
+                            "Give each scan a clear name (Whole home, Part 1, Shed…) so we can assemble the home correctly.",
+                            "Đặt tên rõ cho từng bản quét (Cả căn, Part 1, Nhà kho…) để đội xử lý ghép nhà chính xác."
                         ))
                     }
                 }
@@ -371,8 +371,8 @@ struct ProjectView: View {
             Text(L.t("No scans in this property yet", "Dự án chưa có bản quét nào"))
                 .font(.headline)
             Text(L.t(
-                "Scan each floor of this home (name them Floor 1, Floor 2…), or long-press an existing scan in the main list to move it here.",
-                "Quét từng tầng của căn nhà (đặt tên Floor 1, Floor 2…), hoặc nhấn giữ bản quét có sẵn ở danh sách chính để chuyển vào đây."
+                "Scan the whole home in one continuous pass — multiple floors are fine. If it's very large, split it into several scans (Part 1, Part 2…). Or long-press an existing scan in the main list to move it here.",
+                "Quét liền một mạch cả căn nhà là tốt nhất (kể cả nhiều tầng). Nhà quá lớn thì chia thành nhiều bản quét (Part 1, Part 2…). Hoặc nhấn giữ bản quét có sẵn ở danh sách chính để chuyển vào đây."
             ))
             .font(.subheadline)
             .foregroundStyle(.secondary)

@@ -211,8 +211,8 @@ struct HomeView: View {
                 Button(L.t("Cancel", "Hủy"), role: .cancel) {}
             } message: {
                 Text(L.t(
-                    "A property groups the scans of one home (Floor 1, Floor 2, Shed…) so you can order them together.",
-                    "Một dự án gom các bản quét của cùng căn nhà (Floor 1, Floor 2, Shed…) để đặt hàng chung."
+                    "A property groups the scans of one home (Whole home, Part 1, Shed…) so you can order them together.",
+                    "Một dự án gom các bản quét của cùng căn nhà (Cả căn, Part 1, Nhà kho…) để đặt hàng chung."
                 ))
             }
             .alert(L.t("Rename scan", "Đổi tên bản quét"), isPresented: renameAlertBinding) {
