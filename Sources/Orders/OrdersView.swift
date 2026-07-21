@@ -4,6 +4,9 @@ import SwiftUI
 struct OrdersView: View {
     @EnvironmentObject private var account: AccountStore
     @State private var orders: [OrderDTO] = []
+    /// Danh tính khách mà `orders` hiện thuộc về — để chỉ XOÁ cache khi tài khoản đổi THẬT, không
+    /// xoá trên mỗi lần `.task` chạy lại (tránh chớp trắng + giữ được banner "dữ liệu cũ" của [17]).
+    @State private var loadedCustomerId: String?
     @State private var isLoading = false
     @State private var errorMessage: String?
     @State private var revisionOrder: OrderDTO?
@@ -21,7 +24,23 @@ struct OrdersView: View {
                 }
             }
             .navigationTitle(L.t("Orders", "Đơn hàng"))
-            .task(id: account.isSignedIn) {
+            // Khoá theo DANH TÍNH khách chứ không chỉ theo cờ `isSignedIn`: một máy có thể dùng
+            // >1 tài khoản (A đăng xuất → B đăng nhập). Với `id: isSignedIn` thì cache `orders`
+            // của A đứng nguyên suốt lúc B chờ mạng — B thấy đơn, tên bản quét, và bấm được
+            // "Thanh toán ngay" trỏ vào link chưa-trả của A.
+            //
+            // XOÁ cache CHỈ khi danh tính đổi thật (so `loadedCustomerId`), KHÔNG xoá vô điều kiện
+            // mỗi lần task chạy: nếu TabView cho `.task` chạy lại lúc quay về tab (hành vi tuỳ phiên
+            // bản SwiftUI), `orders = []` vô điều kiện sẽ chớp trắng danh sách VÀ phá luôn banner
+            // "đang xem dữ liệu cũ" của [17] khi refresh lỗi. `.task(id:)` luôn chạy lại khi id đổi
+            // (A→B, đăng xuất→nil) nên nhánh này vẫn bắt được đổi tài khoản.
+            .task(id: account.customer?.id) {
+                let currentId = account.customer?.id
+                if loadedCustomerId != currentId {
+                    orders = []
+                    errorMessage = nil
+                    loadedCustomerId = currentId
+                }
                 if account.isSignedIn { await load() }
             }
             .refreshable {
@@ -98,7 +117,27 @@ struct OrdersView: View {
     }
 
     private var ordersList: some View {
-        List(orders) { order in
+        List {
+            // Đã có đơn rồi thì `emptyState` (nơi DUY NHẤT render `errorMessage` trước đây) không
+            // bao giờ hiện nữa, nên mọi lần refresh lỗi (mất sóng, pull-to-refresh ở công trường)
+            // đều im lặng: danh sách CŨ đứng như dữ liệu mới. Banner này báo "đang xem dữ liệu cũ"
+            // + cho đường Thử lại chủ động, thay vì để khách tin trạng thái/link thanh toán lỗi thời.
+            if let errorMessage {
+                Section {
+                    HStack(spacing: 8) {
+                        Image(systemName: "wifi.exclamationmark")
+                            .foregroundStyle(.orange)
+                        Text(L.t("Couldn't refresh — showing saved data.",
+                                 "Không tải được dữ liệu mới — đang hiện dữ liệu cũ."))
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Button(L.t("Retry", "Thử lại")) { Task { await load() } }
+                            .font(.footnote.weight(.semibold))
+                    }
+                }
+            }
+            ForEach(orders) { order in
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     Text(order.scanName ?? order.orderNumber)
@@ -190,6 +229,7 @@ struct OrdersView: View {
                 }
             }
             .padding(.vertical, 4)
+            }
         }
     }
 

@@ -97,18 +97,25 @@ struct ScanDetailView: View {
         // thêm file. Bản cũ nào từng dựng được GLB/zip thì file vẫn nằm đó và vẫn hiện trong
         // menu chia sẻ; bản chưa có thì còn USDZ + ảnh mặt bằng để chia sẻ.
         .task {
+            // ⚠ `.task` (không id) KHÔNG phải "chạy một lần theo identity" — SwiftUI huỷ nó ở
+            // onDisappear và CHẠY LẠI mỗi lần view appear lại (chuyển sang tab Đơn hàng rồi quay về).
+            // Nên mọi việc TỐN KÉM hoặc PHÁ TRẠNG THÁI phải có guard idempotent: không thì `player`
+            // dựng mới = video nhảy về giây 0 giữa lúc khách đang xem, và `prepareNamedZip()` copy
+            // lại bản zip 40–200MB mỗi lượt quay lại. Các dòng `fileExists` bên dưới rẻ + idempotent
+            // nên để nguyên.
+            //
             // Dựng player trước mọi nhánh vì bản quét video-only cũng cần, nhưng CHỈ cho hai loại
             // thật sự có khu video: bản quét cũ đời RoomPlan đi vào `legacyTab` (3D + mặt bằng),
             // không có chỗ nào phát video nên cấp phát AVPlayer ở đó là thừa.
             // KHÔNG tự phát — màn này là nơi xem lại theo ý khách, khác màn preview sau khi quét.
-            if current.isMeshOnly || current.isVideoOnly,
+            if player == nil, current.isMeshOnly || current.isVideoOnly,
                FileManager.default.fileExists(atPath: videoURL.path) {
                 player = AVPlayer(url: videoURL)
             }
             guard !current.isVideoOnly else { return }
             coloredGLBExists = FileManager.default.fileExists(atPath: coloredGLBURL.path)
             coloredZipExists = FileManager.default.fileExists(atPath: coloredZipURL.path)
-            if coloredZipExists {
+            if coloredZipExists, meshShareURL == nil {
                 meshShareURL = prepareNamedZip()
             }
             guard !current.isMeshOnly else { return }
@@ -116,7 +123,9 @@ struct ScanDetailView: View {
             // Gọi thẳng trên main, KHÔNG cần Task.detached: `UIImage(contentsOfFile:)` chỉ đọc
             // header rồi giải mã LƯỜI lúc vẽ (UIKit tự làm việc đó ngoài main), nên nó rẻ.
             // Đẩy sang detached chỉ đổi lấy một câu hỏi Sendable về UIImage mà không được gì.
-            legacyPlanImage = UIImage(contentsOfFile: planURL.path)
+            if legacyPlanImage == nil {
+                legacyPlanImage = UIImage(contentsOfFile: planURL.path)
+            }
         }
         .sheet(item: $planImageURL) { url in
             ShareSheet(items: [url])
@@ -637,6 +646,10 @@ struct OrderSheet: View {
     @State private var busyLabel: String?
     @State private var errorMessage: String?
     @State private var placedOrder: OrderScanResponse?
+    /// Task của `submit()` — giữ vào @State để HỦY được (nút Hủy / onDisappear). Trước đây là
+    /// `Task {}` vô danh không ai cancel: bấm Hủy giữa lúc tải lên chỉ đóng sheet, Task chạy tiếp
+    /// và vẫn tạo đơn ngầm. Xem `submit()` + nút Hủy + `.onDisappear`.
+    @State private var submitTask: Task<Void, Never>?
     @State private var showTourPhotos = false // mở màn thêm ảnh Virtual Tour ngay sau khi đặt
 
     /// Các bản quét khác (tầng khác của CÙNG căn nhà) có thể gộp vào đơn này.
@@ -756,6 +769,11 @@ struct OrderSheet: View {
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button(placedOrder == nil ? L.t("Cancel", "Hủy") : L.t("Close", "Đóng")) {
+                        // Đang đặt mà bấm Hủy = HỦY THẬT: cancel Task rồi mới dismiss. Chỉ dismiss
+                        // (hành vi cũ) thì Task chạy tiếp, upload xong + orderScan vẫn tạo đơn →
+                        // khách tưởng đã hủy mà vẫn mất suất free/tiền. Checkpoint trước orderScan
+                        // trong submit() đảm bảo đơn KHÔNG tạo nếu hủy trong lúc tải lên.
+                        submitTask?.cancel()
                         dismiss()
                     }
                 }
@@ -764,6 +782,12 @@ struct OrderSheet: View {
                 await loadCatalog()
             }
         }
+        // Chặn VUỐT-đóng khi đang đặt: vuốt xuống là cử chỉ VÔ Ý, đường dễ nhất để "hủy hụt" (sheet
+        // đóng mà đơn vẫn tạo ngầm). Muốn thoát thì bấm nút "Hủy" tường minh — nút đó cancel Task hẳn.
+        .interactiveDismissDisabled(isBusy)
+        // Lưới an toàn: sheet bị tháo bằng ĐƯỜNG KHÁC (màn cha dismiss vì bản quét bị dọn-sau-giao,
+        // scene bị thu hồi…) cũng phải hủy Task, không thì đơn vẫn tạo ngầm sau khi sheet biến mất.
+        .onDisappear { submitTask?.cancel() }
     }
 
     private func loadCatalog() async {
@@ -1093,7 +1117,7 @@ struct OrderSheet: View {
         isBusy = true
         errorMessage = nil
         let extras = otherScans.filter { extraFloors.contains($0.id) }
-        Task {
+        submitTask = Task {
             // Tải lên mọi bản quét CHƯA có trên server (kể cả bản chính — khi đặt từ trang dự án)
             @MainActor
             func ensureUploaded(_ scan: ScanRecord) async -> String? {
@@ -1136,6 +1160,34 @@ struct OrderSheet: View {
                     return
                 }
                 extraCloudIds.append(cloudId)
+            }
+
+            // [20] Làm tươi suất miễn phí NGAY TRƯỚC khi đặt. Nút vừa bấm chốt `isFreePromo` theo
+            // catalog tải lúc MỞ sheet, mà giữa đó là cả quãng điền form + upload 40–200MB × số tầng
+            // (hàng chục phút). Suất free (MIN của tài khoản VÀ thiết bị) có thể đã bị tiêu bởi đơn
+            // khác, tài khoản khác cùng máy, hoặc admin hạ hạn mức → server thu tiền trong khi nút
+            // ghi "MIỄN PHÍ 🎁". Đây là kênh còn sót của đúng lớp lỗi đã vá ở 958b118 (deviceId).
+            // catalog() là GET (không tiêu suất) và đã gửi deviceId nên phản ánh đúng hạn mức thiết bị.
+            if isFreePromo, let fresh = try? await APIClient.shared.catalog() {
+                catalog = fresh
+                if (fresh.freeOrdersRemaining ?? 0) == 0 {
+                    errorMessage = L.t(
+                        "Your free-order slots were just used up. Please review the price and tap Place order again.",
+                        "Suất miễn phí vừa hết. Vui lòng xem lại giá rồi bấm Đặt hàng lại."
+                    )
+                    isBusy = false
+                    busyLabel = nil
+                    return
+                }
+            }
+
+            // [3] Checkpoint HỦY — mấu chốt tiền: sau các await tải lên (nơi khách bấm Hủy / vuốt
+            // đóng), nếu Task đã bị cancel thì DỪNG TRƯỚC orderScan. Upload dở bỏ đi không mất gì
+            // (server chưa có đơn); nhưng một khi orderScan chạy là đơn đã tạo, tốn suất free/tiền.
+            if Task.isCancelled {
+                isBusy = false
+                busyLabel = nil
+                return
             }
 
             busyLabel = L.t("Placing order…", "Đang đặt hàng…")

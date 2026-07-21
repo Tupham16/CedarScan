@@ -18,6 +18,11 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
     @Published private(set) var isInterrupted = false
     /// Tracking không hồi phục được sau gián đoạn / phiên lỗi → khuyên "Dừng & Lưu ngay".
     @Published private(set) var trackingLost = false
+    /// Người dùng TỪ CHỐI quyền camera (lần quét đầu bấm "Don't Allow"). Phải tách RIÊNG khỏi
+    /// `trackingLost`: nếu dồn chung, UI hiện banner đỏ "Mất định vị — hãy Dừng & Lưu" trên nền
+    /// camera ĐEN (sai hẳn bản chất), khách bấm Dừng & Lưu ra 0 vertex → "Lỗi khi lưu" → quét lại
+    /// y hệt, KHÔNG câu nào nhắc Settings. Cờ này để MeshScanFlowView mở alert riêng có nút Cài đặt.
+    @Published private(set) var cameraDenied = false
 
     let arSession = ARSession()
     let qualityMonitor: ScanQualityMonitor
@@ -221,6 +226,12 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
 
     func session(_ session: ARSession, didFailWithError error: Error) {
         guard !isStopped else { return }
+        // Quyền camera bị từ chối là một trạng thái RIÊNG, không phải "mất định vị": nó không tự
+        // hồi phục và cách xử lý (mở Cài đặt) khác hẳn. Tách ra để UI hiện đúng thông điệp.
+        if (error as? ARError)?.code == .cameraUnauthorized {
+            cameraDenied = true
+            return
+        }
         if !trackingLost {
             trackingLost = true
             UINotificationFeedbackGenerator().notificationOccurred(.error)

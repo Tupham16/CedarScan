@@ -202,6 +202,22 @@ final class ScanStore: ObservableObject {
         let folder = folderURL(for: record)
         try fileManager.createDirectory(at: folder, withIntermediateDirectories: true)
 
+        // Ghi meta.json NGAY SAU khi tạo thư mục, TRƯỚC khi move file tạm / nén zip (bước nén mất
+        // hàng chục giây tới vài phút với nhà nguyên căn). Nếu app bị kill giữa lúc nén, thư mục
+        // này vẫn ĐỌC LẠI được ở `reload()` → bản quét hiện trên danh sách (thiếu mesh, uploader
+        // từ chối CÓ báo, khách xoá/chia sẻ được) thay vì thành thư mục rác VÔ HÌNH vĩnh viễn mà
+        // không UI nào chạm tới (ScanRow là lối vào duy nhất tới swipe-xoá). `record` là `let` cố
+        // định từ đầu tới cuối hàm nên ghi sớm cho ra ĐÚNG bytes như ghi muộn.
+        // writeMeta throw (đĩa đầy — rất thật với file trăm MB) lúc này thì thư mục còn RỖNG, chưa
+        // tiêu thụ file tạm nào → dọn thư mục rồi rethrow để khách thấy lỗi mà video/mesh tạm vẫn
+        // nguyên (còn cơ hội cứu ở lần sau), thay vì đã move file đi rồi mới báo "Lỗi khi lưu".
+        do {
+            try writeMeta(record)
+        } catch {
+            try? fileManager.removeItem(at: folder)
+            throw error
+        }
+
         // 1. Video walkthrough (nếu quay được)
         if hasVideo, let videoURL {
             try? fileManager.moveItem(
@@ -259,7 +275,8 @@ final class ScanStore: ObservableObject {
             }
         }
 
-        try writeMeta(record)
+        // meta.json đã được ghi ngay sau `createDirectory` (xem trên), và `record` là `let` không
+        // đổi suốt hàm nên không cần ghi lại — tới đây chỉ còn đưa bản ghi vào danh sách trong bộ nhớ.
         records.insert(record, at: 0)
         return record
     }

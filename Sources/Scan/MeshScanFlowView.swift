@@ -1,5 +1,6 @@
 import SwiftUI
 import ARKit
+import AVFoundation // AVCaptureDevice.authorizationStatus — kiểm quyền camera trước khi vào phiên quét
 
 /// Kết quả một lần quét Mesh 3D — gói lại cho gọn chữ ký onFinish.
 struct MeshScanResult {
@@ -44,6 +45,8 @@ struct MeshScanFlowView: View {
     @State private var showNaming = false
     @State private var showEmptyMeshConfirm = false
     @State private var showUnsupported = false
+    /// Quyền camera bị từ chối → alert riêng có nút mở Cài đặt (xem `.onAppear` + `.onChange`).
+    @State private var showCameraDenied = false
     @State private var isSaving = false
     @State private var scanName = ""
     /// Khác nil = đã lưu xong, đang hiện màn preview. Phiên quét lúc này đã kết thúc hoàn toàn
@@ -105,7 +108,13 @@ struct MeshScanFlowView: View {
             // onOrderNow — mất im lặng ý định đặt hàng) hoặc trúng "Dừng & Lưu" (bật
             // `namingOverlay`, mà overlay đó khai TRƯỚC preview trong ZStack nên nằm DƯỚI: vô
             // hình, vẫn focus được, không lối ra — app trông như treo).
-            if savedRecord == nil {
+            //
+            // Cũng phải gác `!showNaming && !isSaving`: cùng một cái bẫy #10 ở lớp đặt tên/đang lưu.
+            // namingOverlay/savingOverlay là nền đục đè LÊN topBar+bottomControls, nhưng VoiceOver
+            // vẫn focus xuyên qua tới nút "Hủy" vô hình → `controller.cancel()` khi chưa `isStopped`
+            // là VỨT recorder + mesh, KHÔNG hộp xác nhận, mất trắng buổi quét 10–30 phút. Lúc đặt
+            // tên đã có nút "Quay lại" riêng trong overlay nên ẩn thanh dưới không mất lối ra.
+            if savedRecord == nil && !showNaming && !isSaving {
                 VStack {
                     topBar
                     Spacer()
@@ -129,11 +138,24 @@ struct MeshScanFlowView: View {
             // dự án bị xoá → ProjectView (view SỞ HỮU cover này) tự dismiss → cover bị tháo theo
             // → phiên quét chết giữa chừng, onFinish KHÔNG BAO GIỜ chạy, mất trắng 10–30 phút.
             store.beginBusy()
-            if controller.isSupported {
-                controller.startSession()
-            } else {
+            guard controller.isSupported else {
                 showUnsupported = true
+                return
             }
+            // Quyền camera: nếu ĐÃ bị từ chối từ trước, ARSession chỉ cho ra nền đen rồi báo
+            // `cameraUnauthorized` — chặn sớm bằng alert có nút Cài đặt thay vì để khách rơi vào
+            // phiên quét chết (0 vertex → "Lỗi khi lưu" → lặp). `.notDetermined` thì cứ startSession:
+            // iOS tự hỏi quyền, khách từ chối thì `controller.cameraDenied` bật qua didFailWithError
+            // và `.onChange` bên dưới mở đúng alert này.
+            switch AVCaptureDevice.authorizationStatus(for: .video) {
+            case .denied, .restricted:
+                showCameraDenied = true
+            default:
+                controller.startSession()
+            }
+        }
+        .onChange(of: controller.cameraDenied) { _, denied in
+            if denied { showCameraDenied = true }
         }
         // Lưới an toàn: cover bị gỡ bằng đường nào đi nữa cũng không được để idle timer
         // kẹt tắt + CADisplayLink giữ builder/recorder sống mãi. cancel() idempotent
@@ -151,6 +173,23 @@ struct MeshScanFlowView: View {
             Text(L.t(
                 "3D mesh scanning needs a LiDAR sensor (iPhone Pro).",
                 "Quét mesh 3D cần cảm biến LiDAR (iPhone Pro)."
+            ))
+        }
+        .alert(
+            L.t("Camera access needed", "Cần quyền Camera"),
+            isPresented: $showCameraDenied
+        ) {
+            Button(L.t("Open Settings", "Mở Cài đặt")) {
+                if let url = URL(string: UIApplication.openSettingsURLString) {
+                    UIApplication.shared.open(url)
+                }
+                dismiss()
+            }
+            Button(L.t("Cancel", "Hủy"), role: .cancel) { dismiss() }
+        } message: {
+            Text(L.t(
+                "CedarScan needs camera access to scan in 3D. Turn it on in Settings.",
+                "CedarScan cần quyền Camera để quét 3D. Hãy bật trong phần Cài đặt."
             ))
         }
         .confirmationDialog(

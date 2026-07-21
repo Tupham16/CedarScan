@@ -100,16 +100,24 @@ struct TourPhotosView: View {
     private func load() async {
         do {
             var result = try await APIClient.shared.orderTour(orderId: orderId)
-            // Lần đầu mở màn: dọn ảnh "pending" mồ côi (upload dở bị ngắt) để không chiếm slot 3 ảnh/phòng.
-            // Chỉ làm khi tour == nil (chưa có upload nào đang chạy từ màn này).
-            if tour == nil, let stale = result.photos?.filter({ $0.status == "pending" }), !stale.isEmpty {
+            // Dọn ảnh "pending" mồ côi (upload dở bị ngắt) để không chiếm slot 3 ảnh/phòng — server
+            // ĐẾM CẢ pending vào giới hạn. Guard `uploadingRooms.isEmpty` chứ KHÔNG phải `tour == nil`:
+            // trước đây chỉ dọn ở LẦN LOAD ĐẦU, nên khách up 3 ảnh cùng phòng bị đứt mạng (3 pending)
+            // rồi thử lại trong CÙNG phiên thì bị chặn "3 ảnh/phòng" trong khi màn hiện 0/3, bấm mãi
+            // không thoát. `uploadingRooms.isEmpty` chỉ chặn dọn đúng lúc đang có upload chạy (khi đó
+            // pending là hợp lệ, tạm thời) — mọi load rảnh khác đều dọn được rác của lần đứt trước.
+            if uploadingRooms.isEmpty,
+               let stale = result.photos?.filter({ $0.status == "pending" }), !stale.isEmpty {
                 for photo in stale {
                     _ = try? await APIClient.shared.deleteTourPhoto(orderId: orderId, photoId: photo.id)
                 }
                 result = try await APIClient.shared.orderTour(orderId: orderId)
             }
             tour = result
-            errorMessage = nil
+            // ⚠ KHÔNG `errorMessage = nil` ở đây. `load()` được gọi ở CUỐI `uploadPhotos` (và từ
+            // `deletePhoto`), nên xoá cờ lỗi tại đường-thành-công của load sẽ NUỐT lỗi upload vừa
+            // set trong cùng Task — khách up 3 ảnh, 1 ảnh fail, lỗi biến mất trước một nhịp render,
+            // phòng hiện 2/3 mà không một chữ báo. Việc dọn lỗi cũ đã nằm ở ĐẦU `uploadPhotos`.
         } catch {
             loadError = error.localizedDescription
         }
@@ -203,6 +211,17 @@ struct TourPhotosView: View {
         Task {
             defer { uploadingRooms.remove(room) }
             for item in items {
+                // `createdPhotoId` giữ id slot đã tạo trên server để, nếu tạo-slot-rồi-PUT fail, xoá
+                // ngay slot đó trong `catch`. Không có nó thì slot "pending" nằm lại chiếm 1 trong 3
+                // ô/phòng (server đếm cả pending), còn màn hình chỉ vẽ ảnh "ready" nên hiện thiếu —
+                // khách không hiểu vì sao thêm ảnh lại báo "đủ 3 rồi".
+                //
+                // ⚠ Đặt = nil NGAY SAU khi PUT xong, TRƯỚC `completeTourPhoto`: một khi bytes đã lên
+                // R2, nếu complete MẤT ACK (timeout) mà server đã đánh dấu "ready" thì xoá đi là MẤT
+                // ảnh khách tưởng đã lên. Slot "pending" do complete hỏng thật sẽ được dọn ở lần load
+                // rảnh sau (guard `uploadingRooms.isEmpty` trong `load()`). Đổi lấy: không bao giờ
+                // xoá nhầm ảnh đã có bytes.
+                var createdPhotoId: String?
                 do {
                     guard let raw = try await item.loadTransferable(type: Data.self),
                           let jpeg = TourPhotoResizer.jpegData(from: raw) else {
@@ -212,10 +231,15 @@ struct TourPhotosView: View {
                     let slot = try await APIClient.shared.createTourPhoto(
                         orderId: orderId, roomLabel: room, scanId: currentScanId
                     )
+                    createdPhotoId = slot.photoId
                     try await APIClient.shared.uploadData(jpeg, to: slot.putUrl, contentType: slot.contentType)
+                    createdPhotoId = nil
                     _ = try await APIClient.shared.completeTourPhoto(orderId: orderId, photoId: slot.photoId)
                 } catch {
                     errorMessage = error.localizedDescription
+                    if let orphan = createdPhotoId {
+                        _ = try? await APIClient.shared.deleteTourPhoto(orderId: orderId, photoId: orphan)
+                    }
                 }
             }
             await load()
@@ -223,6 +247,10 @@ struct TourPhotosView: View {
     }
 
     private func deletePhoto(_ photo: TourPhotoDTO) {
+        // Dọn lỗi cũ ở ĐẦU thao tác mới (giống `uploadPhotos`) — vì `load()` cố ý KHÔNG còn xoá
+        // `errorMessage` (tránh nuốt lỗi upload), nên nếu không xoá ở đây thì một lỗi upload/xoá cũ
+        // sẽ kẹt trên màn kể cả sau khi xoá ảnh thành công.
+        errorMessage = nil
         Task {
             do {
                 _ = try await APIClient.shared.deleteTourPhoto(orderId: orderId, photoId: photo.id)
