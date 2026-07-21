@@ -1,5 +1,6 @@
 import SwiftUI
 import AVKit
+import UniformTypeIdentifiers // UTType — suy ra MIME + giới hạn loại file cho .fileImporter
 // UIKit tường minh cho `UIImage`. SwiftUI/AVKit vẫn kéo UIKit vào (`UIApplication` ở
 // MeshScanFlowView chỉ với SwiftUI+ARKit là tiền lệ đang build xanh), nhưng file này vừa mất
 // `import RoomPlan` — dựa vào một import gián tiếp mà mình không kiểm soát là thứ chỉ phát hiện
@@ -622,6 +623,13 @@ struct ScanDetailView: View {
 
 // MARK: - Form đặt hàng (kiểu CubiCasa: gói + add-on + giá, lưu mặc định cho lần sau)
 
+/// Một file khách tự đính kèm đơn (logo / file thêm) đã upload xong. `id` = fileId server cấp.
+struct OrderFileItem: Identifiable {
+    let id: String   // fileId
+    let name: String
+    let url: String  // publicUrl trên R2
+}
+
 struct OrderSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
@@ -638,6 +646,11 @@ struct OrderSheet: View {
     @State private var selectedAddons: Set<String> = []
     /// Mẫu đã chọn cho addon có picker: addonId → templateId (color, siteplan).
     @State private var selectedTemplates: [String: String] = [:]
+    /// File khách tự đính kèm (logo / file thêm) — đã upload xong, chờ gửi kèm đơn.
+    @State private var orderFiles: [OrderFileItem] = []
+    @State private var showFileImporter = false
+    @State private var uploadingFile = false
+    @State private var fileUploadError: String?
     @State private var extraFloors: Set<UUID> = []
     @State private var unitSystem = "metric"
     @State private var language = "English"
@@ -964,6 +977,39 @@ struct OrderSheet: View {
         }
     }
 
+    private func handleFilePick(_ result: Result<[URL], Error>) {
+        guard case .success(let urls) = result, let url = urls.first else { return }
+        Task { await uploadOrderFile(url) }
+    }
+
+    /// Upload 1 file khách chọn lên R2 qua presigned URL, rồi thêm vào `orderFiles` để gửi kèm đơn.
+    private func uploadOrderFile(_ url: URL) async {
+        uploadingFile = true
+        fileUploadError = nil
+        // File từ .fileImporter nằm ngoài sandbox → phải xin quyền truy cập (và nhả sau).
+        let scoped = url.startAccessingSecurityScopedResource()
+        defer {
+            if scoped { url.stopAccessingSecurityScopedResource() }
+            uploadingFile = false
+        }
+        let name = url.lastPathComponent
+        let contentType = Self.mimeType(for: url)
+        do {
+            let slot = try await APIClient.shared.presignOrderFile(fileName: name, contentType: contentType)
+            try await APIClient.shared.uploadFile(at: url, to: slot.putUrl, contentType: slot.contentType) { _ in }
+            orderFiles.append(OrderFileItem(id: slot.fileId, name: slot.name, url: slot.publicUrl))
+        } catch {
+            fileUploadError = error.localizedDescription
+        }
+    }
+
+    private static func mimeType(for url: URL) -> String {
+        if let type = UTType(filenameExtension: url.pathExtension), let mime = type.preferredMIMEType {
+            return mime
+        }
+        return "application/octet-stream"
+    }
+
     @ViewBuilder
     private func orderForm(_ catalog: CatalogResponse) -> some View {
         Form {
@@ -1121,6 +1167,51 @@ struct OrderSheet: View {
             }
 
             Section {
+                ForEach(orderFiles) { file in
+                    HStack {
+                        Image(systemName: "doc.fill").foregroundStyle(.secondary)
+                        Text(file.name).lineLimit(1)
+                        Spacer()
+                        Button {
+                            orderFiles.removeAll { $0.id == file.id }
+                        } label: {
+                            Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                Button {
+                    fileUploadError = nil
+                    showFileImporter = true
+                } label: {
+                    if uploadingFile {
+                        HStack(spacing: 8) {
+                            ProgressView()
+                            Text(L.t("Uploading…", "Đang tải lên…")).foregroundStyle(.secondary)
+                        }
+                    } else {
+                        Label(L.t("Add a file (logo, PDF…)", "Thêm file (logo, PDF…)"), systemImage: "paperclip")
+                    }
+                }
+                .disabled(uploadingFile)
+                .fileImporter(
+                    isPresented: $showFileImporter,
+                    allowedContentTypes: [.image, .pdf],
+                    allowsMultipleSelection: false
+                ) { result in
+                    handleFilePick(result)
+                }
+                if let fileUploadError {
+                    Text(fileUploadError).font(.footnote).foregroundStyle(.red)
+                }
+            } header: {
+                Text(L.t("Attachments (optional)", "Đính kèm file (không bắt buộc)"))
+            } footer: {
+                Text(L.t("Add a logo or any extra files for our team — images or PDF.",
+                         "Gửi thêm logo hoặc file cho đội vẽ nếu cần — ảnh hoặc PDF."))
+            }
+
+            Section {
                 TextField(L.t("Coupon code (optional)", "Mã giảm giá (không bắt buộc)"), text: $couponCode)
                     .textInputAutocapitalization(.characters)
                     .autocorrectionDisabled()
@@ -1190,7 +1281,7 @@ struct OrderSheet: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .listRowInsets(EdgeInsets())
-                .disabled(isBusy || selectedPackages.isEmpty)
+                .disabled(isBusy || selectedPackages.isEmpty || uploadingFile)
             } footer: {
                 // Tách theo `isFreePromo`: câu "sẽ có link thanh toán" hiện VÔ ĐIỀU KIỆN sẽ mâu thuẫn
                 // với banner "Đơn này MIỄN PHÍ" + nút "MIỄN PHÍ 🎁" ngay trên (đơn free server không
@@ -1389,6 +1480,7 @@ struct OrderSheet: View {
                     packageIds: Array(selectedPackages),
                     addonIds: Array(selectedAddons),
                     templates: selectedTemplates,
+                    orderFiles: orderFiles.map { ["name": $0.name, "url": $0.url] },
                     notes: notes,
                     unitSystem: unitSystem,
                     language: language,

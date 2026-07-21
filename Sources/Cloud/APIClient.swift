@@ -35,6 +35,16 @@ struct CreateScanResponse: Decodable {
     let uploads: [UploadSlot]
 }
 
+/// Slot upload 1 file đính kèm đơn (logo / file thêm) — xin TRƯỚC khi đặt hàng.
+struct OrderFileSlot: Decodable {
+    let fileId: String
+    let name: String
+    let putUrl: String
+    let contentType: String
+    let maxBytes: Int
+    let publicUrl: String
+}
+
 struct CompleteScanResponse: Decodable {
     let scanId: String
     let status: String
@@ -385,12 +395,22 @@ final class APIClient {
         return response
     }
 
+    /// Xin presigned URL upload 1 file đính kèm đơn (logo / file thêm). App PUT file lên `putUrl`
+    /// rồi gửi `publicUrl` kèm khi đặt hàng.
+    func presignOrderFile(fileName: String, contentType: String) async throws -> OrderFileSlot {
+        try await send("order-files", method: "POST", json: [
+            "fileName": fileName,
+            "contentType": contentType,
+        ])
+    }
+
     func orderScan(
         scanId: String,
         extraScanIds: [String],
         packageIds: [String],
         addonIds: [String],
         templates: [String: String],
+        orderFiles: [[String: String]],
         notes: String,
         unitSystem: String,
         language: String,
@@ -402,6 +422,7 @@ final class APIClient {
             "packageIds": packageIds, // đa gói (server cũng nhận `packageId` đơn, nhưng app mới gửi mảng)
             "addons": addonIds,
             "templates": templates, // addonId → templateId (color / siteplan)
+            "orderFiles": orderFiles, // [{name, url}] logo / file thêm khách tự gửi
             "extraScanIds": extraScanIds,
             "notes": notes,
             "unitSystem": unitSystem,
