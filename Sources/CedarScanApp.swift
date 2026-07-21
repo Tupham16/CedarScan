@@ -14,25 +14,50 @@ struct CedarScanApp: App {
     }
 }
 
+enum RootTab: Hashable { case home, scan, orders, account }
+
 struct RootView: View {
     @EnvironmentObject private var store: ScanStore
     @EnvironmentObject private var account: AccountStore
     @Environment(\.scenePhase) private var scenePhase
 
+    @State private var tab: RootTab = .home
+    /// Tab SCAN là NÚT HÀNH ĐỘNG, không phải trang: bấm nó bật về Home rồi yêu cầu HomeView mở màn
+    /// quét mới. Tăng số này mỗi lần bấm = tín hiệu; `HomeView.onChange(of: scanRequest)` bắt được.
+    @State private var scanRequest = 0
+
     var body: some View {
-        TabView {
-            HomeView()
+        TabView(selection: $tab) {
+            HomeView(scanRequest: scanRequest)
                 .tabItem {
-                    Label(L.t("Scans", "Bản quét"), systemImage: "viewfinder")
+                    Label(L.t("Home", "Home"), systemImage: "house")
                 }
+                .tag(RootTab.home)
+            // Placeholder: onChange bên dưới bật về Home NGAY khi chọn tab này nên nội dung gần như
+            // không bao giờ hiện. Color.clear cho nhẹ.
+            Color.clear
+                .tabItem {
+                    Label(L.t("Scan", "SCAN"), systemImage: "viewfinder")
+                }
+                .tag(RootTab.scan)
             OrdersView()
                 .tabItem {
                     Label(L.t("Orders", "Đơn hàng"), systemImage: "shippingbox")
                 }
+                .tag(RootTab.orders)
             AccountView()
                 .tabItem {
                     Label(L.t("Account", "Tài khoản"), systemImage: "person.circle")
                 }
+                .tag(RootTab.account)
+        }
+        // Tab SCAN không "ở lại": bật về Home (để màn quét mở TRÊN HomeView — đằng sau sheet là danh
+        // sách bản quét, không phải nền trống), rồi báo HomeView mở màn quét mới. Cùng cơ chế "center
+        // action tab" phổ biến; toàn bộ máy quét (bẫy đã ghi ở handoff) vẫn nằm nguyên trong HomeView.
+        .onChange(of: tab) { _, newTab in
+            guard newTab == .scan else { return }
+            tab = .home
+            scanRequest += 1
         }
         .task(id: account.isSignedIn) {
             await purgeDeliveredScans()

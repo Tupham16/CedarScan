@@ -240,7 +240,7 @@ struct ScanAddressView: View {
     /// Lý do nút xám nằm NGAY TRONG thanh, không trông vào footer của section: từ khi ghim đáy,
     /// nút hiện ngay lúc mở màn, còn footer "Bắt buộc — đội vẽ cần biết…" render SAU mọi dòng gợi
     /// ý nên với khách đã có vài căn thì nó nằm dưới đáy màn. Nút xám mà không nói vì sao là lỗi
-    /// UX tệ nhất — cùng khuôn `unsupportedNote` của HomeView.
+    /// UX tệ nhất — cùng khuôn nút-xám-kèm-lý-do của `ProjectView.unsupportedNote`.
     private var startBar: some View {
         VStack(spacing: 6) {
             if !hasHome {

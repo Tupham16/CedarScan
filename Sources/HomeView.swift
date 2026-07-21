@@ -2,8 +2,12 @@ import ARKit
 import SwiftUI
 
 struct HomeView: View {
+    /// Tín hiệu từ tab SCAN (RootView): mỗi lần TĂNG = một yêu cầu mở màn quét mới. Xem `.onChange`.
+    let scanRequest: Int
     @EnvironmentObject private var store: ScanStore
     @State private var isMeshScanning = false
+    /// Bấm SCAN trên máy không có LiDAR → alert giải thích (thay cho nút xám cũ ở đáy Home).
+    @State private var showScanUnsupported = false
     @State private var showScanSetup = false
     /// Khách đã bấm "Bắt đầu quét" trong `ScanAddressView` (khác hẳn "sheet đã đóng"). Thay cho
     /// `pendingScanMode: ScanMode?` cũ — enum ScanMode chết cùng RoomPlan, nhưng cơ chế thì
@@ -200,8 +204,18 @@ struct HomeView: View {
                     "Mô hình 3D chạm giới hạn trước khi quét xong — phần đã lưu vẫn an toàn. Hãy quét khu còn lại thành một bản quét khác (đặt tên \"Part 1\", \"Part 2\"…) để ghép lại sau."
                 ))
             }
-            .safeAreaInset(edge: .bottom) {
-                scanButton
+            // Tab SCAN (RootView) yêu cầu mở màn quét mới — thay cho nút "Quét không gian mới" cũ ở
+            // đáy Home. Máy quét (fullScreenCover + các cờ pending) vẫn nằm nguyên trong HomeView.
+            .onChange(of: scanRequest) { _, _ in
+                beginNewScan()
+            }
+            .alert(L.t("LiDAR required", "Cần cảm biến LiDAR"), isPresented: $showScanUnsupported) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(L.t(
+                    "CedarScan needs an iPhone Pro (12 Pro or newer) with a LiDAR sensor.",
+                    "CedarScan cần iPhone bản Pro (12 Pro trở lên) có cảm biến LiDAR."
+                ))
             }
             .alert(L.t("New Property", "Dự án mới"), isPresented: $showNewProject) {
                 TextField(L.t("Address or name (e.g. 1600 College Ave)", "Địa chỉ hoặc tên (vd 1600 College Ave)"), text: $newProjectName)
@@ -278,8 +292,8 @@ struct HomeView: View {
                 .font(.title3.weight(.semibold))
             Text(isSupported
                  ? L.t(
-                    "Tap the button below to scan your first space, or create a Property folder for a home with several floors.",
-                    "Bấm nút bên dưới để quét không gian đầu tiên, hoặc tạo Dự án cho căn nhà nhiều tầng."
+                    "Tap SCAN below to scan your first space, or create a Property folder for a home with several floors.",
+                    "Bấm SCAN ở dưới để quét không gian đầu tiên, hoặc tạo Dự án cho căn nhà nhiều tầng."
                  )
                  : L.t(
                     "CedarScan measures with the LiDAR sensor, which this iPhone does not have. You need an iPhone Pro (12 Pro or newer).",
@@ -360,47 +374,20 @@ struct HomeView: View {
         showScanSetup = true
     }
 
-    private var scanButton: some View {
-        // VStack chứ không overlay+offset: dòng giải thích dài 2-3 dòng trên máy nhỏ, overlay
-        // với offset cứng sẽ bị cắt hoặc đè lên danh sách.
-        VStack(spacing: 8) {
-            unsupportedNote
-            Button {
-                if !UserDefaults.standard.bool(forKey: ScanGuideView.seenKey) {
-                    guideThenScan = true
-                    startAfterGuide = false // xem mục "reset ở LỐI VÀO" ở sheet bên trên
-                    showGuide = true
-                } else {
-                    startScanning()
-                }
-            } label: {
-                Label(L.t("New scan", "Quét không gian mới"), systemImage: "viewfinder")
-                    .font(.headline)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
-            }
-            .buttonStyle(.borderedProminent)
-            // Máy không có LiDAR: KHOÁ nút thay vì đưa sang đường quay video (đã gỡ 2026-07-19 —
-            // chủ app chốt "yêu cầu máy phải có lidar"). Khoá chứ KHÔNG giấu nút: nút biến mất
-            // thì người dùng tưởng app hỏng và đi tìm; nút xám kèm lý do thì hiểu ngay.
-            .disabled(!isSupported)
+    /// Mở màn quét mới — gọi từ `.onChange(of: scanRequest)` khi khách bấm tab SCAN. Giữ NGUYÊN
+    /// logic của nút "Quét không gian mới" cũ: lần đầu mở guide (guide tự gọi quét ở onDismiss),
+    /// các lần sau vào thẳng màn địa chỉ. Máy không LiDAR thì alert giải thích thay vì im lặng.
+    private func beginNewScan() {
+        guard isSupported else {
+            showScanUnsupported = true
+            return
         }
-        .padding(.horizontal)
-        .padding(.bottom, 8)
-        .background(.ultraThinMaterial)
-    }
-
-    /// Nút xám mà không nói vì sao là lỗi UX tệ nhất — người dùng bấm mãi không được rồi bỏ app.
-    @ViewBuilder
-    private var unsupportedNote: some View {
-        if !isSupported {
-            Text(L.t(
-                "This iPhone has no LiDAR sensor. CedarScan needs an iPhone Pro (12 Pro or newer).",
-                "iPhone này không có cảm biến LiDAR. CedarScan cần iPhone bản Pro (12 Pro trở lên)."
-            ))
-            .font(.caption)
-            .foregroundStyle(.secondary)
-            .multilineTextAlignment(.center)
+        if !UserDefaults.standard.bool(forKey: ScanGuideView.seenKey) {
+            guideThenScan = true
+            startAfterGuide = false // xem mục "reset ở LỐI VÀO" ở sheet guide bên trên
+            showGuide = true
+        } else {
+            startScanning()
         }
     }
 }

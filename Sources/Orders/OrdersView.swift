@@ -11,6 +11,7 @@ struct OrdersView: View {
     @State private var errorMessage: String?
     @State private var revisionOrder: OrderDTO?
     @State private var tourOrder: OrderDTO? // mở màn thêm ảnh Virtual Tour
+    @State private var filter: OrderFilter = .all
 
     var body: some View {
         NavigationStack {
@@ -116,8 +117,42 @@ struct OrdersView: View {
         .padding(32)
     }
 
+    /// Đơn đang hiển thị theo bộ lọc trạng thái đang chọn.
+    private var filteredOrders: [OrderDTO] {
+        orders.filter { filter.matches($0.status) }
+    }
+
+    /// Hàng nút lọc theo trạng thái + số đếm. Cuộn ngang để không tràn trên máy nhỏ.
+    private var filterBar: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(OrderFilter.allCases) { f in
+                    let count = orders.filter { f.matches($0.status) }.count
+                    Button {
+                        filter = f
+                    } label: {
+                        Text("\(f.title) (\(count))")
+                            .font(.subheadline.weight(filter == f ? .semibold : .regular))
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(
+                                filter == f ? Color.accentColor.opacity(0.18) : Color.secondary.opacity(0.12),
+                                in: Capsule()
+                            )
+                            .foregroundStyle(filter == f ? Color.accentColor : Color.primary)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal)
+            .padding(.vertical, 6)
+        }
+    }
+
     private var ordersList: some View {
-        List {
+        VStack(spacing: 0) {
+            filterBar
+            List {
             // Đã có đơn rồi thì `emptyState` (nơi DUY NHẤT render `errorMessage` trước đây) không
             // bao giờ hiện nữa, nên mọi lần refresh lỗi (mất sóng, pull-to-refresh ở công trường)
             // đều im lặng: danh sách CŨ đứng như dữ liệu mới. Banner này báo "đang xem dữ liệu cũ"
@@ -137,7 +172,12 @@ struct OrdersView: View {
                     }
                 }
             }
-            ForEach(orders) { order in
+            if filteredOrders.isEmpty {
+                Text(L.t("No orders in this category.", "Không có đơn nào ở mục này."))
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            ForEach(filteredOrders) { order in
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     Text(order.scanName ?? order.orderNumber)
@@ -229,6 +269,7 @@ struct OrdersView: View {
                 }
             }
             .padding(.vertical, 4)
+            }
             }
         }
     }
@@ -336,6 +377,31 @@ struct RevisionSheet: View {
     }
 }
 
+/// Bộ lọc trạng thái ở đầu tab Đơn hàng. "Đang xử lý" gộp mọi trạng thái chưa-giao-chưa-hoàn
+/// (gồm cả "đã nhận" cũ — chủ app chốt bỏ nhãn "đã nhận" để khách bớt nôn nóng).
+enum OrderFilter: String, CaseIterable, Identifiable {
+    case all, processing, ready, refunded
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .all: return L.t("All", "Tất cả")
+        case .processing: return L.t("Processing", "Đang xử lý")
+        case .ready: return L.t("Ready", "Đã giao")
+        case .refunded: return L.t("Refunded", "Hoàn tiền")
+        }
+    }
+    func matches(_ status: String) -> Bool {
+        switch self {
+        case .all: return true
+        case .ready: return status == "delivered"
+        case .refunded: return status == "refunded"
+        // Mọi thứ chưa giao & chưa hoàn = đang xử lý (received/in_production/on_hold + trạng thái
+        // mới trong tương lai) — future-proof, không cần liệt kê từng cái.
+        case .processing: return status != "delivered" && status != "refunded"
+        }
+    }
+}
+
 struct StatusBadge: View {
     let status: String
 
@@ -343,14 +409,14 @@ struct StatusBadge: View {
         switch status {
         case "delivered":
             return (L.t("Delivered", "Đã giao"), .green)
-        case "in_production":
-            return (L.t("In production", "Đang xử lý"), .blue)
         case "on_hold":
             return (L.t("On hold", "Tạm giữ"), .orange)
         case "refunded":
             return (L.t("Refunded", "Hoàn tiền"), .red)
+        // "in_production" VÀ "received"/mặc định đều hiện "Đang xử lý" — chủ app chốt bỏ nhãn
+        // "Đã nhận" (khiến khách nôn nóng), gộp vào "đang xử lý".
         default:
-            return (L.t("Received", "Đã nhận"), .gray)
+            return (L.t("Processing", "Đang xử lý"), .blue)
         }
     }
 

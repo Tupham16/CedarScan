@@ -4,10 +4,14 @@ import SwiftUI
 ///
 /// Lý do tồn tại (chủ app chốt 2026-07-20): khách vừa đi bộ 10–30 phút quét xong, bấm "Đặt hàng
 /// ngay", và — nếu chưa đăng nhập — nhận đúng MỘT DÒNG CHỮ XÁM cỡ `.caption` bảo họ tự đi tìm
-/// "mục Tài khoản". Không nút, không chuyển tab được (`TabView` ở `CedarScanApp` không có
-/// `selection:`). Đó là chỗ rơi khách rõ nhất của luồng đặt hàng.
+/// "mục Tài khoản". Không nút, không có đường quay lại chỗ cũ. Đó là chỗ rơi khách rõ nhất của
+/// luồng đặt hàng.
 ///
-/// 🔴 VÌ SAO SHEET CHỨ KHÔNG PHẢI CHUYỂN TAB — đừng "sửa cho đúng kiến trúc" thành `TabView(selection:)`:
+/// ⚠ 2026-07-21: `TabView` ở `CedarScanApp` NAY CÓ `selection:` — nhưng CHỈ để làm tab hành động
+/// SCAN (bật về Home rồi mở màn quét), KHÔNG phải để chuyển tab cho cổng đăng nhập này. Đừng thấy
+/// `selection:` đã có sẵn mà "tiện tay" chuyển cổng này sang chuyển-tab; lý do dùng SHEET vẫn nguyên:
+///
+/// 🔴 VÌ SAO SHEET CHỨ KHÔNG PHẢI CHUYỂN TAB (kể cả khi đã có `selection:`):
 /// chuyển tab chỉ trả lời được "đi đâu", còn bỏ ngỏ "quay lại thế nào". `AuthView`/`VerifyEmailView`
 /// là view INLINE trong `Group` của `AccountView` (không phải sheet) nên chúng KHÔNG có gì để
 /// `dismiss` — đăng nhập xong khách đứng lại ở tab Tài khoản, phải tự bấm về tab Bản quét rồi tự

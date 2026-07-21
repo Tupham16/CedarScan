@@ -929,11 +929,21 @@ struct OrderSheet: View {
             } header: {
                 Text(L.t("Add-ons", "Dịch vụ thêm"))
             } footer: {
-                if selectedAddons.contains("tour") {
-                    Text(L.t(
-                        "🏠 Virtual Tour: after ordering you'll add 1–3 photos per room — we pin them on your floor plan and you get a shareable interactive tour link.",
-                        "🏠 Virtual Tour: sau khi đặt, bạn thêm 1–3 ảnh cho mỗi phòng — đội ngũ ghim ảnh lên mặt bằng và bạn nhận link tour tương tác để chia sẻ."
-                    ))
+                VStack(alignment: .leading, spacing: 6) {
+                    // Express: chỉ CẢNH BÁO. App không đo được diện tích (mesh không có areaSqm) nên
+                    // không tự chặn nhà lớn được — chủ app tự xử khi vẽ.
+                    if selectedAddons.contains("express") {
+                        Text(L.t(
+                            "⚡️ Express: delivered within 12 hours. Not available for homes over 5,000 sq ft (464 m²).",
+                            "⚡️ Express: giao trong vòng 12 giờ. Không áp dụng cho nhà trên 5.000 sq ft (464 m²)."
+                        ))
+                    }
+                    if selectedAddons.contains("tour") {
+                        Text(L.t(
+                            "🏠 Virtual Tour: after ordering you'll add 1–3 photos per room — we pin them on your floor plan and you get a shareable interactive tour link.",
+                            "🏠 Virtual Tour: sau khi đặt, bạn thêm 1–3 ảnh cho mỗi phòng — đội ngũ ghim ảnh lên mặt bằng và bạn nhận link tour tương tác để chia sẻ."
+                        ))
+                    }
                 }
             }
 
