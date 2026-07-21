@@ -432,7 +432,7 @@ struct ProjectView: View {
                     startScanning()
                 }
             } label: {
-                Label(L.t("Scan this property", "Quét căn nhà này"), systemImage: "viewfinder")
+                Label(L.t("Scan more", "Quét bổ sung"), systemImage: "viewfinder")
                     .font(.headline)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)

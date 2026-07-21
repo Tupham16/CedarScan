@@ -650,6 +650,11 @@ struct OrderSheet: View {
     /// `Task {}` vô danh không ai cancel: bấm Hủy giữa lúc tải lên chỉ đóng sheet, Task chạy tiếp
     /// và vẫn tạo đơn ngầm. Xem `submit()` + nút Hủy + `.onDisappear`.
     @State private var submitTask: Task<Void, Never>?
+    /// TRUE trong lúc `orderScan` đang bay lên server (cửa "Đang đặt hàng…"). Cửa này KHÔNG hủy an
+    /// toàn được: request đã tới server thì đơn đã tạo, rút lại phía máy chỉ để lại HALF-STATE (server
+    /// có đơn, máy không đóng dấu → bản quét vẫn hiện "Đặt làm mặt bằng", đặt lại thì server báo
+    /// "already ordered"). Nên khoá nút Hủy + không cancel ở onDisappear khi cờ này bật.
+    @State private var placingOrder = false
     @State private var showTourPhotos = false // mở màn thêm ảnh Virtual Tour ngay sau khi đặt
 
     /// Các bản quét khác (tầng khác của CÙNG căn nhà) có thể gộp vào đơn này.
@@ -769,13 +774,15 @@ struct OrderSheet: View {
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button(placedOrder == nil ? L.t("Cancel", "Hủy") : L.t("Close", "Đóng")) {
-                        // Đang đặt mà bấm Hủy = HỦY THẬT: cancel Task rồi mới dismiss. Chỉ dismiss
-                        // (hành vi cũ) thì Task chạy tiếp, upload xong + orderScan vẫn tạo đơn →
-                        // khách tưởng đã hủy mà vẫn mất suất free/tiền. Checkpoint trước orderScan
-                        // trong submit() đảm bảo đơn KHÔNG tạo nếu hủy trong lúc tải lên.
+                        // Hủy trong lúc TẢI LÊN = HỦY THẬT: cancel Task rồi dismiss (checkpoint trước
+                        // orderScan trong submit() đảm bảo đơn KHÔNG tạo). Nhưng trong lúc "Đang đặt
+                        // hàng…" (`placingOrder`) thì nút này bị `.disabled` — guard đây chỉ để chắc
+                        // ăn nếu lọt qua một khung hình: KHÔNG hủy lúc orderScan đang bay (half-state).
+                        guard !placingOrder else { return }
                         submitTask?.cancel()
                         dismiss()
                     }
+                    .disabled(placingOrder)
                 }
             }
             .task {
@@ -787,7 +794,9 @@ struct OrderSheet: View {
         .interactiveDismissDisabled(isBusy)
         // Lưới an toàn: sheet bị tháo bằng ĐƯỜNG KHÁC (màn cha dismiss vì bản quét bị dọn-sau-giao,
         // scene bị thu hồi…) cũng phải hủy Task, không thì đơn vẫn tạo ngầm sau khi sheet biến mất.
-        .onDisappear { submitTask?.cancel() }
+        // NHƯNG không hủy khi đang `placingOrder`: lúc đó để orderScan chạy trọn thì đơn tạo + đóng
+        // dấu bản quét cùng chạy (nhất quán), còn hủy nửa chừng mới đẻ half-state.
+        .onDisappear { if !placingOrder { submitTask?.cancel() } }
     }
 
     private func loadCatalog() async {
@@ -949,7 +958,7 @@ struct OrderSheet: View {
                 )
                 .lineLimit(3...6)
             } header: {
-                Text(L.t("Note for this order", "Ghi chú cho đơn này"))
+                Text(L.t("Note", "Ghi chú"))
             }
 
             Section {
@@ -1210,6 +1219,9 @@ struct OrderSheet: View {
                 return
             }
 
+            // Từ đây là điểm KHÔNG QUAY ĐẦU: khoá hủy (nút + onDisappear) để orderScan chạy trọn.
+            // Đặt cờ trên MainActor TRƯỚC `await` nên UI kịp disable nút Hủy trước khi request bay đi.
+            placingOrder = true
             busyLabel = L.t("Placing order…", "Đang đặt hàng…")
             do {
                 let result = try await APIClient.shared.orderScan(
@@ -1248,6 +1260,7 @@ struct OrderSheet: View {
             } catch {
                 errorMessage = error.localizedDescription
             }
+            placingOrder = false
             isBusy = false
             busyLabel = nil
         }
