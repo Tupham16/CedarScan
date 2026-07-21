@@ -660,6 +660,13 @@ struct OrderSheet: View {
     @State private var placingOrder = false
     @State private var showTourPhotos = false // mở màn thêm ảnh Virtual Tour ngay sau khi đặt
 
+    /// Ngôn ngữ bản vẽ — list cố định (chủ app chốt 2026-07-21). Giá trị gửi lên server = chính chuỗi
+    /// này (đội vẽ đọc để biết viết bản vẽ bằng ngôn ngữ/biến thể nào).
+    private static let languageOptions = [
+        "English", "English (UK)", "English (AU)", "English (US/CA)",
+        "French", "German", "Czech", "Slovak", "Spanish",
+    ]
+
     /// Các bản quét khác (tầng khác của CÙNG căn nhà) có thể gộp vào đơn này.
     private var otherScans: [ScanRecord] {
         if let candidateScans {
@@ -837,8 +844,10 @@ struct OrderSheet: View {
                 tpls[addon.id] = (saved != nil && templates.contains { $0.id == saved }) ? saved! : templates.first!.id
             }
             selectedTemplates = tpls
-            if let u = d?.unitSystem, u == "imperial" || u == "metric" { unitSystem = u }
-            if let lang = d?.language, !lang.isEmpty { language = lang }
+            if let u = d?.unitSystem, u == "imperial" || u == "metric" || u == "both" { unitSystem = u }
+            // Chỉ nhận ngôn ngữ lần trước nếu còn trong list (Picker cần selection khớp một tag, không
+            // thì hiện rỗng). Giá trị cũ tự do (vd "Vietnamese") → giữ mặc định "English".
+            if let lang = d?.language, Self.languageOptions.contains(lang) { language = lang }
             if let fn = d?.floorNaming { floorNaming = fn }
         } catch {
             loadError = error.localizedDescription
@@ -864,32 +873,73 @@ struct OrderSheet: View {
         )
     }
 
-    /// List mẫu cuộn NGANG cho color/siteplan — bấm để chọn (viền xanh = đang chọn).
+    /// Picker mẫu cho color/siteplan: hàng thumbnail cuộn NGANG + bản PHÓNG TO mẫu đang chọn để
+    /// khách nhìn rõ (chủ app chốt 2026-07-21).
     private func templatePicker(addonId: String, templates: [CatalogTemplate]) -> some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 10) {
-                ForEach(templates) { tpl in
-                    Button {
-                        selectedTemplates[addonId] = tpl.id
-                    } label: {
-                        VStack(spacing: 4) {
-                            templateThumb(tpl)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 8).strokeBorder(
-                                        selectedTemplates[addonId] == tpl.id ? Color.accentColor : Color.secondary.opacity(0.3),
-                                        lineWidth: selectedTemplates[addonId] == tpl.id ? 2.5 : 1
+        VStack(alignment: .leading, spacing: 8) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    ForEach(templates) { tpl in
+                        Button {
+                            selectedTemplates[addonId] = tpl.id
+                        } label: {
+                            VStack(spacing: 4) {
+                                templateThumb(tpl)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 8).strokeBorder(
+                                            selectedTemplates[addonId] == tpl.id ? Color.accentColor : Color.secondary.opacity(0.3),
+                                            lineWidth: selectedTemplates[addonId] == tpl.id ? 2.5 : 1
+                                        )
                                     )
-                                )
-                            Text(tpl.name)
-                                .font(.caption2)
-                                .foregroundStyle(selectedTemplates[addonId] == tpl.id ? Color.accentColor : Color.secondary)
-                                .lineLimit(1)
+                                Text(tpl.name)
+                                    .font(.caption2)
+                                    .foregroundStyle(selectedTemplates[addonId] == tpl.id ? Color.accentColor : Color.secondary)
+                                    .lineLimit(1)
+                            }
                         }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
+                }
+                .padding(.vertical, 4)
+            }
+            if let selId = selectedTemplates[addonId], let sel = templates.first(where: { $0.id == selId }) {
+                templateLargePreview(sel)
+            }
+        }
+    }
+
+    /// Bản phóng to của mẫu đang chọn: ảnh cao ~200pt (scaledToFit, không méo — hợp mọi tỉ lệ), hoặc
+    /// ô placeholder khi chưa có ảnh thật.
+    @ViewBuilder
+    private func templateLargePreview(_ tpl: CatalogTemplate) -> some View {
+        if let s = tpl.imageUrl, !s.isEmpty, let url = URL(string: s) {
+            AsyncImage(url: url) { phase in
+                if let image = phase.image {
+                    image.resizable().scaledToFit()
+                } else if phase.error != nil {
+                    Color.secondary.opacity(0.1)
+                } else {
+                    ProgressView()
                 }
             }
-            .padding(.vertical, 4)
+            .frame(maxWidth: .infinity)
+            .frame(height: 200)
+            .background(Color.secondary.opacity(0.06))
+            .clipShape(RoundedRectangle(cornerRadius: 10))
+        } else {
+            RoundedRectangle(cornerRadius: 10)
+                .fill(Color.secondary.opacity(0.1))
+                .frame(maxWidth: .infinity)
+                .frame(height: 150)
+                .overlay(
+                    VStack(spacing: 6) {
+                        Image(systemName: "paintpalette").font(.title2)
+                        Text(tpl.name).font(.subheadline.weight(.medium))
+                        Text(L.t("Preview image coming soon", "Ảnh mẫu sẽ cập nhật sau"))
+                            .font(.caption2)
+                    }
+                    .foregroundStyle(.secondary)
+                )
         }
     }
 
@@ -1045,8 +1095,13 @@ struct OrderSheet: View {
                 Picker(L.t("Units", "Đơn vị đo"), selection: $unitSystem) {
                     Text(L.t("Metric (m)", "Mét (m)")).tag("metric")
                     Text(L.t("Imperial (ft)", "Feet (ft)")).tag("imperial")
+                    Text(L.t("Both (ft & m)", "Cả hai (ft & m)")).tag("both")
                 }
-                TextField(L.t("Language (e.g. English)", "Ngôn ngữ bản vẽ (vd English)"), text: $language)
+                Picker(L.t("Language", "Ngôn ngữ bản vẽ"), selection: $language) {
+                    ForEach(Self.languageOptions, id: \.self) { lang in
+                        Text(lang).tag(lang)
+                    }
+                }
                 TextField(L.t("Floor naming style (optional)", "Kiểu đặt tên tầng (không bắt buộc)"), text: $floorNaming)
             } header: {
                 Text(L.t("Preferences (saved for next time)", "Tùy chọn (lưu cho lần sau)"))
