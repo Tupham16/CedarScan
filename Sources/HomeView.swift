@@ -76,6 +76,31 @@ struct HomeView: View {
                 }
             }
             .navigationTitle("CedarScan")
+            // 🔴 Ô TÌM KIẾM PHẢI GẮN Ở ĐÂY — CÙNG CẤP VỚI `.navigationTitle`, TUYỆT ĐỐI KHÔNG
+            // GẮN VÀO TRONG `mainList`.
+            //
+            // Bản đầu (2026-07-23) gắn nó cho `mainList`, tức NẰM TRONG nhánh `else` của cái
+            // `Group { if … } else { … }` ngay trên. `.searchable` không phải một view — SwiftUI
+            // dịch nó thành một `UISearchController` cắm vào `navigationItem` của view controller
+            // GỐC trong `UINavigationController` mà `NavigationStack` dựng ra. Đặt nó trong một
+            // nhánh điều kiện là buộc vòng đời của search controller vào một subtree mà SwiftUI
+            // có quyền tháo và dựng lại bất cứ lúc nào — trong khi thứ nó cắm vào lại là thanh
+            // điều hướng DÙNG CHUNG cho cả stack. Tháo/cắm lại đúng lúc `UINavigationController`
+            // đang chạy dở một cú push là kiểu làm UIKit mất đồng bộ.
+            //
+            // Chủ app báo "thỉnh thoảng bấm vào dự án là app tự văng", và đây là ứng viên số 1:
+            // `.searchable` là thứ DUY NHẤT mới thêm vào đúng đường đi đó ở bản `85bab71`, và
+            // năm lần soi độc lập đều chỉ về chỗ này.
+            //
+            // GIÁ PHẢI TRẢ, CHẤP NHẬN CÓ CHỦ ĐÍCH: máy chưa có bản quét nào thì ô tìm kiếm vẫn
+            // hiện (trước đây nhánh `emptyState` không có nó). Vô hại và đúng chuẩn iOS — Mail,
+            // Files, Ảnh đều bày ô tìm kiếm trên màn rỗng. Đừng "sửa cho đẹp" bằng cách nhét lại
+            // modifier này vào trong nhánh điều kiện.
+            .searchable(
+                text: $searchText,
+                placement: .navigationBarDrawer(displayMode: .always),
+                prompt: L.t("Search homes and scans", "Tìm dự án, bản quét")
+            )
             // TOOLBAR ĐÃ GỠ HẲN (2026-07-23, chủ app chốt):
             //  • nút **?** "Cách quét" → chuyển vào tab **Learn** ở thanh dưới.
             //  • nút **folder** "Dự án mới" → thừa: từ khi màn địa chỉ là bắt buộc, MỌI bản quét
@@ -331,8 +356,12 @@ struct HomeView: View {
                     ForEach(visibleProjects) { project in
                         NavigationLink(value: project) {
                             HStack(spacing: 10) {
+                                // `.tint` (màu nhấn của app) chứ KHÔNG phải `.blue` cứng: từ
+                                // 2026-07-23 màu nhấn là cobalt, để `.blue` hệ thống ở đây là
+                                // một icon xanh NHẠT nằm ngay cạnh thanh tab cobalt — trông như
+                                // lỗi render. Cùng lý do cho nhãn "Đã đặt" ở `ScanRow`.
                                 Image(systemName: "folder.fill")
-                                    .foregroundStyle(.blue)
+                                    .foregroundStyle(.tint)
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(project.name)
                                         .font(.headline)
@@ -365,13 +394,8 @@ struct HomeView: View {
                 }
             }
         }
-        // Ô tìm kiếm CHỈ gắn ở đây (nhánh có dữ liệu), không gắn cho `emptyState`: máy chưa có gì
-        // mà vẫn bày ô tìm kiếm là mời người dùng đi tìm thứ không tồn tại.
-        .searchable(
-            text: $searchText,
-            placement: .navigationBarDrawer(displayMode: .always),
-            prompt: L.t("Search homes and scans", "Tìm dự án, bản quét")
-        )
+        // `.searchable` KHÔNG nằm ở đây — nó đã được chuyển lên `body`, cùng cấp với
+        // `.navigationTitle`. Xem chú thích 🔴 ở đó trước khi định đưa nó về lại.
     }
 
     // KHÔNG lọc bản quét đã đặt ra khỏi danh sách này. Từng thử và đó là lỗi CHẶN: `ScanRow` là
@@ -434,7 +458,7 @@ struct ScanRow: View {
                     if record.cloudOrderNumber != nil {
                         Label(L.t("Ordered", "Đã đặt"), systemImage: "shippingbox.fill")
                             .font(.caption)
-                            .foregroundStyle(.blue)
+                            .foregroundStyle(.tint)
                     } else if record.cloudScanId != nil {
                         Image(systemName: "checkmark.icloud.fill")
                             .font(.caption)

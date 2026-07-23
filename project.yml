@@ -22,6 +22,14 @@ targets:
         PRODUCT_NAME: CedarScan
         TARGETED_DEVICE_FAMILY: "1,2"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        # Màu nhấn "cobalt" của app (chủ app chốt 2026-07-23) thay cho xanh dương MẶC ĐỊNH của
+        # hệ thống — màu cũ nhạt quá. Định nghĩa ở Assets.xcassets/AccentColor.colorset, có HAI
+        # sắc độ: #1D4ED8 cho nền sáng, #5B9BFF cho nền tối (iOS tự đổi).
+        # 🔴 KHÔNG CÓ DÒNG NÀY THÌ MÀU KHÔNG ĂN. XcodeGen/Xcode không tự nhận asset tên
+        # "AccentColor" làm màu nhấn toàn app; thiếu build setting này thì file màu vẫn nằm trong
+        # catalog mà `Color.accentColor`/`.tint`/nút trong alert vẫn dùng xanh hệ thống — sai
+        # kiểu IM LẶNG, CI vẫn xanh, chỉ lộ khi sideload.
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
         CURRENT_PROJECT_VERSION: "1"
         MARKETING_VERSION: "1.0"
     info:

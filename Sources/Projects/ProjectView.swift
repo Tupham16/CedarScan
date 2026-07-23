@@ -82,12 +82,35 @@ struct ProjectView: View {
             // ca này gần như không xảy ra, nhưng đây là lớp thứ hai — pop nhầm lúc đang quét là
             // mất trắng 10–30 phút đi bộ, đắt hơn nhiều so với việc nán lại một màn rỗng.
             .onChange(of: project == nil) { _, gone in
-                if gone && !isMeshScanning { dismiss() }
+                if gone && !isMeshScanning { leaveDeadProject() }
             }
             // Cover đóng mà dự án đã biến mất trong lúc đó → giờ mới thoát.
             .onChange(of: isMeshScanning) { _, presented in
-                if !presented && project == nil { dismiss() }
+                if !presented && project == nil { leaveDeadProject() }
             }
+    }
+
+    /// Thoát khỏi một dự án đã bị dọn mất — HOÃN MỘT NHỊP, không `dismiss()` ngay tại chỗ.
+    ///
+    /// 🔴 Vì sao phải hoãn: `purgeDeliveredScans()` (RootView) chạy mỗi lần app quay lại
+    /// foreground và nó `await APIClient.listOrders()` TRƯỚC khi xoá — tức thời điểm nó xoá dự án
+    /// là một cú MẠNG về, trễ 0,3–3 giây, hoàn toàn không đồng bộ với ngón tay người dùng. Nếu nó
+    /// đáp về đúng lúc khách vừa chạm một dòng dự án, chuỗi sau xảy ra: `NavigationStack` bắt đầu
+    /// PUSH màn này → thân view chạy → `project` đã là nil → `onChange` bắn → `dismiss()` → POP
+    /// một view controller mà cú PUSH của nó còn chưa chạy xong. Đó là kiểu làm
+    /// `UINavigationController` mất đồng bộ, và nó khớp với triệu chứng chủ app báo: "THỈNH
+    /// THOẢNG bấm vào dự án thì app tự văng" — thỉnh thoảng, vì phải trúng đúng cửa sổ vài trăm
+    /// mili-giây đó.
+    ///
+    /// `Task { @MainActor in … }` đẩy việc thoát sang nhịp chạy KẾ TIẾP, sau khi SwiftUI đã đóng
+    /// gói xong bản cập nhật hiện tại (và cú push đã ổn định). KIỂM LẠI điều kiện bên trong, vì
+    /// giữa hai nhịp mọi thứ có thể đã đổi — nhất là `isMeshScanning`: pop nhầm lúc khách đang
+    /// quét là mất trắng 10–30 phút đi bộ.
+    private func leaveDeadProject() {
+        Task { @MainActor in
+            guard project == nil, !isMeshScanning else { return }
+            dismiss()
+        }
     }
 
     private var content: some View {

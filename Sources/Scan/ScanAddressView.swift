@@ -180,15 +180,20 @@ struct ScanAddressView: View {
         }
     }
 
-    /// Thứ tự các dòng trong mục này KHÔNG tuỳ tiện:
-    /// hai nút tắt → ô nhập → trạng thái định vị → **căn đã quét trùng tên** → gợi ý địa chỉ
-    /// MapKit → dòng "đang thêm vào căn X".
+    /// Thứ tự các dòng trong mục này KHÔNG tuỳ tiện (chủ app chốt 2026-07-23):
+    /// ô nhập → nút "Dùng vị trí hiện tại" → nút "Tìm địa chỉ" → trạng thái định vị →
+    /// **căn đã quét trùng tên** → gợi ý địa chỉ MapKit → dòng "đang thêm vào căn X".
+    ///
+    /// 🔴 HAI NÚT ĐỨNG SÁT NHAU VÀ NGAY DƯỚI Ô NHẬP, MỌI THỨ ĐỘNG NẰM DƯỚI CHÚNG. Đây là lý do:
+    /// trạng thái định vị, danh sách căn trùng và gợi ý MapKit đều là những dòng XUẤT HIỆN/BIẾN
+    /// MẤT theo lúc. Nếu chen bất kỳ dòng nào trong số đó vào giữa hoặc lên trên hai nút thì hai
+    /// nút sẽ NHẢY xuống ngay lúc người dùng đang nhắm ngón tay vào chúng — cùng lớp lỗi với bẫy
+    /// #2 ở handoff ("dòng vừa chạm nhảy đi → người dùng tưởng chạm hụt").
     ///
     /// Căn đã quét đứng TRƯỚC gợi ý MapKit: khi cả hai cùng hiện thì "dùng lại căn đã có" là câu
     /// trả lời đúng, còn tạo thêm một căn thứ hai cùng địa chỉ là lỗi phải đi dọn bằng tay sau đó.
     private var homeSection: some View {
         Section {
-            lookupButtons
             TextField(
                 L.t("Address or name (e.g. 1600 College Ave)", "Địa chỉ hoặc tên (vd 1600 College Ave)"),
                 text: $address
@@ -214,12 +219,14 @@ struct ScanAddressView: View {
                     completer.update(query: newValue)
                 }
             }
+            useLocationButton
+            searchAddressButton
             locationStatusRow
             matchingRows
             suggestionRows
             pickedRow
         } header: {
-            Text(L.t("Which home is this?", "Căn nhà này ở đâu?"))
+            Text(L.t("Property address", "Địa chỉ căn nhà"))
         } footer: {
             // Footer render SAU mọi dòng của section, nên KHÔNG dùng nó để chỉ đường ("chạm dòng
             // bên dưới" sẽ trỏ ngược lên trên). Giữ đúng một câu chung, không đổi theo tình huống
@@ -231,40 +238,40 @@ struct ScanAddressView: View {
         }
     }
 
-    /// Hai đường tắt điền địa chỉ, đặt NGAY TRÊN ô nhập (chủ app chốt 2026-07-23).
-    ///
-    /// "Tìm địa chỉ" không mở màn nào cả — nó đưa con trỏ vào chính ô ngay bên dưới và bật danh
-    /// sách gợi ý. Làm thành một màn riêng thì khách gõ xong lại phải quay về đây; làm thành một
-    /// chế độ ẩn/hiện thì ô nhập biến mất trước mắt người đang định gõ.
-    private var lookupButtons: some View {
-        HStack(spacing: 10) {
-            Button {
-                addressFocused = false // giấu bàn phím rồi mới xin quyền, không thì hộp thoại đè lên
-                addressWhenLocating = address
-                locator.requestAddress()
-            } label: {
-                Label(L.t("Use my location", "Dùng vị trí hiện tại"), systemImage: "location.fill")
-                    .font(.subheadline.weight(.semibold))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 8)
-            }
-            .buttonStyle(.borderedProminent)
-            .disabled(locator.state == .working)
-
-            Button {
-                addressFocused = true
-            } label: {
-                Label(L.t("Search address", "Tìm địa chỉ"), systemImage: "magnifyingglass")
-                    .font(.subheadline.weight(.semibold))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 8)
-            }
-            .buttonStyle(.bordered)
+    /// Đường tắt 1: lấy địa chỉ từ GPS. Nút nổi bật hơn vì đây là đường NHANH NHẤT khi khách
+    /// đang đứng ngay tại căn nhà — đúng tình huống của gần như mọi lần quét.
+    private var useLocationButton: some View {
+        Button {
+            addressFocused = false // giấu bàn phím rồi mới xin quyền, không thì hộp thoại đè lên
+            addressWhenLocating = address
+            locator.requestAddress()
+        } label: {
+            Label(L.t("Use my location", "Dùng vị trí hiện tại"), systemImage: "location.fill")
+                .font(.subheadline.weight(.semibold))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 9)
         }
-        // Hai nút trong CÙNG một dòng Form: không đặt style riêng thì cả dòng thành một vùng bấm
-        // và bấm đâu cũng chạy nút đầu tiên.
+        .buttonStyle(.borderedProminent)
         .buttonBorderShape(.capsule)
-        .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+        .disabled(locator.state == .working)
+        .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 4, trailing: 16))
+    }
+
+    /// Đường tắt 2: tự gõ. KHÔNG mở màn nào cả — nó đưa con trỏ lên chính ô nhập ngay phía TRÊN
+    /// và bật danh sách gợi ý. Làm thành một màn riêng thì khách gõ xong lại phải quay về đây;
+    /// làm thành một chế độ ẩn/hiện thì ô nhập biến mất trước mắt người đang định gõ.
+    private var searchAddressButton: some View {
+        Button {
+            addressFocused = true
+        } label: {
+            Label(L.t("Search address", "Tìm địa chỉ"), systemImage: "magnifyingglass")
+                .font(.subheadline.weight(.semibold))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 9)
+        }
+        .buttonStyle(.bordered)
+        .buttonBorderShape(.capsule)
+        .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 8, trailing: 16))
     }
 
     /// Dòng trạng thái của nút vị trí. CHỈ hiện khi có chuyện đang xảy ra — không chiếm chỗ lúc bình thường.

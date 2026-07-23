@@ -338,6 +338,15 @@ struct OrdersView: View {
         }
         // Ô tìm kiếm nằm ở NHÁNH CÓ ĐƠN (`ordersList`), không gắn cho màn trống/chưa đăng nhập:
         // chưa có đơn nào mà vẫn bày ô tìm kiếm là mời khách đi tìm thứ không tồn tại.
+        //
+        // ⚠ CỐ Ý KHÁC `HomeView` — đừng "sửa cho nhất quán". Ở `HomeView`, `.searchable` đã phải
+        // chuyển RA KHỎI nhánh điều kiện vì tab đó có `navigationDestination` và PUSH màn mới:
+        // search controller bị tháo/cắm lại đúng lúc `UINavigationController` đang push là cách
+        // làm UIKit mất đồng bộ (xem chú thích 🔴 ở `HomeView.body`). Tab này KHÔNG push gì cả —
+        // mọi thứ mở bằng `.sheet` — nên cơ chế đó không với tới được, và đổi lại thì màn "Đăng
+        // nhập để xem đơn hàng" sẽ mọc một ô tìm kiếm vô nghĩa. Nếu pha sau THÊM
+        // `navigationDestination` vào tab này thì phải chuyển `.searchable` lên ngang
+        // `.navigationTitle` NGAY, giống HomeView.
         .searchable(
             text: $searchText,
             placement: .navigationBarDrawer(displayMode: .always),
@@ -611,8 +620,13 @@ struct StatusBadge: View {
             return (L.t("Refunded", "Hoàn tiền"), .red)
         // "in_production" VÀ "received"/mặc định đều hiện "Đang xử lý" — chủ app chốt bỏ nhãn
         // "Đã nhận" (khiến khách nôn nóng), gộp vào "đang xử lý".
+        //
+        // Dùng MÀU NHẤN của app (cobalt) chứ không phải `.blue` hệ thống: nhãn này nằm cùng màn
+        // với hàng chip lọc vốn đã tô `Color.accentColor`. Để `.blue` ở đây là hai sắc xanh khác
+        // nhau cạnh nhau trên một màn hình — đọc thành lỗi render chứ không thành hai ý nghĩa.
+        // Xanh lá/cam/đỏ ở trên thì GIỮ NGUYÊN: chúng là bộ màu ngữ nghĩa, đọc theo nhau.
         default:
-            return (L.t("Processing", "Đang xử lý"), .blue)
+            return (L.t("Processing", "Đang xử lý"), .accentColor)
         }
     }
 

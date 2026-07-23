@@ -219,8 +219,9 @@ struct ScanDetailView: View {
             }
             if let orderNumber = current.cloudOrderNumber {
                 HStack(spacing: 8) {
+                    // `.tint` chứ không phải `.blue` cứng — xem giải thích ở `HomeView.mainList`.
                     Image(systemName: "shippingbox.fill")
-                        .foregroundStyle(.blue)
+                        .foregroundStyle(.tint)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(L.t("Floor plan ordered", "Đã đặt làm mặt bằng") + " · \(orderNumber)")
                             .font(.subheadline.weight(.semibold))
@@ -1081,7 +1082,7 @@ struct OrderSheet: View {
                     } icon: {
                         Text("💡")
                     }
-                    .foregroundStyle(.blue)
+                    .foregroundStyle(.tint)
                 } else {
                     Text(floorsFooterText)
                 }
