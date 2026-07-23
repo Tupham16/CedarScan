@@ -10,7 +10,13 @@ struct AccountView: View {
         NavigationStack {
             Group {
                 if account.needsVerification {
-                    ScrollView { VerifyEmailView() }
+                    // Mục pháp lý đi KÈM cả hai màn chưa-vào-được-tài-khoản: App Store review mở
+                    // app lần đầu là rơi đúng vào đây, và Privacy Policy phải với tới được ngay
+                    // lúc đó chứ không phải sau khi đăng nhập.
+                    ScrollView {
+                        VerifyEmailView()
+                        legalBlock
+                    }
                 } else if let customer = account.customer {
                     List {
                         Section {
@@ -62,6 +68,11 @@ struct AccountView: View {
                             ))
                         }
                         Section {
+                            LegalLinks()
+                        } header: {
+                            Text("Legal & Privacy")
+                        }
+                        Section {
                             Button(role: .destructive) {
                                 account.signOut()
                             } label: {
@@ -84,6 +95,7 @@ struct AccountView: View {
                 } else {
                     ScrollView {
                         AuthView()
+                        legalBlock
                     }
                 }
             }
@@ -92,6 +104,26 @@ struct AccountView: View {
                 DeleteAccountView()
             }
         }
+    }
+
+    /// Mục Legal & Privacy cho hai màn KHÔNG phải `List` (chưa đăng nhập / chờ xác minh).
+    /// `LegalLinks` chỉ là mấy `NavigationLink` nên đặt trong `VStack` cũng chạy — chỉ cần tự vẽ
+    /// tiêu đề và đường kẻ vì ở đây không có `Section` của List lo hộ.
+    private var legalBlock: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Legal & Privacy")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+            // Khoảng cách do `spacing` của VStack lo, KHÔNG dùng `.padding` gắn lên `LegalLinks()`:
+            // đó là một `ForEach`, và modifier gắn lên ForEach phân phối xuống từng dòng hay không
+            // là chuyện dễ đoán sai — spacing thì luôn đúng.
+            LegalLinks()
+                .font(.subheadline)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 20)
+        .padding(.top, 24)
+        .padding(.bottom, 12)
     }
 }
 

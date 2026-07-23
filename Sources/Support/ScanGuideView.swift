@@ -23,26 +23,42 @@ struct ScanGuideView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 22) {
-                    beforeSection
-                    whileSection
-                    floorsSection
-                    savingSection
-                    startButton
-                }
-                .padding(20)
-            }
-            .navigationTitle(L.t("How to scan well", "Cách quét đẹp"))
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button(L.t("Close", "Đóng")) {
-                        UserDefaults.standard.set(true, forKey: Self.seenKey)
-                        dismiss()
+            ScanGuideContent(onStart: onStart)
+                .navigationTitle(L.t("How to scan well", "Cách quét đẹp"))
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button(L.t("Close", "Đóng")) {
+                            UserDefaults.standard.set(true, forKey: Self.seenKey)
+                            dismiss()
+                        }
                     }
                 }
+        }
+    }
+}
+
+/// RUỘT của hướng dẫn, KHÔNG kèm NavigationStack/nút Đóng.
+///
+/// Tách ra 2026-07-23 để tab **Learn** đẩy được nó vào NavigationStack của chính tab đó (nhét cả
+/// `ScanGuideView` vào là lồng NavigationStack trong NavigationStack — mất nút Back, có hai tiêu đề).
+/// `ScanGuideView` vẫn là bản dùng cho SHEET (lần quét đầu + mọi chỗ gọi cũ), giữ nguyên hành vi
+/// ghi `seenKey`: chỉ nút Đóng/Bắt đầu của sheet mới đánh dấu "đã đọc", đọc trong tab Learn thì
+/// KHÔNG — cố ý, để không đụng vào luồng lần-đầu đang chạy đúng.
+struct ScanGuideContent: View {
+    @Environment(\.dismiss) private var dismiss
+    var onStart: (() -> Void)? = nil
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 22) {
+                beforeSection
+                whileSection
+                floorsSection
+                savingSection
+                startButton
             }
+            .padding(20)
         }
     }
 
@@ -130,7 +146,7 @@ struct ScanGuideView: View {
     private var startButton: some View {
         if let onStart {
             Button {
-                UserDefaults.standard.set(true, forKey: Self.seenKey)
+                UserDefaults.standard.set(true, forKey: ScanGuideView.seenKey)
                 dismiss()
                 onStart()
             } label: {

@@ -14,7 +14,7 @@ struct CedarScanApp: App {
     }
 }
 
-enum RootTab: Hashable { case home, scan, orders, account }
+enum RootTab: Hashable { case home, orders, scan, learn, account }
 
 struct RootView: View {
     @EnvironmentObject private var store: ScanStore
@@ -33,6 +33,13 @@ struct RootView: View {
                     Label(L.t("Home", "Home"), systemImage: "house")
                 }
                 .tag(RootTab.home)
+                .toolbar(.hidden, for: .tabBar)
+            OrdersView()
+                .tabItem {
+                    Label(L.t("Orders", "Đơn hàng"), systemImage: "shippingbox")
+                }
+                .tag(RootTab.orders)
+                .toolbar(.hidden, for: .tabBar)
             // Placeholder: onChange bên dưới bật về Home NGAY khi chọn tab này nên nội dung gần như
             // không bao giờ hiện. Color.clear cho nhẹ.
             Color.clear
@@ -40,16 +47,36 @@ struct RootView: View {
                     Label(L.t("Scan", "SCAN"), systemImage: "viewfinder")
                 }
                 .tag(RootTab.scan)
-            OrdersView()
+                .toolbar(.hidden, for: .tabBar)
+            LearnView()
                 .tabItem {
-                    Label(L.t("Orders", "Đơn hàng"), systemImage: "shippingbox")
+                    Label(L.t("Learn", "Learn"), systemImage: "graduationcap")
                 }
-                .tag(RootTab.orders)
+                .tag(RootTab.learn)
+                .toolbar(.hidden, for: .tabBar)
             AccountView()
                 .tabItem {
                     Label(L.t("Account", "Tài khoản"), systemImage: "person.circle")
                 }
                 .tag(RootTab.account)
+                .toolbar(.hidden, for: .tabBar)
+        }
+        // THANH TAB TỰ VẼ (2026-07-23). Thanh gốc của TabView không cho phóng to/làm nổi một nút,
+        // nên nó bị ẩn (`.toolbar(.hidden, for: .tabBar)` ở TỪNG tab — modifier này đọc từ tab đang
+        // hiện, đặt ở một chỗ không đủ) và thay bằng `CedarTabBar` gắn qua `safeAreaInset`.
+        //
+        // Vì sao safeAreaInset chứ không phải overlay: inset RÚT NGẮN vùng an toàn của nội dung
+        // trong TabView, nên danh sách cuộn hết cỡ vẫn dừng NGAY TRÊN thanh. Overlay thì thanh đè
+        // lên dòng cuối cùng và không ai chạm được nó.
+        //
+        // `.tabItem` vẫn khai đủ nhãn/icon: nếu một bản iOS nào đó không ẩn được thanh gốc thì app
+        // vẫn dùng được (hai thanh, xấu nhưng không kẹt), thay vì còn một dải nút trắng trơn.
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            CedarTabBar(selection: $tab)
+                // Bàn phím KHÔNG được đẩy thanh tab lên. Nội dung safeAreaInset mặc định né bàn
+                // phím, nên ô tìm kiếm ở Home/Đơn hàng sẽ làm thanh tab trôi lên nằm đè kết quả.
+                // Thanh gốc của iOS nằm im dưới bàn phím — giữ đúng hành vi đó.
+                .ignoresSafeArea(.keyboard, edges: .bottom)
         }
         // Tab SCAN không "ở lại": bật về Home (để màn quét mở TRÊN HomeView — đằng sau sheet là danh
         // sách bản quét, không phải nền trống), rồi báo HomeView mở màn quét mới. Cùng cơ chế "center

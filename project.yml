@@ -29,6 +29,15 @@ targets:
       properties:
         CFBundleDisplayName: CedarScan
         NSCameraUsageDescription: CedarScan cần dùng camera và cảm biến LiDAR để quét không gian 3D.
+        # Chỉ dùng cho nút "Dùng vị trí hiện tại" ở màn nhập địa chỉ trước khi quét: lấy toạ độ
+        # MỘT LẦN rồi đổi ra địa chỉ. Không theo dõi nền (không khai NSLocationAlwaysAnd...).
+        # Từ chối quyền này KHÔNG chặn gì — khách gõ địa chỉ bằng tay là quét bình thường.
+        # TIẾNG ANH, không phải tiếng Việt: khách thật của Cedar247 là khách nước ngoài (app chỉ
+        # hiện tiếng Việt khi MÁY đặt tiếng Việt), và App Store review đọc chuỗi này bằng tiếng
+        # Anh — purpose string không đọc được là dạng dễ ăn 5.1.1.
+        # ⚠ NSCameraUsageDescription ở trên vẫn đang là tiếng Việt (có từ trước đợt này). Nên đổi
+        # nốt, nhưng để chủ app quyết vì nó không nằm trong phạm vi đợt này.
+        NSLocationWhenInUseUsageDescription: CedarScan uses your location only to fill in the address of the property you are about to scan. You can always type the address by hand instead.
         # NSMicrophoneUsageDescription đã BỎ 2026-07-19 cùng luồng quay video khảo sát: chỗ duy
         # nhất dùng micro là VideoScanFlowView (đã xoá). ScanVideoRecorder của mesh mode chỉ dựng
         # AVAssetWriterInput video, không có input audio nào. Khai quyền cho tính năng không tồn

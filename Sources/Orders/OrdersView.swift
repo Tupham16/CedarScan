@@ -1,9 +1,13 @@
 import SwiftUI
+import UniformTypeIdentifiers // UTType — suy ra MIME cho file đính kèm của "Yêu cầu sửa"
 
 /// Danh sách đơn đã đặt xử lý: trạng thái + file thành phẩm khi đã giao.
 struct OrdersView: View {
     @EnvironmentObject private var account: AccountStore
     @State private var orders: [OrderDTO] = []
+    /// Chữ trong ô tìm kiếm. Lọc theo SỐ ĐƠN và TÊN BẢN QUÉT — hai thứ duy nhất khách nhìn thấy
+    /// trên mỗi dòng, nên cũng là hai thứ duy nhất họ gõ lại được.
+    @State private var searchText = ""
     /// Danh tính khách mà `orders` hiện thuộc về — để chỉ XOÁ cache khi tài khoản đổi THẬT, không
     /// xoá trên mỗi lần `.task` chạy lại (tránh chớp trắng + giữ được banner "dữ liệu cũ" của [17]).
     @State private var loadedCustomerId: String?
@@ -40,6 +44,13 @@ struct OrdersView: View {
                 if loadedCustomerId != currentId {
                     orders = []
                     errorMessage = nil
+                    // Dọn CẢ ô tìm kiếm và bộ lọc, không chỉ `orders`: cả hai là `@State` của
+                    // OrdersView nên chúng sống suốt vòng đời app, không chết theo tài khoản.
+                    // A đăng xuất → B đăng nhập, B thấy ô tìm kiếm ĐÃ ĐIỀN SẴN số đơn của A (một
+                    // mẩu dữ liệu của người khác) và danh sách rỗng kèm câu "không có đơn nào
+                    // khớp" — B kết luận mình không có đơn nào.
+                    searchText = ""
+                    filter = .all
                     loadedCustomerId = currentId
                 }
                 if account.isSignedIn { await load() }
@@ -117,36 +128,89 @@ struct OrdersView: View {
         .padding(32)
     }
 
-    /// Đơn đang hiển thị theo bộ lọc trạng thái đang chọn.
+    /// Đơn khớp ô TÌM KIẾM (chưa áp bộ lọc trạng thái).
+    ///
+    /// Số đếm trên các nút lọc tính TRÊN TẬP NÀY, không phải trên toàn bộ `orders`: nút ghi "(3)"
+    /// mà bấm vào chỉ ra 1 đơn — vì 2 đơn kia bị ô tìm kiếm loại — là con số nói dối.
+    private var searchedOrders: [OrderDTO] {
+        let key = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !key.isEmpty else { return orders }
+        return orders.filter {
+            TextMatch.contains($0.orderNumber, key) || TextMatch.contains($0.scanName ?? "", key)
+        }
+    }
+
+    /// Đơn đang hiển thị: khớp cả ô tìm kiếm lẫn bộ lọc trạng thái đang chọn.
     private var filteredOrders: [OrderDTO] {
-        orders.filter { filter.matches($0.status) }
+        searchedOrders.filter { filter.matches($0.status) }
+    }
+
+    /// Câu giải thích khi danh sách rỗng — phải nói đúng NGUYÊN NHÂN.
+    ///
+    /// Có đơn khớp từ khoá nhưng bị chip trạng thái chặn mà lại báo "không khớp từ khoá" thì khách
+    /// đi sửa từ khoá, trong khi việc phải làm là bấm sang chip khác. (Con số trên chip vốn đã
+    /// đúng — nó đếm trên `searchedOrders` — chỉ mỗi câu này từng chỉ sai hướng.)
+    private var emptyListNote: String {
+        // Đang tải LẦN ĐẦU (chưa có đơn nào trong tay) cũng rơi vào đây — `ordersList` được chọn
+        // khi `orders.isEmpty && isLoading`. Không có nhánh này thì màn hình khẳng định "Không có
+        // đơn nào" đúng lúc dữ liệu còn đang trên đường về.
+        if isLoading && orders.isEmpty {
+            return L.t("Loading your orders…", "Đang tải đơn hàng…")
+        }
+        let hasQuery = !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        if hasQuery && searchedOrders.isEmpty {
+            return L.t("No orders match your search.", "Không có đơn nào khớp với từ khóa.")
+        }
+        if filter != .all {
+            return L.t("No orders in this category — try another filter above.",
+                       "Không có đơn nào ở mục này — thử chọn mục khác ở trên.")
+        }
+        return L.t("No orders in this category.", "Không có đơn nào ở mục này.")
+    }
+
+    /// Các nút lọc thật sự hiện ra.
+    ///
+    /// "Tất cả" LUÔN hiện; trạng thái khác chỉ hiện khi có đơn — bày 5 nút mà 4 nút ghi (0) là màn
+    /// hình bẩn với khách chỉ có một đơn. NHƯNG nút ĐANG CHỌN luôn được giữ lại kể cả khi về 0:
+    /// nút biến mất ngay dưới ngón tay là danh sách rỗng mà không còn gì nói cho khách biết vì sao.
+    private var visibleFilters: [OrderFilter] {
+        OrderFilter.allCases.filter { f in
+            f == .all || f == filter || searchedOrders.contains { f.matches($0.status) }
+        }
     }
 
     /// Hàng nút lọc theo trạng thái + số đếm. Cuộn ngang để không tràn trên máy nhỏ.
     private var filterBar: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
-                ForEach(OrderFilter.allCases) { f in
-                    let count = orders.filter { f.matches($0.status) }.count
-                    Button {
-                        filter = f
-                    } label: {
-                        Text("\(f.title) (\(count))")
-                            .font(.subheadline.weight(filter == f ? .semibold : .regular))
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 6)
-                            .background(
-                                filter == f ? Color.accentColor.opacity(0.18) : Color.secondary.opacity(0.12),
-                                in: Capsule()
-                            )
-                            .foregroundStyle(filter == f ? Color.accentColor : Color.primary)
-                    }
-                    .buttonStyle(.plain)
+                ForEach(visibleFilters) { f in
+                    filterChip(f)
                 }
             }
             .padding(.horizontal)
             .padding(.vertical, 6)
         }
+    }
+
+    /// Tách thành hàm riêng — CI của repo này từng chết vì "Swift type-check timeout" với biểu
+    /// thức SwiftUI lớn, mà đây là chỗ có `let` cục bộ + nhiều modifier điều kiện.
+    private func filterChip(_ f: OrderFilter) -> some View {
+        let count = searchedOrders.filter { f.matches($0.status) }.count
+        let isOn = filter == f
+        return Button {
+            filter = f
+        } label: {
+            Text("\(f.title) (\(count))")
+                .font(.subheadline.weight(isOn ? .semibold : .regular))
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(
+                    isOn ? Color.accentColor.opacity(0.18) : Color.secondary.opacity(0.12),
+                    in: Capsule()
+                )
+                .foregroundStyle(isOn ? Color.accentColor : Color.primary)
+        }
+        .buttonStyle(.plain)
     }
 
     private var ordersList: some View {
@@ -173,7 +237,7 @@ struct OrdersView: View {
                 }
             }
             if filteredOrders.isEmpty {
-                Text(L.t("No orders in this category.", "Không có đơn nào ở mục này."))
+                Text(emptyListNote)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
@@ -272,6 +336,13 @@ struct OrdersView: View {
             }
             }
         }
+        // Ô tìm kiếm nằm ở NHÁNH CÓ ĐƠN (`ordersList`), không gắn cho màn trống/chưa đăng nhập:
+        // chưa có đơn nào mà vẫn bày ô tìm kiếm là mời khách đi tìm thứ không tồn tại.
+        .searchable(
+            text: $searchText,
+            placement: .navigationBarDrawer(displayMode: .always),
+            prompt: L.t("Search order # or scan name", "Tìm số đơn hoặc tên bản quét")
+        )
     }
 
     private static func formatDate(_ iso: String) -> String {
@@ -290,6 +361,12 @@ struct RevisionSheet: View {
     @State private var isBusy = false
     @State private var errorMessage: String?
     @State private var sent = false
+    /// File khách gửi kèm yêu cầu sửa (ảnh chụp chỗ sai, PDF đánh dấu…). Đã upload xong lên R2,
+    /// chờ gửi metadata {name,url} kèm lời nhắn. Cùng endpoint `/order-files` với form đặt hàng.
+    @State private var files: [OrderFileItem] = []
+    @State private var showFileImporter = false
+    @State private var uploadingFile = false
+    @State private var fileUploadError: String?
 
     var body: some View {
         NavigationStack {
@@ -328,6 +405,7 @@ struct RevisionSheet: View {
                         Text(L.t("Revisions for mistakes on our side are free.",
                                  "Sửa lỗi thuộc về chúng tôi là miễn phí."))
                     }
+                    attachmentsSection
                     if let errorMessage {
                         Section {
                             Text(errorMessage)
@@ -339,6 +417,11 @@ struct RevisionSheet: View {
             }
             .navigationTitle(L.t("Request a revision", "Yêu cầu sửa"))
             .navigationBarTitleDisplayMode(.inline)
+            // Vuốt xuống lúc ĐANG GỬI / ĐANG TẢI FILE thì sheet đóng mà request vẫn bay tiếp:
+            // khách tin là đã hủy, thực tế đội vẽ vẫn nhận yêu cầu (và `onSent` không chạy nên
+            // danh sách đơn không được làm tươi). Cùng bài học với [3] ở `OrderSheet`: cửa "đang
+            // gửi" KHÔNG hủy an toàn được, nên khoá đường đóng thay vì giả vờ hủy.
+            .interactiveDismissDisabled(isBusy || uploadingFile)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button(sent ? L.t("Close", "Đóng") : L.t("Cancel", "Hủy")) { dismiss() }
@@ -354,10 +437,100 @@ struct RevisionSheet: View {
                                 Text(L.t("Send", "Gửi")).bold()
                             }
                         }
-                        .disabled(isBusy || message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                        // Khoá luôn khi ĐANG TẢI FILE: gửi lúc đó là lời nhắn tới nơi mà file
+                        // thì chưa, và sheet đóng mất — khách không còn đường gửi lại file đó
+                        // vào đúng yêu cầu này.
+                        .disabled(isBusy || uploadingFile || message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     }
                 }
             }
+        }
+    }
+
+    /// Mục đính kèm — cùng khuôn với mục "Đính kèm file" ở form đặt hàng (`OrderSheet`).
+    private var attachmentsSection: some View {
+        Section {
+            ForEach(files) { file in
+                HStack {
+                    Image(systemName: "doc.fill").foregroundStyle(.secondary)
+                    Text(file.name).lineLimit(1)
+                    Spacer()
+                    Button {
+                        files.removeAll { $0.id == file.id }
+                    } label: {
+                        Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            Button {
+                fileUploadError = nil
+                showFileImporter = true
+            } label: {
+                if uploadingFile {
+                    HStack(spacing: 8) {
+                        ProgressView()
+                        Text(L.t("Uploading…", "Đang tải lên…")).foregroundStyle(.secondary)
+                    }
+                } else {
+                    Label(L.t("Add a file (photo, PDF…)", "Thêm file (ảnh, PDF…)"), systemImage: "paperclip")
+                }
+            }
+            // Khoá cả khi ĐANG GỬI (`isBusy`): thêm file lúc đó là file lên R2 SAU khi POST đã
+            // bay, không bao giờ vào đơn — mà `sent == true` thì cả mục này biến mất nên khách
+            // không thấy gì bất thường. Và khoá theo TRẦN SERVER (10): server trả 400 nếu vượt,
+            // chặn ở đây thì lỗi đó không bao giờ với tới khách.
+            .disabled(uploadingFile || isBusy || files.count >= Self.maxFiles)
+            .fileImporter(
+                isPresented: $showFileImporter,
+                allowedContentTypes: [.image, .pdf],
+                allowsMultipleSelection: false
+            ) { result in
+                handleFilePick(result)
+            }
+            if let fileUploadError {
+                Text(fileUploadError).font(.footnote).foregroundStyle(.red)
+            }
+        } header: {
+            Text(L.t("Attachments (optional)", "Đính kèm file (không bắt buộc)"))
+        } footer: {
+            Text(files.count >= Self.maxFiles
+                 ? L.t("Maximum \(Self.maxFiles) files per request.",
+                       "Tối đa \(Self.maxFiles) file mỗi lần gửi.")
+                 : L.t("A marked-up photo or PDF helps us find exactly what to fix.",
+                       "Ảnh chụp/PDF có đánh dấu giúp đội vẽ tìm đúng chỗ cần sửa."))
+        }
+    }
+
+    /// Trần số file — PHẢI khớp `MAX_REVISION_FILES` ở server (`revision/route.ts`), nơi vượt trần
+    /// là bị từ chối 400 chứ không cắt lặng lẽ.
+    private static let maxFiles = 10
+
+    private func handleFilePick(_ result: Result<[URL], Error>) {
+        guard case .success(let urls) = result, let url = urls.first else { return }
+        Task { await upload(url) }
+    }
+
+    /// Upload 1 file lên R2 qua presigned URL rồi thêm vào `files`. Cùng đường với `OrderSheet`.
+    private func upload(_ url: URL) async {
+        uploadingFile = true
+        fileUploadError = nil
+        // File từ .fileImporter nằm ngoài sandbox → phải xin quyền truy cập (và nhả sau).
+        let scoped = url.startAccessingSecurityScopedResource()
+        defer {
+            if scoped { url.stopAccessingSecurityScopedResource() }
+            uploadingFile = false
+        }
+        let name = url.lastPathComponent
+        do {
+            let slot = try await APIClient.shared.presignOrderFile(
+                fileName: name,
+                contentType: OrderFileItem.mimeType(for: url)
+            )
+            try await APIClient.shared.uploadFile(at: url, to: slot.putUrl, contentType: slot.contentType) { _ in }
+            files.append(OrderFileItem(id: slot.fileId, name: slot.name, url: slot.publicUrl))
+        } catch {
+            fileUploadError = error.localizedDescription
         }
     }
 
@@ -366,7 +539,11 @@ struct RevisionSheet: View {
         errorMessage = nil
         Task {
             do {
-                _ = try await APIClient.shared.requestRevision(orderId: order.orderId, message: message)
+                _ = try await APIClient.shared.requestRevision(
+                    orderId: order.orderId,
+                    message: message,
+                    files: files.map { ["name": $0.name, "url": $0.url] }
+                )
                 sent = true
                 onSent()
             } catch {
@@ -377,27 +554,46 @@ struct RevisionSheet: View {
     }
 }
 
-/// Bộ lọc trạng thái ở đầu tab Đơn hàng. "Đang xử lý" gộp mọi trạng thái chưa-giao-chưa-hoàn
-/// (gồm cả "đã nhận" cũ — chủ app chốt bỏ nhãn "đã nhận" để khách bớt nôn nóng).
+/// Bộ lọc trạng thái ở đầu tab Đơn hàng.
+///
+/// MỖI TRẠNG THÁI SERVER TRẢ VỀ ĐỀU CÓ ĐÚNG MỘT Ô (chủ app chốt 2026-07-23). Server có 5 trạng
+/// thái (`customerOrderStatus` trong `app-api.ts`): received · in_production · on_hold · delivered
+/// · refunded. Ở đây received+in_production gộp thành "Đang xử lý" — chủ app đã chốt bỏ nhãn "Đã
+/// nhận" để khách bớt nôn nóng — còn ba cái kia mỗi cái một ô.
+///
+/// 🔴 Ô "Khác" tồn tại để TỔNG LUÔN KHỚP. Bản trước để `.processing` ôm "mọi thứ chưa giao chưa
+/// hoàn" nên trạng thái mới của server tự rơi vào đó; nay `.processing` liệt kê tường minh (bắt
+/// buộc, vì `.onHold` phải tách ra thì mới đếm riêng được), và nếu server thêm trạng thái thứ sáu
+/// mà không có ô "Khác" thì đơn đó KHÔNG nằm trong ô nào — khách mở tab Đơn hàng thấy nó ở "Tất
+/// cả" rồi bấm lọc là mất tích. Ô "Khác" chỉ hiện khi thật sự có đơn như vậy (xem `visibleFilters`).
 enum OrderFilter: String, CaseIterable, Identifiable {
-    case all, processing, ready, refunded
+    case all, processing, onHold, ready, refunded, other
     var id: String { rawValue }
+
+    /// Các trạng thái app BIẾT tên. Dùng cho ô "Khác" — đừng sửa một mình nó, phải sửa cùng `matches`.
+    private static let known: Set<String> = [
+        "received", "in_production", "on_hold", "delivered", "refunded",
+    ]
+
     var title: String {
         switch self {
         case .all: return L.t("All", "Tất cả")
         case .processing: return L.t("Processing", "Đang xử lý")
+        case .onHold: return L.t("On hold", "Tạm giữ")
         case .ready: return L.t("Ready", "Đã giao")
         case .refunded: return L.t("Refunded", "Hoàn tiền")
+        case .other: return L.t("Other", "Khác")
         }
     }
+
     func matches(_ status: String) -> Bool {
         switch self {
         case .all: return true
+        case .processing: return status == "received" || status == "in_production"
+        case .onHold: return status == "on_hold"
         case .ready: return status == "delivered"
         case .refunded: return status == "refunded"
-        // Mọi thứ chưa giao & chưa hoàn = đang xử lý (received/in_production/on_hold + trạng thái
-        // mới trong tương lai) — future-proof, không cần liệt kê từng cái.
-        case .processing: return status != "delivered" && status != "refunded"
+        case .other: return !Self.known.contains(status)
         }
     }
 }

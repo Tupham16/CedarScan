@@ -624,10 +624,21 @@ struct ScanDetailView: View {
 // MARK: - Form đặt hàng (kiểu CubiCasa: gói + add-on + giá, lưu mặc định cho lần sau)
 
 /// Một file khách tự đính kèm đơn (logo / file thêm) đã upload xong. `id` = fileId server cấp.
+/// Dùng chung với mục đính kèm của "Yêu cầu sửa" (`RevisionSheet`) — cùng endpoint `/order-files`.
 struct OrderFileItem: Identifiable {
     let id: String   // fileId
     let name: String
     let url: String  // publicUrl trên R2
+
+    /// MIME theo đuôi file — server dùng nó để ký presigned URL nên phải đoán trước khi upload.
+    /// Không nhận ra đuôi thì trả octet-stream và để SERVER từ chối (allowlist nằm ở đó), thay vì
+    /// đoán bừa một loại được phép.
+    static func mimeType(for url: URL) -> String {
+        if let type = UTType(filenameExtension: url.pathExtension), let mime = type.preferredMIMEType {
+            return mime
+        }
+        return "application/octet-stream"
+    }
 }
 
 struct OrderSheet: View {
@@ -648,6 +659,8 @@ struct OrderSheet: View {
     @State private var selectedTemplates: [String: String] = [:]
     /// File khách tự đính kèm (logo / file thêm) — đã upload xong, chờ gửi kèm đơn.
     @State private var orderFiles: [OrderFileItem] = []
+    /// Trần số file đính kèm mỗi đơn — PHẢI khớp trần ở server (`scans/[id]/order/route.ts`).
+    private static let maxOrderFiles = 10
     @State private var showFileImporter = false
     @State private var uploadingFile = false
     @State private var fileUploadError: String?
@@ -1003,11 +1016,10 @@ struct OrderSheet: View {
         }
     }
 
+    /// Thân hàm đã dời sang `OrderFileItem.mimeType(for:)` để mục đính kèm của "Yêu cầu sửa"
+    /// (tab Đơn hàng) dùng chung — hai chỗ đoán MIME khác nhau là hai chỗ bị server từ chối khác nhau.
     private static func mimeType(for url: URL) -> String {
-        if let type = UTType(filenameExtension: url.pathExtension), let mime = type.preferredMIMEType {
-            return mime
-        }
-        return "application/octet-stream"
+        OrderFileItem.mimeType(for: url)
     }
 
     @ViewBuilder
@@ -1193,7 +1205,10 @@ struct OrderSheet: View {
                         Label(L.t("Add a file (logo, PDF…)", "Thêm file (logo, PDF…)"), systemImage: "paperclip")
                     }
                 }
-                .disabled(uploadingFile)
+                // Khoá theo TRẦN SERVER: order route nhận tối đa `Self.maxOrderFiles` file. Chặn ở
+                // đây thì khách không bao giờ rơi vào ca "gửi 11 file, server chỉ nhận 10" —
+                // trước đây server CẮT LẶNG LẼ, tức file thứ 11 không ai thấy mà cũng không ai báo.
+                .disabled(uploadingFile || isBusy || orderFiles.count >= Self.maxOrderFiles)
                 .fileImporter(
                     isPresented: $showFileImporter,
                     allowedContentTypes: [.image, .pdf],
@@ -1207,8 +1222,11 @@ struct OrderSheet: View {
             } header: {
                 Text(L.t("Attachments (optional)", "Đính kèm file (không bắt buộc)"))
             } footer: {
-                Text(L.t("Add a logo or any extra files for our team — images or PDF.",
-                         "Gửi thêm logo hoặc file cho đội vẽ nếu cần — ảnh hoặc PDF."))
+                Text(orderFiles.count >= Self.maxOrderFiles
+                     ? L.t("Maximum \(Self.maxOrderFiles) files per order.",
+                           "Tối đa \(Self.maxOrderFiles) file mỗi đơn.")
+                     : L.t("Add a logo or any extra files for our team — images or PDF.",
+                           "Gửi thêm logo hoặc file cho đội vẽ nếu cần — ảnh hoặc PDF."))
             }
 
             Section {
@@ -1396,6 +1414,22 @@ struct OrderSheet: View {
         isBusy = true
         errorMessage = nil
         let extras = otherScans.filter { extraFloors.contains($0.id) }
+        // 🔴 CHỤP MỌI THỨ QUYẾT ĐỊNH GIÁ NGAY TẠI ĐÂY, đừng đọc `@State` lại sau các `await`.
+        //
+        // Giữa lúc bấm nút và lúc `orderScan` bay đi là cả quãng TẢI LÊN 40–200MB × số tầng —
+        // hàng chục phút trên 4G. Suốt quãng đó form vẫn chạm được (chỉ nút Hủy và nút Đặt hàng
+        // bị khoá), nên khách hoàn toàn có thể tick thêm gói 3D $40 "để xem giá" rồi bỏ ra. Đọc
+        // `selectedPackages` ở dưới nghĩa là đơn gửi lên theo trạng thái LÚC ĐÓ, khác con số mà
+        // nút "Đặt hàng $46" đã hứa lúc khách bấm. Chụp ở đây thì cái khách bấm = cái server nhận.
+        let pkgIds = Array(selectedPackages)
+        let addonIds = Array(selectedAddons)
+        let templatesSnapshot = selectedTemplates
+        let filesSnapshot = orderFiles.map { ["name": $0.name, "url": $0.url] }
+        let notesSnapshot = notes
+        let unitSnapshot = unitSystem
+        let languageSnapshot = language
+        let floorNamingSnapshot = floorNaming
+        let couponSnapshot = couponCode.trimmingCharacters(in: .whitespacesAndNewlines)
         submitTask = Task {
             // Tải lên mọi bản quét CHƯA có trên server (kể cả bản chính — khi đặt từ trang dự án)
             @MainActor
@@ -1477,16 +1511,16 @@ struct OrderSheet: View {
                 let result = try await APIClient.shared.orderScan(
                     scanId: primaryCloudId,
                     extraScanIds: extraCloudIds,
-                    packageIds: Array(selectedPackages),
-                    addonIds: Array(selectedAddons),
-                    templates: selectedTemplates,
-                    orderFiles: orderFiles.map { ["name": $0.name, "url": $0.url] },
-                    notes: notes,
-                    unitSystem: unitSystem,
-                    language: language,
-                    floorNaming: floorNaming,
+                    packageIds: pkgIds,
+                    addonIds: addonIds,
+                    templates: templatesSnapshot,
+                    orderFiles: filesSnapshot,
+                    notes: notesSnapshot,
+                    unitSystem: unitSnapshot,
+                    language: languageSnapshot,
+                    floorNaming: floorNamingSnapshot,
                     projectName: projectName ?? "",
-                    coupon: couponCode.trimmingCharacters(in: .whitespacesAndNewlines)
+                    coupon: couponSnapshot
                 )
                 placedOrder = result
                 // Đóng dấu số đơn cho ĐÚNG tập đã vào đơn: bản chính + các tầng khách còn tick.

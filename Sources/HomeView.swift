@@ -46,12 +46,10 @@ struct HomeView: View {
     @State private var renameText = ""
     @State private var saveError: String?
     @State private var pendingSaveError: String?
-    @State private var showNewProject = false
-    @State private var newProjectName = ""
+    /// Chữ trong ô tìm kiếm (`.searchable`). CHỈ lọc phần hiển thị — không đụng gì tới `store`.
+    @State private var searchText = ""
     @State private var showGuide = false
-    /// Guide đang mở ở dạng CÓ nút "Bắt đầu quét" (luồng lần đầu) hay chỉ để đọc.
-    @State private var guideThenScan = false
-    /// Người dùng ĐÃ BẤM nút "Bắt đầu quét" trong guide. Tách khỏi `guideThenScan` vì nút
+    /// Người dùng ĐÃ BẤM nút "Bắt đầu quét" trong guide. Tách khỏi việc "sheet đang mở" vì nút
     /// "Đóng" cũng dismiss cùng một sheet — gộp một cờ thì đóng guide sẽ tự nhảy vào màn quét.
     ///
     /// RESET Ở LỐI VÀO, không chỉ ở onDismiss: nếu có đúng một lần onDismiss không chạy (view
@@ -78,25 +76,12 @@ struct HomeView: View {
                 }
             }
             .navigationTitle("CedarScan")
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button {
-                        guideThenScan = false
-                        startAfterGuide = false // xem mục "reset ở LỐI VÀO" ở sheet bên dưới
-                        showGuide = true
-                    } label: {
-                        Label(L.t("How to scan", "Cách quét"), systemImage: "questionmark.circle")
-                    }
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        newProjectName = ""
-                        showNewProject = true
-                    } label: {
-                        Label(L.t("New Property", "Dự án mới"), systemImage: "folder.badge.plus")
-                    }
-                }
-            }
+            // TOOLBAR ĐÃ GỠ HẲN (2026-07-23, chủ app chốt):
+            //  • nút **?** "Cách quét" → chuyển vào tab **Learn** ở thanh dưới.
+            //  • nút **folder** "Dự án mới" → thừa: từ khi màn địa chỉ là bắt buộc, MỌI bản quét
+            //    đều tự tạo/gắn dự án ngay lúc bắt đầu quét. Tạo một dự án RỖNG bằng tay chỉ đẻ ra
+            //    thư mục không có bản quét nào.
+            // Nhờ vậy đầu màn chỉ còn tiêu đề + ô tìm kiếm.
             // Bắt đầu quét từ onDismiss, KHÔNG gọi thẳng trong callback của guide: ScanGuideView
             // gọi dismiss() rồi onStart() trong CÙNG một transaction, nên present thẳng ở đó là
             // present-trong-lúc-sheet-đang-đóng — đúng thứ mà chú thích ngay dưới cảnh báo.
@@ -109,11 +94,16 @@ struct HomeView: View {
                 startAfterGuide = false
                 startScanning()
             }) {
-                if guideThenScan {
-                    ScanGuideView { startAfterGuide = true }
-                } else {
-                    ScanGuideView()
-                }
+                // KHÔNG còn nhánh "chỉ xem": nút **?** đã gỡ khỏi toolbar (hướng dẫn giờ nằm ở tab
+                // Learn), nên sheet này CHỈ còn một lối vào duy nhất là `beginNewScan()` — luôn là
+                // luồng "đọc xong rồi quét".
+                //
+                // 🔴 Cờ `guideThenScan` cũ đã XOÁ chứ không để lại cho "chắc ăn": nó được set CÙNG
+                // NHỊP với `showGuide`, mà `.sheet(isPresented:)` dựng nội dung ngay lúc cờ lật
+                // true — đúng cái race đã trả giá ở `ProjectView` (bẫy #20c trong handoff). Nếu
+                // `guideThenScan` chưa kịp commit thì lần đầu tiên khách mở app sẽ thấy hướng dẫn
+                // KHÔNG có nút "Bắt đầu quét", đóng lại thì cũng không quét — ngõ cụt im lặng.
+                ScanGuideView { startAfterGuide = true }
             }
             // Mở cover từ onDismiss của sheet (chờ sheet đóng XONG mới present) —
             // present-trong-lúc-sheet-đang-đóng là kiểu dễ rớt presentation nhất.
@@ -122,8 +112,8 @@ struct HomeView: View {
                 pendingScanStart = false
                 isMeshScanning = true
             }) {
-                // Không .presentationDetents: đây là Form nhiều mục (địa chỉ + danh sách căn đã
-                // có + độ nét), ép .medium là danh sách căn nhà bị bóp còn một hai dòng.
+                // Không .presentationDetents: đây là Form nhiều mục (hai nút tắt + ô địa chỉ +
+                // gợi ý + độ nét), ép .medium là phần gợi ý bị bóp còn một hai dòng.
                 ScanAddressView { projectId in
                     pendingProjectId = projectId
                     pendingScanStart = true
@@ -217,18 +207,6 @@ struct HomeView: View {
                     "CedarScan cần iPhone bản Pro (12 Pro trở lên) có cảm biến LiDAR."
                 ))
             }
-            .alert(L.t("New Property", "Dự án mới"), isPresented: $showNewProject) {
-                TextField(L.t("Address or name (e.g. 1600 College Ave)", "Địa chỉ hoặc tên (vd 1600 College Ave)"), text: $newProjectName)
-                Button(L.t("Create", "Tạo")) {
-                    store.createProject(name: newProjectName)
-                }
-                Button(L.t("Cancel", "Hủy"), role: .cancel) {}
-            } message: {
-                Text(L.t(
-                    "A property groups the scans of one home (Whole home, Part 1, Shed…) so you can order them together.",
-                    "Một dự án gom các bản quét của cùng căn nhà (Cả căn, Part 1, Nhà kho…) để đặt hàng chung."
-                ))
-            }
             .alert(L.t("Rename scan", "Đổi tên bản quét"), isPresented: renameAlertBinding) {
                 TextField(L.t("New name", "Tên mới"), text: $renameText)
                 Button(L.t("Save", "Lưu")) {
@@ -291,9 +269,16 @@ struct HomeView: View {
             Text(L.t("No scans yet", "Chưa có bản quét nào"))
                 .font(.title3.weight(.semibold))
             Text(isSupported
+                 // Hết nhắc "tạo Dự án": nút folder đã gỡ, và bản quét nào cũng tự vào một dự án
+                 // ngay ở màn địa chỉ. Chỉ đường tới một nút không còn tồn tại là ngõ cụt.
+                 //
+                 // ⚠ TẢ NÚT THEO HÌNH DẠNG, KHÔNG THEO CHỮ "SCAN": nút giữa thanh dưới nay là một
+                 // vòng tròn CHỈ CÓ ICON, không có nhãn chữ (xem `CedarTabBar.scanItem`). Câu cũ
+                 // ghi "Bấm SCAN ở dưới" chỉ vào một chữ không còn tồn tại trên màn hình. Ai đổi
+                 // lại thiết kế nút thì sửa cả câu này.
                  ? L.t(
-                    "Tap SCAN below to scan your first space, or create a Property folder for a home with several floors.",
-                    "Bấm SCAN ở dưới để quét không gian đầu tiên, hoặc tạo Dự án cho căn nhà nhiều tầng."
+                    "Tap the round scan button at the bottom to scan your first space. Every scan is filed under the home address you enter.",
+                    "Bấm nút tròn ở giữa thanh dưới để quét không gian đầu tiên. Mỗi bản quét sẽ tự vào dự án theo địa chỉ bạn nhập."
                  )
                  : L.t(
                     "CedarScan measures with the LiDAR sensor, which this iPhone does not have. You need an iPhone Pro (12 Pro or newer).",
@@ -307,11 +292,43 @@ struct HomeView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
+    /// Dự án khớp chữ đang tìm. Ô rỗng → trả về tất cả (`TextMatch.contains` tự lo).
+    ///
+    /// 🔴 KHỚP CẢ THEO TÊN BẢN QUÉT BÊN TRONG. Ô này ghi "Tìm dự án, bản quét", mà bản quét thì
+    /// gần như luôn nằm TRONG một dự án (từ khi màn địa chỉ bắt buộc, `looseScans` chỉ còn là dữ
+    /// liệu đời cũ). Chỉ khớp tên dự án nghĩa là nửa lời hứa của ô tìm kiếm không bao giờ đúng —
+    /// tệ hơn "không ra kết quả": app in hẳn câu "Không có dự án hay bản quét nào khớp", tức
+    /// KHẲNG ĐỊNH SAI rằng bản quét đó không tồn tại.
+    ///
+    /// Dự án khớp thì hiện NGUYÊN dự án (không lọc bớt tầng bên trong): mở ra vẫn thấy đủ các
+    /// tầng. Lọc cả bên trong sẽ đẻ ra dự án nửa vời — thiếu tầng mà không có dấu hiệu gì.
+    private var visibleProjects: [ScanProject] {
+        store.projects.filter { project in
+            TextMatch.contains(project.name, searchText)
+                || store.scans(in: project).contains { TextMatch.contains($0.name, searchText) }
+        }
+    }
+
+    /// Bản quét chưa vào dự án nào, khớp chữ đang tìm.
+    private var visibleLooseScans: [ScanRecord] {
+        store.looseScans.filter { TextMatch.contains($0.name, searchText) }
+    }
+
     private var mainList: some View {
         List {
-            if !store.projects.isEmpty {
+            // Tìm không ra thì PHẢI nói ra. Không có dòng này, danh sách rỗng trơn trông y hệt
+            // "máy chưa có bản quét nào" — người dùng tưởng dữ liệu bay mất.
+            if !searchText.isEmpty && visibleProjects.isEmpty && visibleLooseScans.isEmpty {
+                Text(L.t(
+                    "No homes or scans match \"\(searchText)\".",
+                    "Không có dự án hay bản quét nào khớp \"\(searchText)\"."
+                ))
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            }
+            if !visibleProjects.isEmpty {
                 Section(L.t("Properties", "Dự án (căn nhà)")) {
-                    ForEach(store.projects) { project in
+                    ForEach(visibleProjects) { project in
                         NavigationLink(value: project) {
                             HStack(spacing: 10) {
                                 Image(systemName: "folder.fill")
@@ -332,11 +349,11 @@ struct HomeView: View {
                     }
                 }
             }
-            if !store.looseScans.isEmpty {
+            if !visibleLooseScans.isEmpty {
                 Section(store.projects.isEmpty
                         ? L.t("Scans", "Bản quét")
                         : L.t("Not in a property", "Chưa vào dự án")) {
-                    ForEach(store.looseScans) { record in
+                    ForEach(visibleLooseScans) { record in
                         ScanRow(
                             record: record,
                             onRename: {
@@ -348,6 +365,13 @@ struct HomeView: View {
                 }
             }
         }
+        // Ô tìm kiếm CHỈ gắn ở đây (nhánh có dữ liệu), không gắn cho `emptyState`: máy chưa có gì
+        // mà vẫn bày ô tìm kiếm là mời người dùng đi tìm thứ không tồn tại.
+        .searchable(
+            text: $searchText,
+            placement: .navigationBarDrawer(displayMode: .always),
+            prompt: L.t("Search homes and scans", "Tìm dự án, bản quét")
+        )
     }
 
     // KHÔNG lọc bản quét đã đặt ra khỏi danh sách này. Từng thử và đó là lỗi CHẶN: `ScanRow` là
@@ -383,7 +407,6 @@ struct HomeView: View {
             return
         }
         if !UserDefaults.standard.bool(forKey: ScanGuideView.seenKey) {
-            guideThenScan = true
             startAfterGuide = false // xem mục "reset ở LỐI VÀO" ở sheet guide bên trên
             showGuide = true
         } else {

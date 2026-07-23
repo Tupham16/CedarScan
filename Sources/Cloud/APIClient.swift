@@ -442,8 +442,17 @@ final class APIClient {
         let ok: Bool
     }
 
-    func requestRevision(orderId: String, message: String) async throws -> RevisionResponse {
-        try await send("orders/\(orderId)/revision", method: "POST", json: ["message": message])
+    /// `files`: [{name, url}] — file khách đã upload trước qua `presignOrderFile`. Server CHỈ nhận
+    /// url nằm dưới prefix của chính khách, nên gửi url lạ chỉ bị bỏ qua chứ không gắn nhầm được.
+    func requestRevision(
+        orderId: String,
+        message: String,
+        files: [[String: String]] = []
+    ) async throws -> RevisionResponse {
+        try await send("orders/\(orderId)/revision", method: "POST", json: [
+            "message": message,
+            "files": files,
+        ])
     }
 
     // MARK: Virtual Tour

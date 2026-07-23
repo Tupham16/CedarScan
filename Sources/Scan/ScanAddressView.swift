@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import UIKit // UIApplication.openSettingsURLString — đưa khách sang Cài đặt khi quyền vị trí bị tắt
 
 /// Màn chèn giữa nút Quét và màn quét: gắn bản quét sắp tới vào một CĂN NHÀ (dự án), rồi chọn
 /// độ nét. Thay cho sheet chỉ-chọn-độ-nét của P2 — gộp vào một màn để không thêm một chạm.
@@ -15,6 +16,11 @@ import SwiftUI
 /// không có địa chỉ — đúng thứ màn này sinh ra để chống, mà cho bỏ qua thì ai cũng bỏ qua.
 /// Chấp nhận CHỮ TỰ DO (không ép đúng định dạng địa chỉ) để người dùng luôn đi tiếp được khi
 /// GPS yếu trong nhà, mất mạng, hoặc từ chối cấp quyền vị trí.
+///
+/// 🔴 MÀN NÀY LÀ ĐƯỜNG QUÉT CĂN **MỚI** (2026-07-23, chủ app chốt). Nó KHÔNG còn bày danh sách
+/// các căn đã quét nữa. Muốn quét thêm cho một căn ĐÃ CÓ thì đường đúng là: Trang chủ → mở dự án
+/// đó → nút quét trong `ProjectView` (màn đó không hỏi lại địa chỉ vì đã biết căn nào). Ở đây chỉ
+/// còn gợi ý khi chữ vừa gõ TRÙNG một căn đã có — để không đẻ ra hai căn cùng địa chỉ.
 struct ScanAddressView: View {
     @EnvironmentObject private var store: ScanStore
     @Environment(\.dismiss) private var dismiss
@@ -26,21 +32,81 @@ struct ScanAddressView: View {
     @AppStorage("meshQuality") private var meshQuality: MeshQuality = MeshQuality.storageDefault
     @State private var address = ""
     @State private var pickedProjectId: UUID?
-    /// Đã bung xem hết danh sách căn đã quét chưa. Mặc định chỉ hiện vài dòng đầu.
-    @State private var showAllProjects = false
+    /// "Dùng vị trí hiện tại" + gợi ý địa chỉ khi gõ. Cả hai là ĐƯỜNG TẮT — xem `AddressLookup.swift`.
+    @StateObject private var locator = LocationLookup()
+    @StateObject private var completer = AddressCompleter()
+    /// Con trỏ đang nằm trong ô địa chỉ. Là CÔNG TẮC DUY NHẤT của danh sách gợi ý: đang gõ thì
+    /// hiện, chạm một gợi ý (view tự bỏ focus) hoặc điền bằng nút vị trí thì tắt. Không cần cờ
+    /// "vừa chọn xong" — cờ đó là thứ luôn kẹt sai ở lần dùng thứ hai.
+    @FocusState private var addressFocused: Bool
+    /// Ô địa chỉ đang chứa gì LÚC BẤM nút "Dùng vị trí hiện tại".
+    ///
+    /// Tra vị trí + reverse geocode mất vài giây. Không có mốc này thì kịch bản rất thật sau đây
+    /// mất trắng dữ liệu: khách bấm nút, chờ 3 giây thấy chưa ra gì nên bắt đầu gõ tay, rồi GPS
+    /// trả về và ĐÈ SẠCH chữ họ vừa gõ — ở màn BẮT BUỘC, không có nút hoàn tác. Chỉ ghi đè khi ô
+    /// vẫn y nguyên như lúc bấm. (Bấm lại lần nữa vẫn chạy được: mốc được chụp lại tại mỗi lần bấm.)
+    @State private var addressWhenLocating: String?
+    /// Lần đổi `address` sắp tới là do APP tự điền (bấm vị trí / chạm gợi ý), không phải khách gõ.
+    /// Không có cờ này thì mỗi lần tự điền lại bắn NGAY một truy vấn MapKit mới bằng chính chuỗi
+    /// vừa điền — gửi thừa cả địa chỉ đầy đủ sang Apple để lấy về đúng thứ vừa chọn.
+    @State private var suppressCompleter = false
 
-    /// Số căn hiện tối đa khi chưa bung. Danh sách đầy đủ vẫn tới được bằng nút "Xem tất cả",
-    /// và gõ vào ô địa chỉ vẫn lọc trên TOÀN BỘ danh sách chứ không phải trên phần đang hiện —
-    /// nên giới hạn này không giấu mất căn nào.
-    private static let collapsedRowLimit = 5
+    /// Số dòng "căn đã quét trùng tên" hiện tối đa.
+    ///
+    /// KHÔNG có nút "xem tất cả" và KHÔNG có danh sách đầy đủ (chủ app chốt 2026-07-23 — xem
+    /// `matchingProjects`). Ba dòng là đủ để nhận ra căn mình định quét tiếp; gõ thêm vài chữ là
+    /// nó thu về đúng một dòng.
+    private static let matchRowLimit = 3
 
-    /// Căn đã quét, lọc theo chữ đang gõ. Ô nhập và danh sách là MỘT khối: gõ để lọc, chạm một
-    /// dòng để dùng lại căn đó, không chạm mà bấm Bắt đầu thì tạo căn mới theo chữ vừa gõ.
-    private var filteredProjects: [ScanProject] {
+    /// Căn đã quét TRÙNG với chữ đang gõ.
+    ///
+    /// 🔴 TRƯỚC 2026-07-23 chỗ này in RA TOÀN BỘ danh sách căn đã quét ngay khi mở màn (ô nhập
+    /// rỗng cũng hiện, kèm nút "Xem tất cả N căn"). Chủ app chốt BỎ: bấm SCAN là đang định quét
+    /// một căn MỚI, mà màn hình lại mở ra bằng một danh sách cũ dài — vừa che mất ô nhập vừa đẩy
+    /// nút "Bắt đầu quét" xuống. Muốn quét tiếp một căn đã có thì đường đúng là vào TRANG CHỦ,
+    /// mở đúng dự án đó rồi bấm quét từ trong đó (`ProjectView` đã có nút riêng).
+    ///
+    /// Ở đây chỉ còn vai trò NHẮC: gõ địa chỉ mà trùng căn đã có thì hiện ra để chạm, khỏi tạo
+    /// căn thứ hai cùng địa chỉ. Ô rỗng → KHÔNG hiện gì.
+    /// 🔴 KHỚP HAI CHIỀU (`a.contains(b) || b.contains(a)`), đừng "dọn" về một chiều.
+    /// Chiều cũ chỉ có `tênDựÁn.contains(chữĐangGõ)`, đúng khi khách gõ tay từng chữ. Nhưng nút
+    /// "Dùng vị trí hiện tại" và gợi ý MapKit đổ vào ô một địa chỉ ĐẦY ĐỦ
+    /// ("1600 College Ave, Fort Worth, TX 76110") trong khi dự án cũ tên ngắn ("1600 College Ave")
+    /// — chuỗi tìm DÀI HƠN tên dự án nên một chiều là KHÔNG khớp gì cả: dòng "Đã quét — chạm để
+    /// dùng lại" biến mất đúng lúc cần nhất, khách tạo căn thứ hai cho cùng một căn nhà. Hậu quả
+    /// thật: `ScanDetailView` gom tầng phụ theo `projectId`, nên Part 1 và Part 2 nằm hai dự án
+    /// khác nhau không bao giờ vào chung một đơn được → hai đơn, hai lần tiền.
+    private var matchingProjects: [ScanProject] {
         let key = Self.matchKey(address)
-        guard !key.isEmpty else { return store.projects }
-        return store.projects.filter { Self.matchKey($0.name).contains(key) }
+        guard !key.isEmpty else { return [] }
+        let scored: [(project: ScanProject, name: String)] = store.projects.compactMap { p in
+            let name = Self.matchKey(p.name)
+            guard !name.isEmpty else { return nil }
+            // Chiều XUÔI (tên chứa chữ đang gõ) không cần sàn độ dài — đó là ca gõ dần từng chữ.
+            if name.contains(key) { return (p, name) }
+            // 🔴 Chiều NGƯỢC phải có SÀN ĐỘ DÀI. Không có sàn thì một dự án đặt tên ngắn ("Lan",
+            // "A1", "Nhà") khớp gần như MỌI địa chỉ dài mà GPS/MapKit đổ vào, và app mời khách
+            // "dùng lại" nhầm căn — bản quét chui vào nhà người khác, đội vẽ không có cách nào
+            // biết. Sàn 5 vẫn bắt đủ ca thật đã sinh ra chiều này ("1600 college ave" nằm trong
+            // "1600 college ave, fort worth, tx 76110").
+            if name.count >= Self.reverseMatchFloor, key.contains(name) { return (p, name) }
+            return nil
+        }
+        // XẾP HẠNG TRƯỚC rồi mới cắt. `store.projects` xếp theo thời gian, nên cắt thẳng 3 dòng
+        // đầu có thể VỨT ĐI đúng căn khớp chính xác nhất chỉ vì nó cũ hơn — mà đó là dòng duy
+        // nhất khách cần thấy.
+        let ranked = scored.sorted { a, b in
+            if (a.name == key) != (b.name == key) { return a.name == key }
+            return a.name.count > b.name.count
+        }
+        // `.map { $0.project }` chứ KHÔNG phải `.map(\.project)`: Swift không có key path vào
+        // phần tử tuple, viết `\.project` là lỗi biên dịch (mà máy này không compile được để bắt).
+        return ranked.prefix(Self.matchRowLimit).map { $0.project }
     }
+
+    /// Tên dự án phải dài ít nhất bấy nhiêu ký tự (sau khi bỏ dấu) thì mới được khớp theo chiều
+    /// NGƯỢC. Xem giải thích trong `matchingProjects`.
+    private static let reverseMatchFloor = 5
 
     /// Căn đã có TRÙNG HẲN tên với chữ đang gõ (không phải chỉ chứa).
     ///
@@ -80,19 +146,56 @@ struct ScanAddressView: View {
             .safeAreaInset(edge: .bottom) {
                 startBar
             }
+            // Địa chỉ tra được từ GPS đổ vào ô nhập ở ĐÂY, không phải trong `LocationLookup`:
+            // `address` thuộc về view này và có `onChange` riêng (xoá căn đang chọn, cập nhật gợi
+            // ý). Để hai nơi cùng ghi vào nó là mất dấu ai ghi đè ai.
+            //
+            // Đặt `resolvedAddress = nil` ngay sau khi dùng: không thì bấm nút vị trí lần hai ở
+            // cùng một chỗ sẽ ra ĐÚNG chuỗi cũ, `onChange` thấy giá trị không đổi và ô nhập đứng
+            // im — trông y như nút hỏng.
+            .onChange(of: locator.resolvedAddress) { _, newValue in
+                guard let newValue, !newValue.isEmpty else { return }
+                locator.resolvedAddress = nil
+                // Khách đã gõ thêm trong lúc chờ GPS → chữ của họ THẮNG. Xem `addressWhenLocating`.
+                guard address == (addressWhenLocating ?? address) else {
+                    addressWhenLocating = nil
+                    return
+                }
+                // 🔴 Khách CHẠM MỘT CĂN ĐÃ QUÉT trong lúc chờ GPS thì lựa chọn đó cũng THẮNG.
+                // Nhánh chạm không đổi `address` (cố ý — xem `matchingRows`), nên guard bên trên
+                // KHÔNG bắt được ca này: GPS về sẽ ghi đè ô nhập, `onChange(of: address)` xoá
+                // `pickedProjectId`, và bản quét rơi vào một căn MỚI tạo thay vì căn khách vừa
+                // chọn → hai dự án cho cùng một căn nhà → hai đơn. Đúng lớp lỗi tiền đã tả ở
+                // `matchingProjects`.
+                guard pickedProjectId == nil else {
+                    addressWhenLocating = nil
+                    return
+                }
+                addressWhenLocating = nil
+                suppressCompleter = true
+                addressFocused = false
+                address = newValue
+                completer.clear()
+            }
         }
     }
 
-    /// Ô nhập và danh sách căn đã quét là MỘT khối: gõ để lọc, chạm một dòng để dùng lại căn
-    /// đó. Trước đây là hai mục riêng — cùng một việc mà bày hai chỗ.
+    /// Thứ tự các dòng trong mục này KHÔNG tuỳ tiện:
+    /// hai nút tắt → ô nhập → trạng thái định vị → **căn đã quét trùng tên** → gợi ý địa chỉ
+    /// MapKit → dòng "đang thêm vào căn X".
+    ///
+    /// Căn đã quét đứng TRƯỚC gợi ý MapKit: khi cả hai cùng hiện thì "dùng lại căn đã có" là câu
+    /// trả lời đúng, còn tạo thêm một căn thứ hai cùng địa chỉ là lỗi phải đi dọn bằng tay sau đó.
     private var homeSection: some View {
         Section {
+            lookupButtons
             TextField(
                 L.t("Address or name (e.g. 1600 College Ave)", "Địa chỉ hoặc tên (vd 1600 College Ave)"),
                 text: $address
             )
             .textInputAutocapitalization(.words)
             .autocorrectionDisabled()
+            .focused($addressFocused)
             // Gõ = đang mô tả căn mới → bỏ dòng đang chọn. Hai đường loại trừ nhau, để cả hai
             // cùng "bật" là người dùng không đoán được cái nào thắng.
             //
@@ -102,11 +205,19 @@ struct ScanAddressView: View {
             // `pickedProjectId` vẫn còn — màn hình nói "chưa gắn căn nào" (ô trống + footer +
             // nhãn nút) trong khi `start()` vẫn gắn. Giờ an toàn vì nhánh chạm dòng không ghi
             // vào `address` nữa nên không sinh vòng lặp.
-            .onChange(of: address) { _, _ in
+            .onChange(of: address) { _, newValue in
                 pickedProjectId = nil
+                if suppressCompleter {
+                    suppressCompleter = false
+                    completer.clear()
+                } else {
+                    completer.update(query: newValue)
+                }
             }
+            locationStatusRow
+            matchingRows
+            suggestionRows
             pickedRow
-            existingRows
         } header: {
             Text(L.t("Which home is this?", "Căn nhà này ở đâu?"))
         } footer: {
@@ -117,6 +228,108 @@ struct ScanAddressView: View {
                 "Required — the drafting team needs to know which home the drawing is for.",
                 "Bắt buộc — đội vẽ cần biết bản vẽ này của căn nào."
             ))
+        }
+    }
+
+    /// Hai đường tắt điền địa chỉ, đặt NGAY TRÊN ô nhập (chủ app chốt 2026-07-23).
+    ///
+    /// "Tìm địa chỉ" không mở màn nào cả — nó đưa con trỏ vào chính ô ngay bên dưới và bật danh
+    /// sách gợi ý. Làm thành một màn riêng thì khách gõ xong lại phải quay về đây; làm thành một
+    /// chế độ ẩn/hiện thì ô nhập biến mất trước mắt người đang định gõ.
+    private var lookupButtons: some View {
+        HStack(spacing: 10) {
+            Button {
+                addressFocused = false // giấu bàn phím rồi mới xin quyền, không thì hộp thoại đè lên
+                addressWhenLocating = address
+                locator.requestAddress()
+            } label: {
+                Label(L.t("Use my location", "Dùng vị trí hiện tại"), systemImage: "location.fill")
+                    .font(.subheadline.weight(.semibold))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 8)
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(locator.state == .working)
+
+            Button {
+                addressFocused = true
+            } label: {
+                Label(L.t("Search address", "Tìm địa chỉ"), systemImage: "magnifyingglass")
+                    .font(.subheadline.weight(.semibold))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 8)
+            }
+            .buttonStyle(.bordered)
+        }
+        // Hai nút trong CÙNG một dòng Form: không đặt style riêng thì cả dòng thành một vùng bấm
+        // và bấm đâu cũng chạy nút đầu tiên.
+        .buttonBorderShape(.capsule)
+        .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+    }
+
+    /// Dòng trạng thái của nút vị trí. CHỈ hiện khi có chuyện đang xảy ra — không chiếm chỗ lúc bình thường.
+    @ViewBuilder
+    private var locationStatusRow: some View {
+        switch locator.state {
+        case .idle:
+            EmptyView()
+        case .working:
+            HStack(spacing: 8) {
+                ProgressView()
+                Text(L.t("Finding your address…", "Đang tìm địa chỉ của bạn…"))
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+        case .denied:
+            // Cùng khuôn với alert quyền Camera: nói rõ vì sao + đưa thẳng tới Cài đặt, chứ không
+            // để khách đoán. Và nói luôn rằng gõ tay vẫn đi tiếp được — đây KHÔNG phải ngõ cụt.
+            VStack(alignment: .leading, spacing: 6) {
+                Text(L.t(
+                    "Location is off for CedarScan. Turn it on in Settings, or just type the address below.",
+                    "CedarScan chưa được cấp quyền vị trí. Bật trong Cài đặt, hoặc cứ gõ địa chỉ bên dưới."
+                ))
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                if let url = URL(string: UIApplication.openSettingsURLString) {
+                    Link(L.t("Open Settings", "Mở Cài đặt"), destination: url)
+                        .font(.footnote.weight(.semibold))
+                }
+            }
+        case .failed(let message):
+            Text(message)
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    /// Gợi ý địa chỉ của MapKit. Chỉ hiện lúc con trỏ đang ở trong ô nhập — xem `addressFocused`.
+    @ViewBuilder
+    private var suggestionRows: some View {
+        if addressFocused && !completer.suggestions.isEmpty {
+            ForEach(completer.suggestions) { suggestion in
+                Button {
+                    suppressCompleter = true
+                    addressFocused = false
+                    address = suggestion.full
+                    completer.clear()
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "mappin.circle")
+                            .foregroundStyle(.secondary)
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(suggestion.title)
+                                .foregroundStyle(.primary)
+                                .lineLimit(1)
+                            if !suggestion.subtitle.isEmpty {
+                                Text(suggestion.subtitle)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -144,53 +357,27 @@ struct ScanAddressView: View {
         }
     }
 
-    /// Phần danh sách thật sự render. Cắt bớt để màn hình không bị một danh sách dài nuốt mất
-    /// phần chọn độ nét bên dưới.
-    private var visibleProjects: [ScanProject] {
-        let all = filteredProjects
-        guard !showAllProjects, all.count > Self.collapsedRowLimit else { return all }
-        return Array(all.prefix(Self.collapsedRowLimit))
-    }
-
+    /// Căn ĐÃ QUÉT trùng với chữ đang gõ — chạm để quét thêm vào đúng căn đó thay vì tạo căn mới.
+    ///
+    /// Chỉ hiện khi ô nhập CÓ CHỮ và chưa chọn căn nào. Không còn danh sách "tất cả các căn" như
+    /// trước — xem lý do ở `matchingProjects`.
     @ViewBuilder
-    private var existingRows: some View {
-        if !filteredProjects.isEmpty {
-            // Không có nhãn này thì loạt dòng bên dưới ô nhập trông như thông tin CHỈ ĐỂ XEM,
-            // và không ai đoán được gõ chữ sẽ lọc chúng.
+    private var matchingRows: some View {
+        if pickedProjectId == nil && !matchingProjects.isEmpty {
+            // Không có nhãn này thì mấy dòng bên dưới ô nhập trông như thông tin CHỈ ĐỂ XEM.
             Text(L.t("Already scanned — tap to reuse", "Đã quét — chạm để dùng lại"))
                 .font(.caption)
                 .foregroundStyle(.secondary)
-            ForEach(visibleProjects) { project in
+            ForEach(matchingProjects) { project in
                 Button {
-                    // KHÔNG xoá `address`: xoá thì danh sách bung về đầy đủ ngay lúc vừa chạm,
-                    // dòng vừa chọn nhảy đi và dấu tích trôi khỏi màn hình → người dùng tưởng
-                    // chạm hụt, gõ lại, `onChange` xoá luôn lựa chọn → tạo căn trùng tên. Giữ
-                    // nguyên chữ đã gõ thì dòng đứng im dưới ngón tay. (Không sinh vòng lặp:
-                    // `onChange` chỉ chạy khi `address` đổi, mà nhánh này không đổi nó.)
+                    // KHÔNG xoá `address`: xoá thì `onChange` chạy, `pickedProjectId` vừa gán bị
+                    // xoá ngay và danh sách này biến mất dưới ngón tay → người dùng tưởng chạm hụt,
+                    // gõ lại, rồi tạo ra căn trùng tên. Giữ nguyên chữ đã gõ thì dòng đứng im.
                     pickedProjectId = project.id
+                    addressFocused = false
                 } label: {
                     projectRow(project)
                 }
-            }
-            expandRow
-        }
-    }
-
-    /// Lối vào phần danh sách bị cắt. Chỉ bung THÊM, không bao giờ thu lại: thu lại giữa chừng là
-    /// dòng dưới ngón tay nhảy đi — đúng lỗi mà chú thích ở nhánh chạm-chọn phía trên cảnh báo.
-    @ViewBuilder
-    private var expandRow: some View {
-        // So thẳng trong `if`, KHÔNG khai `let` cục bộ: chú thích ở `projectRow` bên dưới ghi rõ
-        // khai báo cục bộ trong thân ViewBuilder là chỗ CI này từng chết vì type-check timeout.
-        if filteredProjects.count > visibleProjects.count {
-            Button {
-                showAllProjects = true
-            } label: {
-                Label(
-                    L.t("Show all \(filteredProjects.count) homes", "Xem tất cả \(filteredProjects.count) căn"),
-                    systemImage: "chevron.down"
-                )
-                .font(.footnote)
             }
         }
     }
@@ -199,10 +386,16 @@ struct ScanAddressView: View {
     /// dựng view, mà khai báo cục bộ trong thân ViewBuilder là chỗ CI này từng chết vì
     /// "type-check timeout".
     ///
-    /// MỘT DÒNG, không phải hai: mỗi dòng hai tầng thì năm căn đã chiếm gần nửa màn hình.
+    /// MỘT DÒNG, không phải hai: mỗi dòng hai tầng thì ba căn đã chiếm một mảng lớn màn hình.
+    ///
+    /// KHÔNG còn dấu tích "đang chọn" trong dòng: `matchingRows` chỉ hiện khi CHƯA chọn căn nào,
+    /// nên dấu tích đó vĩnh viễn không bao giờ vẽ ra. Trạng thái "đang thêm vào căn X" nằm ở
+    /// `pickedRow`. (Giữ lại một guard đã hết lý do tồn tại là bẫy #3 trong handoff.)
     private func projectRow(_ project: ScanProject) -> some View {
         let count = store.scans(in: project).count
         return HStack(spacing: 8) {
+            Image(systemName: "folder")
+                .foregroundStyle(.secondary)
             Text(project.name)
                 .foregroundStyle(.primary)
                 .lineLimit(1)
@@ -211,10 +404,6 @@ struct ScanAddressView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .layoutPriority(1)
-            if pickedProjectId == project.id {
-                Image(systemName: "checkmark")
-                    .foregroundStyle(.tint)
-            }
         }
     }
 
@@ -313,19 +502,9 @@ struct ScanAddressView: View {
         onStart(id)
     }
 
-    /// Khoá so khớp tên căn nhà: bỏ hoa/thường, bỏ dấu, bỏ khoảng trắng thừa hai đầu.
-    ///
-    /// ĐỔI `đ`/`Đ` BẰNG TAY TRƯỚC: `.diacriticInsensitive` KHÔNG fold được chúng — U+0111 là một
-    /// chữ cái CƠ SỞ riêng trong Unicode, không có canonical decomposition thành d + dấu, nên
-    /// bước bỏ dấu của Foundation không chạm tới (khác ă/â/ê/ô/ơ/ư đều fold được). Bỏ sót chỗ
-    /// này là hỏng đúng chữ hay gặp nhất trong địa chỉ Việt Nam: "Đường Lê Lợi" sẽ KHÔNG khớp
-    /// "Duong Le Loi", tức lỗi tách-nhầm vẫn sống nguyên ở đúng nhóm địa chỉ phổ biến nhất.
+    /// Khoá so khớp tên căn nhà. Thân hàm đã dời sang `TextMatch.key` (dùng chung với ô tìm kiếm
+    /// ở màn chính và tab Đơn hàng) — đọc chú thích 🔴 về `đ`/`Đ` ở đó trước khi đụng vào.
     private static func matchKey(_ s: String) -> String {
-        s.trimmingCharacters(in: .whitespacesAndNewlines)
-            .replacingOccurrences(of: "đ", with: "d")
-            .replacingOccurrences(of: "Đ", with: "D")
-            .folding(options: [.diacriticInsensitive, .caseInsensitive],
-                     locale: Locale(identifier: "vi_VN"))
-            .lowercased()
+        TextMatch.key(s)
     }
 }
