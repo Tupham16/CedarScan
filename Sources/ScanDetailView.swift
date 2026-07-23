@@ -80,12 +80,23 @@ struct ScanDetailView: View {
             }
         }
         .safeAreaInset(edge: .bottom) {
+            // Tự chừa chỗ cho thanh tab — cùng lý do với `ProjectView`, xem
+            // `CedarTabBar.reservedHeight`. Ở đây thứ bị che là NÚT ĐẶT HÀNG trong `serviceCard`,
+            // tức đường tiền, nên nó còn đắt hơn ca của ProjectView.
             serviceCard
+                .padding(.bottom, CedarTabBar.reservedHeight)
         }
         // Bản quét bị dọn (đơn đã giao) trong lúc màn này đang mở → thoát ra, đừng để khách
         // ngồi trước một bản quét mà mọi file đã biến mất.
+        //
+        // HOÃN MỘT NHỊP + kiểm lại, cùng lý do với `ProjectView.leaveDeadProject()`: `dismiss()`
+        // rơi vào giữa cú push là pop một view controller mà push của nó chưa xong.
         .onChange(of: stillExists) { _, exists in
-            if !exists { dismiss() }
+            guard !exists else { return }
+            Task { @MainActor in
+                guard !stillExists else { return }
+                dismiss()
+            }
         }
         // Không pause là video chạy tiếp sau khi rời màn (AVPlayer sống theo @State, không theo
         // view hiển thị) — giữ decoder H.264 và ngốn pin trong lúc khách đã sang chỗ khác.

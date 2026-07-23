@@ -18,6 +18,26 @@ struct CedarTabBar: View {
     /// (49pt) vì phải chứa TRỌN vòng tròn SCAN — xem `scanItem`.
     private static let rowHeight: CGFloat = 58
     private static let scanDiameter: CGFloat = 44
+    private static let topPadding: CGFloat = 4
+
+    /// Chỗ mà thanh này CHIẾM trên màn hình, tính từ mép trên vùng an toàn dưới.
+    ///
+    /// 🔴 CÁC MÀN ĐƯỢC **PUSH** PHẢI TỰ CHỪA CHỖ NÀY. Chủ app báo (2026-07-23, bản `85bab71`):
+    /// vào một dự án thì nút "Quét bổ sung" **bị thanh tab che**, mà chỉ ở MỘT SỐ dự án. Giải
+    /// thích khớp hoàn toàn: `ProjectView.bottomButtons` chứa 1 hay 2 nút tuỳ dự án còn bản quét
+    /// chưa đặt hay không — dự án 2 nút thì nút dưới (Đặt hàng) hứng phần bị che nên nút "Quét bổ
+    /// sung" ở trên vẫn thấy, dự án 1 nút thì chính nó bị che.
+    ///
+    /// Nguyên nhân: thanh này gắn bằng `.safeAreaInset` trên **TabView**, nhưng vùng an toàn đó
+    /// KHÔNG chảy tới các màn được push bên trong `NavigationStack` của tab. `ProjectView` và
+    /// `ScanDetailView` cũng ghim nút bằng `.safeAreaInset(edge:.bottom)` của riêng chúng, và
+    /// chúng ghim vào một đáy mà chúng tưởng còn trống.
+    ///
+    /// ⚠ ĐỪNG bọc TabView trong `VStack { TabView; CedarTabBar }` để "cho chắc về hình học".
+    /// Đã cân nhắc và loại: VStack làm bàn phím đẩy CẢ thanh tab lên, mà chữa bằng
+    /// `.ignoresSafeArea(.keyboard)` ở VStack thì tắt luôn việc né bàn phím của NỘI DUNG — ô địa
+    /// chỉ/ô tìm kiếm chui xuống dưới bàn phím. `.safeAreaInset` là công cụ đúng cho việc này.
+    static let reservedHeight: CGFloat = rowHeight + topPadding
 
     var body: some View {
         HStack(spacing: 0) {
@@ -28,7 +48,7 @@ struct CedarTabBar: View {
             tabItem(.account, icon: "person.circle", filled: "person.circle.fill", title: L.t("Account", "Tài khoản"))
         }
         .frame(height: Self.rowHeight)
-        .padding(.top, 4)
+        .padding(.top, Self.topPadding)
         // `.bar` là vật liệu mờ đúng chuẩn thanh hệ thống — nội dung cuộn phía sau vẫn thấy mờ mờ.
         //
         // `.ignoresSafeArea(edges: .bottom)` gắn cho RIÊNG phần nền: trên máy có Face ID, dải

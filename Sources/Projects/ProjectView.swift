@@ -160,7 +160,12 @@ struct ProjectView: View {
             }
         }
         .safeAreaInset(edge: .bottom) {
+            // 🔴 TỰ CHỪA CHỖ CHO THANH TAB. Màn này được PUSH bên trong `NavigationStack` của
+            // tab Home, mà vùng an toàn do `.safeAreaInset` của TabView tạo ra KHÔNG chảy tới
+            // đây — nên nếu không cộng thêm, thanh tab che mất nút dưới cùng. Xem giải thích
+            // đầy đủ ở `CedarTabBar.reservedHeight` (chủ app đã gặp: "nút Quét bổ sung bị che").
             bottomButtons
+                .padding(.bottom, CedarTabBar.reservedHeight)
         }
         .alert(L.t("Rename property", "Đổi tên dự án"), isPresented: $showRenameProject) {
             TextField(L.t("Name", "Tên"), text: $projectNameText)
