@@ -297,13 +297,12 @@ struct HomeView: View {
                  // Hết nhắc "tạo Dự án": nút folder đã gỡ, và bản quét nào cũng tự vào một dự án
                  // ngay ở màn địa chỉ. Chỉ đường tới một nút không còn tồn tại là ngõ cụt.
                  //
-                 // ⚠ TẢ NÚT THEO HÌNH DẠNG, KHÔNG THEO CHỮ "SCAN": nút giữa thanh dưới nay là một
-                 // vòng tròn CHỈ CÓ ICON, không có nhãn chữ (xem `CedarTabBar.scanItem`). Câu cũ
-                 // ghi "Bấm SCAN ở dưới" chỉ vào một chữ không còn tồn tại trên màn hình. Ai đổi
-                 // lại thiết kế nút thì sửa cả câu này.
+                 // ⚠ CÂU NÀY TẢ NÚT THEO NHÃN "Scan" TRÊN NÚT (chủ app trả lại nhãn 2026-07-28,
+                 // xem `CedarTabBar.scanItem`). Ai đổi nhãn/thiết kế nút thì sửa cả câu này —
+                 // đời trước nút không có chữ, câu cũ phải tả "nút tròn" theo hình dạng.
                  ? L.t(
-                    "Tap the round scan button at the bottom to scan your first space. Every scan is filed under the home address you enter.",
-                    "Bấm nút tròn ở giữa thanh dưới để quét không gian đầu tiên. Mỗi bản quét sẽ tự vào dự án theo địa chỉ bạn nhập."
+                    "Tap the Scan button in the middle of the bottom bar to scan your first space. Every scan is filed under the home address you enter.",
+                    "Bấm nút Scan ở giữa thanh dưới để quét không gian đầu tiên. Mỗi bản quét sẽ tự vào dự án theo địa chỉ bạn nhập."
                  )
                  : L.t(
                     "CedarScan measures with the LiDAR sensor, which this iPhone does not have. You need an iPhone Pro (12 Pro or newer).",

@@ -5,6 +5,8 @@ import simd
 
 /// Lớp phủ LƯỚI LiDAR (wireframe) lên trên hình camera AR, canh theo camera AR theo thời
 /// gian thực — để người quét biết bề mặt nào đã được quét (giống CubiCasa/Polycam).
+/// Ngôn ngữ màu (chủ app chốt 2026-07-28): lưới TRẮNG = đã vào file; lưới ĐỎ = có mesh nhưng
+/// CHƯA được ghi; vùng KHÔNG có mesh phủ ĐỎ MỜ (`tintNode` + mặt nạ depth) = chưa quét tới.
 ///
 /// Chỉ ĐỌC arSession.currentFrame (không đổi cấu hình, không đụng phiên RoomPlan) nên an toàn
 /// với luồng quét. Nền trong suốt để thấy hình camera của ARSCNView bên dưới.
@@ -15,6 +17,10 @@ final class MeshOverlayView: SCNView {
     private weak var arSession: ARSession?
     private var displayLink: CADisplayLink?
     private let cameraNode = SCNNode()
+    /// Quad đỏ mờ "chưa quét" — con của `cameraNode`, luôn chắn ngang tầm nhìn ở
+    /// `tintDistance`; mesh đã quét ghi depth (node mặt nạ) nên khoét thủng nó. Kích thước
+    /// cập nhật mỗi khung ở `updateCamera`.
+    private let tintNode = SCNNode()
     private struct MeshSig: Equatable { let v: Int; let f: Int }
     private var anchorNodes: [UUID: SCNNode] = [:]
     private var anchorSigs: [UUID: MeshSig] = [:]
@@ -31,20 +37,28 @@ final class MeshOverlayView: SCNView {
     private let buildQueue = DispatchQueue(label: "com.cedar247.meshoverlay", qos: .utility)
 
     /// Vật liệu wireframe dùng CHUNG cho mọi node (khỏi cấp phát mới mỗi lần dựng lưới).
+    /// TRẮNG (chủ app chốt 2026-07-28, trước là xanh lá): "trắng = đã quét", còn màu đỏ dồn
+    /// hết cho nghĩa "chưa có trong file" (lưới đỏ + lớp phủ đỏ vùng chưa quét).
+    ///
+    /// `readsFromDepthBuffer = false` BẮT BUỘC từ khi có `depthMaskMaterial`: mặt fill ghi depth
+    /// nằm TRÙNG mặt phẳng với chính các vạch lưới của nó — để lưới đọc depth là z-fighting nhấp
+    /// nháy đúng nơi người quét đang nhìn. Tắt đọc depth giữ nguyên kiểu nhìn "xuyên" như cũ
+    /// (trước giờ không ai ghi depth nên lưới vốn vẫn xuyên).
     private static let wireframeMaterial: SCNMaterial = {
         let m = SCNMaterial()
         m.fillMode = .lines                 // wireframe = "lưới"
-        m.diffuse.contents = UIColor.systemGreen
-        m.emission.contents = UIColor.systemGreen
+        m.diffuse.contents = UIColor.white
+        m.emission.contents = UIColor.white
         m.lightingModel = .constant          // không phụ thuộc đèn, luôn rõ
         m.isDoubleSided = true
         m.writesToDepthBuffer = false        // tránh tự che khuất khó nhìn
+        m.readsFromDepthBuffer = false
         return m
     }()
 
     /// Vật liệu cho vùng CHƯA VÀO dữ liệu xuất (builder tạm tắt vì gián đoạn/mất định vị,
     /// hoặc mô hình đầy). ĐỎ = "chỗ này chưa được ghi — quét lại sau khi hồi phục".
-    /// Trước đây overlay tô xanh tuốt nên người quét tưởng "xanh = đã có trong file" và
+    /// Trước đây overlay tô một màu tuốt nên người quét tưởng "có lưới = đã có trong file" và
     /// mất trắng các khu quét trong lúc builder tắt mà không hề hay biết.
     private static let unrecordedMaterial: SCNMaterial = {
         let m = SCNMaterial()
@@ -54,17 +68,70 @@ final class MeshOverlayView: SCNView {
         m.lightingModel = .constant
         m.isDoubleSided = true
         m.writesToDepthBuffer = false
+        m.readsFromDepthBuffer = false       // cùng lý do với wireframeMaterial
         return m
     }()
+
+    /// Vật liệu "mặt nạ depth": vẽ CHÍNH các tam giác mesh nhưng KHÔNG ra màu
+    /// (`colorBufferWriteMask = []`), chỉ ghi depth. Mục đích duy nhất: khoét lỗ lớp phủ đỏ
+    /// `unscannedTint` — quad đỏ đọc depth, chỗ nào mesh đã ghi depth (gần hơn quad) thì đỏ
+    /// bị loại, chỗ chưa có mesh thì đỏ hiện = "chưa quét tới". Render TRƯỚC mọi thứ
+    /// (renderingOrder xem `maskRenderingOrder`).
+    private static let depthMaskMaterial: SCNMaterial = {
+        let m = SCNMaterial()
+        m.fillMode = .fill
+        m.colorBufferWriteMask = []
+        m.writesToDepthBuffer = true
+        m.isDoubleSided = true
+        m.lightingModel = .constant
+        return m
+    }()
+
+    /// Thứ tự render: mặt nạ depth trước (âm) → lưới (0, pass opaque) → quad đỏ (pass
+    /// transparent, sau opaque). Quad thuộc pass transparent sẵn vì màu có alpha, nhưng vẫn
+    /// đặt số dương cho rõ ý.
+    private static let maskRenderingOrder = -10
+    private static let tintRenderingOrder = 10
+    /// Độ mờ lớp phủ đỏ. 0.22 = thấy rõ "vùng này chưa quét" mà vẫn nhìn xuyên được hình
+    /// camera để lia máy tới. Chỉnh theo cảm nhận của chủ app sau khi test máy thật.
+    private static let tintAlpha: CGFloat = 0.22
+    /// Quad đặt cách camera 40m — trong zFar 50 của `updateCamera`. Bề mặt trong nhà hầu như
+    /// luôn <40m nên mask thắng depth test; bề mặt ĐÃ quét mà đứng nhìn từ >40m (sân/kho rất
+    /// dài) chấp nhận bị phủ đỏ — ca hiếm, tự hết khi lại gần.
+    private static let tintDistance: Float = 40
+
+    /// 🔴 MẶT NẠ DEPTH CÓ SỔ RIÊNG, KHÔNG ĐI THEO TRẦN HIỂN THỊ. Review đối kháng 2026-07-29
+    /// (5 lens độc lập cùng bắt): nếu mask là con của node hiển thị thì evictFarther/trimOverCap
+    /// (trần `maxVerts` 600k) gỡ mask theo → vùng ĐÃ quét, ĐÃ vào file bị phủ đỏ "chưa quét tới"
+    /// — nhà 2 tầng thật ~0.5–1.5M đỉnh nên đây là ca THƯỜNG GẶP, và tín hiệu sai chủ động còn
+    /// tệ hơn không có tín hiệu. Vì vậy: node lưới (đắt — rasterize vạch) giữ trần 600k như cũ,
+    /// còn mask (rẻ — chỉ ghi depth, không màu) sống theo anchor với ngân sách riêng bên dưới.
+    private var maskNodes: [UUID: SCNNode] = [:]
+    /// Geometry lưới đã dựng lần cuối — để anchor bị nhả khỏi trần hiển thị được NHẬN LẠI
+    /// ngay bằng cache (sig không đổi thì không có gì kích hoạt rebuild nữa).
+    private var wireGeos: [UUID: SCNGeometry] = [:]
+    /// Tổng đỉnh đang có mặt nạ (sổ theo `anchorSigs`, không đo geometry thật).
+    private var maskVerts = 0
+    /// Ngân sách mask = trần XUẤT của mesh mode (MeshQuality.wholeHomePreset 2M). Vượt nó là
+    /// mô hình cũng đầy → banner "Mô hình đã đầy — Dừng & Lưu" đã hiện; lớp phủ đỏ tắt hẳn
+    /// (`disableMasking`) thay vì bắt đầu nói dối vì thiếu mask.
+    private static let maskMaxVerts = 2_000_000
+    private var maskingDisabled = false
+    /// Mask của anchor vừa CHẾT (ARKit gộp/tách) được giữ thêm một nhịp ân hạn rồi mới gỡ.
+    /// Cùng lớp lỗi chớp-tín-hiệu với `anchorFirstSeen` của lưới: bản anchor THAY THẾ chỉ có
+    /// depth SAU build nền (0.1–1.5s khi queue dồn) — gỡ mask cũ tức thì là vùng ĐÃ LƯU chớp
+    /// đỏ mỗi cú loop closure, đúng lúc người quét cần tin màu đỏ nhất. Review vòng 2 bắt.
+    private var dyingMasks: [(node: SCNNode, deadline: TimeInterval)] = []
+    private static let maskLingerSec: TimeInterval = 1.5
 
     /// Nguồn sự thật "anchor nào ĐÃ vào dữ liệu xuất" + SỐ ĐỈNH đã ghi (từ
     /// ColorMeshBuilder.pieces). So số đỉnh chứ không chỉ ID: anchor phình to mà bị trần
     /// chặn có ID trùng nhưng bản trong file NHỎ hơn bản hiển thị → vẫn phải tô đỏ.
-    /// nil (luồng RoomPlan không dùng cơ chế này) → mọi lưới xanh như cũ.
+    /// nil (luồng RoomPlan cũ không dùng cơ chế này) → mọi lưới trắng, không tô đỏ "chưa ghi".
     var recordedCounts: (() -> [UUID: Int])?
     /// Thời điểm anchor xuất hiện lần đầu — anchor mới được "ân hạn" 1.5s trước khi bị tô
     /// đỏ (builder tick 2–5Hz cần chút thời gian gom; không có ân hạn thì lưới mới nào
-    /// cũng chớp đỏ rồi mới xanh, nhìn như lỗi).
+    /// cũng chớp đỏ rồi mới trắng, nhìn như lỗi).
     private var anchorFirstSeen: [UUID: TimeInterval] = [:]
     /// Timestamp frame gần nhất — cho materialFor dùng được cả ngoài updateMeshes
     /// (closure gán geometry ở main.async không còn frame trong scope).
@@ -80,9 +147,28 @@ final class MeshOverlayView: SCNView {
         isUserInteractionEnabled = false   // để chạm đi xuyên xuống lớp camera bên dưới
         rendersContinuously = true
         antialiasingMode = .none            // giảm tải GPU khi chạy cùng RoomPlan
+        // 30fps thay vì 60 mặc định: ARSCNView camera bên dưới đã bị hạ 30fps (ARCameraView),
+        // overlay chạy 60 chỉ vẽ lại đúng một khung camera cũ — phí gấp đôi GPU. Về 30 cùng
+        // nhịp CADisplayLink, phần dư trả cho pass mask depth mới thêm (nhiệt là ràng buộc
+        // thật của phiên quét — xem TECH NOTES trong handoff).
+        preferredFramesPerSecond = 30
         cameraNode.camera = SCNCamera()
         scene?.rootNode.addChildNode(cameraNode)
         pointOfView = cameraNode
+
+        // Lớp phủ đỏ "chưa quét". Vật liệu dựng tại chỗ (không static như các vật liệu kia)
+        // vì nó thuộc về đúng MỘT node sống cùng view. Đọc depth (mặc định) là cốt lõi của
+        // cơ chế khoét; không ghi depth để khỏi tự che chính mình ở khung sau.
+        let tintPlane = SCNPlane(width: 1, height: 1)
+        let tintMaterial = SCNMaterial()
+        tintMaterial.diffuse.contents = UIColor.systemRed.withAlphaComponent(Self.tintAlpha)
+        tintMaterial.lightingModel = .constant
+        tintMaterial.writesToDepthBuffer = false
+        tintPlane.materials = [tintMaterial]
+        tintNode.geometry = tintPlane
+        tintNode.position = SCNVector3(0, 0, -Self.tintDistance)
+        tintNode.renderingOrder = Self.tintRenderingOrder
+        cameraNode.addChildNode(tintNode)
     }
 
     required init?(coder: NSCoder) { return nil }
@@ -126,6 +212,19 @@ final class MeshOverlayView: SCNView {
             for: .portrait, viewportSize: size, zNear: 0.01, zFar: 50
         )
         cameraNode.camera?.projectionTransform = SCNMatrix4(projection)
+
+        // Nới quad đỏ phủ kín khung nhìn tại tintDistance: với ma trận chiếu đối xứng,
+        // bề rộng frustum tại khoảng cách d là 2d/m00 (m00 = projection[0][0]), cao là
+        // 2d/m11. Nhân 1.05 cho dư mép — quad hụt 1px là lộ viền không-đỏ giả ở cạnh màn.
+        let p00 = projection.columns.0.x
+        let p11 = projection.columns.1.y
+        if p00 > 0, p11 > 0 {
+            tintNode.simdScale = SIMD3(
+                2.1 * Self.tintDistance / p00,
+                2.1 * Self.tintDistance / p11,
+                1
+            )
+        }
     }
 
     // MARK: - Dựng lưới từ ARMeshAnchor (throttle; copy trên main, dựng geometry ở nền)
@@ -133,11 +232,20 @@ final class MeshOverlayView: SCNView {
     private func updateMeshes(_ frame: ARFrame) {
         let c4 = frame.camera.transform.columns.3
         let camPos = SIMD3(c4.x, c4.y, c4.z)
-        var present = Set<UUID>()
+        // Dọn anchor đã biến khỏi phiên TRƯỚC khi cộng sổ (pattern ColorMeshBuilder đã trả
+        // giá — "đỉnh ma báo đầy oan"): ARKit GỘP anchor là bản thay thế xuất hiện CÙNG frame
+        // với bản cũ biến mất. Cộng bản mới giữa vòng rồi cuối vòng mới trừ bản cũ thì
+        // `maskVerts` vọt ma qua trần 2M → `disableMasking` oan, tint tắt lặng lẽ giữa phiên
+        // trong khi banner "Mô hình đã đầy" (đếm theo builder, vốn dọn-trước-đếm-sau) không
+        // hề hiện. Review vòng 2 (2026-07-29) bắt.
+        let present = Set(frame.anchors.compactMap { ($0 as? ARMeshAnchor)?.identifier })
+        for id in Array(anchorDists.keys) where !present.contains(id) {
+            removeAnchor(id)
+        }
+        purgeDyingMasks(now: frame.timestamp)
         for anchor in frame.anchors {
             guard let mesh = anchor as? ARMeshAnchor else { continue }
             let id = mesh.identifier
-            present.insert(id)
 
             let a4 = mesh.transform.columns.3
             let dist = simd_distance(SIMD3(a4.x, a4.y, a4.z), camPos)
@@ -150,30 +258,69 @@ final class MeshOverlayView: SCNView {
             let fElement = mesh.geometry.faces
             let sig = MeshSig(v: vSource.count, f: fElement.count)
 
-            let node: SCNNode
-            if let existing = anchorNodes[id] {
-                node = existing
-            } else {
-                // Vùng MỚI khi đã chạm trần: chỉ nhận nếu nhả được các vùng XA HƠN để lấy chỗ
-                // — lưới "đi theo" người quét thay vì tắt hẳn (lỗi cũ: quét lâu là mất lưới).
-                if totalVerts + sig.v > maxVerts {
-                    guard evictFarther(than: dist, toFit: sig.v) else { continue }
+            // 1. Mặt nạ depth: MỌI anchor đều có (trừ khi ngân sách mask đã cạn) — kể cả
+            //    anchor không được hiển thị lưới. Đây chính là chỗ tách "tín hiệu chưa quét"
+            //    khỏi trần hiển thị (xem chú ở `maskNodes`).
+            if !maskingDisabled {
+                let mask: SCNNode
+                if let existing = maskNodes[id] {
+                    mask = existing
+                } else {
+                    mask = SCNNode()
+                    mask.renderingOrder = Self.maskRenderingOrder
+                    scene?.rootNode.addChildNode(mask)
+                    maskNodes[id] = mask
                 }
-                let created = SCNNode()
-                scene?.rootNode.addChildNode(created)
-                anchorNodes[id] = created
-                node = created
+                mask.simdTransform = mesh.transform
+            }
+
+            // 2. Node lưới hiển thị — trần `maxVerts` như cũ. Vùng MỚI khi đã chạm trần: chỉ
+            //    nhận nếu nhả được các vùng XA HƠN để lấy chỗ — lưới "đi theo" người quét thay
+            //    vì tắt hẳn (lỗi cũ: quét lâu là mất lưới). KHÔNG `continue` khi bị từ chối:
+            //    anchor không hiển thị vẫn phải đi tiếp xuống bước dựng geometry cho mask.
+            var node = anchorNodes[id]
+            if node == nil {
+                let need = anchorSigs[id]?.v ?? sig.v
+                if totalVerts + need <= maxVerts || evictFarther(than: dist, toFit: need) {
+                    let created = SCNNode()
+                    scene?.rootNode.addChildNode(created)
+                    anchorNodes[id] = created
+                    node = created
+                    // Vào sổ NGAY khi node hiển thị ra đời — bất kể cache đã có hay chưa.
+                    // Review vòng 2: cộng sổ bên trong `if let cached` thì anchor được nhận
+                    // lại giữa lúc bản dựng ĐẦU TIÊN còn bay (cache chưa ghi) sẽ hiển thị
+                    // NGOÀI SỔ (completion vẫn gán geometry vì node tồn tại) → totalVerts
+                    // trôi ÂM vĩnh viễn mỗi lần dính, trần 600k mòn dần. Anchor mới toanh có
+                    // anchorSigs nil → cộng 0, bước 3 cộng đủ sau.
+                    totalVerts += anchorSigs[id]?.v ?? 0
+                    // Anchor từng bị nhả khỏi trần nay được nhận lại: gán lại geometry từ
+                    // cache ngay — sig không đổi thì bước 3 sẽ không rebuild cho nó nữa.
+                    if let cached = wireGeos[id] {
+                        created.geometry = cached
+                    }
+                }
             }
             // Pose cập nhật mỗi lần (rẻ). Hình học chỉ dựng lại khi ĐỔI và không đang dựng dở.
-            node.simdTransform = mesh.transform
+            node?.simdTransform = mesh.transform
 
+            // 3. Dựng lại geometry khi anchor ĐỔI — chạy cho cả anchor chỉ-có-mask.
             let vLen = vSource.stride * vSource.count
             guard anchorSigs[id] != sig,
                   !inFlight.contains(id),
                   vSource.count > 0, fElement.count > 0, fElement.indexCountPerPrimitive == 3,
                   vSource.offset + vLen <= vSource.buffer.length
             else { continue }
-            totalVerts += sig.v - (anchorSigs[id]?.v ?? 0)
+            // Sổ đỉnh HIỂN THỊ chỉ cộng khi anchor đang có node lưới; sổ MASK cộng cho mọi
+            // anchor (mask không bị evict nên ledger = tổng sig của maskNodes, không drift).
+            if node != nil {
+                totalVerts += sig.v - (anchorSigs[id]?.v ?? 0)
+            }
+            if !maskingDisabled {
+                maskVerts += sig.v - (anchorSigs[id]?.v ?? 0)
+                if maskVerts > Self.maskMaxVerts {
+                    disableMasking()
+                }
+            }
             anchorSigs[id] = sig
             inFlight.insert(id)
 
@@ -188,33 +335,41 @@ final class MeshOverlayView: SCNView {
             // …rồi DỰNG geometry ở nền, gán lại trên main. Nhờ vậy main thread không bị chiếm
             // → ARKit/RoomPlan không rớt frame (trước đây gây "đứng lại" + hủy bản quét + crash).
             buildQueue.async {
-                let geometry = Self.makeWireframe(
+                let built = Self.makeGeometries(
                     vBytes: vBytes, vCount: vCount, vStride: vStride,
                     iBytes: iBytes, faceCount: fCount, bytesPerIndex: bpi
                 )
                 DispatchQueue.main.async { [weak self] in
                     guard let self else { return }
                     self.inFlight.remove(id)   // luôn giải phóng dù dựng được hay không
-                    if let geometry, let node = self.anchorNodes[id] {
+                    guard let built else { return }
+                    // Anchor đã bị removeAnchor trong lúc bản dựng còn bay → DỪNG Ở ĐÂY,
+                    // đừng cache: `wireGeos[id]` hồi sinh lúc này là entry mồ côi giữ
+                    // geometry tới hết phiên (id đã rời anchorDists nên vòng dọn không bao
+                    // giờ ghé lại — review vòng 2 bắt). `anchorSigs` sống qua evictWire
+                    // nhưng chết ở removeAnchor nên nó chính là cờ "anchor còn sổ".
+                    guard self.anchorSigs[id] != nil else { return }
+                    // Cache lưới cho lần NHẬN LẠI sau khi bị nhả khỏi trần hiển thị — kể cả
+                    // khi anchor hiện không có node lưới (bị trần từ chối lúc lên lịch dựng).
+                    self.wireGeos[id] = built.wire
+                    if let node = self.anchorNodes[id] {
                         // Chọn vật liệu NGAY khi gán geometry mới — không đợi retint 0.5s.
-                        // (makeWireframe gán xanh mặc định; anchor ĐỎ đang được ARKit cập
-                        // nhật liên tục sẽ chớp xanh↔đỏ ~2Hz nếu chỉ dựa vào retint —
+                        // (makeGeometries gán trắng mặc định; anchor ĐỎ đang được ARKit cập
+                        // nhật liên tục sẽ chớp trắng↔đỏ ~2Hz nếu chỉ dựa vào retint —
                         // đúng lúc người quét cần tín hiệu "chưa ghi" tin cậy nhất.)
                         if let recorded = self.recordedCounts?() {
-                            geometry.materials = [self.materialFor(id, recorded: recorded)]
+                            built.wire.materials = [self.materialFor(id, recorded: recorded)]
                         }
-                        node.geometry = geometry
+                        node.geometry = built.wire
                     }
+                    self.maskNodes[id]?.geometry = built.mask
                 }
             }
         }
-        // Bỏ node/dữ liệu của anchor không còn trong phiên
-        for id in Array(anchorDists.keys) where !present.contains(id) {
-            removeAnchor(id)
-        }
+        // (Việc dọn anchor vắng mặt đã chạy ở ĐẦU hàm — trước mọi phép cộng sổ, xem chú ở đó.)
         // Anchor cũ phình to có thể đẩy tổng vượt trần → tỉa vùng XA camera nhất
         trimOverCap()
-        // Tô lưới theo trạng thái GHI THẬT (xanh = đã vào file, đỏ = chưa)
+        // Tô lưới theo trạng thái GHI THẬT (trắng = đã vào file, đỏ = chưa)
         retintForRecording()
     }
 
@@ -244,9 +399,11 @@ final class MeshOverlayView: SCNView {
         }
     }
 
-    /// Nhả các vùng XA camera hơn `dist` (xa nhất trước) cho tới khi đủ chỗ cho `needed` đỉnh.
-    /// Trả về false nếu nhả hết vẫn không đủ (vùng mới xa hơn mọi vùng đang giữ → bỏ qua,
-    /// nhờ vậy vùng vừa bị nhả không bị nhận lại ngay — không giật qua lại).
+    /// Nhả PHẦN LƯỚI của các vùng XA camera hơn `dist` (xa nhất trước) cho tới khi đủ chỗ cho
+    /// `needed` đỉnh. Trả về false nếu nhả hết vẫn không đủ (vùng mới xa hơn mọi vùng đang giữ
+    /// → bỏ qua, nhờ vậy vùng vừa bị nhả không bị nhận lại ngay — không giật qua lại).
+    /// 🔴 CHỈ nhả wire (`evictWire`), KHÔNG đụng mask — nhả mask là lớp phủ đỏ nói dối
+    /// "chưa quét tới" trên vùng đã vào file (finding review 2026-07-29, 5 lens cùng bắt).
     private func evictFarther(than dist: Float, toFit needed: Int) -> Bool {
         let farther = anchorDists
             .filter { anchorNodes[$0.key] != nil && $0.value > dist }
@@ -259,7 +416,7 @@ final class MeshOverlayView: SCNView {
             victims.append(id)
         }
         guard totalVerts - freed + needed <= maxVerts else { return false }
-        for id in victims { removeAnchor(id) }
+        for id in victims { evictWire(id) }
         return true
     }
 
@@ -269,14 +426,30 @@ final class MeshOverlayView: SCNView {
                 .filter({ anchorNodes[$0.key] != nil })
                 .max(by: { $0.value < $1.value })
             else { break }
-            removeAnchor(far.key)
+            evictWire(far.key)
         }
     }
 
-    private func removeAnchor(_ id: UUID) {
-        anchorNodes[id]?.removeFromParentNode()
+    /// Nhả riêng PHẦN LƯỚI HIỂN THỊ của một anchor (trần GPU). Mask + sig + cache geometry
+    /// giữ nguyên: anchor vẫn khoét lớp phủ đỏ, và khi được nhận lại thì gán từ cache.
+    /// KHÔNG đụng `inFlight` — bản dựng đang chạy cứ chạy, completion tự xử lý node nil.
+    private func evictWire(_ id: UUID) {
+        guard let node = anchorNodes.removeValue(forKey: id) else { return }
+        node.removeFromParentNode()
         totalVerts -= anchorSigs[id]?.v ?? 0
-        anchorNodes.removeValue(forKey: id)
+    }
+
+    /// Gỡ SẠCH một anchor đã biến khỏi phiên (ARKit gộp/tách anchor liên tục).
+    private func removeAnchor(_ id: UUID) {
+        evictWire(id)
+        if let mask = maskNodes.removeValue(forKey: id) {
+            // KHÔNG removeFromParentNode ngay — treo vào hàng ân hạn (xem `dyingMasks`).
+            // Sổ `maskVerts` trừ NGAY để ngân sách không phụ thuộc hàng chờ; 1.5s render
+            // ngoài sổ của một anchor sắp chết là sai số chấp nhận được.
+            maskVerts -= anchorSigs[id]?.v ?? 0
+            dyingMasks.append((node: mask, deadline: lastFrameTimestamp + Self.maskLingerSec))
+        }
+        wireGeos.removeValue(forKey: id)
         anchorSigs.removeValue(forKey: id)
         anchorDists.removeValue(forKey: id)
         anchorFirstSeen.removeValue(forKey: id)
@@ -285,11 +458,45 @@ final class MeshOverlayView: SCNView {
         inFlight.remove(id)
     }
 
-    /// Dựng wireframe từ dữ liệu ĐÃ copy (chạy ở luồng nền — không đụng buffer của ARKit nữa).
-    private static func makeWireframe(
+    /// Gỡ các mask đã hết ân hạn. Gọi mỗi nhịp updateMeshes (0.5s) — độ trễ tối đa
+    /// 1.5+0.5s vẫn nhỏ so với việc chớp đỏ trên vùng đã lưu.
+    private func purgeDyingMasks(now: TimeInterval) {
+        guard !dyingMasks.isEmpty else { return }
+        var kept: [(node: SCNNode, deadline: TimeInterval)] = []
+        for entry in dyingMasks {
+            if now >= entry.deadline {
+                entry.node.removeFromParentNode()
+            } else {
+                kept.append(entry)
+            }
+        }
+        dyingMasks = kept
+    }
+
+    /// Ngân sách mask cạn (mô hình vượt trần xuất 2M — banner "Mô hình đã đầy" của
+    /// MeshScanFlowView cũng đã hiện từ trước đó): tắt HẲN lớp phủ đỏ cho hết phiên,
+    /// thay vì tiếp tục hiện một tín hiệu bắt đầu nói dối vì thiếu mask. Một chiều.
+    private func disableMasking() {
+        maskingDisabled = true
+        tintNode.isHidden = true
+        for (_, node) in maskNodes {
+            node.removeFromParentNode()
+        }
+        maskNodes.removeAll()
+        for entry in dyingMasks {
+            entry.node.removeFromParentNode()
+        }
+        dyingMasks.removeAll()
+    }
+
+    /// Dựng CẶP geometry từ dữ liệu ĐÃ copy (chạy ở luồng nền — không đụng buffer của ARKit
+    /// nữa): `wire` là lưới nhìn thấy, `mask` là bản fill chỉ-ghi-depth để khoét lớp phủ đỏ.
+    /// Hai geometry DÙNG CHUNG source/element (bất biến, SceneKit cho phép chia sẻ) nên bản
+    /// thứ hai gần như miễn phí về bộ nhớ.
+    private static func makeGeometries(
         vBytes: Data, vCount: Int, vStride: Int,
         iBytes: Data, faceCount: Int, bytesPerIndex: Int
-    ) -> SCNGeometry? {
+    ) -> (wire: SCNGeometry, mask: SCNGeometry)? {
         guard vCount > 0, faceCount > 0 else { return nil }
 
         var verts = [SCNVector3]()
@@ -311,9 +518,11 @@ final class MeshOverlayView: SCNView {
             primitiveCount: faceCount, bytesPerIndex: bytesPerIndex
         )
         let source = SCNGeometrySource(vertices: verts)
-        let geometry = SCNGeometry(sources: [source], elements: [element])
-        geometry.materials = [Self.wireframeMaterial]
-        return geometry
+        let wire = SCNGeometry(sources: [source], elements: [element])
+        wire.materials = [Self.wireframeMaterial]
+        let mask = SCNGeometry(sources: [source], elements: [element])
+        mask.materials = [Self.depthMaskMaterial]
+        return (wire: wire, mask: mask)
     }
 }
 
@@ -322,7 +531,7 @@ final class MeshOverlayView: SCNView {
 struct MeshOverlayRepresentable: UIViewRepresentable {
     let arSession: ARSession
     var maxVerts: Int = 150_000
-    /// Đưa vào từ mesh mode để lưới tô trung thực (xanh = đã ghi, đỏ = chưa); RoomPlan để nil.
+    /// Đưa vào từ mesh mode để lưới tô trung thực (trắng = đã ghi, đỏ = chưa); RoomPlan để nil.
     var recordedCounts: (() -> [UUID: Int])? = nil
 
     func makeUIView(context: Context) -> MeshOverlayView {

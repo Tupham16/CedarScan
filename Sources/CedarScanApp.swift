@@ -66,8 +66,10 @@ struct RootView: View {
         // hiện, đặt ở một chỗ không đủ) và thay bằng `CedarTabBar` gắn qua `safeAreaInset`.
         //
         // Vì sao safeAreaInset chứ không phải overlay: inset RÚT NGẮN vùng an toàn của nội dung
-        // trong TabView, nên danh sách cuộn hết cỡ vẫn dừng NGAY TRÊN thanh. Overlay thì thanh đè
-        // lên dòng cuối cùng và không ai chạm được nó.
+        // trong TabView, nên danh sách cuộn hết cỡ vẫn dừng TRÊN khung của thanh — lưu ý từ
+        // 2026-07-29 khung đó có dải trong suốt 28pt phía trên divider cho nút SCAN nhô lên
+        // (xem `CedarTabBar.totalHeight`), tức điểm dừng cuộn cách đường kẻ 28pt chứ không sát.
+        // Overlay thì thanh đè lên dòng cuối cùng và không ai chạm được nó.
         //
         // `.tabItem` vẫn khai đủ nhãn/icon: nếu một bản iOS nào đó không ẩn được thanh gốc thì app
         // vẫn dùng được (hai thanh, xấu nhưng không kẹt), thay vì còn một dải nút trắng trơn.

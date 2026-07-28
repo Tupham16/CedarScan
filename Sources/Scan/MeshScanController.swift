@@ -51,7 +51,7 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
     }
 
     /// Anchor đã VÀO dữ liệu xuất (kèm số đỉnh đã ghi) — MeshOverlayView tô lưới trung
-    /// thực theo đây (xanh = chắc chắn có trong file, đỏ = chưa/thiếu).
+    /// thực theo đây (trắng = chắc chắn có trong file, đỏ = chưa/thiếu).
     var recordedAnchorCounts: [UUID: Int] {
         colorMesh?.recordedAnchorCounts ?? [:]
     }

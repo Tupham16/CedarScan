@@ -76,7 +76,7 @@ struct ScanDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                shareMenu
+                shareControl
             }
         }
         .safeAreaInset(edge: .bottom) {
@@ -418,7 +418,7 @@ struct ScanDetailView: View {
     }
 
     /// Bản quét MESH 3D: video walkthrough + hướng dẫn chia sẻ mô hình màu.
-    /// (Không có floorplan/USDZ — mesh màu là sản phẩm chính, xem bằng menu chia sẻ.)
+    /// (Không có floorplan/USDZ — mesh màu là sản phẩm chính, gửi ra ngoài bằng nút Share.)
     private var meshTab: some View {
         VStack(spacing: 10) {
             videoArea(missing: L.t("No walkthrough video in this scan", "Bản quét này không có video"))
@@ -459,14 +459,14 @@ struct ScanDetailView: View {
     private var meshFooterText: String {
         if FileManager.default.fileExists(atPath: objURL.path) || coloredGLBExists || coloredZipExists {
             return L.t(
-                "Share the colored 3D model (OBJ) from the share menu. This scan type has no floor plan.",
-                "Chia sẻ mô hình 3D màu (OBJ) từ menu chia sẻ. Loại bản quét này không có bản vẽ mặt bằng."
+                "Tap Share (top right) to send the colored 3D model (OBJ) together with the video. This scan type has no floor plan.",
+                "Bấm Share (góc trên) để gửi mô hình 3D màu (OBJ) kèm video. Loại bản quét này không có bản vẽ mặt bằng."
             )
         }
         if FileManager.default.fileExists(atPath: plyURL.path) {
             return L.t(
-                "Share the raw 3D mesh (PLY) from the share menu. This scan type has no floor plan.",
-                "Chia sẻ mesh thô (PLY) từ menu chia sẻ. Loại bản quét này không có bản vẽ mặt bằng."
+                "Tap Share (top right) to send the raw 3D mesh (PLY) together with the video. This scan type has no floor plan.",
+                "Bấm Share (góc trên) để gửi mesh thô (PLY) kèm video. Loại bản quét này không có bản vẽ mặt bằng."
             )
         }
         return L.t(
@@ -500,20 +500,73 @@ struct ScanDetailView: View {
         }
     }
 
-    private var shareMenu: some View {
-        Menu {
-            if current.isVideoOnly {
+    /// Nút Share ở toolbar — CHỮ "Share", không phải icon (chủ app chốt 2026-07-28).
+    ///
+    /// Bản quét MESH + bản quét VIDEO: bấm là mở THẲNG bảng chia sẻ iOS với trọn bộ file
+    /// (mô hình + video cùng lúc) — không còn menu con bắt chọn định dạng. File mô hình chọn
+    /// tự động theo thứ tự tốt→phao, xem `bestMeshModelURL`.
+    ///
+    /// Bản quét RoomPlan CŨ giữ menu: USDZ / GLB / OBJ / PLY / ảnh mặt bằng là những SẢN PHẨM
+    /// KHÁC NHAU (mô hình 3D vs bản vẽ mặt bằng) — gom hết vào một cú share là ép khách gửi cả
+    /// thứ họ không định gửi.
+    ///
+    /// Không có gì để chia sẻ (file mất sạch) → KHÔNG hiện nút, thay vì mở một bảng chia sẻ
+    /// rỗng không làm gì (đúng bài học ở `legacyShareItems`).
+    @ViewBuilder
+    private var shareControl: some View {
+        if current.isVideoOnly {
+            if FileManager.default.fileExists(atPath: videoURL.path) {
                 ShareLink(item: videoURL) {
-                    Label(L.t("Share video", "Chia sẻ video"), systemImage: "video")
+                    Text(L.t("Share", "Share"))
                 }
-            } else if current.isMeshOnly {
-                meshShareItems
-            } else {
-                legacyShareItems
             }
-        } label: {
-            Image(systemName: "square.and.arrow.up")
+        } else if current.isMeshOnly {
+            if !meshShareBundle.isEmpty {
+                ShareLink(items: meshShareBundle) {
+                    Text(L.t("Share", "Share"))
+                }
+            }
+        } else {
+            Menu {
+                legacyShareItems
+            } label: {
+                Text(L.t("Share", "Share"))
+            }
         }
+    }
+
+    /// Trọn gói chia sẻ của bản quét mesh: mô hình tốt nhất + video (thứ nào còn trên đĩa).
+    /// Cả hai vào MỘT bảng chia sẻ — AirDrop/Files nhận nhiều file bình thường; app chat nào
+    /// từ chối 2 file thì đó là giới hạn phía nhận, chấp nhận được (gói vốn 40–200MB+).
+    private var meshShareBundle: [URL] {
+        var items: [URL] = []
+        if let model = bestMeshModelURL {
+            items.append(model)
+        }
+        if FileManager.default.fileExists(atPath: videoURL.path) {
+            items.append(videoURL)
+        }
+        return items
+    }
+
+    /// File mô hình 3D duy nhất được chia sẻ, chọn theo thứ tự tốt→phao:
+    /// zip (OBJ+MTL+GLB đủ bộ, mang tên bản quét) → OBJ rời → GLB rời → PLY (bản phao khi nén
+    /// zip lỗi lúc lưu). Bản quét cũ còn giữ nhiều định dạng thì cũng chỉ lấy MỘT — chủ app
+    /// chốt 2026-07-28: bỏ menu chọn GLB/PLY riêng lẻ.
+    private var bestMeshModelURL: URL? {
+        if coloredZipExists {
+            return meshShareURL ?? coloredZipURL
+        }
+        if FileManager.default.fileExists(atPath: objURL.path) {
+            return objURL
+        }
+        if coloredGLBExists {
+            return coloredGLBURL
+        }
+        if FileManager.default.fileExists(atPath: plyURL.path) {
+            return plyURL
+        }
+        return nil
     }
 
     /// Menu chia sẻ cho bản quét RoomPlan CŨ.
@@ -560,36 +613,8 @@ struct ScanDetailView: View {
         }
     }
 
-    /// Menu chia sẻ cho bản quét MESH. Chuẩn mới: model.obj (+mtl) + video.
-    /// Các mục GLB/zip/PLY chỉ hiện cho bản quét CŨ còn giữ những file đó.
-    @ViewBuilder
-    private var meshShareItems: some View {
-        if FileManager.default.fileExists(atPath: objURL.path) {
-            ShareLink(item: objURL) {
-                Label(L.t("Share colored 3D (OBJ)", "Chia sẻ mô hình màu (OBJ)"), systemImage: "square.stack.3d.up")
-            }
-        }
-        if coloredGLBExists {
-            ShareLink(item: coloredGLBURL) {
-                Label(L.t("Share colored 3D (GLB)", "Chia sẻ mô hình màu (GLB)"), systemImage: "cube.fill")
-            }
-        }
-        if coloredZipExists {
-            ShareLink(item: meshShareURL ?? coloredZipURL) {
-                Label(L.t("Share colored 3D (OBJ)", "Chia sẻ mô hình màu (OBJ)"), systemImage: "square.stack.3d.up")
-            }
-        }
-        if FileManager.default.fileExists(atPath: plyURL.path) {
-            ShareLink(item: plyURL) {
-                Label(L.t("Share raw mesh (PLY)", "Chia sẻ mesh thô (PLY)"), systemImage: "square.3.layers.3d")
-            }
-        }
-        if FileManager.default.fileExists(atPath: videoURL.path) {
-            ShareLink(item: videoURL) {
-                Label(L.t("Share video", "Chia sẻ video"), systemImage: "video")
-            }
-        }
-    }
+    // `meshShareItems` (menu con chọn OBJ/GLB/PLY/video cho bản mesh) ĐÃ GỠ 2026-07-28 —
+    // thay bằng `shareControl` + `meshShareBundle`: một nút Share, một cú, đủ bộ file.
 
     /// Tên file zip theo tên bản quét (giữ chữ/số/dấu tiếng Việt + khoảng trắng . _ -).
     private func meshShareFileName() -> String {

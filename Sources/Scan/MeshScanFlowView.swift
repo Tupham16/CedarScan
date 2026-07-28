@@ -87,8 +87,9 @@ struct MeshScanFlowView: View {
                 // Trần hiển thị 600k (RoomPlan chỉ 150k): khách quay lại khu đã quét phải
                 // còn THẤY lưới để biết chỗ nào đã phủ — nhà thường sẽ không bị "quên" nữa.
                 // Nếu test thấy nóng/giật thì hạ số này.
-                // recordedCounts: lưới tô THEO DỮ LIỆU XUẤT THẬT — xanh = đã vào file,
+                // recordedCounts: lưới tô THEO DỮ LIỆU XUẤT THẬT — trắng = đã vào file,
                 // đỏ = chưa được ghi (builder tắt vì gián đoạn, hoặc mô hình đầy).
+                // Vùng chưa có mesh thì overlay tự phủ đỏ mờ (xem MeshOverlayView.tintNode).
                 MeshOverlayRepresentable(
                     arSession: controller.arSession,
                     maxVerts: 600_000,
@@ -229,9 +230,11 @@ struct MeshScanFlowView: View {
             Button {
                 showScanMesh.toggle()
             } label: {
+                // Accent chứ không phải xanh lá: từ 2026-07-28 lưới màu TRẮNG, giữ icon xanh
+                // lá là chỉ vào một màu không còn tồn tại trên màn quét.
                 Image(systemName: showScanMesh ? "square.grid.3x3.fill" : "square.grid.3x3")
                     .font(.title3)
-                    .foregroundStyle(showScanMesh ? Color.green : Color.primary)
+                    .foregroundStyle(showScanMesh ? Color.accentColor : Color.primary)
                     .padding(10)
                     .background(.ultraThinMaterial, in: Circle())
             }
@@ -245,9 +248,13 @@ struct MeshScanFlowView: View {
     private var bottomControls: some View {
         VStack(spacing: 10) {
             warningBanner
+            // MỘT nghĩa cho màu đỏ, đúng cho cả hai dạng: phủ đỏ (chưa có mesh) lẫn lưới đỏ
+            // (có mesh nhưng builder chưa ghi) đều là "chưa vào bản quét". Kèm ngoại lệ kính:
+            // LiDAR xuyên kính nên cửa sổ/cửa kính KHÔNG BAO GIỜ hết đỏ — không dặn trước là
+            // khách đứng quét mãi một tấm kính chờ hết đỏ, rồi mất tin luôn vào màu đỏ.
             Text(L.t(
-                "Walk slowly and point the camera at every surface — stairs and multiple floors are fine. Green mesh = saved into the model; red = NOT saved, re-scan those spots.",
-                "Đi chậm, hướng camera vào mọi bề mặt — cầu thang/nhiều tầng thoải mái. Lưới XANH = đã vào mô hình; ĐỎ = CHƯA được ghi, hãy quét lại chỗ đó."
+                "Walk slowly and point the camera at every surface — stairs and multiple floors are fine. Red = not in your scan yet (glass and windows always stay red — skip them). White mesh = saved.",
+                "Đi chậm, hướng camera vào mọi bề mặt — cầu thang/nhiều tầng thoải mái. Màu ĐỎ = chưa vào bản quét (kính/cửa sổ luôn đỏ — bỏ qua). Lưới TRẮNG = đã lưu."
             ))
             .font(.footnote)
             .multilineTextAlignment(.center)

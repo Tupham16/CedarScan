@@ -370,7 +370,7 @@ final class ColorMeshBuilder {
 
     /// Anchor nào ĐÃ nằm trong dữ liệu xuất, kèm SỐ ĐỈNH đã ghi — MeshOverlayView so với
     /// số đỉnh đang hiển thị để tô lưới trung thực (anchor phình to bị trần chặn có ID
-    /// trùng nhưng bản trong file NHỎ hơn bản trên màn → phải tô đỏ chứ không xanh).
+    /// trùng nhưng bản trong file NHỎ hơn bản trên màn → phải tô đỏ chứ không trắng).
     /// Đọc trên main, cùng luồng với tick.
     var recordedAnchorCounts: [UUID: Int] {
         pieces.mapValues { $0.worldVertices.count }

@@ -14,11 +14,33 @@ import UIKit // UIColor.systemBackground cho vòng "khoét lỗ" quanh nút SCAN
 struct CedarTabBar: View {
     @Binding var selection: RootTab
 
-    /// Chiều cao phần LAYOUT của thanh (chưa tính safe area dưới). Cao hơn thanh gốc của iOS
-    /// (49pt) vì phải chứa TRỌN vòng tròn SCAN — xem `scanItem`.
-    private static let rowHeight: CGFloat = 58
-    private static let scanDiameter: CGFloat = 44
-    private static let topPadding: CGFloat = 4
+    /// Phần THANH nhìn thấy (nền mờ + divider), đo từ mép trên vùng an toàn dưới:
+    /// hàng nút 58 + 8pt thở phía trên icon (cao hơn đời trước 4pt để dải trong suốt bên
+    /// trên — xem `totalHeight` — mỏng lại tương ứng).
+    private static let barHeight: CGFloat = 66
+    /// Chiều cao Ô CHẠM của 4 nút thường. Chúng ghim ĐÁY khung tổng (HStack alignment .bottom),
+    /// KHÔNG cao hết khung: dải trong suốt phía trên thanh phải để chạm RƠI XUYÊN xuống nội dung
+    /// đang cuộn phía sau (dòng nào thấy được thì chạm được — đúng trực giác), chứ không bị một
+    /// nút tab vô hình nuốt mất.
+    private static let itemRowHeight: CGFloat = 58
+    private static let scanDiameter: CGFloat = 66
+
+    /// Tổng khung LAYOUT của view này = thanh 66 + dải TRONG SUỐT 28pt phía trên chứa phần nút
+    /// SCAN nhô lên. Nút "tràn viền" là tràn qua ĐƯỜNG KẺ (divider vẽ ở mép trên phần thanh),
+    /// chứ KHÔNG tràn ra ngoài khung layout — toàn bộ vòng tròn + nhãn vẫn nằm trong khung này
+    /// nên vùng chạm luôn phủ kín nút. Xem `scanItem` vì sao đây là điều bắt buộc.
+    ///
+    /// ⚠ GIÁ CỦA DẢI TRONG SUỐT (review 2026-07-29, chấp nhận có chủ đích — chủ app nghiệm
+    /// trên máy thật): nội dung cuộn hiện RÕ trong dải 28pt rồi mới mờ sau divider (kiểu
+    /// "nút nổi trên nội dung"); danh sách cuộn hết cỡ dừng ở mép TRÊN của khung (28pt trên
+    /// divider); màn push chừa `reservedHeight` nên thẻ nút của chúng cũng cách divider 28pt.
+    /// Muốn dải mỏng hơn nữa thì phải thu chồng đĩa-nhãn ở `scanItem` trước.
+    ///
+    /// 🔴 BẤT BIẾN KÍCH THƯỚC: chồng cao nhất trong `scanItem` là
+    /// vòng khoét lỗ (66+6=72) + spacing 2 + nhãn ~12 + đệm đáy 6 = 92 ≤ 94 (2pt dư để quầng
+    /// sáng không dí sát nội dung phía trên).
+    /// Phóng nút/nhãn to hơn thì PHẢI nới `totalHeight` trước, không thì vòng tròn bị cắt cụt.
+    private static let totalHeight: CGFloat = 94
 
     /// Chỗ mà thanh này CHIẾM trên màn hình, tính từ mép trên vùng an toàn dưới.
     ///
@@ -33,43 +55,51 @@ struct CedarTabBar: View {
     /// `ScanDetailView` cũng ghim nút bằng `.safeAreaInset(edge:.bottom)` của riêng chúng, và
     /// chúng ghim vào một đáy mà chúng tưởng còn trống.
     ///
+    /// Giá trị này = `totalHeight` (GỒM cả vùng trong suốt phía trên thanh): nút SCAN nhô vào
+    /// vùng đó, nên màn push nào chỉ chừa 62pt là nút "Đặt hàng" của nó chui xuống DƯỚI vòng
+    /// tròn SCAN — nửa nút bị đĩa tròn đè, chạm vào đĩa lại mở màn quét.
+    ///
     /// ⚠ ĐỪNG bọc TabView trong `VStack { TabView; CedarTabBar }` để "cho chắc về hình học".
     /// Đã cân nhắc và loại: VStack làm bàn phím đẩy CẢ thanh tab lên, mà chữa bằng
     /// `.ignoresSafeArea(.keyboard)` ở VStack thì tắt luôn việc né bàn phím của NỘI DUNG — ô địa
     /// chỉ/ô tìm kiếm chui xuống dưới bàn phím. `.safeAreaInset` là công cụ đúng cho việc này.
-    static let reservedHeight: CGFloat = rowHeight + topPadding
+    static let reservedHeight: CGFloat = totalHeight
 
     var body: some View {
-        HStack(spacing: 0) {
+        HStack(alignment: .bottom, spacing: 0) {
             tabItem(.home, icon: "house", filled: "house.fill", title: L.t("Home", "Home"))
             tabItem(.orders, icon: "shippingbox", filled: "shippingbox.fill", title: L.t("Orders", "Đơn hàng"))
             scanItem
             tabItem(.learn, icon: "graduationcap", filled: "graduationcap.fill", title: L.t("Learn", "Learn"))
             tabItem(.account, icon: "person.circle", filled: "person.circle.fill", title: L.t("Account", "Tài khoản"))
         }
-        .frame(height: Self.rowHeight)
-        .padding(.top, Self.topPadding)
-        // `.bar` là vật liệu mờ đúng chuẩn thanh hệ thống — nội dung cuộn phía sau vẫn thấy mờ mờ.
-        //
-        // `.ignoresSafeArea(edges: .bottom)` gắn cho RIÊNG phần nền: trên máy có Face ID, dải
-        // home-indicator nằm NGOÀI vùng an toàn, nên nếu nền dừng đúng mép vùng an toàn thì bên
-        // dưới thanh sẽ lộ ra một vệt nội dung đang cuộn. Đặt ở background chứ không đặt cho cả
-        // thanh: các nút phải nằm nguyên trong vùng an toàn, không ai bấm trúng thanh home.
-        //
-        // Đường kẻ nằm CÙNG trong background chứ không phải `.overlay`: overlay vẽ ĐÈ lên nội
-        // dung, tức một vạch xám cắt ngang thân nút SCAN. Trong ZStack này nó nằm trên vật liệu
-        // nhưng vẫn dưới mọi nút.
-        .background {
-            ZStack(alignment: .top) {
-                // `Material.bar` viết TƯỜNG MINH, không dùng `.bar` rút gọn: `fill(_:)` nhận
-                // `some ShapeStyle`, và implicit-member trên tham số generic là chỗ trình biên
-                // dịch hay chịu thua — mà máy này không compile được để biết.
-                Rectangle()
-                    .fill(Material.bar)
-                    .ignoresSafeArea(edges: .bottom)
-                Divider()
-            }
+        .frame(height: Self.totalHeight)
+        // Nền mờ + đường kẻ chỉ phủ phần thanh `barHeight` DƯỚI CÙNG (ghim đáy). Vùng phía trên
+        // trong suốt — đó chính là "tràn viền": phần vòng tròn nhô lên đứng trên nội dung cuộn.
+        .background(alignment: .bottom) { barBackground }
+    }
+
+    /// `.bar` là vật liệu mờ đúng chuẩn thanh hệ thống — nội dung cuộn phía sau vẫn thấy mờ mờ.
+    ///
+    /// `.ignoresSafeArea(edges: .bottom)` gắn cho RIÊNG phần nền: trên máy có Face ID, dải
+    /// home-indicator nằm NGOÀI vùng an toàn, nên nếu nền dừng đúng mép vùng an toàn thì bên
+    /// dưới thanh sẽ lộ ra một vệt nội dung đang cuộn. Đặt ở background chứ không đặt cho cả
+    /// thanh: các nút phải nằm nguyên trong vùng an toàn, không ai bấm trúng thanh home.
+    ///
+    /// Đường kẻ nằm CÙNG trong background chứ không phải `.overlay`: overlay vẽ ĐÈ lên nội
+    /// dung, tức một vạch xám cắt ngang thân nút SCAN. Trong ZStack này nó nằm trên vật liệu
+    /// nhưng vẫn dưới mọi nút — nút SCAN nhô QUA đường kẻ là nhờ nó thuộc lớp nút phía trên.
+    private var barBackground: some View {
+        ZStack(alignment: .top) {
+            // `Material.bar` viết TƯỜNG MINH, không dùng `.bar` rút gọn: `fill(_:)` nhận
+            // `some ShapeStyle`, và implicit-member trên tham số generic là chỗ trình biên
+            // dịch hay chịu thua — mà máy này không compile được để biết.
+            Rectangle()
+                .fill(Material.bar)
+                .ignoresSafeArea(edges: .bottom)
+            Divider()
         }
+        .frame(height: Self.barHeight)
     }
 
     /// Một nút thường. Tách thành HÀM (không phải biểu thức lặp trong body) vì CI của repo này
@@ -88,8 +118,11 @@ struct CedarTabBar: View {
                     .minimumScaleFactor(0.8)
             }
             .foregroundStyle(isOn ? Color.accentColor : Color.secondary)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
             // Cả ô đều bấm được, không chỉ đúng chữ/icon — ngón tay không bao giờ rơi đúng 19pt.
+            // Nhưng ô chỉ cao `itemRowHeight` và ghim ĐÁY khung tổng: vùng chạm phải dừng ở mép
+            // thanh nhìn thấy, không được leo lên dải trong suốt (xem chú ở `itemRowHeight`).
+            .frame(maxWidth: .infinity)
+            .frame(height: Self.itemRowHeight)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -99,47 +132,63 @@ struct CedarTabBar: View {
         .accessibilityAddTraits(isOn ? AccessibilityTraits.isSelected : AccessibilityTraits())
     }
 
-    /// Nút SCAN: vòng tròn to, gradient, có quầng sáng.
+    /// Nút SCAN: vòng tròn to nhô qua đường viền + nhãn "Scan" (chủ app yêu cầu 2026-07-28:
+    /// nút to 1.5× và trả lại chữ; `HomeView.emptyState` đã tả nút theo nhãn này — đổi nhãn
+    /// thì sửa cả câu đó).
     ///
-    /// 🔴 VÒNG TRÒN NẰM TRỌN TRONG Ô — KHÔNG `offset` cho nó nhô lên khỏi thanh. Đời đầu của
-    /// thanh này có `offset(y: -20)` và nó hỏng hai đường cùng lúc (review đối kháng bắt được,
-    /// 5 lens độc lập cùng chỉ vào đây):
+    /// 🔴 KHÔNG `offset` cho nút nhô lên khỏi thanh. Đời đầu của thanh này có `offset(y: -20)`
+    /// và nó hỏng hai đường cùng lúc (review đối kháng bắt được, 5 lens độc lập cùng chỉ vào):
     ///  1. `offset` KHÔNG mở rộng vùng chạm. Phần nhô lên nằm ngoài `contentShape` nên chạm vào
     ///     đó không mở màn quét, mà RƠI XUỐNG lớp phía sau — ở Home là hàng bản quét cuối danh
     ///     sách, ở tab Đơn hàng có thể là link "Thanh toán ngay". Nút chính của app "lúc được lúc
     ///     không", và bấm hụt còn mở nhầm màn khác.
     ///  2. Đĩa nền đục của nút đè lên chính chữ "SCAN" ở đáy ô.
-    /// Cách chữa gọn nhất là bỏ luôn cả hai nguyên nhân: thanh cao thêm vài pt để chứa trọn vòng
-    /// tròn, và bỏ nhãn chữ dưới nút (icon viewfinder to + màu nhấn đã là tín hiệu rõ hơn mọi
-    /// nhãn 10pt; VoiceOver vẫn đọc được nhờ `accessibilityLabel`).
+    /// Cách nhô ĐÚNG (bản này): khung layout của cả thanh cao `totalHeight`, phần nền/viền chỉ vẽ
+    /// 62pt dưới cùng — vòng tròn vượt qua ĐƯỜNG KẺ nhưng vẫn nằm trọn trong khung, nên
+    /// `contentShape` phủ kín cả phần nhô (cột này cao HẾT khung, khác 4 nút thường). Nhãn nằm
+    /// trong phần thanh nên không bị đĩa đè (nguyên nhân #2 cũng không quay lại).
     private var scanItem: some View {
         Button {
             selection = .scan
         } label: {
-            scanCircle
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .contentShape(Rectangle())
+            VStack(spacing: 2) {
+                scanCircle
+                Text("Scan")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(Color.accentColor)
+            }
+            .padding(.bottom, 6)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel(L.t("Scan a new space", "Quét không gian mới"))
     }
 
-    /// Kích thước lớn nhất trong `scanCircle` là vòng "khoét lỗ" (`scanDiameter + 6`). Nó PHẢI nhỏ
-    /// hơn `rowHeight` — nếu không, nút lại tràn ra ngoài ô và quay về đúng hai lỗi đã tả ở
-    /// `scanItem`. Hiện: 44 + 6 = 50 < 58. Quầng sáng có tràn ra là được (blur mềm, không ăn layout).
+    /// Chồng cao nhất ở đây là vòng "khoét lỗ" (`scanDiameter + 6` = 72) — nó quyết định bất
+    /// biến kích thước ghi ở `totalHeight`. Quầng sáng to hơn (76) nhưng nằm trong `.background`
+    /// nên KHÔNG ăn layout (blur mềm, tràn ra ngoài khung một chút là chấp nhận được).
     private var scanCircle: some View {
         ZStack {
-            // Quầng sáng: một vòng tròn mờ nằm dưới cùng. CỐ Ý KHÔNG animation nhấp nháy — thanh
-            // tab sống suốt vòng đời app, một animation lặp vô hạn ở đây là thứ chạy cả lúc máy
-            // đang quét LiDAR (nóng + tốn pin), đổi lại chỉ được một hiệu ứng loè.
-            Circle()
-                .fill(Color.accentColor.opacity(0.35))
-                .frame(width: Self.scanDiameter + 10, height: Self.scanDiameter + 10)
-                .blur(radius: 7)
             // Vòng nền: tách nút khỏi vật liệu của thanh, cho ra khuôn "nút khoét lỗ".
+            // `systemGroupedBackground` chứ KHÔNG phải `systemBackground` (review 2026-07-29):
+            // phần vòng nhô lên nay đứng trên NỀN LIST của các tab — List mặc định của app
+            // (Home/Orders/màn push) đều là insetGrouped nền #F2F2F7 ở light mode, vòng trắng
+            // tinh trên đó thành một vành trăng lệch màu ngay giữa thanh. Dark mode hai màu
+            // này trùng nhau nên không đổi gì.
+            //
+            // Quầng sáng đặt làm `.background` của vòng nền: CỐ Ý KHÔNG animation nhấp nháy —
+            // thanh tab sống suốt vòng đời app, một animation lặp vô hạn ở đây là thứ chạy cả lúc
+            // máy đang quét LiDAR (nóng + tốn pin), đổi lại chỉ được một hiệu ứng loè.
             Circle()
-                .fill(Color(uiColor: .systemBackground))
+                .fill(Color(uiColor: .systemGroupedBackground))
                 .frame(width: Self.scanDiameter + 6, height: Self.scanDiameter + 6)
+                .background(
+                    Circle()
+                        .fill(Color.accentColor.opacity(0.35))
+                        .frame(width: Self.scanDiameter + 10, height: Self.scanDiameter + 10)
+                        .blur(radius: 7)
+                )
             Circle()
                 .fill(
                     LinearGradient(
@@ -154,7 +203,7 @@ struct CedarTabBar: View {
                 )
                 .shadow(color: Color.accentColor.opacity(0.45), radius: 7, y: 2)
             Image(systemName: "viewfinder")
-                .font(.system(size: 20, weight: .semibold))
+                .font(.system(size: 30, weight: .semibold))
                 .foregroundStyle(.white)
         }
     }

@@ -248,6 +248,18 @@ struct ScanAddressView: View {
         } label: {
             Label(L.t("Use my location", "Dùng vị trí hiện tại"), systemImage: "location.fill")
                 .font(.subheadline.weight(.semibold))
+                // TRẮNG tường minh cho CẢ icon lẫn chữ. Trong List, icon của Label bị iOS tô
+                // màu tint (accent) bất chấp buttonStyle — accent trên nền borderedProminent
+                // cũng accent là mũi tên tàng hình (chủ app báo 2026-07-28: "không thấy icon").
+                // Chữ vốn trắng theo style nút nên không ai nhận ra cho tới khi nhìn kỹ.
+                //
+                // NHƯNG chỉ trắng khi nút CÒN BẤM ĐƯỢC: lúc `.disabled` (đang định vị — quãng
+                // này >15s nếu khách ngồi đọc hộp thoại quyền, trap #24) nền capsule chuyển
+                // xám nhạt mà chữ vẫn trắng tinh là cả nút thành viên nhộng trống. Ép trắng
+                // vô điều kiện chính là lỗi do bản vá đầu của nó đẻ ra (review 2026-07-29).
+                .foregroundStyle(
+                    locator.state == .working ? AnyShapeStyle(.secondary) : AnyShapeStyle(Color.white)
+                )
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 9)
         }
