@@ -177,6 +177,18 @@ final class ScanStore: ObservableObject {
         beginBusy()
         defer { endBusy() }
 
+        // Dọn thư mục ảnh texture tạm ở MỌI đường thoát — kể cả các đường THROW sớm
+        // ("chưa thu được dữ liệu", writeMeta lỗi mà điển hình là ĐĨA ĐẦY, tức đúng lúc
+        // ~50MB này cần được thu hồi nhất; review 29/07 bắt). Đường thành công thì bước
+        // nén zip đã CHÉP xong nội dung trước khi hàm thoát nên defer chạy sau vẫn đúng.
+        // HỢP ĐỒNG với TextureShotRecorder: URL trỏ .../texshots-<uuid>/texture-shots,
+        // xoá THƯ MỤC CHA để không để lại vỏ rỗng trong tmp.
+        defer {
+            if let texshotsURL {
+                try? fileManager.removeItem(at: texshotsURL.deletingLastPathComponent())
+            }
+        }
+
         let hasVideo = videoURL.map { fileManager.fileExists(atPath: $0.path) } ?? false
         let hasMesh = meshURL.map { fileManager.fileExists(atPath: $0.path) } ?? false
         guard hasVideo || hasMesh else {
@@ -287,13 +299,7 @@ final class ScanStore: ObservableObject {
             }
         }
 
-        // Dọn thư mục ảnh texture tạm — zip (nếu thành công) đã CHÉP nó vào trong rồi.
-        // HỢP ĐỒNG với TextureShotRecorder: URL trỏ vào .../texshots-<uuid>/texture-shots,
-        // xoá THƯ MỤC CHA để không để lại vỏ rỗng trong tmp. Chạy cho CẢ ba đường
-        // (zip OK / rơi về PLY phao / bản chỉ-có-video) — hai đường sau texture vô nghĩa.
-        if let texshotsURL {
-            try? fileManager.removeItem(at: texshotsURL.deletingLastPathComponent())
-        }
+        // (Dọn thư mục ảnh texture tạm: xem defer ở đầu hàm — phủ cả các đường throw.)
 
         // meta.json đã được ghi ngay sau `createDirectory` (xem trên), và `record` là `let` không
         // đổi suốt hàm nên không cần ghi lại — tới đây chỉ còn đưa bản ghi vào danh sách trong bộ nhớ.

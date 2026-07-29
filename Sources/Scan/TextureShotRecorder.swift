@@ -135,6 +135,13 @@ final class TextureShotRecorder {
         guard pos.x.isFinite, pos.y.isFinite, pos.z.isFinite else { return }
         let quat = simd_normalize(simd_quatf(tf))
         guard quat.vector.x.isFinite else { return }
+        // Intrinsics NaN = phép chiếu vô nghĩa → bỏ shot. Mọi Float vào shots.json PHẢI
+        // hữu hạn: JSONEncoder mặc định THROW với NaN/Inf, mà finish() xử lý throw bằng
+        // cách vứt CẢ GÓI — một khung hỏng không được phép giết 480 khung tốt.
+        // (Cùng triết lý guard NaN của ScanVideoRecorder.appendTrackSample.)
+        let k = frame.camera.intrinsics
+        guard k.columns.0.x.isFinite, k.columns.1.y.isFinite,
+              k.columns.2.x.isFinite, k.columns.2.y.isFinite else { return }
 
         // Cổng "đang lia quá nhanh": đo tốc độ xoay giữa hai tick liên tiếp.
         // Cập nhật mốc tick TRƯỚC khi qua các cổng sau — mốc phải mới ở MỌI tick normal.
@@ -190,7 +197,9 @@ final class TextureShotRecorder {
 
         // Chốt meta NGAY LÚC BẤM (main) — không đọc lại frame trong closure nền.
         let s = Float(scale)
-        let k = frame.camera.intrinsics
+        // ev chỉ là dữ liệu PHỤ (san phơi sáng) — non-finite thì thay 0 (giá trị ARKit
+        // trả khi tắt light estimation) chứ không bỏ shot; xem chú thích NaN ở guard trên.
+        let evRaw = frame.camera.exposureOffset
         shotIndex += 1
         let meta = ShotMeta(
             file: String(format: "shot-%04d.jpg", shotIndex),
@@ -199,7 +208,7 @@ final class TextureShotRecorder {
             fx: k.columns.0.x * s, fy: k.columns.1.y * s,
             cx: k.columns.2.x * s, cy: k.columns.2.y * s,
             w: outW, h: outH,
-            ev: frame.camera.exposureOffset
+            ev: evRaw.isFinite ? evRaw : 0
         )
         lastShotTime = frame.timestamp
         lastShotPosition = pos
