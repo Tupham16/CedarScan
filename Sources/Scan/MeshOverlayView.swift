@@ -30,10 +30,17 @@ final class MeshOverlayRenderer: NSObject {
     private weak var sceneView: ARSCNView?
     private weak var arSession: ARSession?
     private var displayLink: CADisplayLink?
-    /// Quad đỏ mờ "chưa quét" — con của `pointOfView` CỦA ARSCNView (không phải của `rootNode`),
-    /// nên nó luôn chắn ngang tầm nhìn ở `tintDistance` và di chuyển khớp từng khung với ảnh
-    /// nền; mesh đã quét ghi depth (node mặt nạ) nên khoét thủng nó. Kích thước cập nhật mỗi
-    /// tick ở `updateTint`.
+    /// Quad đỏ mờ "chưa quét", chắn ngang tầm nhìn ở `tintDistance`; mesh đã quét ghi depth
+    /// (node mặt nạ) nên khoét thủng nó. Tư thế + kích thước cập nhật mỗi tick ở `updateTint`.
+    ///
+    /// 🔴 LÀ CON CỦA `rootNode`, **✗ ĐỪNG GẮN VÀO `sceneView.pointOfView`.** Chú thích ở đúng
+    /// chỗ này từng dạy điều ngược lại và đó chính là lỗi chủ app báo 2026-07-29: tấm phủ đỏ
+    /// BIẾN MẤT HẲN. SceneKit chỉ vẽ cây con của `scene.rootNode`, mà node camera của ARSCNView
+    /// do view tự quản và không bảo đảm nằm trong cây đó — cha không được vẽ thì con cũng không.
+    /// Lỗi này COMPILE SẠCH nên CI không bắt được, chỉ lộ khi cầm máy thật.
+    /// ⚠ Đổi lại: tư thế do tick 30Hz đặt nên trễ 0–33ms so với khung đang vẽ, KHÔNG "khớp từng
+    /// khung" như chú thích cũ nói — đó là lý do tồn tại của `tintOversize`, đọc hằng số đó
+    /// trước khi chỉnh bất cứ thứ gì ở đây.
     private let tintNode = SCNNode()
     private struct MeshSig: Equatable { let v: Int; let f: Int }
     private var anchorNodes: [UUID: SCNNode] = [:]
@@ -106,13 +113,29 @@ final class MeshOverlayRenderer: NSObject {
     /// đặt số dương cho rõ ý.
     private static let maskRenderingOrder = -10
     private static let tintRenderingOrder = 10
-    /// Độ mờ lớp phủ đỏ. 0.40 (chủ app chốt 2026-07-29 sau khi xem trên máy thật; 0.22 quá
-    /// nhạt, khó nhận ra vùng chưa quét). Vẫn nhìn xuyên được hình camera để lia máy tới.
-    private static let tintAlpha: CGFloat = 0.40
-    /// Quad đặt cách camera 40m — trong zFar 50 của `updateCamera`. Bề mặt trong nhà hầu như
-    /// luôn <40m nên mask thắng depth test; bề mặt ĐÃ quét mà đứng nhìn từ >40m (sân/kho rất
-    /// dài) chấp nhận bị phủ đỏ — ca hiếm, tự hết khi lại gần.
+    /// Độ mờ lớp phủ đỏ. Chủ app chỉnh dần trên máy thật: 0.22 → 0.40 → **0.50** (2026-07-29).
+    /// Vẫn nhìn xuyên được hình camera để lia máy tới.
+    private static let tintAlpha: CGFloat = 0.50
+    /// Quad đặt cách camera 40m: phải XA HƠN mọi mesh đang nhìn thấy (mesh xa hơn quad thì
+    /// nằm sau nó, không khoét được → vùng ĐÃ quét bị phủ đỏ oan), nhưng phải GẦN HƠN mặt
+    /// phẳng xa của camera (quá thì bị cắt sạch và tấm phủ biến mất hoàn toàn).
+    ///
+    /// 🔴 CHÚ THÍCH CŨ Ở ĐÂY TỪNG NÓI "trong zFar 50 của `updateCamera`" — SAI TỪ KHI GỘP VIEW:
+    /// `updateCamera` đã bị xoá, lớp phủ không còn đặt ma trận chiếu nào, mặt phẳng xa giờ do
+    /// ARSCNView/ARKit quyết và KHÔNG dòng nào trong repo đặt hay kiểm nó. Vì vậy `updateTint`
+    /// KẸP giá trị này theo `zFar` THẬT đọc từ camera đang render. Mặc định của ARKit là 1000m
+    /// nên bình thường không kẹp gì; kẹp chỉ để tấm phủ không bao giờ biến mất lặng lẽ nữa.
     private static let tintDistance: Float = 40
+    /// Hệ số nới tấm phủ so với bề rộng frustum.
+    ///
+    /// 🔴 1.05 LÀ KHÔNG ĐỦ, ĐỪNG HẠ VỀ. Nới 5% KÍCH THƯỚC chỉ ra ~0,7° dư GÓC ngang
+    /// (atan(1,05·tan14,92°) − 14,92°) — hai đại lượng khác nhau, chú thích đời trước lẫn lộn.
+    /// Từ khi gộp view, tấm phủ không còn là con của node camera nên tư thế của nó do tick
+    /// 30Hz của lớp phủ đặt, trễ 0–33ms so với khung ARSCNView đang vẽ; lia 60°/s là lệch tới
+    /// 2°. Dư 0,7° → HỞ MỘT DẢI KHÔNG-ĐỎ ở mép màn phía đang lia tới, nhìn như "viền đã quét"
+    /// giả và như rung mép. 1.3 cho ~4,2° dư, tức chịu được ~70ms trễ ở 60°/s.
+    /// Gần như miễn phí: phần thừa nằm ngoài khung nhìn nên bị cắt trước khi tô pixel.
+    private static let tintOversize: Float = 1.3
 
     /// 🔴 MẶT NẠ DEPTH CÓ SỔ RIÊNG, KHÔNG ĐI THEO TRẦN HIỂN THỊ. Review đối kháng 2026-07-29
     /// (5 lens độc lập cùng bắt): nếu mask là con của node hiển thị thì evictFarther/trimOverCap
@@ -195,8 +218,9 @@ final class MeshOverlayRenderer: NSObject {
         tintMaterial.writesToDepthBuffer = false
         tintPlane.materials = [tintMaterial]
         tintNode.geometry = tintPlane
-        tintNode.position = SCNVector3(0, 0, -Self.tintDistance)
         tintNode.renderingOrder = Self.tintRenderingOrder
+        // Tấm phủ nằm trong CÂY CỦA CHÍNH LỚP PHỦ, tư thế cập nhật mỗi tick — xem `updateTint`.
+        rootNode.addChildNode(tintNode)
     }
 
     /// Gắn lớp phủ vào ĐÚNG view đang vẽ hình camera. Sau lời gọi này, lưới được rasterize
@@ -207,9 +231,10 @@ final class MeshOverlayRenderer: NSObject {
     }
 
     /// Gỡ sạch khỏi scene (gọi ở `dismantleUIView`).
+    /// ⚠ KHÔNG gỡ riêng `tintNode`: nó là con của `rootNode` nên đi theo; gỡ riêng là mồ côi
+    /// vĩnh viễn, gắn view lại cũng không có tấm phủ nữa.
     func detach() {
         stop()
-        tintNode.removeFromParentNode()
         rootNode.removeFromParentNode()
         sceneView = nil
     }
@@ -276,7 +301,10 @@ final class MeshOverlayRenderer: NSObject {
     /// rỗng nên mọi anchor được xếp dựng ngay tick sau) — đúng bằng hành vi cũ.
     /// Bản dựng đang bay ở luồng nền không hồi sinh được: completion có `guard anchorSigs[id] != nil`.
     private func releaseAll() {
-        rootNode.childNodes.forEach { $0.removeFromParentNode() }
+        // 🔴 GỠ ĐÚNG NODE ĐANG THEO SỔ, ✗ `rootNode.childNodes.forEach` — `tintNode` cũng là
+        // con của `rootNode`, quét sạch con là mất luôn tấm phủ đỏ và không có đường dựng lại.
+        for node in anchorNodes.values { node.removeFromParentNode() }
+        for node in maskNodes.values { node.removeFromParentNode() }
         for entry in dyingMasks { entry.node.removeFromParentNode() }
         dyingMasks.removeAll()
         anchorNodes.removeAll()
@@ -361,34 +389,51 @@ final class MeshOverlayRenderer: NSObject {
     /// chính ARSCNView nên dùng chung `pointOfView` với ảnh nền: sai số đăng ký bằng 0 theo
     /// định nghĩa, không còn gì để lệch. ✗ ĐỪNG dựng lại camera riêng ở đây.
     ///
-    /// Việc duy nhất còn lại là NỚI tấm phủ đỏ cho kín khung nhìn và ghim nó vào camera của
-    /// ARSCNView (`pointOfView` chỉ tồn tại sau khi phiên chạy, và ARSCNView có quyền thay nó,
-    /// nên gắn LẠI mỗi khi thấy cha không còn đúng thay vì gắn một lần lúc khởi tạo).
+    /// Việc duy nhất còn lại là ĐẶT tấm phủ đỏ chắn ngang tầm nhìn và nới cho kín khung.
+    ///
+    /// 🔴 TẤM PHỦ LÀ CON CỦA `rootNode`, **KHÔNG** PHẢI CON CỦA `sceneView.pointOfView`.
+    /// Đời đầu của bản gộp view gắn nó vào `pointOfView` cho "khỏi phải tự tính tư thế" — và
+    /// TẤM PHỦ BIẾN MẤT HẲN (chủ app báo ngay 2026-07-29). Lý do: SceneKit chỉ vẽ cây con của
+    /// `scene.rootNode`, mà node camera của ARSCNView do view tự quản và KHÔNG bảo đảm nằm
+    /// trong cây đó — cha không được vẽ thì con cũng không. (Đời SCNView riêng không lộ vì lúc
+    /// ấy chính code này `addChildNode(cameraNode)` vào scene của nó.)
+    /// Nay tư thế tính tay từ ma trận camera của ARFrame: `viewMatrix(for:.portrait).inverse`
+    /// là camera→world, nhân thêm phép tịnh tiến -Z một đoạn `distance` (đã kẹp theo mặt phẳng
+    /// xa thật). Trễ một khung ở đây CHỊU ĐƯỢC — nhưng chỉ vì tấm phủ được nới dư theo
+    /// `tintOversize` (đọc hằng số đó: 1.3, KHÔNG phải 1.05) và vì nó chỉ là một mảng màu
+    /// phẳng — khác hẳn LƯỚI, thứ bắt buộc khớp từng pixel (xem chú thích đầu file).
     private func updateTint(_ frame: ARFrame) {
         // Hội tụ lại mỗi tick: rẻ (một phép gán Bool) và bảo đảm không đường nào quên gọi.
         refreshTintVisibility()
-        guard let view = sceneView, let pov = view.pointOfView else { return }
-        if tintNode.parent !== pov {
-            tintNode.removeFromParentNode()
-            pov.addChildNode(tintNode)
-        }
+        guard let view = sceneView else { return }
         let size = view.bounds.size
         guard size.width > 0, size.height > 0 else { return }
+
+        // KẸP theo mặt phẳng xa THẬT của camera đang render (xem chú ở `tintDistance`): vượt
+        // nó là quad bị cắt sạch và tấm phủ biến mất không một dấu hiệu. `zFar` mặc định của
+        // ARKit là 1000m nên thực tế không kẹp; đây là lưới an toàn, không phải tinh chỉnh.
+        let far = Float(view.pointOfView?.camera?.zFar ?? 0)
+        let distance = far > 1 ? min(Self.tintDistance, far * 0.8) : Self.tintDistance
+
+        // Đặt tấm phủ cách camera `distance` theo hướng nhìn, cùng hướng xoay với camera.
+        var offset = matrix_identity_float4x4
+        offset.columns.3 = SIMD4<Float>(0, 0, -distance, 1)
+        tintNode.simdTransform = frame.camera.viewMatrix(for: .portrait).inverse * offset
+
         // Bề rộng frustum tại khoảng cách d là 2d/m00 (m00 = projection[0][0]), cao là 2d/m11.
-        // Nhân 1.05 cho dư mép — quad hụt 1px là lộ viền không-đỏ giả ở cạnh màn.
-        // Lấy m00/m11 từ ARFrame (chỉ phụ thuộc góc nhìn + tỉ lệ khung, không phụ thuộc
-        // zNear/zFar) nên khớp với ma trận chiếu mà ARSCNView đang dùng.
+        // Nhân `tintOversize` cho dư mép — xem chú ở hằng số đó, dư quá ít là hở viền lúc lia.
+        // Lấy m00/m11 từ ARFrame (chỉ phụ thuộc góc nhìn + tỉ lệ khung, KHÔNG phụ thuộc
+        // zNear/zFar — nên hai số truyền vào đây không ràng buộc mặt phẳng xa thật, xem trên)
+        // nên khớp với ma trận chiếu mà ARSCNView đang dùng.
         let projection = frame.camera.projectionMatrix(
             for: .portrait, viewportSize: size, zNear: 0.01, zFar: 50
         )
         let p00 = projection.columns.0.x
         let p11 = projection.columns.1.y
         if p00 > 0, p11 > 0 {
-            tintNode.simdScale = SIMD3(
-                2.1 * Self.tintDistance / p00,
-                2.1 * Self.tintDistance / p11,
-                1
-            )
+            // Gán scale SAU simdTransform: simdTransform vừa ghi đè cả phần scale.
+            let halfSpan = 2 * Self.tintOversize * distance
+            tintNode.simdScale = SIMD3(halfSpan / p00, halfSpan / p11, 1)
         }
     }
 
