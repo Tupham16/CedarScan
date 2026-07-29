@@ -77,27 +77,33 @@ struct MeshScanFlowView: View {
 
     var body: some View {
         ZStack {
-            ARCameraViewRepresentable(arSession: controller.arSession, sessionDelegate: controller)
-                .ignoresSafeArea()
-
-            // Lưới quét trực tiếp (chỉ đọc chung ARSession).
-            // Tháo khi đã sang màn preview: `dismantleUIView` gọi `stop()` nên CADisplayLink 30Hz
+            // MỘT view duy nhất vẽ CẢ hình camera LẪN lưới quét — xem chú thích đầu
+            // `ARCameraView.swift`: tách hai lớp là nguyên nhân "lưới rung khi lia máy".
+            //
+            // Trần hiển thị 600k (RoomPlan chỉ 150k): khách quay lại khu đã quét phải còn THẤY
+            // lưới để biết chỗ nào đã phủ — nhà thường sẽ không bị "quên" nữa. Nếu test thấy
+            // nóng/giật thì hạ số này.
+            // recordedCounts: lưới tô THEO DỮ LIỆU XUẤT THẬT — trắng = đã vào file, đỏ = chưa
+            // được ghi (builder tắt vì gián đoạn, hoặc mô hình đầy). Vùng chưa có mesh thì lớp
+            // phủ tự tô đỏ mờ (xem `MeshOverlayRenderer`).
+            // Tắt lưới khi đã sang màn preview: nhịp cập nhật dừng hẳn nên CADisplayLink 30Hz
             // không quay không tải suốt lúc khách ngồi xem lại video.
-            if showScanMesh && savedRecord == nil {
-                // Trần hiển thị 600k (RoomPlan chỉ 150k): khách quay lại khu đã quét phải
-                // còn THẤY lưới để biết chỗ nào đã phủ — nhà thường sẽ không bị "quên" nữa.
-                // Nếu test thấy nóng/giật thì hạ số này.
-                // recordedCounts: lưới tô THEO DỮ LIỆU XUẤT THẬT — trắng = đã vào file,
-                // đỏ = chưa được ghi (builder tắt vì gián đoạn, hoặc mô hình đầy).
-                // Vùng chưa có mesh thì overlay tự phủ đỏ mờ (xem MeshOverlayView.tintNode).
-                MeshOverlayRepresentable(
-                    arSession: controller.arSession,
-                    maxVerts: 600_000,
-                    recordedCounts: { [weak controller] in controller?.recordedAnchorCounts ?? [:] }
-                )
-                .ignoresSafeArea()
-                .allowsHitTesting(false)
-            }
+            ARCameraViewRepresentable(
+                arSession: controller.arSession,
+                sessionDelegate: controller,
+                meshMaxVerts: 600_000,
+                // 🔴 `!isSaving` KHÔNG PHẢI THỪA. `savedRecord` chỉ được gán SAU khi
+                // `stopAndExport()` + `onFinish()` chạy xong, tức sau vài chục giây tới vài
+                // phút dựng mesh + bake màu + nén zip. Thiếu vế này thì lớp phủ giữ nguyên
+                // ~70MB hình học (`wireGeos` + node) xuyên qua ĐÚNG đỉnh RAM của cả app — chỗ
+                // bị iOS giết thì mất trắng buổi quét 10–30 phút. Chỉ gác `isSaving` (không
+                // gác `showNaming`): từ lúc đang lưu là không còn đường quay lại quét tiếp,
+                // nên giải phóng rồi không phải dựng lại; còn ở màn đặt tên thì khách vẫn bấm
+                // "Quay lại" để quét thêm được.
+                showMesh: showScanMesh && savedRecord == nil && !isSaving,
+                recordedCounts: { [weak controller] in controller?.recordedAnchorCounts ?? [:] }
+            )
+            .ignoresSafeArea()
 
             if !isSaving && !showNaming && savedRecord == nil {
                 QualityAlertOverlay(monitor: controller.qualityMonitor)
@@ -415,14 +421,24 @@ struct MeshScanFlowView: View {
                 hitCap: exported.hitCap
             )
             let saved = await onFinish(result)
-            isSaving = false
             // Lưu HỎNG → đóng ngay để call-site hiện alert lỗi. KHÔNG hiện màn preview: không có
             // bản ghi nào để trỏ tới, và mời "Đặt hàng ngay" một bản quét vừa lưu hụt là tệ nhất.
+            //
+            // 🔴 ✗ HẠ `isSaving` TRƯỚC `guard` NÀY. Ở đường hỏng thì `savedRecord` vẫn nil, nên
+            // hạ cờ là `showMesh` (xem chỗ dựng ARCameraViewRepresentable) quay lại TRUE suốt
+            // hoạt ảnh đóng cover → lớp phủ bật lại và dựng LẠI toàn bộ lưới: copy vertex+index
+            // của mọi anchor trên MAIN THREAD (~50–80MB ở nhà lớn) rồi vứt đi 0,3s sau. Đúng
+            // khối RAM mà vế `!isSaving` sinh ra để tránh, và nó nổ ngay sau đỉnh RAM export,
+            // lúc app vừa lưu hỏng — thay vì hiện alert lỗi sạch sẽ thì có thể bị iOS giết.
+            // Đang đóng cover thì không cần hạ cờ nữa.
             guard let saved else {
                 dismiss()
                 return
             }
+            // Thứ tự: đóng dấu bản ghi TRƯỚC rồi mới hạ cờ, để không có nhịp nào rơi vào
+            // trạng thái (chưa có savedRecord && không còn đang lưu) làm lưới bật lại một nhịp.
             savedRecord = saved
+            isSaving = false
         }
     }
 }

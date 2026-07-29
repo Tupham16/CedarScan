@@ -3,43 +3,37 @@ import SceneKit
 import ARKit
 import simd
 
-/// Lớp phủ LƯỚI LiDAR (wireframe) lên trên hình camera AR, canh theo camera AR theo thời
-/// gian thực — để người quét biết bề mặt nào đã được quét (giống CubiCasa/Polycam).
+/// Lớp phủ LƯỚI LiDAR (wireframe) vẽ TRONG scene của ARSCNView đang hiện hình camera — để
+/// người quét biết bề mặt nào đã được quét (giống CubiCasa/Polycam).
 /// Ngôn ngữ màu (chủ app chốt 2026-07-28): lưới TRẮNG = đã vào file; lưới ĐỎ = có mesh nhưng
 /// CHƯA được ghi; vùng KHÔNG có mesh phủ ĐỎ MỜ (`tintNode` + mặt nạ depth) = chưa quét tới.
 ///
-/// 🔴 "LƯỚI RUNG" — NGUYÊN NHÂN GỐC ĐÃ TRUY RA, CHƯA SỬA TRIỆT ĐỂ (2026-07-29).
-/// Chủ app báo lưới cứ rung, app khác không bị. Gốc rễ nằm ở KIẾN TRÚC HIỂN THỊ, không phải
-/// ở file này: `MeshScanFlowView` xếp chồng HAI view anh em — `ARCameraViewRepresentable`
-/// (ARSCNView, vẽ ảnh camera) và view này (SCNView trong suốt, vẽ lưới). Hai view = hai
-/// CAMetalLayer, mỗi lớp tự đọc `arSession.currentFrame` theo nhịp riêng và tự present.
-/// ARKit đẻ khung 60Hz còn hai lớp vẽ 30fps mà KHÔNG khoá pha → lưới và ảnh nền lệch nhau 0
-/// hoặc 1 khung ARKit, và độ lệch đó ĐẢO QUA ĐẢO LẠI theo nhịp phách. Lúc lia máy 30–60°/s,
-/// một khung lệch là hàng chục pixel → lưới trượt tới-lui trên ảnh. Đó là "rung".
-/// Dấu hiệu nhận biết: biên độ TỈ LỆ THUẬN với tốc độ lia máy và biến mất khi cầm máy đứng yên.
-/// App khác không bị vì chúng vẽ lưới TRONG cùng view/cùng ARFrame với ảnh nền.
+/// 🔴 KHÔNG PHẢI MỘT VIEW. Đây là bộ dựng node, gắn vào scene của ARSCNView (xem `attach(to:)`
+/// và chú thích đầu `ARCameraView.swift`).
 ///
-/// SỬA TRIỆT ĐỂ = gộp một vòng render: thêm node lưới vào `scene.rootNode` của chính ARSCNView
-/// và bỏ hẳn SCNView riêng này; khi đó lưới được rasterize bằng ĐÚNG ARFrame đã sinh ra ảnh
-/// nền nên sai số đăng ký bằng 0 theo định nghĩa. Chưa làm vì đó là refactor đường hiển thị AR
-/// — phần dễ vỡ nhất — và cần một đợt riêng có review + test máy thật.
-/// Đợt 2026-07-29 chỉ chữa được phần LẤP LÁNH của vạch 1px (bật `multisampling2X`) và làm đều
-/// nhịp cập nhật; nếu chủ app test thấy hết rung thì thứ họ thấy là lấp lánh răng cưa, nếu vẫn
-/// còn thì phải đi nốt đường gộp view ở trên. ⚠ ĐỪNG đổ lỗi cho `updateAnchorPoses` — giả
-/// thuyết pose-bị-hãm-0,5s đã được kiểm và BÁC BỎ (xem chú thích tại hàm đó).
+/// Đời trước nó là một `SCNView` trong suốt chồng lên hình camera và tự lái một camera SceneKit
+/// riêng. Chủ app báo "lưới rung khi lia máy" (2026-07-29, xác nhận hai lần) và nguyên nhân
+/// đúng là chỗ đó: hai view = hai vòng render độc lập, mỗi bên tự đọc `arSession.currentFrame`
+/// theo nhịp riêng → lưới và ảnh nền lệch nhau 0–1 khung ARKit, độ lệch ĐẢO QUA ĐẢO LẠI, lia
+/// máy 30–60°/s là hàng chục pixel. Gộp vào một vòng render xoá hẳn lớp lỗi này.
+/// ⚠ ĐỪNG đổ lỗi cho `updateAnchorPoses`: giả thuyết "pose bị hãm 0,5s" đã được kiểm và BÁC BỎ
+/// (xem chú thích tại hàm đó).
 ///
 /// Chỉ ĐỌC arSession.currentFrame (không đổi cấu hình, không đụng phiên RoomPlan) nên an toàn
-/// với luồng quét. Nền trong suốt để thấy hình camera của ARSCNView bên dưới.
-///
-/// Canh camera: đặt transform + ma trận chiếu của camera SceneKit đúng bằng của ARKit mỗi
-/// khung hình. App chỉ chạy dọc (portrait) nên dùng .portrait cho ma trận chiếu.
-final class MeshOverlayView: SCNView {
+/// với luồng quét: display link ở đây chỉ dùng để DỰNG/ĐỔI node, còn việc canh camera thì
+/// ARSCNView tự lo — đó là toàn bộ điểm của việc gộp view.
+final class MeshOverlayRenderer: NSObject {
+    /// Node chứa TẤT CẢ node của lớp phủ, gắn vào scene của ARSCNView. Gom một chỗ để bật/tắt
+    /// và dọn sạch chỉ bằng một thao tác.
+    private let rootNode = SCNNode()
+    /// View AR đang chứa lớp phủ — cần cho kích thước khung nhìn và cho `pointOfView`.
+    private weak var sceneView: ARSCNView?
     private weak var arSession: ARSession?
     private var displayLink: CADisplayLink?
-    private let cameraNode = SCNNode()
-    /// Quad đỏ mờ "chưa quét" — con của `cameraNode`, luôn chắn ngang tầm nhìn ở
-    /// `tintDistance`; mesh đã quét ghi depth (node mặt nạ) nên khoét thủng nó. Kích thước
-    /// cập nhật mỗi khung ở `updateCamera`.
+    /// Quad đỏ mờ "chưa quét" — con của `pointOfView` CỦA ARSCNView (không phải của `rootNode`),
+    /// nên nó luôn chắn ngang tầm nhìn ở `tintDistance` và di chuyển khớp từng khung với ảnh
+    /// nền; mesh đã quét ghi depth (node mặt nạ) nên khoét thủng nó. Kích thước cập nhật mỗi
+    /// tick ở `updateTint`.
     private let tintNode = SCNNode()
     private struct MeshSig: Equatable { let v: Int; let f: Int }
     private var anchorNodes: [UUID: SCNNode] = [:]
@@ -137,6 +131,35 @@ final class MeshOverlayView: SCNView {
     /// (`disableMasking`) thay vì bắt đầu nói dối vì thiếu mask.
     private static let maskMaxVerts = 2_000_000
     private var maskingDisabled = false
+    /// Trạng thái bật/tắt do SwiftUI quyết (xem `setVisible`).
+    private var visible = false
+    /// Đã có thứ khoét được tấm phủ đỏ. Một chiều trong mỗi vòng đời (chỉ `releaseAll` hạ
+    /// xuống): mask bị gỡ hết về sau nghĩa là quanh đây thật sự không có gì đã quét, lúc đó phủ
+    /// đỏ là ĐÚNG. Xem `refreshTintVisibility` và `openCarveGate`.
+    private var hasCarvingMask = false
+    /// Tập anchor của ĐỢT DỰNG LẠI sau `releaseAll` mà bản dựng chưa về.
+    ///
+    /// 🔴 VÌ SAO PHẢI ĐẾM CẢ ĐỢT chứ không mở cổng ở mask ĐẦU TIÊN: `releaseAll` xoá sạch nên
+    /// khi bật lưới lại, CẢ N anchor cùng được xếp lên `buildQueue` (serial, .utility) trong
+    /// đúng một nhịp. Mở cổng ở completion thứ nhất là tấm phủ hiện khi mới có 1/N mask —
+    /// nguyên căn nhà VỪA QUÉT XONG bị tô đỏ "chưa quét tới" cho tới khi hàng rút hết.
+    /// ⚠ ✗ GÁC BẰNG `inFlight.isEmpty`: lúc quét bình thường ARKit cập nhật anchor liên tục nên
+    /// `inFlight` gần như luôn khác rỗng → tấm phủ nhấp nháy cả buổi.
+    /// Dùng TẬP ID (không phải bộ đếm) để bản dựng của đợt SAU không trừ nhầm vào đợt này.
+    private var rebuildBatch: Set<UUID> = []
+    /// Đang ở LƯỢT `updateMeshes` ĐẦU TIÊN của một đợt dựng — lượt duy nhất được ghi vào
+    /// `rebuildBatch`. Đóng sổ ngay cuối lượt đó, không thì anchor mới sinh trong lúc quét cứ
+    /// nối thêm vào đợt và cổng không bao giờ mở.
+    ///
+    /// 🔴 KHỞI TẠO `true`, ĐỪNG ĐỔI VỀ `false`. Đợt dựng đầu tiên KHÔNG PHẢI lúc nào cũng là
+    /// "màn quét sạch chưa có gì": `showScanMesh` là @AppStorage nên khách tắt lưới một lần là
+    /// các phiên sau vào màn quét với lưới đang TẮT, quét cả chục phút (ARKit vẫn dựng anchor
+    /// bình thường), rồi mới bật lưới lên để soi độ phủ. Lúc đó `releaseAll` chưa từng chạy, và
+    /// nếu cờ này là `false` thì cổng mở ngay ở mask ĐẦU TIÊN → nguyên căn nhà vừa quét bị tô
+    /// đỏ "chưa quét tới" cho tới khi hàng dựng rút hết. Khởi tạo `true` thì lượt đầu luôn được
+    /// tính thành một đợt: không anchor nào → mở cổng ngay (đúng ca màn quét sạch); có anchor →
+    /// chờ đợt rút hết (đúng ca vừa tả).
+    private var countingRebuild = true
     /// Mask của anchor vừa CHẾT (ARKit gộp/tách) được giữ thêm một nhịp ân hạn rồi mới gỡ.
     /// Cùng lớp lỗi chớp-tín-hiệu với `anchorFirstSeen` của lưới: bản anchor THAY THẾ chỉ có
     /// depth SAU build nền (0.1–1.5s khi queue dồn) — gỡ mask cũ tức thì là vùng ĐÃ LƯU chớp
@@ -160,32 +183,11 @@ final class MeshOverlayView: SCNView {
     init(arSession: ARSession, maxVerts: Int = 150_000) {
         self.arSession = arSession
         self.maxVerts = maxVerts
-        super.init(frame: .zero, options: nil)
-        scene = SCNScene()
-        backgroundColor = .clear
-        isOpaque = false
-        isUserInteractionEnabled = false   // để chạm đi xuyên xuống lớp camera bên dưới
-        rendersContinuously = true
-        // Khử răng cưa 2X cho LƯỚI. Vạch wireframe rộng đúng 1 pixel: không khử răng cưa thì
-        // mỗi lần camera nhích nửa pixel, vạch tắt/bật giữa hai hàng pixel — mắt đọc thành
-        // "lưới lấp lánh". Chọn 2X chứ không 4X: đủ để hết lấp lánh mà không nhân đôi thêm
-        // tải GPU trong buổi quét 20–30 phút.
-        antialiasingMode = .multisampling2X
-        // 30fps thay vì 60 mặc định — hai lý do:
-        //  1. NHỊP PHẢI KHỚP LỚP DƯỚI: ARSCNView hiện hình camera cũng chạy 30fps
-        //     (ARCameraView). Overlay chạy 60 thì lưới nhích hai lần trên MỘT khung hình
-        //     camera đứng yên.
-        //  2. Nhiệt: phần dư trả cho pass mask depth (xem TECH NOTES trong handoff).
-        // ⚠ Ai nâng số này thì PHẢI nâng cả `ARCameraViewRepresentable.preferredFramesPerSecond`
-        // cùng lúc.
-        preferredFramesPerSecond = 30
-        cameraNode.camera = SCNCamera()
-        scene?.rootNode.addChildNode(cameraNode)
-        pointOfView = cameraNode
+        super.init()
 
         // Lớp phủ đỏ "chưa quét". Vật liệu dựng tại chỗ (không static như các vật liệu kia)
-        // vì nó thuộc về đúng MỘT node sống cùng view. Đọc depth (mặc định) là cốt lõi của
-        // cơ chế khoét; không ghi depth để khỏi tự che chính mình ở khung sau.
+        // vì nó thuộc về đúng MỘT node sống cùng đối tượng này. Đọc depth (mặc định) là cốt
+        // lõi của cơ chế khoét; không ghi depth để khỏi tự che chính mình ở khung sau.
         let tintPlane = SCNPlane(width: 1, height: 1)
         let tintMaterial = SCNMaterial()
         tintMaterial.diffuse.contents = UIColor.systemRed.withAlphaComponent(Self.tintAlpha)
@@ -195,10 +197,110 @@ final class MeshOverlayView: SCNView {
         tintNode.geometry = tintPlane
         tintNode.position = SCNVector3(0, 0, -Self.tintDistance)
         tintNode.renderingOrder = Self.tintRenderingOrder
-        cameraNode.addChildNode(tintNode)
     }
 
-    required init?(coder: NSCoder) { return nil }
+    /// Gắn lớp phủ vào ĐÚNG view đang vẽ hình camera. Sau lời gọi này, lưới được rasterize
+    /// bằng chính camera của ARSCNView — tức bằng đúng ARFrame đã sinh ra ảnh nền.
+    func attach(to view: ARSCNView) {
+        sceneView = view
+        view.scene.rootNode.addChildNode(rootNode)
+    }
+
+    /// Gỡ sạch khỏi scene (gọi ở `dismantleUIView`).
+    func detach() {
+        stop()
+        tintNode.removeFromParentNode()
+        rootNode.removeFromParentNode()
+        sceneView = nil
+    }
+
+    /// Bật/tắt lớp phủ.
+    ///
+    /// 🔴 HÀM NÀY BỊ GỌI Ở **MỌI** LẦN `updateUIView`, tức mỗi lần body của `MeshScanFlowView`
+    /// dựng lại (rất nhiều: `capReached`, `trackingLost`, `isInterrupted`… đều là @Published).
+    /// Nên nó phải IDEMPOTENT và tuyệt đối không được ghi đè trạng thái do nơi khác quyết định.
+    ///
+    /// 🔴 ✗ GÁN THẲNG `tintNode.isHidden = !visible` Ở ĐÂY — ĐÓ LÀ LỖI CHẶN ĐÃ XẢY RA.
+    /// Việc hiện tấm phủ đỏ do BA điều kiện quyết định, không phải một; đi qua
+    /// `refreshTintVisibility()` là chỗ DUY NHẤT biết đủ cả ba. Gán thẳng ở đây thì chỉ cần
+    /// một lần re-render sau khi `disableMasking()` chạy là tấm phủ sống lại mà không còn gì
+    /// khoét nó → người quét nhìn cả thế giới qua tấm đỏ 40% cho tới hết buổi, tắt/bật lưới
+    /// cũng không cứu được. (Đời trước không lộ vì tắt lưới là tháo hẳn view.)
+    ///
+    /// Tắt thì DỪNG display link + GIẢI PHÓNG hình học, đúng bằng hành vi cũ — xem `releaseAll`.
+    func setVisible(_ visible: Bool) {
+        self.visible = visible
+        rootNode.isHidden = !visible
+        refreshTintVisibility()
+        if visible {
+            start()
+        } else if displayLink != nil {
+            stop()
+            releaseAll()
+        }
+    }
+
+    /// 🔴 BẤT BIẾN DUY NHẤT QUYẾT ĐỊNH TẤM PHỦ ĐỎ CÓ ĐƯỢC HIỆN KHÔNG.
+    /// Tấm phủ chỉ có nghĩa khi CÓ THỨ KHOÉT NÓ. Nếu hiện lúc chưa mask nào mang hình học thì
+    /// nó tô đỏ 40% TOÀN màn hình và bảo người quét rằng cả căn nhà chưa được quét — đúng loại
+    /// "tín hiệu sai chủ động" mà file này coi là tệ hơn không có tín hiệu.
+    /// Ba ca phải cùng chặn, và trước đây mỗi ca được xử lý một kiểu nên hở:
+    ///  • lưới đang tắt (`visible`),
+    ///  • ngân sách mask đã cạn nên mọi mask bị xoá (`maskingDisabled` — cơ chế một chiều),
+    ///  • VỪA dựng lại từ đầu, mask chưa kịp có hình học (`hasCarvingMask`): mask được tạo
+    ///    RỖNG trong `updateMeshes` rồi mới nhận hình học ở completion của luồng nền
+    ///    (0,1–1,5s, lâu hơn khi hàng dồn) — cửa sổ này có thật cả ở bản đang chạy.
+    /// Gọi lại ở MỌI chỗ đổi một trong ba biến đó, và mỗi tick trong `updateTint`.
+    private func refreshTintVisibility() {
+        tintNode.isHidden = !visible || maskingDisabled || !hasCarvingMask
+    }
+
+    /// Mở cổng tấm phủ đỏ (một chiều tới lần `releaseAll` kế tiếp).
+    private func openCarveGate() {
+        guard !hasCarvingMask else { return }
+        hasCarvingMask = true
+        refreshTintVisibility()
+    }
+
+    /// Trả lại toàn bộ bộ nhớ hình học của lớp phủ, đưa về đúng trạng thái lúc mới dựng.
+    ///
+    /// 🔴 VÌ SAO PHẢI CÓ: đời trước, tắt lưới = SwiftUI tháo hẳn view = mọi node + `wireGeos`
+    /// chết theo. Sau khi gộp vào ARSCNView thì renderer do Coordinator giữ, nên nếu chỉ `isHidden`
+    /// thì hình học vẫn nằm nguyên trong RAM. Lưu ý `wireGeos` KHÔNG bị trần `maxVerts` chặn
+    /// (trần chỉ áp cho node HIỂN THỊ) nên nó giữ geometry của MỌI anchor còn sống — tới ~2M
+    /// đỉnh ≈ 70MB phía CPU cộng bản sao MTLBuffer phía GPU. Giữ nguyên khối đó xuyên qua
+    /// `stopAndExport` + nén zip là chồng thêm vào ĐÚNG đỉnh RAM của cả app, chỗ bị iOS giết
+    /// thì mất trắng buổi quét 10–30 phút.
+    ///
+    /// Bật lại lưới thì dựng lại từ đầu (ARKit báo lại toàn bộ anchor mỗi khung, `anchorSigs`
+    /// rỗng nên mọi anchor được xếp dựng ngay tick sau) — đúng bằng hành vi cũ.
+    /// Bản dựng đang bay ở luồng nền không hồi sinh được: completion có `guard anchorSigs[id] != nil`.
+    private func releaseAll() {
+        rootNode.childNodes.forEach { $0.removeFromParentNode() }
+        for entry in dyingMasks { entry.node.removeFromParentNode() }
+        dyingMasks.removeAll()
+        anchorNodes.removeAll()
+        maskNodes.removeAll()
+        wireGeos.removeAll()
+        anchorSigs.removeAll()
+        anchorDists.removeAll()
+        anchorFirstSeen.removeAll()
+        inFlight.removeAll()
+        totalVerts = 0
+        maskVerts = 0
+        hasCarvingMask = false
+        rebuildBatch.removeAll()
+        countingRebuild = true
+        // Trả nhịp về 0 để lần bật lại được dựng NGAY tick sau. `frame.timestamp` là mốc lớn
+        // tăng dần nên 0 luôn qua được cổng `>= meshUpdateInterval`. Không reset thì tắt/bật
+        // nhanh hơn nửa giây sẽ phải chờ hết quãng hãm mới bắt đầu dựng.
+        lastMeshUpdate = 0
+        // Đếm lại từ 0 nên ngân sách mask cũng bắt đầu lại — giống hệt việc dựng một view mới
+        // ở đời trước. Không mở lại cờ này thì bật lưới lên chỉ có lưới trắng, vĩnh viễn không
+        // còn tấm phủ đỏ dù mô hình đã rỗng.
+        maskingDisabled = false
+        refreshTintVisibility()
+    }
 
     func start() {
         guard displayLink == nil else { return }
@@ -221,7 +323,7 @@ final class MeshOverlayView: SCNView {
     @objc private func tick() {
         guard let frame = arSession?.currentFrame else { return }
         lastFrameTimestamp = frame.timestamp
-        updateCamera(frame)
+        updateTint(frame)
         updateAnchorPoses(frame)
         if frame.timestamp - lastMeshUpdate >= Self.meshUpdateInterval {
             lastMeshUpdate = frame.timestamp
@@ -250,24 +352,35 @@ final class MeshOverlayView: SCNView {
         }
     }
 
-    // MARK: - Canh camera SceneKit theo ARKit
+    // MARK: - Lớp phủ đỏ bám theo camera của ARSCNView
 
-    private func updateCamera(_ frame: ARFrame) {
-        let size = bounds.size
+    /// 🔴 KHÔNG CÒN HÀM `updateCamera`. Đó là điểm mấu chốt của đợt gộp view: trước đây lớp
+    /// phủ tự lái một camera SceneKit riêng bằng `frame.camera.viewMatrix` của khung MỚI NHẤT,
+    /// trong khi ảnh nền do ARSCNView vẽ bằng khung mà NÓ đang xử lý → hai lớp lệch nhau 0–1
+    /// khung và độ lệch đảo qua đảo lại = lưới rung khi lia máy. Nay lưới nằm trong scene của
+    /// chính ARSCNView nên dùng chung `pointOfView` với ảnh nền: sai số đăng ký bằng 0 theo
+    /// định nghĩa, không còn gì để lệch. ✗ ĐỪNG dựng lại camera riêng ở đây.
+    ///
+    /// Việc duy nhất còn lại là NỚI tấm phủ đỏ cho kín khung nhìn và ghim nó vào camera của
+    /// ARSCNView (`pointOfView` chỉ tồn tại sau khi phiên chạy, và ARSCNView có quyền thay nó,
+    /// nên gắn LẠI mỗi khi thấy cha không còn đúng thay vì gắn một lần lúc khởi tạo).
+    private func updateTint(_ frame: ARFrame) {
+        // Hội tụ lại mỗi tick: rẻ (một phép gán Bool) và bảo đảm không đường nào quên gọi.
+        refreshTintVisibility()
+        guard let view = sceneView, let pov = view.pointOfView else { return }
+        if tintNode.parent !== pov {
+            tintNode.removeFromParentNode()
+            pov.addChildNode(tintNode)
+        }
+        let size = view.bounds.size
         guard size.width > 0, size.height > 0 else { return }
-        // PHẢI ghép viewMatrix và projectionMatrix CÙNG orientation (.portrait) cho nhất quán.
-        // camera.transform "thô" tham chiếu theo chiều NGANG của cảm biến; ghép nó với projection
-        // đã xoay portrait sẽ lệch đúng 90°. viewMatrix(for:.portrait) đã bao gồm phép xoay này.
-        // node camera = nghịch đảo của view (world→camera) = camera→world.
-        cameraNode.simdTransform = frame.camera.viewMatrix(for: .portrait).inverse
+        // Bề rộng frustum tại khoảng cách d là 2d/m00 (m00 = projection[0][0]), cao là 2d/m11.
+        // Nhân 1.05 cho dư mép — quad hụt 1px là lộ viền không-đỏ giả ở cạnh màn.
+        // Lấy m00/m11 từ ARFrame (chỉ phụ thuộc góc nhìn + tỉ lệ khung, không phụ thuộc
+        // zNear/zFar) nên khớp với ma trận chiếu mà ARSCNView đang dùng.
         let projection = frame.camera.projectionMatrix(
             for: .portrait, viewportSize: size, zNear: 0.01, zFar: 50
         )
-        cameraNode.camera?.projectionTransform = SCNMatrix4(projection)
-
-        // Nới quad đỏ phủ kín khung nhìn tại tintDistance: với ma trận chiếu đối xứng,
-        // bề rộng frustum tại khoảng cách d là 2d/m00 (m00 = projection[0][0]), cao là
-        // 2d/m11. Nhân 1.05 cho dư mép — quad hụt 1px là lộ viền không-đỏ giả ở cạnh màn.
         let p00 = projection.columns.0.x
         let p11 = projection.columns.1.y
         if p00 > 0, p11 > 0 {
@@ -320,7 +433,7 @@ final class MeshOverlayView: SCNView {
                 } else {
                     mask = SCNNode()
                     mask.renderingOrder = Self.maskRenderingOrder
-                    scene?.rootNode.addChildNode(mask)
+                    rootNode.addChildNode(mask)
                     maskNodes[id] = mask
                 }
                 mask.simdTransform = mesh.transform
@@ -335,7 +448,7 @@ final class MeshOverlayView: SCNView {
                 let need = anchorSigs[id]?.v ?? sig.v
                 if totalVerts + need <= maxVerts || evictFarther(than: dist, toFit: need) {
                     let created = SCNNode()
-                    scene?.rootNode.addChildNode(created)
+                    rootNode.addChildNode(created)
                     anchorNodes[id] = created
                     node = created
                     // Vào sổ NGAY khi node hiển thị ra đời — bất kể cache đã có hay chưa.
@@ -375,6 +488,7 @@ final class MeshOverlayView: SCNView {
             }
             anchorSigs[id] = sig
             inFlight.insert(id)
+            if countingRebuild { rebuildBatch.insert(id) }
 
             // Copy NHANH trên main (ARKit tái dụng MTLBuffer nên phải copy ngay tại đây)…
             let vBytes = Data(bytes: vSource.buffer.contents().advanced(by: vSource.offset), count: vLen)
@@ -394,6 +508,15 @@ final class MeshOverlayView: SCNView {
                 DispatchQueue.main.async { [weak self] in
                     guard let self else { return }
                     self.inFlight.remove(id)   // luôn giải phóng dù dựng được hay không
+                    // 🔴 TRỪ SỔ ĐỢT DỰNG LẠI VÔ ĐIỀU KIỆN, TRƯỚC MỌI `guard`. Bản dựng hỏng
+                    // (`makeGeometries` trả nil khi lưới rỗng/chỉ số rác) hay anchor đã chết
+                    // thì nó KHÔNG BAO GIỜ khoét được gì nữa — để id nằm lại trong sổ là cổng
+                    // tấm phủ đỏ KẸT ĐÓNG tới hết phiên và người quét mất hẳn tín hiệu "chưa
+                    // quét", im lặng, không báo gì. Đặt sau `guard` là đúng cái bẫy đó.
+                    if self.rebuildBatch.remove(id) != nil,
+                       self.rebuildBatch.isEmpty, !self.countingRebuild {
+                        self.openCarveGate()
+                    }
                     guard let built else { return }
                     // Anchor đã bị removeAnchor trong lúc bản dựng còn bay → DỪNG Ở ĐÂY,
                     // đừng cache: `wireGeos[id]` hồi sinh lúc này là entry mồ côi giữ
@@ -415,8 +538,23 @@ final class MeshOverlayView: SCNView {
                         node.geometry = built.wire
                     }
                     self.maskNodes[id]?.geometry = built.mask
+                    // NGOÀI một đợt dựng đang chờ: mask có hình học là mở cổng ngay. Ca này
+                    // xảy ra khi anchor MỚI xuất hiện lúc quét bình thường (đợt trước đã rút
+                    // hết) — lúc đó cổng vốn đã mở nên `openCarveGate` là no-op; nó chỉ thật sự
+                    // mở ở ca đợt đầu rỗng anchor rồi mới có anchor đầu tiên.
+                    if self.rebuildBatch.isEmpty, !self.countingRebuild {
+                        self.openCarveGate()
+                    }
                 }
             }
+        }
+        // ĐÓNG SỔ đợt dựng lại ngay cuối lượt ĐẦU sau `releaseAll`: từ lượt sau, anchor mới
+        // sinh trong lúc quét không được nối thêm vào đợt (không thì cổng không bao giờ mở).
+        // Lượt đầu không xếp được bản dựng nào (chưa có anchor) → mở cổng luôn: lúc đó phủ đỏ
+        // khắp nơi là ĐÚNG SỰ THẬT.
+        if countingRebuild {
+            countingRebuild = false
+            if rebuildBatch.isEmpty { openCarveGate() }
         }
         // (Việc dọn anchor vắng mặt đã chạy ở ĐẦU hàm — trước mọi phép cộng sổ, xem chú ở đó.)
         // Anchor cũ phình to có thể đẩy tổng vượt trần → tỉa vùng XA camera nhất
@@ -503,6 +641,12 @@ final class MeshOverlayView: SCNView {
         }
         wireGeos.removeValue(forKey: id)
         anchorSigs.removeValue(forKey: id)
+        // Anchor chết giữa đợt dựng lại vẫn phải rời sổ, không thì cổng tấm phủ kẹt mãi —
+        // và nếu nó là thành viên CUỐI thì phải mở cổng luôn tại đây, vì sẽ không còn
+        // completion nào về để làm việc đó.
+        if rebuildBatch.remove(id) != nil, rebuildBatch.isEmpty, !countingRebuild {
+            openCarveGate()
+        }
         anchorDists.removeValue(forKey: id)
         anchorFirstSeen.removeValue(forKey: id)
         // Nhả luôn cờ đang-dựng: nếu anchor được nhận lại ngay, bản dựng mới không bị chặn.
@@ -530,7 +674,7 @@ final class MeshOverlayView: SCNView {
     /// thay vì tiếp tục hiện một tín hiệu bắt đầu nói dối vì thiếu mask. Một chiều.
     private func disableMasking() {
         maskingDisabled = true
-        tintNode.isHidden = true
+        refreshTintVisibility()
         for (_, node) in maskNodes {
             node.removeFromParentNode()
         }
@@ -578,26 +722,6 @@ final class MeshOverlayView: SCNView {
     }
 }
 
-/// Cầu nối SwiftUI cho lớp phủ lưới. Gắn phía trên ARSCNView camera của MeshScanFlowView —
-/// chỉ cần dùng chung ARSession.
-struct MeshOverlayRepresentable: UIViewRepresentable {
-    let arSession: ARSession
-    var maxVerts: Int = 150_000
-    /// Đưa vào từ mesh mode để lưới tô trung thực (trắng = đã ghi, đỏ = chưa); RoomPlan để nil.
-    var recordedCounts: (() -> [UUID: Int])? = nil
-
-    func makeUIView(context: Context) -> MeshOverlayView {
-        let view = MeshOverlayView(arSession: arSession, maxVerts: maxVerts)
-        view.recordedCounts = recordedCounts
-        view.start()
-        return view
-    }
-
-    func updateUIView(_ uiView: MeshOverlayView, context: Context) {
-        uiView.recordedCounts = recordedCounts
-    }
-
-    static func dismantleUIView(_ uiView: MeshOverlayView, coordinator: ()) {
-        uiView.stop()
-    }
-}
+// `MeshOverlayRepresentable` ĐÃ GỠ (2026-07-29). Lớp phủ không còn là một view riêng chồng
+// lên hình camera — nó là các node nằm TRONG scene của ARSCNView, do
+// `ARCameraViewRepresentable` dựng và nuôi. Xem chú thích đầu file để biết vì sao.
