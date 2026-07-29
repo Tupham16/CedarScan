@@ -241,6 +241,7 @@ struct ProjectView: View {
                     let saved = try await store.saveMeshScan(
                         videoURL: result.videoURL, meshURL: result.meshURL,
                         trackURL: result.trackURL,
+                        texshotsURL: result.texshotsDir,
                         name: result.name, projectId: projectId, quality: result.quality
                     )
                     if result.hitCap { meshCapFollowUp = true }

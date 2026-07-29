@@ -30,6 +30,10 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
 
     private var recorder: ScanVideoRecorder?
     private var colorMesh: ColorMeshBuilder?
+    /// Ảnh JPEG + pose cho bước bake texture trên máy trạm (xem TextureShotRecorder).
+    /// Không cần start/stop theo gián đoạn phiên: cổng tracking-normal trong tick của nó
+    /// tự chặn khung xấu, tick "chay" chỉ là vài phép so sánh.
+    private var texShots: TextureShotRecorder?
     private var hasStarted = false
     private var isStopped = false
     private var capPollTimer: Timer?
@@ -97,6 +101,11 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
         let recorder = ScanVideoRecorder(arSession: arSession, recordCameraTrack: true)
         self.recorder = recorder
         recorder.start()
+        // Ảnh texture (chỉ mesh mode): nguyên liệu bake texture kiểu CubiCasa trên máy
+        // trạm — đóng kèm vào model-colored.zip ở saveMeshScan, không đổi gì phía server.
+        let texShots = TextureShotRecorder(arSession: arSession)
+        self.texShots = texShots
+        texShots.start()
         qualityMonitor.start()
         qualityMonitor.setActive(true)
         // Buổi quét 10–30 phút: không được để auto-lock cắt ngang phiên AR.
@@ -123,8 +132,10 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
     /// @MainActor BẮT BUỘC: hàm async không isolation sẽ chạy thân hàm trên executor NỀN
     /// (SE-0338) → Timer.invalidate/UIApplication/pause + sửa state đua với delegate main.
     @MainActor
-    func stopAndExport() async -> (videoURL: URL?, meshURL: URL?, trackURL: URL?, hitCap: Bool) {
-        guard !isStopped else { return (nil, nil, nil, false) }
+    func stopAndExport() async -> (
+        videoURL: URL?, meshURL: URL?, trackURL: URL?, texshotsDir: URL?, hitCap: Bool
+    ) {
+        guard !isStopped else { return (nil, nil, nil, nil, false) }
         isStopped = true
         teardownCommon()
         // teardownCommon vừa bật lại auto-lock, nhưng export còn chạy hàng chục giây tới
@@ -143,9 +154,13 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
         let videoURL = await recorder?.finish()
         let trackURL = recorder?.cameraTrackURL // chỉ khác nil khi video hoàn tất OK
         recorder = nil
+        // Chốt sổ ảnh texture TRƯỚC exportColoredPLY: phần chờ chỉ là nén nốt ≤3 ảnh
+        // (~chục ms), xong là nó im — không giành CPU/RAM với đoạn bake màu nặng phía sau.
+        let texshotsDir = await texShots?.finish()
+        texShots = nil
         let meshURL = await colorMesh?.exportColoredPLY()
         colorMesh = nil
-        return (videoURL, meshURL, trackURL, hitCap)
+        return (videoURL, meshURL, trackURL, texshotsDir, hitCap)
     }
 
     func cancel() {
@@ -154,6 +169,8 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
         teardownCommon()
         recorder?.cancel()
         recorder = nil
+        texShots?.cancel()
+        texShots = nil
         colorMesh?.stop()
         colorMesh = nil
         // BẮT BUỘC pause tường minh: luồng RoomPlan được RoomCaptureSession.stop() pause hộ,

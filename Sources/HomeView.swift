@@ -166,6 +166,7 @@ struct HomeView: View {
                         let saved = try await store.saveMeshScan(
                             videoURL: result.videoURL, meshURL: result.meshURL,
                             trackURL: result.trackURL,
+                            texshotsURL: result.texshotsDir,
                             name: result.name, projectId: pendingProjectId,
                             quality: result.quality
                         )

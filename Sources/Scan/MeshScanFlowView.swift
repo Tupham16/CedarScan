@@ -9,6 +9,9 @@ struct MeshScanResult {
     /// camera-track.json (vị trí + hướng camera theo PTS video) — nguyên liệu minimap;
     /// nil khi video không quay được (track không video là vô nghĩa).
     let trackURL: URL?
+    /// Thư mục texture-shots/ (JPEG + shots.json) — nguyên liệu bake texture trên máy
+    /// trạm, sẽ được đóng KÈM vào model-colored.zip; nil khi không chụp được ảnh nào.
+    let texshotsDir: URL?
     let name: String?
     /// Mức nét THẬT SỰ đã quét (không đọc lại AppStorage lúc lưu — tránh lệch
     /// khi cửa sổ khác đổi tier giữa chừng trên iPad).
@@ -416,6 +419,7 @@ struct MeshScanFlowView: View {
                 videoURL: exported.videoURL,
                 meshURL: exported.meshURL,
                 trackURL: exported.trackURL,
+                texshotsDir: exported.texshotsDir,
                 name: name.isEmpty ? nil : name,
                 quality: controller.quality,
                 hitCap: exported.hitCap

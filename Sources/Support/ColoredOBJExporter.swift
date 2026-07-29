@@ -28,7 +28,8 @@ enum ColoredOBJExporter {
     /// model.glb vào Blender là CÓ MÀU ngay (OBJ màu-theo-đỉnh phi tiêu chuẩn — Blender
     /// render ra trắng); zip nặng thêm ~20–25MB/1M đỉnh, vẫn nhẹ so cap upload 500MB.
     /// `extraFiles`: file phụ đóng kèm cạnh model.obj (vd camera-track.json cho minimap) —
-    /// copy theo đúng tên file gốc, hỏng không chặn zip.
+    /// copy theo đúng tên file gốc, hỏng không chặn zip. Phần tử là THƯ MỤC cũng được:
+    /// `copyItem` copy đệ quy → zip mang nguyên thư mục con (texture-shots/ đi đường này).
     static func makeOBJZip(
         fromPLY plyURL: URL, to zipURL: URL, includeGLB: Bool = false, extraFiles: [URL] = []
     ) throws {
