@@ -9,8 +9,8 @@ import SwiftUI
 /// TRANG CHỦ KHÔNG dùng màn này — nó đi qua `ScanAddressView` (hỏi căn nhà rồi mới tới độ nét).
 /// Ở trang dự án thì căn nhà đã biết rồi, nên chỉ còn độ nét để hỏi.
 ///
-/// Vẫn giữ sheet (thay vì vào thẳng màn quét) vì lựa chọn Vừa/Nét là thứ đáng hỏi: nó đổi
-/// thời gian lưu gần gấp đôi, và chọn nhầm thì phải quét lại cả buổi.
+/// Vẫn giữ sheet (thay vì vào thẳng màn quét) vì mức nét là thứ đáng hỏi TRƯỚC khi quét: chọn
+/// nhầm thì phải quét lại cả buổi, không sửa được sau.
 struct ScanQualityPickerView: View {
     @Environment(\.dismiss) private var dismiss
     /// Chỉ báo "khách đã bấm Bắt đầu" — KHÔNG mang tham số nào nữa. Người gọi present màn quét
@@ -53,7 +53,8 @@ struct ScanQualityPickerView: View {
     }
 }
 
-/// Chọn mức nét mesh (Vừa/Nét) + caption đổi theo lựa chọn.
+/// Chọn mức nét mesh + caption đổi theo lựa chọn. Danh sách mức dựng từ `MeshQuality.allCases`
+/// nên thêm/bớt mức không phải sửa file này.
 private struct QualityTierPicker: View {
     @Binding var quality: MeshQuality
 

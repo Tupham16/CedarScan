@@ -38,9 +38,10 @@ struct HomeView: View {
     @State private var pendingProjectId: UUID?
     @State private var meshCapFollowUp = false
     @State private var showScanNextPart = false
-    // Mặc định .high: file KHÔNG nặng thêm so với .medium (hình học y hệt), giá phải trả chỉ
-    // là thời gian lưu — mà lúc lưu máy đã đặt xuống. Người dùng cũ còn lưu "light" trong
-    // UserDefaults sẽ tự rơi về mặc định này vì rawValue đó không còn khớp case nào.
+    // Mặc định .high (KHÔNG phải .ultra): mức trên chỉ dày màu hơn, đổi lại giữ thêm ~179MB
+    // RAM suốt buổi quét — không đẩy mọi máy sang đó khi chưa ai bấm chọn. Người dùng cũ còn
+    // lưu "light"/"medium" trong UserDefaults tự rơi về mặc định này vì rawValue đó không còn
+    // khớp case nào (nhãn của bản quét CŨ vẫn hiện đúng nhờ MeshQuality.storedLabel).
     @AppStorage("meshQuality") private var meshQuality: MeshQuality = MeshQuality.storageDefault
     @State private var recordToRename: ScanRecord?
     @State private var renameText = ""

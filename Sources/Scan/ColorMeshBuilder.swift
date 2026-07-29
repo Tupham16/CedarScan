@@ -1,6 +1,9 @@
 import Foundation
 import ARKit
 import simd
+// UIKit tường minh cho `UIApplication.didReceiveMemoryWarningNotification` (xem `start()`).
+// ARKit kéo UIKit vào gián tiếp, nhưng dựa vào import gián tiếp là thứ chỉ vỡ ra sau 10 phút CI.
+import UIKit
 
 /// Dựng mô hình 3D CÓ MÀU (thấp phân giải, file nhẹ) từ lưới LiDAR + màu lấy từ khung hình camera.
 /// Xuất ra file PLY nhị phân với màu theo từng đỉnh. Đây là NGUYÊN LIỆU NỘI BỘ cho đội xử lý.
@@ -79,6 +82,14 @@ final class ColorMeshBuilder {
     private var keyframes: [ColorFrame] = []
     private var lastKeyframeTime: TimeInterval = 0
     private let queue = DispatchQueue(label: "com.cedar247.colormesh")
+    /// Đăng ký nhận cảnh báo thiếu bộ nhớ của hệ thống — xem `beginMemoryGuard()`.
+    private var memoryWarning: NSObjectProtocol?
+    /// Mốc thời gian lần xả gần nhất (systemUptime) — chống CHÙM cảnh báo, xem
+    /// `relieveMemoryPressure()`. 0 = chưa xả lần nào.
+    private var lastMemoryRelief: TimeInterval = 0
+    /// Quãng nghỉ giữa hai lần xả. Đủ dài để nuốt trọn một chùm cảnh báo (vài trăm ms), đủ
+    /// ngắn để đợt áp lực SAU trong cùng buổi quét vẫn được cứu.
+    private static let memoryReliefCooldown: TimeInterval = 20
 
     /// Các cờ hành vi mặc định TẮT để luồng RoomPlan (ScanSessionController gọi với
     /// default) giữ nguyên hành vi cũ; chế độ quét Mesh nguyên căn bật cả ba:
@@ -122,6 +133,8 @@ final class ColorMeshBuilder {
         self.captureDepthForOcclusion = captureDepthForOcclusion
         self.refineLargeTriangles = refineLargeTriangles
         self.fillUncoloredVertices = fillUncoloredVertices
+        // Van xả chạy suốt vòng đời đối tượng, KHÔNG theo start()/stop() — xem beginMemoryGuard().
+        beginMemoryGuard()
     }
 
     func start() {
@@ -135,6 +148,65 @@ final class ColorMeshBuilder {
     func stop() {
         displayLink?.invalidate()
         displayLink = nil
+    }
+
+    /// VAN XẢ KHI iOS KÊU THIẾU BỘ NHỚ. Kho khung màu là khối lớn nhất app giữ suốt buổi quét
+    /// (179MB mức Nét, 358MB mức Siêu nét) và nó nằm cạnh ARKit + bộ mã hoá video + lớp phủ
+    /// lưới. Không có đường xả thì cảnh báo của hệ thống trôi qua vô ích rồi app bị giết — mất
+    /// trắng buổi quét 10–30 phút, thứ đắt nhất với khách.
+    ///
+    /// 🔴 ĐĂNG KÝ Ở `init`, GỠ Ở `deinit` — TUYỆT ĐỐI KHÔNG buộc vào `start()`/`stop()`.
+    /// `stop()` không có nghĩa "xong": `MeshScanController` gọi nó mỗi lần ARSession bị GIÁN
+    /// ĐOẠN (cuộc gọi đến, app khác chiếm camera, app xuống nền) và cả ở đầu `stopAndExport`
+    /// trước khi hoàn tất video H.264. Đó CHÍNH LÀ những cửa sổ iOS bắn cảnh báo nhiều nhất và
+    /// ra tay jetsam mạnh nhất — mà kho khung thì vẫn còn nguyên trong suốt các cửa sổ đó.
+    /// Buộc van vào `stop()` là tắt van đúng lúc cần nó nhất (review đối kháng bắt được).
+    /// Handler tự vô hại khi kho đã rỗng nên giữ đăng ký suốt vòng đời là an toàn.
+    ///
+    /// Thông báo bắn trên main; `tick` (CADisplayLink gắn .main) và `exportColoredPLY`
+    /// (@MainActor) cũng trên main → không tranh chấp.
+    private func beginMemoryGuard() {
+        memoryWarning = NotificationCenter.default.addObserver(
+            forName: UIApplication.didReceiveMemoryWarningNotification,
+            object: nil, queue: .main
+        ) { [weak self] _ in
+            self?.relieveMemoryPressure()
+        }
+    }
+
+    /// Xả một nấc: bỏ khung XEN KẼ (giữ 0,2,4…) rồi nhân đôi nhịp chụp — đúng cơ chế đã có
+    /// lúc kho đầy, nên khung còn lại vẫn TRẢI ĐỀU cả buổi, chỉ thưa hơn.
+    ///
+    /// 🔴 CHỐNG CHÙM BẰNG THỜI GIAN, KHÔNG BẰNG BỘ ĐẾM TRỌN ĐỜI. iOS bắn cảnh báo theo CHÙM
+    /// (nhiều lần trong vài trăm mili giây của cùng một đợt áp lực), nhưng một buổi quét 25
+    /// phút có thể gặp NHIỀU đợt. Bản vá đời trước dùng bộ đếm trọn đời chặn ở 2 nấc: chùm
+    /// ĐẦU TIÊN nuốt sạch ngân sách trong chưa đầy một giây, rồi kho khung mọc lại đủ 320
+    /// (358MB) mà van đã CHẾT VĨNH VIỄN — nên đúng cửa sổ nguy hiểm nhất (hoàn tất video
+    /// H.264 ở cuối buổi) thì không còn gì để xả.
+    /// Van tự giới hạn nhờ SÀN: từ kho đầy, xả tối đa HAI nấc rồi chạm sàn và dừng hẳn
+    /// (Siêu nét 320 → 160 → 80; Nét 160 → 80 → 40). Nấc thứ hai KHÔNG cần kho mọc lại — chỉ
+    /// cần qua thời gian chờ — vì 160 vẫn thoả sàn 80. Muốn xả tiếp nữa thì mới phải chờ kho
+    /// mọc lại, và ở nhịp chụp đã nhân đôi thì việc đó tốn nhiều phút.
+    ///
+    /// 🔴 SÀN ĐO Ở TRẠNG THÁI SAU KHI XẢ, KHÔNG PHẢI TRƯỚC. Đời trước kiểm `count > sàn`
+    /// rồi mới chia đôi: 81 khung vẫn qua được sàn 80 và tụt còn 41 — thấp hơn chính cái sàn
+    /// vừa kiểm. Ở preset RoomPlan (40 khung) nó còn tụt xuống 5, phá luôn cam kết "không
+    /// dưới 8 khung".
+    private func relieveMemoryPressure() {
+        let now = ProcessInfo.processInfo.systemUptime
+        guard now - lastMemoryRelief >= Self.memoryReliefCooldown else { return }
+        // Sàn: sau khi xả vẫn phải còn ít nhất 1/4 hạn mức của mức nét đang chọn, và không
+        // dưới 8 khung.
+        guard keyframes.count / 2 >= max(8, maxKeyframes / 4) else { return }
+        lastMemoryRelief = now
+        keyframes = stride(from: 0, to: keyframes.count, by: 2).map { keyframes[$0] }
+        keyframeIntervalSec *= 2
+    }
+
+    deinit {
+        if let memoryWarning {
+            NotificationCenter.default.removeObserver(memoryWarning)
+        }
     }
 
     @objc private func tick() {
@@ -393,18 +465,60 @@ final class ColorMeshBuilder {
     // MARK: - Xuất PLY màu (gọi khi kết thúc; nặng nên chạy nền)
 
     /// Trả về URL file .ply (màu) hoặc nil nếu không dựng được (không có lưới / lỗi).
+    /// Kho khung màu của MỘT lần xuất, giữ trong một hộp THAM CHIẾU.
+    ///
+    /// 🔴 PHẢI LÀ `class`, ĐỪNG "DỌN" THÀNH HAI THAM SỐ MẢNG. Bản vá đời đầu (2026-07-29)
+    /// truyền thẳng hai mảng vào `buildPLY` rồi gán `[]` ở giữa hàm để "nhả sớm" — VÔ HIỆU
+    /// HOÀN TOÀN: closure escaping của `queue.async` bên dưới giữ tham chiếu RIÊNG suốt thời
+    /// gian `buildPLY` chạy, nên gán `[]` chỉ hạ số đếm tham chiếu từ 2 xuống 1 và không giải
+    /// phóng một byte nào. Nguy hiểm gấp đôi vì comment lúc đó lại KHẲNG ĐỊNH là đã nhả —
+    /// người truy jetsam sau này sẽ gạch ColorMeshBuilder khỏi danh sách nghi vấn oan.
+    /// Với hộp: closure giữ CON TRỎ hộp, mảng nằm trong trường của hộp, nên dọn trường là số
+    /// đếm về 0 thật. (Review đối kháng bắt được, 6 lens độc lập cùng chỉ vào.)
+    /// `@unchecked Sendable` là đúng sự thật chứ không phải để bịt cảnh báo: hộp được dựng
+    /// trên main rồi TRAO HẲN cho `queue`, và main không đụng lại nó nữa. Từ lúc trao đi, chỉ
+    /// một luồng duy nhất đọc/ghi. Ai thêm chỗ đọc hộp này từ main sau khi trao thì lời khai
+    /// đó thành sai — phải chuyển sang khoá thật.
+    private final class SamplerStore: @unchecked Sendable {
+        var geos: [SamplerGeo]
+        var samplers: [KeyframeSampler]
+        init(geos: [SamplerGeo], samplers: [KeyframeSampler]) {
+            self.geos = geos
+            self.samplers = samplers
+        }
+    }
+
+    /// 🔴 `@MainActor` BẮT BUỘC, ĐỪNG GỠ. Đây là hàm `async` nên theo SE-0338 nó KHÔNG thừa
+    /// hưởng actor của nơi gọi (`MeshScanController.stopAndExport`, vốn đã là @MainActor) —
+    /// không gắn nhãn thì thân hàm chạy trên luồng nền chung. Mà thân hàm này vừa GHI
+    /// `self.keyframes` vừa gọi `stop()` (invalidate CADisplayLink đã gắn vào main), trong khi
+    /// van xả bộ nhớ (`relieveMemoryPressure`) cũng ghi `self.keyframes` trên main → tranh chấp
+    /// dữ liệu thật sự, kiểu chỉ nổ ở máy khách vào đúng lúc iOS kêu thiếu bộ nhớ.
+    /// Phần NẶNG không hề chạy trên main: nó nằm trong `queue.async` bên dưới. Phần chạy trên
+    /// main chỉ là dựng sampler — O(K) phép nghịch đảo 4×4, cỡ vài chục micro giây.
+    @MainActor
     func exportColoredPLY() async -> URL? {
         stop()
         let pieces = self.pieces
-        let keyframes = self.keyframes
         let refine = refineLargeTriangles
         let fill = fillUncoloredVertices
         guard !pieces.isEmpty, !keyframes.isEmpty else { return nil }
 
+        // Dựng sampler NGAY TẠI ĐÂY (rẻ: O(K), một phép nghịch đảo 4×4 mỗi khung) rồi THẢ
+        // `self.keyframes`. Mảng `ColorFrame` chết đi, còn bộ nhớ ảnh thật (rgb/depth) vẫn
+        // sống vì sampler giữ tham chiếu — đó là thứ vòng bake cần. Kho ảnh này là khối lớn
+        // nhất của cả quy trình lưu (179MB mức Nét, 358MB mức Siêu nét) nên nó phải chết
+        // TRƯỚC khi cấp phát vùng `Data` của file PLY — xem `SamplerStore` và `buildPLY`.
+        let store = SamplerStore(
+            geos: Self.makeGeos(keyframes),
+            samplers: Self.makeSamplers(keyframes)
+        )
+        keyframes = []
+
         return await withCheckedContinuation { (continuation: CheckedContinuation<URL?, Never>) in
             queue.async {
                 let url = Self.buildPLY(
-                    pieces: pieces, keyframes: keyframes,
+                    pieces: pieces, store: store,
                     refineLargeTriangles: refine, fillUncoloredVertices: fill
                 )
                 continuation.resume(returning: url)
@@ -412,15 +526,58 @@ final class ColorMeshBuilder {
         }
     }
 
+    /// Dữ liệu chiếu tính sẵn một lần cho mỗi khung (hoist `simd_inverse` + intrinsics ra
+    /// khỏi vòng lặp: trước đây bị tính lại cho TỪNG đỉnh × TỪNG khung, hàng chục triệu lần thừa).
+    private static func makeSamplers(_ keyframes: [ColorFrame]) -> [KeyframeSampler] {
+        keyframes.map { kf in
+            KeyframeSampler(
+                rgb: kf.rgb, w: kf.w, h: kf.h, srcW: kf.srcW, srcH: kf.srcH,
+                camPos: SIMD3(kf.transform.columns.3.x, kf.transform.columns.3.y, kf.transform.columns.3.z),
+                worldToCamera: simd_inverse(kf.transform),
+                fx: kf.intrinsics.columns.0.x,
+                fy: kf.intrinsics.columns.1.y,
+                cx: kf.intrinsics.columns.2.x,
+                cy: kf.intrinsics.columns.2.y,
+                depth: kf.depth, dw: kf.dw, dh: kf.dh
+            )
+        }
+    }
+
+    /// Bản POD song song với `makeSamplers` cho vòng lọc nóng — xem chú ở `SamplerGeo`.
+    /// ⚠ PHẢI map trên CÙNG mảng `keyframes` theo CÙNG thứ tự: chỉ số dùng chung giữa hai mảng.
+    private static func makeGeos(_ keyframes: [ColorFrame]) -> [SamplerGeo] {
+        keyframes.map { kf in
+            SamplerGeo(
+                srcW: kf.srcW, srcH: kf.srcH,
+                camPos: SIMD3(kf.transform.columns.3.x, kf.transform.columns.3.y, kf.transform.columns.3.z),
+                worldToCamera: simd_inverse(kf.transform),
+                fx: kf.intrinsics.columns.0.x,
+                fy: kf.intrinsics.columns.1.y,
+                cx: kf.intrinsics.columns.2.x,
+                cy: kf.intrinsics.columns.2.y,
+                dw: kf.dw, dh: kf.dh
+            )
+        }
+    }
+
     private static func buildPLY(
-        pieces: [UUID: MeshPiece], keyframes: [ColorFrame],
+        pieces: [UUID: MeshPiece], store: SamplerStore,
         refineLargeTriangles: Bool, fillUncoloredVertices: Bool
     ) -> URL? {
-        // Gộp lưới thành 1 mảng đỉnh + mặt (dời chỉ số)
+        // Gộp lưới thành 1 mảng đỉnh + mặt (dời chỉ số).
+        //
+        // Duyệt theo THỨ TỰ ĐÃ SẮP của khoá thay vì `pieces.values`: thứ tự Dictionary của
+        // Swift không xác định, nên lưu hai lần cùng một bản quét cho ra hai file khác nhau về
+        // thứ tự đỉnh. Sắp vài trăm–vài nghìn UUID tốn dưới 1ms, đổi lại khi so hai bản export
+        // thì khác biệt đến từ THAY ĐỔI CODE chứ không từ may rủi — cần đúng cho việc nghiệm
+        // thu màu của đợt này. (Thứ tự này cũng quyết định mặt nào được chia trước khi
+        // `refineVertexCeiling` chạm trần — hôm nay trần đang ngủ, nhưng ai hạ
+        // `refineEdgeThreshold` trong tương lai thì nợ luôn phần ưu tiên chia theo cạnh dài.)
         var vertices: [SIMD3<Float>] = []
         var normals: [SIMD3<Float>] = []
         var faces: [(UInt32, UInt32, UInt32)] = []
-        for piece in pieces.values {
+        for key in pieces.keys.sorted(by: { $0.uuidString < $1.uuidString }) {
+            guard let piece = pieces[key] else { continue }
             let base = UInt32(vertices.count)
             vertices.append(contentsOf: piece.worldVertices)
             normals.append(contentsOf: piece.worldNormals)
@@ -437,57 +594,23 @@ final class ColorMeshBuilder {
             subdivideLargeTriangles(vertices: &vertices, normals: &normals, faces: &faces)
         }
 
-        // Màu từng đỉnh — dữ liệu chiếu của mỗi khung màu tính SẴN 1 lần (hoist simd_inverse
-        // + intrinsics khỏi vòng lặp: trước đây bị tính lại cho TỪNG đỉnh × TỪNG khung,
-        // hàng chục triệu lần thừa ở mức Nét → save lâu vô lý).
-        let samplers = keyframes.map { kf in
-            KeyframeSampler(
-                rgb: kf.rgb, w: kf.w, h: kf.h, srcW: kf.srcW, srcH: kf.srcH,
-                camPos: SIMD3(kf.transform.columns.3.x, kf.transform.columns.3.y, kf.transform.columns.3.z),
-                worldToCamera: simd_inverse(kf.transform),
-                fx: kf.intrinsics.columns.0.x,
-                fy: kf.intrinsics.columns.1.y,
-                cx: kf.intrinsics.columns.2.x,
-                cy: kf.intrinsics.columns.2.y,
-                depth: kf.depth, dw: kf.dw, dh: kf.dh
-            )
-        }
-        var colors = [SIMD3<UInt8>](repeating: SIMD3(150, 150, 150), count: vertices.count)
-        // Đỉnh không lấy được màu (mọi khung bị bộ lọc chuẩn loại) — để 2 lượt vá cứu sau.
-        var uncolored = [Bool](repeating: false, count: vertices.count)
-        // Song song hóa theo chunk: mỗi chunk ghi một dải chỉ số RIÊNG (không giao nhau),
-        // dữ liệu đọc (vertices/normals/samplers) bất biến → an toàn. Nguyên căn ở trần
-        // 2M đỉnh × 64 khung màu là ~128 triệu phép chiếu — tuần tự sẽ bắt chờ rất lâu.
-        let total = vertices.count
-        let chunkSize = 16_384
-        let chunkCount = (total + chunkSize - 1) / chunkSize
-        vertices.withUnsafeBufferPointer { vBuf in
-            normals.withUnsafeBufferPointer { nBuf in
-                colors.withUnsafeMutableBufferPointer { cBuf in
-                    uncolored.withUnsafeMutableBufferPointer { uBuf in
-                        DispatchQueue.concurrentPerform(iterations: chunkCount) { chunk in
-                            let start = chunk * chunkSize
-                            let end = min(start + chunkSize, total)
-                            for i in start..<end {
-                                if let c = sampleColor(world: vBuf[i], normal: nBuf[i], samplers: samplers) {
-                                    cBuf[i] = c
-                                } else {
-                                    uBuf[i] = true // giữ xám 150 tạm — vá bên dưới
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
+        // Tô màu trong MỘT LỜI GỌI RIÊNG. Đây không phải chuyện chia nhỏ hàm cho đẹp: mọi tham
+        // chiếu TẠM tới kho khung màu chỉ sống trong khung ngăn xếp của `paintColors`, nên khi
+        // nó trả về thì `store` là nơi DUY NHẤT còn giữ kho — dọn hai trường ngay sau đó mới
+        // thật sự trả bộ nhớ về hệ điều hành.
+        let colors = paintColors(
+            vertices: vertices, normals: normals, faces: faces,
+            geos: store.geos, samplers: store.samplers,
+            fillUncoloredVertices: fillUncoloredVertices
+        )
 
-        // Cứu đỉnh xám (chỉ chế độ Mesh bật cờ — RoomPlan giữ hành vi cũ: xám 150 như trước)
-        if fillUncoloredVertices {
-            fillUncolored(
-                colors: &colors, uncolored: &uncolored,
-                vertices: vertices, normals: normals, faces: faces, samplers: samplers
-            )
-        }
+        // 🔴 NHẢ KHO KHUNG MÀU NGAY TẠI ĐÂY — TRƯỚC khi cấp phát `Data` của PLY (~102MB ở 2,5
+        // triệu đỉnh). Đây là đỉnh RAM của cả quy trình lưu, và kho khung là khối lớn nhất
+        // trong đó (179MB mức Nét / 358MB mức Siêu nét).
+        // ⚠ ĐỪNG đưa hai dòng này vào TRONG `paintColors`: ở đó chúng lại chỉ hạ số đếm tham
+        // chiếu chứ không giải phóng, đúng cái bẫy đã tả ở `SamplerStore`.
+        store.samplers = []
+        store.geos = []
 
         // Ghi PLY nhị phân little-endian (KHÔNG dùng ModelIO — lỗi màu trên iOS)
         var header = "ply\n"
@@ -612,6 +735,30 @@ final class ColorMeshBuilder {
         }
     }
 
+    /// Phần HÌNH HỌC của một khung màu — thuần số, KHÔNG chứa tham chiếu (`Array`).
+    ///
+    /// 🔴 TÁCH RA LÀM GÌ: vòng lọc trong `sampleColor` chạy V×K lần (2,5 triệu đỉnh × 320
+    /// khung = 800 TRIỆU lần ở mức Siêu nét). Nếu vòng đó đọc nguyên `KeyframeSampler` —
+    /// struct có 2 tham chiếu Array — thì mỗi lần lặp là một cặp retain/release tiềm tàng,
+    /// và 6 luồng `concurrentPerform` sẽ đập atomic lên CÙNG hai bộ đếm tham chiếu. Struct
+    /// POD này không thể sinh ARC dù trình tối ưu có làm gì đi nữa. Ảnh (`rgb`/`depth`) chỉ
+    /// được chạm khi một khung đã lọt vào tốp — khoảng 12 lần/đỉnh thay vì K lần.
+    /// ⚠ `geos[i]` và `samplers[i]` PHẢI cùng thứ tự và cùng độ dài: hai hàm `makeGeos` và
+    /// `makeSamplers` cùng `map` trên MỘT mảng `keyframes` nên chỉ số khớp theo cách dựng.
+    /// Đừng lọc/sắp/thêm/bớt riêng một mảng — chỉ số lệch là màu lấy từ khung khác.
+    private struct SamplerGeo {
+        let srcW: Float
+        let srcH: Float
+        let camPos: SIMD3<Float>
+        let worldToCamera: simd_float4x4
+        let fx: Float
+        let fy: Float
+        let cx: Float
+        let cy: Float
+        let dw: Int
+        let dh: Int
+    }
+
     /// Khung màu + dữ liệu chiếu đã tính sẵn (1 lần/khung, dùng cho mọi đỉnh).
     private struct KeyframeSampler {
         let rgb: [UInt8]
@@ -640,56 +787,260 @@ final class ColorMeshBuilder {
     /// test là bất đắc dĩ (khung bị che có thể thắng khung sạch → màu vật chắn in lên
     /// mặt sau), nên nấc 1 luôn GIỮ occlusion, chỉ đỉnh vẫn hỏng mới sang nấc 2.
     private static func sampleColor(
-        world: SIMD3<Float>, normal: SIMD3<Float>, samplers: [KeyframeSampler],
+        world: SIMD3<Float>, normal: SIMD3<Float>,
+        geos: [SamplerGeo], samplers: [KeyframeSampler],
         relaxed: Bool = false, skipOcclusion: Bool = false
     ) -> SIMD3<UInt8>? {
-        var bestIdx = -1
-        var bestX: Float = 0
-        var bestY: Float = 0
-        var bestScore: Float = -1
+        // Ba ứng viên tốt nhất thay vì một (xem giải thích ở phần trộn bên dưới).
+        var idx0 = -1, idx1 = -1, idx2 = -1
+        var s0: Float = -1, s1: Float = -1, s2: Float = -1
+        var x0: Float = 0, y0: Float = 0
+        var x1: Float = 0, y1: Float = 0
+        var x2: Float = 0, y2: Float = 0
         let minFacing: Float = relaxed ? 0 : 0.1
 
-        for k in samplers.indices {
-            let kf = samplers[k]
-            let toCamRaw = kf.camPos - world
+        for k in geos.indices {
+            let g = geos[k]
+            let toCamRaw = g.camPos - world
             let dist = simd_length(toCamRaw)
             if dist < 0.05 { continue } // trùng vị trí camera → chiếu vô nghĩa
             let facing = simd_dot(normal, toCamRaw / dist)
             if facing <= minFacing { continue } // quay lưng với camera → bỏ
-            // Điểm = độ nhìn thẳng / căn khoảng cách: khung GẦN thắng khung xa cùng góc
-            // (footprint pixel nhỏ hơn nhiều → màu nét hơn); sqrt để không phạt quá tay.
-            let score = facing / sqrtf(max(dist, 0.5))
-            if score <= bestScore { continue } // không thể thắng khung tốt nhất → khỏi chiếu
+            // Điểm = độ nhìn thẳng / khoảng cách.
+            //
+            // ĐỔI TỪ `sqrtf(dist)` SANG `dist` (2026-07-29): dấu chân của một pixel trên bề
+            // mặt lớn theo BÌNH PHƯƠNG khoảng cách, nên khung ở 4m bệt hơn khung ở 1m gấp 16
+            // lần về diện tích — phạt bằng căn (chỉ 2×) là quá nhẹ. Tệ hơn: occlusion test chỉ
+            // được tin trong tầm 5m (xem dưới), nên khung XA vừa bệt màu vừa nằm NGOÀI vùng
+            // bảo vệ chống che khuất. Dòng này chỉ đổi khung nào THẮNG, không đổi việc đỉnh có
+            // lấy được màu hay không (mọi bộ lọc loại/nhận đều nằm ngoài nó) → không thể đẻ
+            // thêm một đỉnh xám nào. Nếu so ảnh trên máy thật thấy hồi quy thì đây là dòng
+            // ĐẦU TIÊN nên revert, nó cô lập hoàn toàn.
+            let score = facing / max(dist, 0.5)
+            if score <= s2 { continue } // không lọt nổi tốp 3 → khỏi chiếu
 
             // Đưa về hệ camera (camera nhìn theo -Z)
-            let cs4 = kf.worldToCamera * SIMD4<Float>(world.x, world.y, world.z, 1)
+            let cs4 = g.worldToCamera * SIMD4<Float>(world.x, world.y, world.z, 1)
             let z = cs4.z
             if z >= -0.05 { continue } // sau lưng hoặc quá sát
 
             // Ảnh gốc: origin trên-trái, x phải, y xuống
-            let xImg = kf.cx + kf.fx * (cs4.x / -z)
-            let yImg = kf.cy + kf.fy * (cs4.y / z)
-            guard xImg >= 0, yImg >= 0, xImg < kf.srcW, yImg < kf.srcH else { continue }
+            let xImg = g.cx + g.fx * (cs4.x / -z)
+            let yImg = g.cy + g.fy * (cs4.y / z)
+            guard xImg >= 0, yImg >= 0, xImg < g.srcW, yImg < g.srcH else { continue }
 
             // KIỂM TRA CHE KHUẤT: depth map cho biết bề mặt GẦN NHẤT ở pixel này cách camera
             // bao xa; đỉnh nằm sâu hơn mức đó (quá dung sai) tức là có vật chắn → bỏ khung.
             // Chỉ tin depth trong tầm LiDAR (~5m); dung sai nới theo khoảng cách vì depth
             // 256px thô hơn mesh nhiều (mép vật hay lệch vài cm). Chỉ nấc vét CUỐI
             // (skipOcclusion) mới bỏ qua — occlusion loại nhầm ở mép vật gây đỉnh xám.
-            if !skipOcclusion, kf.dw > 0, kf.dh > 0 {
-                let dx = min(kf.dw - 1, Int(xImg * Float(kf.dw) / kf.srcW))
-                let dy = min(kf.dh - 1, Int(yImg * Float(kf.dh) / kf.srcH))
-                let d = kf.depth[dy * kf.dw + dx]
+            if !skipOcclusion, g.dw > 0, g.dh > 0 {
+                let dx = min(g.dw - 1, Int(xImg * Float(g.dw) / g.srcW))
+                let dy = min(g.dh - 1, Int(yImg * Float(g.dh) / g.srcH))
+                let d = samplers[k].depth[dy * g.dw + dx]
                 if d.isFinite, d > 0.05, d < 5.0, -z > d + 0.10 + 0.05 * d { continue }
             }
 
-            bestScore = score
-            bestIdx = k
-            bestX = xImg
-            bestY = yImg
+            // Chèn vào tốp 3 (giữ thứ tự giảm dần).
+            if score > s0 {
+                s2 = s1; idx2 = idx1; x2 = x1; y2 = y1
+                s1 = s0; idx1 = idx0; x1 = x0; y1 = y0
+                s0 = score; idx0 = k; x0 = xImg; y0 = yImg
+            } else if score > s1 {
+                s2 = s1; idx2 = idx1; x2 = x1; y2 = y1
+                s1 = score; idx1 = k; x1 = xImg; y1 = yImg
+            } else {
+                s2 = score; idx2 = k; x2 = xImg; y2 = yImg
+            }
         }
-        guard bestIdx >= 0 else { return nil }
-        return bilinearSample(samplers[bestIdx], x: bestX, y: bestY)
+        guard idx0 >= 0 else { return nil }
+
+        // ---- TRỘN TỐP 3 thay vì lấy trọn khung thắng ----
+        //
+        // 🔴 BỆNH ĐANG CHỮA: `score` là hàm LIÊN TỤC theo vị trí đỉnh, nên trên một mảng tường
+        // phẳng, khung thắng đổi dọc theo một ĐƯỜNG CONG. Hai khung kề nhau chụp cách nhau
+        // 6–13 giây từ hai chỗ đứng khác nhau thì phơi sáng/cân bằng trắng tự động của camera
+        // đã lệch 1–2 EV → mắt thấy một ĐƯỜNG NỐI SẮC CẠNH nơi màu nhảy bậc. Đó chính là kiểu
+        // "loang lổ như vá áo" mà người xem thấy rõ nhất, và nó KHÔNG liên quan gì tới độ nét.
+        // Trộn có trọng số làm đường nhảy bậc đó thành chuyển dần. Phụ thu: nhiễu hạt giảm
+        // ~√3, và sai lệch do ARKit dời anchor sau loop closure chuyển từ "một mảng màu SAI
+        // hẳn" thành "hơi nhoè".
+        //
+        // 🔴 TRỌNG SỐ TẮT DẦN, TUYỆT ĐỐI KHÔNG DÙNG CỔNG BẬT/TẮT. Bản vá đời đầu dùng hai cổng
+        // nhị phân (điểm ≥ 0,6 lần khung nhất VÀ lệch màu ≤ 48/255) và hỏng hai đường cùng lúc
+        // — review đối kháng bắt được:
+        //  1. Ngưỡng lệch màu 48 rơi ĐÚNG vào biên độ của chính căn bệnh cần chữa. Quy 1 EV ra
+        //     giá trị hiển thị: tông xám giữa 128 → 176 (lệch 48, sát trần), tông sáng 180 →
+        //     245 (lệch 65 → BỊ LOẠI), 2 EV ở xám giữa → lệch 111 (BỊ LOẠI). Tức nó từ chối
+        //     đúng những ca đường nối lộ rõ nhất, chỉ trộn khi hai khung vốn đã gần giống nhau.
+        //  2. Cổng nhị phân TỰ ĐẺ một bậc màu MỚI ngay tại đường cắt: một ứng viên vừa đủ điều
+        //     kiện nhảy vào với trọng số ~26–50% tức thì, tạo bậc tới ~70/255 trên một kênh,
+        //     chạy men theo bóng vật. Dời ngưỡng chỉ dời chỗ nhảy chứ không xoá nó.
+        // Nay cả hai đều là dốc mượt (`ramp`), và DẢI TRỘN CỐ Ý HẸP.
+        //
+        // 🔴 PHẠM VI THẬT — ĐỌC KỸ TRƯỚC KHI CHỈNH HAI MỐC 0,75/0,95. Trên mảng phẳng, tỉ số
+        // điểm giữa khung lệch ngang `b` và khung đứng vuông góc cách `d` là 1/(1+(b/d)²).
+        // Suy ra: khung tham gia TRỌN VẸN khi b ≤ 0,23·d, và không tham gia gì khi b ≥ 0,58·d.
+        // Tức trộn chỉ xảy ra quanh chỗ HAI KHUNG NGANG TÀI — đúng nơi khung thắng đổi và
+        // đường nối màu hình thành — chứ không phải cả mô hình.
+        // ⚠ Đời đầu của bản vá đặt 0,45/0,80: khi đó khung lệch tới 1,1·d vẫn tham gia, tức
+        // gần như MỌI đỉnh đều bị trộn ba khung và khung thắng chỉ còn ~40% trọng số → cả mô
+        // hình mềm đi (nhoè theo sai số pose của ARKit sau loop closure), đúng thứ mà mức
+        // Siêu nét đang bán thì lại mất. Review đối kháng bắt được bằng cách giải dạng đóng.
+        //
+        // ⚠ KHÔNG khẳng định "giống hệt bản cũ ở vùng thắng rõ": hàm ĐIỂM cũng đổi trong đợt
+        // này (bỏ sqrt), nên ngay cả nơi không trộn, khung THẮNG vẫn có thể là khung khác.
+        // Muốn so từng bit thì phải so với chính bản này khi tắt trộn, không phải với bản cũ.
+        //
+        // ⚠ GIỚI HẠN ĐÃ BIẾT, chấp nhận có chủ đích: chỉ giữ 3 ứng viên nên khung hạng 4 bị cắt
+        // CỨNG, và chỗ cắt đó sinh bậc màu (xem khối cảnh báo ở cuối hàm). Mở lên 5 ứng viên
+        // chỉ dời chỗ cắt chứ không xoá, mà tốn thêm sổ đăng ký + 2 lần đọc ảnh mỗi đỉnh.
+        let c0 = bilinearSample(samplers[idx0], x: x0, y: y0)
+        let c0v = SIMD3<Float>(Float(c0.x), Float(c0.y), Float(c0.z))
+        // Trọng số THEO ĐIỂM tính trước, và nó rẻ (vài phép toán): ở đại đa số đỉnh nó bằng 0
+        // nên chặn luôn được việc đọc ảnh — `bilinearSample` là 4 lần truy cập bộ nhớ ngẫu
+        // nhiên vào kho khung hàng trăm MB, đắt hơn nhiều so với phép so sánh này.
+        // Khung THẮNG luôn có `ramp(…, 1) = 1` nên trọng số của nó đúng bằng s0².
+        let w0 = s0 * s0
+        var c1v = SIMD3<Float>(repeating: 0)
+        var c2v = SIMD3<Float>(repeating: 0)
+        var w1: Float = 0
+        var w2: Float = 0
+        let sw1 = scoreWeight(score: s1, best: s0)
+        if idx1 >= 0, sw1 > 0 {
+            let c = bilinearSample(samplers[idx1], x: x1, y: y1)
+            c1v = SIMD3<Float>(Float(c.x), Float(c.y), Float(c.z))
+            w1 = sw1
+        }
+        let sw2 = scoreWeight(score: s2, best: s0)
+        if idx2 >= 0, sw2 > 0 {
+            let c = bilinearSample(samplers[idx2], x: x2, y: y2)
+            c2v = SIMD3<Float>(Float(c.x), Float(c.y), Float(c.z))
+            w2 = sw2
+        }
+
+        // 🔴 KHÔNG CÓ CỔNG LỌC "LỆCH MÀU". ĐỪNG THÊM LẠI — ĐÃ THỬ BA KIỂU, CẢ BA ĐỀU HỎNG:
+        //  1. Cổng nhị phân "lệch ≤ 48/255 mới được trộn": ngưỡng rơi đúng vào biên độ chênh
+        //     phơi sáng 1–2 EV (48–111) tức từ chối đúng ca cần chữa, và tự đẻ bậc màu mới tại
+        //     đường cắt.
+        //  2. Dốc mượt nhưng đo lệch so với màu khung THẮNG, chỉ áp cho khung THUA: bất đối
+        //     xứng, nên tại đường khung thắng đổi vai bộ trọng số nhảy từ (1,g) sang (g,1) —
+        //     màu vẫn nhảy bậc ~47/255, chỉ giảm chứ không hết.
+        //  3. Đo lệch so với TRUNG BÌNH có trọng số: đối xứng và liên tục thật, nhưng trung
+        //     bình đó CHỨA chính ứng viên đang đo nên độ lệch đo được chỉ bằng một phần độ
+        //     lệch thật → ngưỡng loại 150 thành bất khả đạt đúng trong dải trộn nặng. Tệ hơn:
+        //     ba khung ngang tài mà HAI khung cùng sai (loá) thì mốc bị kéo theo phe đông, và
+        //     khung ĐÚNG (điểm cao nhất) là kẻ bị loại — cơ chế chống ngoại lai tự lật ngược.
+        // Nên bỏ hẳn. Lý lẽ: ứng viên chỉ vào được cuộc khi điểm của nó ≥ 0,75 lần khung thắng,
+        // mà điểm đã gộp cả góc nhìn lẫn khoảng cách, và khung bị vật khác che đã bị loại từ
+        // vòng kiểm che khuất phía trên. Ca xấu còn lại — một khung ngang tài nhìn trúng vật
+        // khác — thì trộn vẫn ĐỠ HƠN bản gốc: trước đợt này nó thắng tuyệt đối ở khoảng nửa số
+        // đỉnh quanh đó và in nguyên màu sai; giờ nó chỉ kéo màu đi một phần.
+        //
+        // ⚠ NÓI CHO ĐÚNG, ĐỪNG ĐỌC THÀNH "HẾT VIỀN": trọng số thì liên tục, nhưng TƯ CÁCH ứng
+        // viên vẫn do các cổng NHỊ PHÂN quyết (facing, z, biên ảnh, kiểm che khuất) cộng phép
+        // cắt cứng ở hạng 3. Băng qua bất kỳ cổng nào, một ứng viên rơi từ trọng số đầy xuống
+        // 0 tức thì → vẫn còn bậc màu, chỉ nhỏ hơn (một phần ba tới một nửa) so với bậc 100%
+        // của winner-take-all. Đổi lại, số ĐƯỜNG có bậc nhiều hơn vì nay cả ba ứng viên đều
+        // có thể vào/ra. Tóm lại: NHIỀU VIỀN MỜ thay cho ÍT VIỀN SẮC — đó là đánh đổi có chủ
+        // đích, không phải xoá sạch.
+        //
+        // ⚠ Phép cắt ở hạng 3 đẻ ra một họ bậc màu MỚI mà winner-take-all không có: khi khung
+        // hạng 3 và hạng 4 hoán chỗ, trọng số slot đó KHÔNG tụt về 0 (hai điểm bằng nhau tại
+        // chỗ hoán) mà chỉ đổi sang một khung màu khác → bậc bằng lệch màu chia 3. Đừng bào
+        // chữa bằng câu "lúc đó ba khung đầu đã đủ giống nhau": giống về ĐIỂM (góc/khoảng cách)
+        // không suy ra giống về MÀU — chênh phơi sáng 1–2 EV giữa hai khung cùng nhìn một chỗ
+        // chính là tiền đề của cả cơ chế này. Ở mức Siêu nét (320 khung), đứng lại vài chục
+        // giây trước một mảng tường là có ngay 5+ khung gần cùng tư thế, nên ca này KHÔNG hiếm.
+        let wSum = w0 + w1 + w2      // > 0 vì w0 = s0² > 0
+        let mixed = (c0v * w0 + c1v * w1 + c2v * w2) / wSum
+        return SIMD3<UInt8>(
+            UInt8(max(0, min(255, mixed.x.rounded()))),
+            UInt8(max(0, min(255, mixed.y.rounded()))),
+            UInt8(max(0, min(255, mixed.z.rounded())))
+        )
+    }
+
+    /// Trọng số của một khung phụ khi trộn — CHỈ theo điểm, không xét màu (xem `sampleColor`).
+    /// 0 = không tham gia; tính được mà KHÔNG cần đọc ảnh nên dùng làm cổng chặn
+    /// `bilinearSample`, thứ đắt nhất trong hàm.
+    private static func scoreWeight(score: Float, best: Float) -> Float {
+        guard best > 0, score > 0 else { return 0 }
+        return score * score * ramp(0.75, 0.95, score / best)
+    }
+
+    // `gapWeight` và `colorGap` ĐÃ GỠ (2026-07-29) — xem khối chú thích trong `sampleColor`
+    // giải thích vì sao mọi kiểu cổng lọc lệch màu đều hỏng ở đây. Đừng dựng lại.
+
+    /// Nội suy mượt Hermite: 0 dưới `a`, 1 trên `b`, không có bậc nhảy ở hai đầu.
+    ///
+    /// ⚠ TÊN CỐ Ý KHÔNG PHẢI `smoothstep`: module `simd` (đã import ở đầu file) xuất sẵn
+    /// `smoothstep(_:_:_:)` với ĐÚNG ba tham số Float không nhãn. Khai một hàm trùng khuôn
+    /// trong cùng file là đặt bẫy nhập nhằng cho người sửa sau — và ở repo này lỗi kiểu đó
+    /// chỉ lộ ra sau 10 phút CI.
+    private static func ramp(_ a: Float, _ b: Float, _ x: Float) -> Float {
+        let t = max(0, min(1, (x - a) / (b - a)))
+        return t * t * (3 - 2 * t)
+    }
+
+
+    // MARK: - Tô màu toàn bộ đỉnh (bake + vá) — TÁCH HÀM CÓ CHỦ ĐÍCH
+
+    /// Trả về mảng màu đã tô xong cho `vertices`.
+    ///
+    /// 🔴 VÌ SAO LÀ HÀM RIÊNG chứ không viết thẳng trong `buildPLY`: hai tham số `geos`/
+    /// `samplers` được truyền theo kiểu MƯỢN, nên mọi tham chiếu tạm tới kho khung màu chết
+    /// đúng lúc hàm này trả về. Nhờ vậy `buildPLY` dọn `store` ngay sau đó là giải phóng THẬT.
+    /// Viết thẳng vào `buildPLY` thì các biến cục bộ sống tới cuối hàm và kho khung 179–358MB
+    /// nằm lì qua bước cấp phát `Data` của PLY — đúng đỉnh RAM mà cả đợt này muốn hạ.
+    private static func paintColors(
+        vertices: [SIMD3<Float>], normals: [SIMD3<Float>],
+        faces: [(UInt32, UInt32, UInt32)],
+        geos: [SamplerGeo], samplers: [KeyframeSampler],
+        fillUncoloredVertices: Bool
+    ) -> [SIMD3<UInt8>] {
+        var colors = [SIMD3<UInt8>](repeating: SIMD3(150, 150, 150), count: vertices.count)
+        // Đỉnh không lấy được màu (mọi khung bị bộ lọc chuẩn loại) — để 2 lượt vá cứu sau.
+        var uncolored = [Bool](repeating: false, count: vertices.count)
+        // Song song hóa theo chunk: mỗi chunk ghi một dải chỉ số RIÊNG (không giao nhau),
+        // dữ liệu đọc (vertices/normals/geos/samplers) bất biến → an toàn. Nguyên căn sau khi
+        // chia nhỏ tam giác là ~2,5 triệu đỉnh; nhân 160 khung (mức Nét) = 400 TRIỆU vòng lọc,
+        // nhân 320 khung (mức Siêu nét) = 800 triệu — tuần tự sẽ bắt chờ rất lâu.
+        let total = vertices.count
+        let chunkSize = 16_384
+        let chunkCount = (total + chunkSize - 1) / chunkSize
+        vertices.withUnsafeBufferPointer { vBuf in
+            normals.withUnsafeBufferPointer { nBuf in
+                colors.withUnsafeMutableBufferPointer { cBuf in
+                    uncolored.withUnsafeMutableBufferPointer { uBuf in
+                        DispatchQueue.concurrentPerform(iterations: chunkCount) { chunk in
+                            let start = chunk * chunkSize
+                            let end = min(start + chunkSize, total)
+                            for i in start..<end {
+                                if let c = sampleColor(
+                                    world: vBuf[i], normal: nBuf[i],
+                                    geos: geos, samplers: samplers
+                                ) {
+                                    cBuf[i] = c
+                                } else {
+                                    uBuf[i] = true // giữ xám 150 tạm — vá bên dưới
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Cứu đỉnh xám (chỉ chế độ Mesh bật cờ — RoomPlan giữ hành vi cũ: xám 150 như trước)
+        if fillUncoloredVertices {
+            fillUncolored(
+                colors: &colors, uncolored: &uncolored,
+                vertices: vertices, normals: normals, faces: faces,
+                geos: geos, samplers: samplers
+            )
+        }
+        return colors
     }
 
     // MARK: - Vá đỉnh không màu (cờ fillUncoloredVertices — chỉ chế độ Mesh)
@@ -706,7 +1057,8 @@ final class ColorMeshBuilder {
     private static func fillUncolored(
         colors: inout [SIMD3<UInt8>], uncolored: inout [Bool],
         vertices: [SIMD3<Float>], normals: [SIMD3<Float>],
-        faces: [(UInt32, UInt32, UInt32)], samplers: [KeyframeSampler]
+        faces: [(UInt32, UInt32, UInt32)],
+        geos: [SamplerGeo], samplers: [KeyframeSampler]
     ) {
         // ---- Lượt 1: vét lỏng tay 2 NẤC (song song, chỉ trên danh sách đỉnh hỏng) ----
         // Nấc 1 nới facing nhưng GIỮ occlusion: cứu đúng nhóm đỉnh chỉ hỏng vì góc
@@ -717,12 +1069,12 @@ final class ColorMeshBuilder {
         guard !missing.isEmpty else { return }
         let still = rescuePass(
             missing, skipOcclusion: false,
-            vertices: vertices, normals: normals, samplers: samplers,
+            vertices: vertices, normals: normals, geos: geos, samplers: samplers,
             colors: &colors, uncolored: &uncolored
         )
         _ = rescuePass(
             still, skipOcclusion: true,
-            vertices: vertices, normals: normals, samplers: samplers,
+            vertices: vertices, normals: normals, geos: geos, samplers: samplers,
             colors: &colors, uncolored: &uncolored
         )
 
@@ -793,7 +1145,8 @@ final class ColorMeshBuilder {
     /// uncolored.indices); trả về danh sách đỉnh VẪN hỏng sau lượt này.
     private static func rescuePass(
         _ missing: [Int], skipOcclusion: Bool,
-        vertices: [SIMD3<Float>], normals: [SIMD3<Float>], samplers: [KeyframeSampler],
+        vertices: [SIMD3<Float>], normals: [SIMD3<Float>],
+        geos: [SamplerGeo], samplers: [KeyframeSampler],
         colors: inout [SIMD3<UInt8>], uncolored: inout [Bool]
     ) -> [Int] {
         guard !missing.isEmpty else { return [] }
@@ -811,7 +1164,8 @@ final class ColorMeshBuilder {
                                 for j in start..<end {
                                     let i = mBuf[j]
                                     if let c = sampleColor(
-                                        world: vBuf[i], normal: nBuf[i], samplers: samplers,
+                                        world: vBuf[i], normal: nBuf[i],
+                                        geos: geos, samplers: samplers,
                                         relaxed: true, skipOcclusion: skipOcclusion
                                     ) {
                                         cBuf[i] = c
@@ -828,7 +1182,13 @@ final class ColorMeshBuilder {
     }
 
     /// Màu NỘI SUY 2 CHIỀU trên khung nhỏ (thay nearest) — bớt "vỡ pixel" khi khung 640px
-    /// trải lên bề mặt lớn. Chỉ chạy 1 lần/đỉnh (trên khung thắng cuộc) nên rẻ.
+    /// trải lên bề mặt lớn.
+    /// ⚠ TỪ 2026-07-29 CHẠY TỐI ĐA 3 LẦN/ĐỈNH, không còn 1 lần như đời trước: `sampleColor`
+    /// trộn tốp 3 nên mỗi ứng viên có trọng số dương đều phải đọc ảnh. Mỗi lần là 4 truy cập
+    /// bộ nhớ NGẪU NHIÊN vào kho khung 179–358MB. Khi bấm giờ màn "Đang dựng mô hình 3D…" trên
+    /// máy thật mà thấy bake chậm hơn dự kiến thì đây là chỗ nhìn ĐẦU TIÊN — `scoreWeight`
+    /// chặn được kha khá lượt đọc, nhưng ở chỗ người quét đứng lại lâu (nhiều khung gần cùng
+    /// tư thế) thì thường có đủ cả 3 ứng viên.
     private static func bilinearSample(_ kf: KeyframeSampler, x: Float, y: Float) -> SIMD3<UInt8> {
         let gx = max(0, min(Float(kf.w - 1), x * Float(kf.w) / kf.srcW - 0.5))
         let gy = max(0, min(Float(kf.h - 1), y * Float(kf.h) / kf.srcH - 0.5))

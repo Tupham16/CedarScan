@@ -44,17 +44,21 @@ biết bản vẽ này của căn nào. Gõ địa chỉ tự do, không ép đ�
 
 ### Bước 2: Chọn độ nét
 
-Hai mức: **Vừa** và **Nét** (mặc định là Nét).
+Hai mức: **Nét** (mặc định) và **Siêu nét**.
 
 Hai mức cho **hình học và dung lượng file y hệt nhau** — chỉ khác app chụp khung màu dày hay thưa.
-Mức Nét cho **màu dày gấp đôi** nhưng **lưu lâu hơn đáng kể** (nhà lớn có thể mất vài phút). Cần
-lưu nhanh thì chọn Vừa.
+Mức Siêu nét chụp **gấp đôi số khung màu**, nên **màu thật hơn và đều hơn**. Càng quét lâu càng ăn:
+buổi 8 phút chụp dày gấp 2, buổi 10 phút gấp 4, từ 15 phút trở lên gấp 2. Chỉ buổi **rất ngắn (dưới
+khoảng 2 phút)** thì hai mức mới như nhau. Đổi lại nó **giữ nhiều bộ nhớ hơn trong lúc quét** và
+**lưu lâu hơn một chút**.
 
 ### Bước 3: Quét
 
 Bấm **"Bắt đầu quét"** rồi đi một vòng. Trong lúc quét:
 
-- **Lưới xanh** = đã vào mô hình. **Lưới đỏ** = chưa ghi được, cần quét lại chỗ đó.
+- **Lưới trắng** = đã vào mô hình. **Lưới đỏ** = chưa ghi được, cần quét lại chỗ đó.
+  **Vùng phủ đỏ mờ** = chưa quét tới, hãy hướng camera vào đó. Riêng **kính và cửa sổ luôn đỏ**
+  (tia LiDAR xuyên qua kính, không đo được) — cứ bỏ qua, không phải lỗi.
   (Tắt/bật lưới bằng nút góc trên phải.)
 - App **nhắc bạn theo thời gian thực** bằng viền màn hình nhấp nháy + rung: *Đi chậm lại*,
   *Xoay chậm lại*, *Bật thêm đèn*, *Lùi ra xa một chút*, *Máy nóng — nghỉ chút cho nguội*,

@@ -122,22 +122,42 @@ enum GLBExporter {
 
         let totalLength = 12 + 8 + jsonData.count + 8 + bin.count
 
-        var out = Data()
-        out.reserveCapacity(totalLength)
-        appendUInt32LE(magic, to: &out)
-        appendUInt32LE(version, to: &out)
-        appendUInt32LE(UInt32(totalLength), to: &out)
-        // Chunk 0: JSON
-        appendUInt32LE(UInt32(jsonData.count), to: &out)
-        appendUInt32LE(jsonChunkType, to: &out)
-        out.append(jsonData)
-        // Chunk 1: BIN
-        appendUInt32LE(UInt32(bin.count), to: &out)
-        appendUInt32LE(binChunkType, to: &out)
-        out.append(bin)
+        // GHI THẲNG RA FILE, KHÔNG dựng thêm một bản `Data` chứa toàn bộ nội dung.
+        //
+        // 🔴 Bản cũ dựng `out` rồi `out.append(bin)` trong khi `bin` VẪN SỐNG → một bản sao
+        // đầy đủ thừa (24 byte/đỉnh + 12 byte/mặt = ~120MB ở 2,5 triệu đỉnh, ~216MB ở trần
+        // 4,5 triệu) nằm đúng lúc RAM căng nhất: `mesh` của ColoredMeshPLY còn nguyên, và
+        // ngay sau đó là bước nén zip. Ghi tuần tự bỏ hẳn bản sao đó và tiết kiệm luôn thời
+        // gian copy. Nội dung file không đổi một byte.
+        let fm = FileManager.default
+        if fm.fileExists(atPath: glbURL.path) {
+            try? fm.removeItem(at: glbURL)
+        }
+        guard fm.createFile(atPath: glbURL.path, contents: nil),
+              let handle = try? FileHandle(forWritingTo: glbURL) else {
+            throw ExportError.writeFailed
+        }
+        defer { try? handle.close() }
+
+        // Header 12 byte + header chunk JSON 8 byte, gộp một lần ghi.
+        var head = Data()
+        head.reserveCapacity(20)
+        appendUInt32LE(magic, to: &head)
+        appendUInt32LE(version, to: &head)
+        appendUInt32LE(UInt32(totalLength), to: &head)
+        appendUInt32LE(UInt32(jsonData.count), to: &head)
+        appendUInt32LE(jsonChunkType, to: &head)
+
+        var binHead = Data()
+        binHead.reserveCapacity(8)
+        appendUInt32LE(UInt32(bin.count), to: &binHead)
+        appendUInt32LE(binChunkType, to: &binHead)
 
         do {
-            try out.write(to: glbURL)
+            try handle.write(contentsOf: head)
+            try handle.write(contentsOf: jsonData)
+            try handle.write(contentsOf: binHead)
+            try handle.write(contentsOf: bin)
         } catch {
             throw ExportError.writeFailed
         }

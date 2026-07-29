@@ -8,6 +8,26 @@ import simd
 /// Ngôn ngữ màu (chủ app chốt 2026-07-28): lưới TRẮNG = đã vào file; lưới ĐỎ = có mesh nhưng
 /// CHƯA được ghi; vùng KHÔNG có mesh phủ ĐỎ MỜ (`tintNode` + mặt nạ depth) = chưa quét tới.
 ///
+/// 🔴 "LƯỚI RUNG" — NGUYÊN NHÂN GỐC ĐÃ TRUY RA, CHƯA SỬA TRIỆT ĐỂ (2026-07-29).
+/// Chủ app báo lưới cứ rung, app khác không bị. Gốc rễ nằm ở KIẾN TRÚC HIỂN THỊ, không phải
+/// ở file này: `MeshScanFlowView` xếp chồng HAI view anh em — `ARCameraViewRepresentable`
+/// (ARSCNView, vẽ ảnh camera) và view này (SCNView trong suốt, vẽ lưới). Hai view = hai
+/// CAMetalLayer, mỗi lớp tự đọc `arSession.currentFrame` theo nhịp riêng và tự present.
+/// ARKit đẻ khung 60Hz còn hai lớp vẽ 30fps mà KHÔNG khoá pha → lưới và ảnh nền lệch nhau 0
+/// hoặc 1 khung ARKit, và độ lệch đó ĐẢO QUA ĐẢO LẠI theo nhịp phách. Lúc lia máy 30–60°/s,
+/// một khung lệch là hàng chục pixel → lưới trượt tới-lui trên ảnh. Đó là "rung".
+/// Dấu hiệu nhận biết: biên độ TỈ LỆ THUẬN với tốc độ lia máy và biến mất khi cầm máy đứng yên.
+/// App khác không bị vì chúng vẽ lưới TRONG cùng view/cùng ARFrame với ảnh nền.
+///
+/// SỬA TRIỆT ĐỂ = gộp một vòng render: thêm node lưới vào `scene.rootNode` của chính ARSCNView
+/// và bỏ hẳn SCNView riêng này; khi đó lưới được rasterize bằng ĐÚNG ARFrame đã sinh ra ảnh
+/// nền nên sai số đăng ký bằng 0 theo định nghĩa. Chưa làm vì đó là refactor đường hiển thị AR
+/// — phần dễ vỡ nhất — và cần một đợt riêng có review + test máy thật.
+/// Đợt 2026-07-29 chỉ chữa được phần LẤP LÁNH của vạch 1px (bật `multisampling2X`) và làm đều
+/// nhịp cập nhật; nếu chủ app test thấy hết rung thì thứ họ thấy là lấp lánh răng cưa, nếu vẫn
+/// còn thì phải đi nốt đường gộp view ở trên. ⚠ ĐỪNG đổ lỗi cho `updateAnchorPoses` — giả
+/// thuyết pose-bị-hãm-0,5s đã được kiểm và BÁC BỎ (xem chú thích tại hàm đó).
+///
 /// Chỉ ĐỌC arSession.currentFrame (không đổi cấu hình, không đụng phiên RoomPlan) nên an toàn
 /// với luồng quét. Nền trong suốt để thấy hình camera của ARSCNView bên dưới.
 ///
@@ -92,9 +112,9 @@ final class MeshOverlayView: SCNView {
     /// đặt số dương cho rõ ý.
     private static let maskRenderingOrder = -10
     private static let tintRenderingOrder = 10
-    /// Độ mờ lớp phủ đỏ. 0.22 = thấy rõ "vùng này chưa quét" mà vẫn nhìn xuyên được hình
-    /// camera để lia máy tới. Chỉnh theo cảm nhận của chủ app sau khi test máy thật.
-    private static let tintAlpha: CGFloat = 0.22
+    /// Độ mờ lớp phủ đỏ. 0.40 (chủ app chốt 2026-07-29 sau khi xem trên máy thật; 0.22 quá
+    /// nhạt, khó nhận ra vùng chưa quét). Vẫn nhìn xuyên được hình camera để lia máy tới.
+    private static let tintAlpha: CGFloat = 0.40
     /// Quad đặt cách camera 40m — trong zFar 50 của `updateCamera`. Bề mặt trong nhà hầu như
     /// luôn <40m nên mask thắng depth test; bề mặt ĐÃ quét mà đứng nhìn từ >40m (sân/kho rất
     /// dài) chấp nhận bị phủ đỏ — ca hiếm, tự hết khi lại gần.
@@ -146,11 +166,18 @@ final class MeshOverlayView: SCNView {
         isOpaque = false
         isUserInteractionEnabled = false   // để chạm đi xuyên xuống lớp camera bên dưới
         rendersContinuously = true
-        antialiasingMode = .none            // giảm tải GPU khi chạy cùng RoomPlan
-        // 30fps thay vì 60 mặc định: ARSCNView camera bên dưới đã bị hạ 30fps (ARCameraView),
-        // overlay chạy 60 chỉ vẽ lại đúng một khung camera cũ — phí gấp đôi GPU. Về 30 cùng
-        // nhịp CADisplayLink, phần dư trả cho pass mask depth mới thêm (nhiệt là ràng buộc
-        // thật của phiên quét — xem TECH NOTES trong handoff).
+        // Khử răng cưa 2X cho LƯỚI. Vạch wireframe rộng đúng 1 pixel: không khử răng cưa thì
+        // mỗi lần camera nhích nửa pixel, vạch tắt/bật giữa hai hàng pixel — mắt đọc thành
+        // "lưới lấp lánh". Chọn 2X chứ không 4X: đủ để hết lấp lánh mà không nhân đôi thêm
+        // tải GPU trong buổi quét 20–30 phút.
+        antialiasingMode = .multisampling2X
+        // 30fps thay vì 60 mặc định — hai lý do:
+        //  1. NHỊP PHẢI KHỚP LỚP DƯỚI: ARSCNView hiện hình camera cũng chạy 30fps
+        //     (ARCameraView). Overlay chạy 60 thì lưới nhích hai lần trên MỘT khung hình
+        //     camera đứng yên.
+        //  2. Nhiệt: phần dư trả cho pass mask depth (xem TECH NOTES trong handoff).
+        // ⚠ Ai nâng số này thì PHẢI nâng cả `ARCameraViewRepresentable.preferredFramesPerSecond`
+        // cùng lúc.
         preferredFramesPerSecond = 30
         cameraNode.camera = SCNCamera()
         scene?.rootNode.addChildNode(cameraNode)
@@ -176,7 +203,10 @@ final class MeshOverlayView: SCNView {
     func start() {
         guard displayLink == nil else { return }
         let link = CADisplayLink(target: self, selector: #selector(tick))
-        link.preferredFrameRateRange = CAFrameRateRange(minimum: 20, maximum: 60, preferred: 30)
+        // NHỊP CỐ ĐỊNH 30, không để dải 20–60. Dải rộng cho phép hệ thống tụt xuống 20 rồi
+        // vọt lên 60 tuỳ tải, tức khoảng cách giữa hai lần cập nhật pose lúc dài lúc ngắn —
+        // mắt đọc chuyển động không đều thành rung, ngay cả khi pose đã đúng.
+        link.preferredFrameRateRange = CAFrameRateRange(minimum: 30, maximum: 30, preferred: 30)
         link.add(to: .main, forMode: .common)
         displayLink = link
     }
@@ -192,9 +222,31 @@ final class MeshOverlayView: SCNView {
         guard let frame = arSession?.currentFrame else { return }
         lastFrameTimestamp = frame.timestamp
         updateCamera(frame)
+        updateAnchorPoses(frame)
         if frame.timestamp - lastMeshUpdate >= Self.meshUpdateInterval {
             lastMeshUpdate = frame.timestamp
             updateMeshes(frame)
+        }
+    }
+
+    /// Cập nhật TƯ THẾ anchor mỗi tick (việc rẻ), tách khỏi việc dựng lại hình học (việc đắt,
+    /// vẫn giữ nhịp `meshUpdateInterval`).
+    ///
+    /// ⚠ ĐỪNG ĐỌC ĐÂY NHƯ "BẢN VÁ CHỐNG RUNG". Đời đầu của hàm này mang một chú thích khẳng
+    /// định rung là do pose bị hãm 0,5s — SAI, và review đối kháng đã bác: `ARMeshAnchor.transform`
+    /// là gốc khối voxel trong world space, ARKit gán lúc tạo rồi gần như để yên; thứ nó cập
+    /// nhật liên tục là HÌNH HỌC (đỉnh/mặt), không phải pose. Pose chỉ nhích ở các lần hiệu
+    /// chỉnh trôi/khép vòng — rời rạc, biên độ dưới milimet, tức DƯỚI MỘT PIXEL.
+    /// Giữ hàm này vì nó vẫn đúng và gần như miễn phí: sau một cú khép vòng, lưới bám lại vị
+    /// trí đúng trong 1 khung thay vì tối đa 0,5 giây. Nhưng nó KHÔNG phải nguyên nhân rung —
+    /// nguyên nhân thật xem chú thích ở đầu file.
+    private func updateAnchorPoses(_ frame: ARFrame) {
+        guard !anchorNodes.isEmpty || !maskNodes.isEmpty else { return }
+        for anchor in frame.anchors {
+            guard let mesh = anchor as? ARMeshAnchor else { continue }
+            let id = mesh.identifier
+            anchorNodes[id]?.simdTransform = mesh.transform
+            maskNodes[id]?.simdTransform = mesh.transform
         }
     }
 
