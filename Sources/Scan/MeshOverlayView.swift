@@ -113,9 +113,12 @@ final class MeshOverlayRenderer: NSObject {
     /// đặt số dương cho rõ ý.
     private static let maskRenderingOrder = -10
     private static let tintRenderingOrder = 10
-    /// Độ mờ lớp phủ đỏ. Chủ app chỉnh dần trên máy thật: 0.22 → 0.40 → **0.50** (2026-07-29).
-    /// Vẫn nhìn xuyên được hình camera để lia máy tới.
-    private static let tintAlpha: CGFloat = 0.50
+    /// Độ mờ lớp phủ đỏ. Chủ app chỉnh dần trên máy thật, mỗi lần đều thấy còn nhạt:
+    /// 0.22 → 0.40 → 0.50 → **0.80** (2026-07-29).
+    /// ⚠ Ở 0.80 thì hình camera dưới vùng CHƯA QUÉT chỉ còn ~20% — cố ý, để vùng chưa quét đập
+    /// vào mắt. Đổi lại người quét khó nhìn chi tiết trong vùng đó để nhắm máy; nếu thấy khó
+    /// lia thì hạ lại, đây là hằng số một dòng và không ràng buộc gì khác.
+    private static let tintAlpha: CGFloat = 0.80
     /// Quad đặt cách camera 40m: phải XA HƠN mọi mesh đang nhìn thấy (mesh xa hơn quad thì
     /// nằm sau nó, không khoét được → vùng ĐÃ quét bị phủ đỏ oan), nhưng phải GẦN HƠN mặt
     /// phẳng xa của camera (quá thì bị cắt sạch và tấm phủ biến mất hoàn toàn).
