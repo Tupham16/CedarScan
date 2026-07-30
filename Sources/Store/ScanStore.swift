@@ -268,11 +268,13 @@ final class ScanStore: ObservableObject {
             // .userInitiated: người dùng đang đứng chờ trên overlay "Đang dựng mô hình 3D…"
             // (.utility đẩy sang efficiency core, nhà lớn chờ lâu gấp đôi vô ích).
             var extraFiles = savedTrackURL.map { [$0] } ?? []
-            // 2b. texture-shots/ (JPEG 960×720 + shots.json — TextureShotRecorder): nguyên
-            //     liệu bake texture chiếu-1-khung trên MÁY TRẠM. `copyItem` copy nguyên thư
-            //     mục → zip mang thư mục con `texture-shots/`. CHỈ nằm TRONG zip, không giữ
-            //     bản ngoài: app không có UI nào đọc nó, giữ ngoài là +~50MB/bản quét trên
-            //     máy khách. JPEG nén deflate không nhỏ thêm nhưng cũng chỉ tốn ~1s zip.
+            // 2b. texture-shots/ (JPEG 1440×1080 + shot-*.depth + shots.json —
+            //     TextureShotRecorder): nguyên liệu bake texture chiếu-1-khung trên MÁY
+            //     TRẠM. `copyItem` copy nguyên thư mục → zip mang thư mục con
+            //     `texture-shots/` (file .depth đi theo cùng đường, không cần kể tên).
+            //     CHỈ nằm TRONG zip, không giữ bản ngoài: app không có UI nào đọc nó, giữ
+            //     ngoài là +~100–125MB/bản quét trên máy khách. JPEG/deflate nén thêm
+            //     không đáng kể nhưng cũng chỉ tốn ~1s zip.
             //     Đi trong zip (kind objzip có sẵn) nên KHÔNG đụng ScanUploader.fileKinds.
             //     Mesh hỏng/zip hỏng (rơi về PLY phao) → texture vô nghĩa, dọn ở dưới —
             //     cùng triết lý "mesh mất thì minimap vô nghĩa" của camera-track.

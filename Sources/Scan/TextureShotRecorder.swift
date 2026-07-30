@@ -5,7 +5,7 @@ import CoreVideo
 import ImageIO
 import simd
 
-/// Chụp ảnh JPEG 960×720 + pose camera trong lúc quét — NGUYÊN LIỆU cho bước bake texture
+/// Chụp ảnh JPEG 1440×1080 + depth thô + pose camera trong lúc quét — NGUYÊN LIỆU cho bước bake texture
 /// CHIẾU-1-KHUNG (kiểu CubiCasa) chạy trên máy trạm, KHÔNG phải trên máy khách (chủ app
 /// chốt 2026-07-29). Đầu ra: thư mục `texture-shots/` (shot-NNNN.jpg + shots.json) được
 /// `ScanStore.saveMeshScan` đóng KÈM VÀO model-colored.zip — nằm TRONG zip nên không đụng
@@ -21,22 +21,27 @@ import simd
 /// Cách chạy (cùng khuôn ScanVideoRecorder/ColorMeshBuilder — CADisplayLink nhịp thấp đọc
 /// `arSession.currentFrame`, không chiếm delegate):
 ///  - tick 3Hz: qua các CỔNG (tracking normal → không lia quá nhanh → đủ giãn cách thời
-///    gian → đã DI CHUYỂN đủ xa so với ảnh trước) rồi thu nhỏ khung camera về 960 ngang
-///    NGAY TRÊN MAIN vào buffer RIÊNG (không giữ CVPixelBuffer của ARKit qua async —
-///    pool của ARKit rất nhỏ, giữ lâu là tracking sụt), nén JPEG + ghi đĩa ở queue nền.
-///  - Kho đầy (480 ảnh ≈ 50MB): BỎ 1 ẢNH XEN KẼ TRÊN ĐĨA rồi nhân đôi giãn cách — đúng
-///    cơ chế trải-đều của kho khung màu, nhưng trả giá bằng đĩa (rẻ) thay vì RAM.
+///    gian → đã DI CHUYỂN đủ xa so với ảnh trước) rồi thu nhỏ khung camera về 1440 ngang
+///    + chép depth thô 256×192 NGAY TRÊN MAIN vào buffer RIÊNG (không giữ CVPixelBuffer
+///    của ARKit qua async — pool của ARKit rất nhỏ, giữ lâu là tracking sụt), nén JPEG
+///    + DEFLATE depth + ghi đĩa ở queue nền.
+///  - Kho đầy (480 ảnh ≈ 90–100MB + depth ~15–25MB): BỎ 1 ẢNH XEN KẼ TRÊN ĐĨA (kèm file
+///    depth của nó) rồi nhân đôi giãn cách — đúng cơ chế trải-đều của kho khung màu,
+///    nhưng trả giá bằng đĩa (rẻ) thay vì RAM.
 ///  - Ảnh giữ NGUYÊN HƯỚNG CẢM BIẾN (landscape) — không xoay pixel, không gắn EXIF:
 ///    intrinsics của ARKit tham chiếu đúng lưới pixel đó, xoay ảnh là phải xoay cả
 ///    intrinsics (chỗ sai kinh điển, lộ ra thành texture lệch toàn bộ mà không ai bắt được
 ///    bằng mắt thường). Máy trạm tự lo chuyện hướng — mở file thấy ảnh nằm ngang là ĐÚNG.
 final class TextureShotRecorder {
     // MARK: - Hằng số (chỉnh ở đây khi máy trạm đòi khác)
-    /// Bề ngang ảnh lưu (px). 960 trên khung 1920×1440 = đúng nửa → ~4mm/px ở khoảng cách
-    /// 2.5m, JPEG ~70–110KB/ảnh. Chủ app duyệt mức "+~50MB zip" 2026-07-29.
-    private static let targetWidth = 960
-    /// Chất lượng JPEG — 0.62 đủ cho texture tường/sàn, đổi 0.75 nếu đội vẽ chê vỡ hạt.
-    private static let jpegQuality: Double = 0.62
+    /// Bề ngang ảnh lưu (px). 1440 trên khung 1920×1440 = 3/4 → ~2.7mm/px ở khoảng cách
+    /// 2.5m (mục 1 PLAN-NANG-NET, chủ app duyệt 30/07: "cần KHÔNG BỊ NHÒE").
+    /// Intrinsics tự scale theo (xem `s` dưới) nên máy trạm KHÔNG phải sửa gì.
+    private static let targetWidth = 1440
+    /// Chất lượng JPEG — hạ 0.62 → 0.55 làm đối trọng cho 2.25× pixel của mức 1440:
+    /// kho 480 ảnh ~50MB (960/q0.62) → ~90–100MB thay vì ~110MB, nằm trong mức
+    /// "+50–60MB zip" chủ app duyệt. Độ nét ăn theo RESOLUTION, không theo nấc q này.
+    private static let jpegQuality: Double = 0.55
     /// Giãn cách TỐI THIỂU giữa hai ảnh (giây) — nhân đôi mỗi lần kho đầy.
     private static let startInterval: TimeInterval = 1.2
     /// Ngưỡng "đã sang góc nhìn mới": dịch ≥ 0.4m HOẶC xoay ≥ 25°. Đứng yên một chỗ thì
@@ -48,7 +53,9 @@ final class TextureShotRecorder {
     /// texture này (chính chủ app mô tả CubiCasa y hệt).
     private static let maxTurnRateDegPerSec: Float = 30
     /// Trần số ảnh trên đĩa. Chạm là bỏ xen kẽ còn một nửa + nhân đôi giãn cách —
-    /// buổi quét dài bao nhiêu cũng hội tụ dưới ~480 ảnh ≈ 50MB.
+    /// buổi quét dài bao nhiêu cũng hội tụ dưới ~480 ảnh ≈ 90–100MB (mức 1440/q0.55)
+    /// + depth thô ~15–25MB. ⚠ Trần này GẮN với nhịp giãn-đôi — muốn giảm dung lượng
+    /// thì hạ jpegQuality, ✗ hạ trần (buổi dài sẽ dồn hết ảnh vào phút đầu).
     private static let maxShots = 480
     /// Còn quá nhiều ảnh chờ nén thì bỏ lượt này (I/O nghẽn) — không xếp hàng vô hạn.
     private static let maxPendingEncodes = 3
@@ -82,6 +89,14 @@ final class TextureShotRecorder {
         let h: Int
         /// exposureOffset (EV) của ARKit — cho bước san phơi sáng giữa các mảng (nếu làm).
         let ev: Float
+        /// Mục 4 PLAN-NANG-NET — file depth thô đi kèm (shot-NNNN.depth), nil nếu khung
+        /// này không chụp được sceneDepth / ghi lỗi. String/Int nên MIỄN câu hỏi NaN
+        /// (luật ShotMeta: field mới phải tự trả lời câu NaN — JSONEncoder throw là
+        /// finish() vứt CẢ GÓI). Baker hiện BỎ QUA field lạ — dữ liệu gieo hạt cho
+        /// fusion/pose-refinement, chưa ai dùng.
+        var depth: String?
+        var dw: Int?
+        var dh: Int?
     }
     private struct ShotsFile: Encodable {
         let version: Int
@@ -195,6 +210,36 @@ final class TextureShotRecorder {
             colorSpace: CGColorSpaceCreateDeviceRGB()
         )
 
+        // Mục 4 PLAN-NANG-NET: chép depth thô (~256×192 Float32) NGAY TRÊN MAIN vào
+        // buffer RIÊNG — 🔴 ✗ giữ CVPixelBuffer của ARKit qua async (pool nhỏ, giữ lâu
+        // là tracking sụt). Cùng khuôn chép-rồi-nhả của ColorMeshBuilder. ~196KB/shot,
+        // memcpy vài chục µs. Thiếu depth thì shot vẫn ghi bình thường (chỉ ảnh).
+        var depthRaw: Data?
+        var depthW = 0
+        var depthH = 0
+        if let depthMap = frame.sceneDepth?.depthMap,
+           CVPixelBufferGetPixelFormatType(depthMap) == kCVPixelFormatType_DepthFloat32,
+           CVPixelBufferLockBaseAddress(depthMap, .readOnly) == kCVReturnSuccess {
+            if let dBase = CVPixelBufferGetBaseAddress(depthMap) {
+                let dw = CVPixelBufferGetWidth(depthMap)
+                let dh = CVPixelBufferGetHeight(depthMap)
+                let rowBytes = CVPixelBufferGetBytesPerRow(depthMap)
+                if dw > 0, dh > 0, rowBytes >= dw * 4 {
+                    var buf = Data(count: dw * dh * 4)
+                    buf.withUnsafeMutableBytes { dst in
+                        guard let dstBase = dst.baseAddress else { return }
+                        for row in 0..<dh {
+                            memcpy(dstBase + row * dw * 4, dBase + row * rowBytes, dw * 4)
+                        }
+                    }
+                    depthRaw = buf
+                    depthW = dw
+                    depthH = dh
+                }
+            }
+            CVPixelBufferUnlockBaseAddress(depthMap, .readOnly)
+        }
+
         // Chốt meta NGAY LÚC BẤM (main) — không đọc lại frame trong closure nền.
         let s = Float(scale)
         // ev chỉ là dữ liệu PHỤ (san phơi sáng) — non-finite thì thay 0 (giá trị ARKit
@@ -208,7 +253,10 @@ final class TextureShotRecorder {
             fx: k.columns.0.x * s, fy: k.columns.1.y * s,
             cx: k.columns.2.x * s, cy: k.columns.2.y * s,
             w: outW, h: outH,
-            ev: evRaw.isFinite ? evRaw : 0
+            ev: evRaw.isFinite ? evRaw : 0,
+            depth: depthRaw != nil ? String(format: "shot-%04d.depth", shotIndex) : nil,
+            dw: depthRaw != nil ? depthW : nil,
+            dh: depthRaw != nil ? depthH : nil
         )
         lastShotTime = frame.timestamp
         lastShotPosition = pos
@@ -231,10 +279,37 @@ final class TextureShotRecorder {
             )
             var written = false
             if let data {
-                written = (try? data.write(to: dirURL.appendingPathComponent(meta.file))) != nil
+                // .atomic: ghi lỗi giữa chừng (đĩa đầy — ca thật số 1 của buổi quét dài)
+                // thì KHÔNG để lại file cụt; file cụt không ai tham chiếu vẫn bị copyItem
+                // đệ quy đóng vào zip (review 30/07 bắt trên nhánh depth, JPEG cùng khuôn).
+                written = (try? data.write(
+                    to: dirURL.appendingPathComponent(meta.file), options: [.atomic]
+                )) != nil
             }
             if written {
-                self?.metas.append(meta)
+                var m = meta
+                // Depth ghi SAU ảnh và CHỈ khi ảnh đã nằm trên đĩa — chiều ngược lại
+                // (depth có, ảnh không) là file mồ côi. Nén DEFLATE thô (NSData .zlib
+                // không header — Python: zlib.decompress(data, -15)). Nén/ghi lỗi thì
+                // shot vẫn giữ, chỉ rụng phần depth (meta phải nói thật là không có).
+                if let depthRaw, let depthFile = m.depth {
+                    let packed = try? (depthRaw as NSData).compressed(using: .zlib) as Data
+                    let okDepth = packed.map {
+                        (try? $0.write(
+                            to: dirURL.appendingPathComponent(depthFile), options: [.atomic]
+                        )) != nil
+                    } ?? false
+                    if !okDepth {
+                        m.depth = nil
+                        m.dw = nil
+                        m.dh = nil
+                    }
+                } else {
+                    m.depth = nil
+                    m.dw = nil
+                    m.dh = nil
+                }
+                self?.metas.append(m)
             }
             DispatchQueue.main.async {
                 guard let self else { return }
@@ -267,6 +342,13 @@ final class TextureShotRecorder {
                 try? FileManager.default.removeItem(
                     at: shotsDirURL.appendingPathComponent(meta.file)
                 )
+                // 🔴 depth ĐI KÈM ảnh — xoá CÙNG LÚC: file mồ côi vừa là rác trong zip
+                // vừa làm lệch cặp ảnh↔depth phía máy trạm (mục 4 PLAN-NANG-NET).
+                if let depthFile = meta.depth {
+                    try? FileManager.default.removeItem(
+                        at: shotsDirURL.appendingPathComponent(depthFile)
+                    )
+                }
             }
         }
         metas = kept
@@ -305,7 +387,13 @@ final class TextureShotRecorder {
                         + "+v down. Project world point P: q = inverse(m)*P; "
                         + "u = fx*q.x/(-q.z) + cx; v = fy*(-q.y)/(-q.z) + cy; valid when q.z < 0. "
                         + "t = ARKit frame timestamp (device clock, NOT video PTS). "
-                        + "ev = ARKit exposureOffset (EV).",
+                        + "ev = ARKit exposureOffset (EV). "
+                        + "Optional per-shot 'depth' file (dw*dh): raw DEFLATE, no zlib "
+                        + "header — Python: zlib.decompress(data, -15) -> Float32 "
+                        + "little-endian, row-major, meters, same sensor orientation as "
+                        + "the JPEG; scale intrinsics by dw/w, dh/h. Raw ARKit sceneDepth "
+                        + "(values may be non-finite) — reserved for future fusion, "
+                        + "no consumer yet.",
                     shots: self.metas
                 )
                 do {
