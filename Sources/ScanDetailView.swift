@@ -36,6 +36,12 @@ struct ScanDetailView: View {
     /// Bản sao zip mang TÊN BẢN QUÉT để chia sẻ ra ngoài (Floor 1.zip thay vì
     /// model-colored.zip). nil → dùng file gốc.
     @State private var meshShareURL: URL?
+    /// Mô hình có texture do máy trạm bake: URL trên R2 (nil = chưa bake / chưa hỏi server).
+    @State private var texturedRemote: URL?
+    /// Đã hỏi server về texture lần nào chưa — `.task` chạy LẠI mỗi lần view hiện lại nên
+    /// thiếu cờ này là mỗi lần đổi tab lại gọi listOrders một lượt.
+    @State private var texturedAsked = false
+    @StateObject private var textured = TexturedModelCache()
 
     /// Bản ghi mới nhất từ store (record truyền vào có thể cũ sau khi upload/đặt hàng).
     ///
@@ -130,7 +136,10 @@ struct ScanDetailView: View {
             if coloredZipExists, meshShareURL == nil {
                 meshShareURL = prepareNamedZip()
             }
-            guard !current.isMeshOnly else { return }
+            if current.isMeshOnly {
+                await loadTexturedURL()
+                return
+            }
             // Bản quét RoomPlan cũ: nạp sẵn ảnh mặt bằng đã render từ hồi còn RoomPlan.
             // Gọi thẳng trên main, KHÔNG cần Task.detached: `UIImage(contentsOfFile:)` chỉ đọc
             // header rồi giải mã LƯỜI lúc vẽ (UIKit tự làm việc đó ngoài main), nên nó rẻ.
@@ -141,6 +150,11 @@ struct ScanDetailView: View {
         }
         .sheet(item: $planImageURL) { url in
             ShareSheet(items: [url])
+        }
+        // `.sheet(item:)` chứ ✗ `.sheet(isPresented:)`: nội dung đọc một @State set CÙNG NHỊP
+        // với cờ mở → sheet TRẮNG lần đầu (bẫy #7 trong handoff, chỉ lộ khi test tay).
+        .sheet(item: $textured.readyURL) { url in
+            USDZPreview(url: url)
         }
         .sheet(isPresented: $showOrderSheet) {
             // Không còn callback "đã đặt" ở đây: `OrderSheet.submit()` tự đóng dấu số đơn cho
@@ -418,11 +432,64 @@ struct ScanDetailView: View {
     }
 
     /// Bản quét MESH 3D: video walkthrough + hướng dẫn chia sẻ mô hình màu.
-    /// (Không có floorplan/USDZ — mesh màu là sản phẩm chính, gửi ra ngoài bằng nút Share.)
+    /// (Không có floorplan/USDZ của app — mesh là sản phẩm chính, gửi ra ngoài bằng nút Share.
+    /// Mô hình CÓ TEXTURE thì do máy trạm bake, xem qua `texturedRow`.)
     private var meshTab: some View {
         VStack(spacing: 10) {
             videoArea(missing: L.t("No walkthrough video in this scan", "Bản quét này không có video"))
+            texturedRow
             meshInfoFooter
+        }
+    }
+
+    /// MỘT dòng duy nhất cho mô hình có texture — chỉ hiện khi máy trạm đã bake xong bản quét
+    /// này (`texturedRemote != nil`). Chưa bake thì KHÔNG hiện gì: hứa một tính năng rồi bắt
+    /// khách chờ vài phút không biết chờ gì còn tệ hơn là chưa nói.
+    @ViewBuilder
+    private var texturedRow: some View {
+        if let remote = texturedRemote, let cloudId = current.cloudScanId {
+            VStack(alignment: .leading, spacing: 6) {
+                switch textured.phase {
+                case .downloading:
+                    HStack(spacing: 10) {
+                        ProgressView()
+                        Text(L.t("Downloading textured model…", "Đang tải mô hình có texture…"))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Button(L.t("Cancel", "Hủy")) { textured.cancel() }
+                            .font(.caption)
+                    }
+                case .failed(let message):
+                    HStack(spacing: 10) {
+                        Image(systemName: "exclamationmark.triangle")
+                            .foregroundStyle(.orange)
+                        Text(L.t("Couldn't download the model (\(message))",
+                                 "Không tải được mô hình (\(message))"))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Button(L.t("Retry", "Thử lại")) {
+                            textured.open(scanId: cloudId, remote: remote)
+                        }
+                        .font(.caption)
+                    }
+                case .idle:
+                    Button {
+                        textured.open(scanId: cloudId, remote: remote)
+                    } label: {
+                        Label(
+                            L.t("View textured 3D model", "Xem mô hình 3D có texture"),
+                            systemImage: "cube.transparent.fill"
+                        )
+                        .font(.subheadline.weight(.semibold))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 9)
+                    }
+                    .buttonStyle(.bordered)
+                }
+            }
+            .padding(.horizontal)
         }
     }
 
@@ -438,6 +505,44 @@ struct ScanDetailView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
             unavailableView(missing)
+        }
+    }
+
+    /// Hỏi server xem bản quét này đã có mô hình texture chưa (máy trạm bake sau khi đặt đơn).
+    ///
+    /// Nguồn dữ liệu là `listOrders()` — endpoint DUY NHẤT app đọc về đơn/bản quét, và texture
+    /// chỉ tồn tại cho bản quét ĐÃ ĐẶT ĐƠN nên không cần endpoint mới.
+    /// Ba cửa thoát TRƯỚC khi đụng mạng, theo thứ tự rẻ dần:
+    ///  1. đã hỏi XONG rồi (`.task` chạy lại mỗi lần view hiện lại);
+    ///  2. bản quét chưa lên server (`cloudScanId == nil`) → chắc chắn chưa có texture;
+    ///  3. file đã nằm trong cache → hiện nút ngay, khỏi chờ mạng (offline vẫn xem được).
+    ///
+    /// 🔴 Cờ `texturedAsked` chỉ đóng khi đã TÌM RA texture. Đóng nó sớm hơn — trước các
+    /// `guard`, hoặc ngay khi có đáp về — là giết đúng ca THƯỜNG GẶP của tính năng này: khách
+    /// đặt hàng xong vào xem, lúc đó máy trạm chưa bake (đáp về KHÔNG có texture), vài phút
+    /// sau bake xong, khách sang tab Đơn hàng rồi quay lại → `.task` chạy lại nhưng cờ đã
+    /// đóng → dòng xem texture KHÔNG BAO GIỜ hiện, phải thoát ra vào lại mới thấy.
+    /// Giá phải trả: một GET nhỏ mỗi lần view hiện lại CHO TỚI KHI có texture. Chấp nhận được
+    /// (cùng cỡ với `listOrders` mà tab Đơn hàng vẫn gọi).
+    /// ⚠ Còn tồn: bake LẠI (admin bấm "Bake lại") đổi `?v=` trên link, nhưng màn đang mở đã
+    /// có URL cũ và không hỏi lại nữa → vẫn xem bản cũ tới khi thoát ra vào lại màn này.
+    private func loadTexturedURL() async {
+        guard !texturedAsked, let cloudId = current.cloudScanId else { return }
+        if let cached = TexturedModelCache.anyCached(scanId: cloudId) {
+            // Đã tải bản nào rồi thì nút phải hiện NGAY, kể cả đang mất mạng. Trỏ vào file
+            // cục bộ; nếu server trả về link (có thể là bản BAKE LẠI mới hơn) thì ghi đè bên
+            // dưới và lượt bấm sẽ tải bản mới.
+            texturedRemote = cached
+        }
+        guard account.isSignedIn else { return }
+        guard let response = try? await APIClient.shared.listOrders() else { return }
+        let match = response.orders
+            .compactMap { $0.texturedScans }
+            .flatMap { $0 }
+            .first { $0.scanId == cloudId }
+        if let match, let url = URL(string: match.url) {
+            texturedRemote = url
+            texturedAsked = true // CHỈ đóng cờ khi đã tìm ra (xem chú thích trên)
         }
     }
 
@@ -458,9 +563,12 @@ struct ScanDetailView: View {
     /// chuyển OBJ lỗi), hoặc chỉ video (quét dừng quá sớm).
     private var meshFooterText: String {
         if FileManager.default.fileExists(atPath: objURL.path) || coloredGLBExists || coloredZipExists {
+            // ✗ hứa "màu" ở đây nữa: từ đợt LƯU NHANH, mesh xuất ra là XÁM với mọi bản quét
+            // bình thường (màu đến sau, từ texture do máy trạm bake) — khách tự bấm Share theo
+            // đúng câu này rồi nhận mô hình không màu là lỗi CÂU CHỮ, không phải lỗi file.
             return L.t(
-                "Tap Share (top right) to send the colored 3D model (OBJ) together with the video. This scan type has no floor plan.",
-                "Bấm Share (góc trên) để gửi mô hình 3D màu (OBJ) kèm video. Loại bản quét này không có bản vẽ mặt bằng."
+                "Tap Share (top right) to send the 3D model (OBJ) together with the video. This scan type has no floor plan.",
+                "Bấm Share (góc trên) để gửi mô hình 3D (OBJ) kèm video. Loại bản quét này không có bản vẽ mặt bằng."
             )
         }
         if FileManager.default.fileExists(atPath: plyURL.path) {

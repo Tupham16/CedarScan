@@ -168,7 +168,7 @@ struct HomeView: View {
                             trackURL: result.trackURL,
                             texshotsURL: result.texshotsDir,
                             name: result.name, projectId: pendingProjectId,
-                            quality: result.quality
+                            quality: result.quality, geometryOnly: result.geometryOnly
                         )
                         // Nhà rất lớn chạm trần: sau khi cover đóng sẽ mời quét phần còn lại.
                         if result.hitCap { meshCapFollowUp = true }

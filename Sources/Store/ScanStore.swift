@@ -166,7 +166,8 @@ final class ScanStore: ObservableObject {
         texshotsURL: URL? = nil,
         name: String?,
         projectId: UUID? = nil,
-        quality: MeshQuality
+        quality: MeshQuality,
+        geometryOnly: Bool = false
     ) async throws -> ScanRecord {
         // Khoá việc dọn-sau-khi-giao suốt quá trình lưu. Bản ghi chỉ được `records.insert` ở
         // CUỐI hàm (dòng ~297), sau khi await nén zip/GLB — việc mất hàng chục giây tới vài
@@ -278,14 +279,36 @@ final class ScanStore: ObservableObject {
             if let texshotsURL, fileManager.fileExists(atPath: texshotsURL.path) {
                 extraFiles.append(texshotsURL)
             }
+            // GLB CHỈ có lý do tồn tại khi mesh CÓ MÀU-ĐỈNH (Blender render OBJ màu-đỉnh ra
+            // trắng, GLB thì đúng màu). Đường LƯU NHANH cho mesh xám hằng số → GLB xám là
+            // ~40MB rác: không giúp đội vẽ gì, làm zip to hơn cho khách upload qua 4G, và là
+            // bước cấp phát lớn nhất còn lại nên cũng là thủ phạm số 1 khi ĐĨA ĐẦY.
+            let wantGLB = !geometryOnly
             let converted = await Task.detached(priority: .userInitiated) { () -> Bool in
                 do {
                     try ColoredOBJExporter.makeOBJZip(
-                        fromPLY: meshURL, to: zipURL, includeGLB: true, extraFiles: extraFiles
+                        fromPLY: meshURL, to: zipURL, includeGLB: wantGLB, extraFiles: extraFiles
                     )
                     return true
                 } catch {
-                    return false
+                    // 🔴 THỬ LẠI MỘT LẦN — KHÔNG GLB, sau khi dọn zip ghi dở. Đây không phải
+                    // "cẩn thận cho vui": kể từ đường lưu nhanh, zip là NƠI DUY NHẤT chở
+                    // `texture-shots/` lên máy trạm, mà mesh lưu nhanh KHÔNG có màu-đỉnh — zip
+                    // hỏng là bản quét mất CẢ HAI nguồn màu (không màu-đỉnh, không texture) và
+                    // không có đường cứu nào ngoài quét lại. Nguyên nhân thực tế nhất là hết
+                    // đĩa sau buổi quét dài; lượt hai bỏ GLB (khối cấp phát lớn nhất có thể
+                    // bỏ) và bắt đầu từ chỗ đã có thêm chỗ trống do xoá zip cụt.
+                    // ✗ đặt `guard wantGLB`: ở đường LƯU NHANH thì GLB vốn đã tắt, mà ĐÓ MỚI LÀ
+                    // đường cần cứu nhất — lượt hai lúc đó là "dọn rác rồi thử lại một lần".
+                    try? FileManager.default.removeItem(at: zipURL)
+                    do {
+                        try ColoredOBJExporter.makeOBJZip(
+                            fromPLY: meshURL, to: zipURL, includeGLB: false, extraFiles: extraFiles
+                        )
+                        return true
+                    } catch {
+                        return false
+                    }
                 }
             }.value
             if converted {

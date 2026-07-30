@@ -272,18 +272,25 @@ final class TextureShotRecorder {
         metas = kept
     }
 
-    /// Chốt sổ: chờ nén xong hết, ghi shots.json, trả về thư mục texture-shots
-    /// (nil nếu không có ảnh nào — thư mục cũng bị dọn luôn).
+    /// Chốt sổ: chờ nén xong hết, ghi shots.json, trả về thư mục texture-shots + SỐ ẢNH
+    /// thật đã ghi (nil nếu không có ảnh nào — thư mục cũng bị dọn luôn).
     /// @MainActor cùng lý do ScanVideoRecorder.finish: tick chạy trên main, thân hàm phải
     /// cùng actor để invalidate/đọc trạng thái không đua với tick (SE-0338).
+    ///
+    /// 🔴 Vì sao trả kèm SỐ ẢNH: `stopAndExport` dùng nó để chọn đường LƯU NHANH (đủ ảnh
+    /// texture thì bỏ hẳn vòng bake màu-đỉnh). Con số phải lấy từ `metas.count` NGAY TRONG
+    /// ioQueue — nơi duy nhất được đụng `metas`. ✗ đọc `metas` từ main (phá bất biến
+    /// không-lock của class này) và ✗ dùng `approxShotCount`: nó là số ƯỚC LƯỢNG, bị chia
+    /// đôi khi kho đầy và trừ đi khi ghi ảnh lỗi.
     @MainActor
-    func finish() async -> URL? {
+    func finish() async -> (dir: URL, shotCount: Int)? {
         guard !isFinishing else { return nil }
         isFinishing = true
         displayLink?.invalidate()
         displayLink = nil
         let dirURL = shotsDirURL
-        return await withCheckedContinuation { continuation in
+        return await withCheckedContinuation {
+            (continuation: CheckedContinuation<(dir: URL, shotCount: Int)?, Never>) in
             ioQueue.async { [weak self] in
                 guard let self, !self.metas.isEmpty else {
                     try? FileManager.default.removeItem(at: dirURL.deletingLastPathComponent())
@@ -304,7 +311,7 @@ final class TextureShotRecorder {
                 do {
                     let data = try JSONEncoder().encode(file)
                     try data.write(to: dirURL.appendingPathComponent("shots.json"))
-                    continuation.resume(returning: dirURL)
+                    continuation.resume(returning: (dir: dirURL, shotCount: self.metas.count))
                 } catch {
                     // Thiếu shots.json thì ảnh vô dụng với máy trạm — dọn cả gói, đừng
                     // độn 50MB rác vào zip.

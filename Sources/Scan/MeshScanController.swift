@@ -24,6 +24,13 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
     /// y hệt, KHÔNG câu nào nhắc Settings. Cờ này để MeshScanFlowView mở alert riêng có nút Cài đặt.
     @Published private(set) var cameraDenied = false
 
+    /// Số ảnh texture TỐI THIỂU để tin rằng MÁY TRẠM bake được → cho phép đường LƯU NHANH
+    /// (mesh xám, bỏ bake màu-đỉnh). Buổi quét thật cho 200–480 ảnh (recorder 3Hz, cổng giãn
+    /// ≥1,2s) nên 30 nằm rất xa vùng bình thường: nó chỉ bắt các ca GÓI ẢNH COI NHƯ KHÔNG CÓ.
+    /// ✗ nâng lên để "chắc ăn hơn": buổi quét ngắn hợp lệ (một phòng, 1–2 phút) vẫn đủ ảnh
+    /// cho máy trạm, nâng ngưỡng là bắt khách chờ bake màu vô ích.
+    static let fastSaveMinShots = 30
+
     let arSession = ARSession()
     let qualityMonitor: ScanQualityMonitor
     let quality: MeshQuality
@@ -133,9 +140,10 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
     /// (SE-0338) → Timer.invalidate/UIApplication/pause + sửa state đua với delegate main.
     @MainActor
     func stopAndExport() async -> (
-        videoURL: URL?, meshURL: URL?, trackURL: URL?, texshotsDir: URL?, hitCap: Bool
+        videoURL: URL?, meshURL: URL?, trackURL: URL?, texshotsDir: URL?, hitCap: Bool,
+        geometryOnly: Bool
     ) {
-        guard !isStopped else { return (nil, nil, nil, nil, false) }
+        guard !isStopped else { return (nil, nil, nil, nil, false, false) }
         isStopped = true
         teardownCommon()
         // teardownCommon vừa bật lại auto-lock, nhưng export còn chạy hàng chục giây tới
@@ -156,11 +164,19 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
         recorder = nil
         // Chốt sổ ảnh texture TRƯỚC exportColoredPLY: phần chờ chỉ là nén nốt ≤3 ảnh
         // (~chục ms), xong là nó im — không giành CPU/RAM với đoạn bake màu nặng phía sau.
-        let texshotsDir = await texShots?.finish()
+        // Thứ tự này CÒN là điều kiện của LƯU NHANH: số ảnh phải chốt xong mới quyết được.
+        let texshots = await texShots?.finish()
         texShots = nil
-        let meshURL = await colorMesh?.exportColoredPLY()
+        // LƯU NHANH: đủ ảnh texture → MÁY TRẠM sẽ là nơi làm ra màu (texture chiếu-1-khung),
+        // nên bake màu-đỉnh ngay đây là làm hai lần một việc, mà lần này tốn hàng phút của
+        // khách. Đổi lấy mesh xám + lưu nhanh hơn hẳn.
+        // Ngưỡng là PHAO, không phải mức chất lượng: dưới ngưỡng nghĩa là gói ảnh coi như
+        // không có (recorder hỏng, shots.json ném lỗi nên finish() trả nil, buổi quét vài
+        // giây) → máy trạm sẽ KHÔNG bake được, phải giữ màu-đỉnh cho đội vẽ có cái mà xem.
+        let fastSave = (texshots?.shotCount ?? 0) >= Self.fastSaveMinShots
+        let meshURL = await colorMesh?.exportColoredPLY(geometryOnly: fastSave)
         colorMesh = nil
-        return (videoURL, meshURL, trackURL, texshotsDir, hitCap)
+        return (videoURL, meshURL, trackURL, texshots?.dir, hitCap, fastSave)
     }
 
     func cancel() {

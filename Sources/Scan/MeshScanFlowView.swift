@@ -19,6 +19,9 @@ struct MeshScanResult {
     /// Mô hình từng chạm trần 2M trong lúc quét → dữ liệu CÓ PHẦN BỊ THIẾU;
     /// call-site nên mời khách quét bản BỔ SUNG cho phần còn lại sau khi lưu.
     let hitCap: Bool
+    /// Đã đi ĐƯỜNG LƯU NHANH: mesh KHÔNG có màu-đỉnh (xám hằng số), màu sẽ đến từ texture
+    /// do máy trạm bake. `ScanStore` cần biết để KHÔNG nhồi GLB xám vô dụng vào zip.
+    let geometryOnly: Bool
 }
 
 /// Luồng quét MESH 3D (không RoomPlan): quét liền mạch mọi hình dạng, one-shot nhiều
@@ -422,7 +425,8 @@ struct MeshScanFlowView: View {
                 texshotsDir: exported.texshotsDir,
                 name: name.isEmpty ? nil : name,
                 quality: controller.quality,
-                hitCap: exported.hitCap
+                hitCap: exported.hitCap,
+                geometryOnly: exported.geometryOnly
             )
             let saved = await onFinish(result)
             // Lưu HỎNG → đóng ngay để call-site hiện alert lỗi. KHÔNG hiện màn preview: không có

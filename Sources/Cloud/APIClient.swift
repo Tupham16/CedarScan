@@ -119,6 +119,14 @@ struct DeliveryFileDTO: Decodable, Hashable {
     let sizeLabel: String?
 }
 
+/// Mô hình CÓ TEXTURE do MÁY TRẠM bake (USDZ trên R2) — app tải về xem bằng QuickLook.
+/// Chỉ những bản quét đã bake xong mới có mặt trong `OrderDTO.texturedScans`.
+struct TexturedScanDTO: Decodable, Hashable {
+    let scanId: String
+    let name: String
+    let url: String
+}
+
 struct OrderDTO: Decodable, Identifiable {
     let orderId: String
     let orderNumber: String
@@ -141,6 +149,11 @@ struct OrderDTO: Decodable, Identifiable {
     let hasTour: Bool?
     let tourPhotoCount: Int?
     let tourUrl: String? // chỉ có sau khi đơn được giao (tour đã publish)
+    /// Mô hình có texture đã bake xong (rỗng/nil = chưa có gì để xem).
+    /// 🔴 PHẢI Optional: bản server CŨ không trả field này, mà `JSONDecoder` ném lỗi cho CẢ
+    /// response nếu thiếu một field non-optional → mất sạch danh sách đơn VÀ tắt luôn
+    /// purgeDeliveredScans (nó nuốt lỗi bằng `try?`).
+    let texturedScans: [TexturedScanDTO]?
 
     var id: String { orderId }
 

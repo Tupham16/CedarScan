@@ -26,8 +26,11 @@ people do that from the mesh and the walkthrough video.
   cannot be created any more
 
 **What a scan produces on device**
-- `model-colored.zip` — `model.obj`, `model.mtl`, `model.glb`, `camera-track.json`
-  (falls back to `colored-mesh.ply` if compression fails)
+- `model-colored.zip` — `model.obj`, `model.mtl`, `camera-track.json`, `texture-shots/`
+  (falls back to `colored-mesh.ply` if compression fails). `model.glb` is included only when the
+  mesh carries per-vertex colour; a normal scan now saves geometry-only (colour comes from the
+  texture baked on the workstation) so the GLB — whose only purpose was showing vertex colour in
+  Blender — is skipped.
 - `scan-video.mp4` — H.264, portrait, no audio track
 
 **Requirements**

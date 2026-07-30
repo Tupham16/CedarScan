@@ -496,30 +496,43 @@ final class ColorMeshBuilder {
     /// dữ liệu thật sự, kiểu chỉ nổ ở máy khách vào đúng lúc iOS kêu thiếu bộ nhớ.
     /// Phần NẶNG không hề chạy trên main: nó nằm trong `queue.async` bên dưới. Phần chạy trên
     /// main chỉ là dựng sampler — O(K) phép nghịch đảo 4×4, cỡ vài chục micro giây.
+    ///
+    /// `geometryOnly` = ĐƯỜNG LƯU NHANH (chỉ khi buổi quét đã có đủ ảnh texture cho máy
+    /// trạm — `MeshScanController.stopAndExport` quyết định). Bỏ TOÀN BỘ phần đắt: chia nhỏ
+    /// tam giác, bake màu (400–800 TRIỆU vòng lọc), vá đỉnh xám. Đỉnh vẫn có màu XÁM HẰNG SỐ
+    /// chứ không phải mảng rỗng — xem `uncoloredGrey`.
+    /// Bonus RAM: không cần kho khung màu nên nó chết NGAY (179MB mức Nét / 358MB Siêu nét)
+    /// trước khi cấp phát `Data` của PLY.
     @MainActor
-    func exportColoredPLY() async -> URL? {
+    func exportColoredPLY(geometryOnly: Bool = false) async -> URL? {
         stop()
         let pieces = self.pieces
-        let refine = refineLargeTriangles
-        let fill = fillUncoloredVertices
-        guard !pieces.isEmpty, !keyframes.isEmpty else { return nil }
+        let refine = refineLargeTriangles && !geometryOnly
+        let fill = fillUncoloredVertices && !geometryOnly
+        guard !pieces.isEmpty else { return nil }
+        // ✗ đòi keyframes ở đường lưu nhanh: nó KHÔNG đọc kho khung nào. Giữ vế này cho
+        // đường cũ thì mất mesh khi mọi khung màu bị van xả RAM dọn sạch.
+        guard geometryOnly || !keyframes.isEmpty else { return nil }
 
         // Dựng sampler NGAY TẠI ĐÂY (rẻ: O(K), một phép nghịch đảo 4×4 mỗi khung) rồi THẢ
         // `self.keyframes`. Mảng `ColorFrame` chết đi, còn bộ nhớ ảnh thật (rgb/depth) vẫn
         // sống vì sampler giữ tham chiếu — đó là thứ vòng bake cần. Kho ảnh này là khối lớn
         // nhất của cả quy trình lưu (179MB mức Nét, 358MB mức Siêu nét) nên nó phải chết
         // TRƯỚC khi cấp phát vùng `Data` của file PLY — xem `SamplerStore` và `buildPLY`.
-        let store = SamplerStore(
-            geos: Self.makeGeos(keyframes),
-            samplers: Self.makeSamplers(keyframes)
-        )
+        let store = geometryOnly
+            ? SamplerStore(geos: [], samplers: [])
+            : SamplerStore(
+                geos: Self.makeGeos(keyframes),
+                samplers: Self.makeSamplers(keyframes)
+            )
         keyframes = []
 
         return await withCheckedContinuation { (continuation: CheckedContinuation<URL?, Never>) in
             queue.async {
                 let url = Self.buildPLY(
                     pieces: pieces, store: store,
-                    refineLargeTriangles: refine, fillUncoloredVertices: fill
+                    refineLargeTriangles: refine, fillUncoloredVertices: fill,
+                    geometryOnly: geometryOnly
                 )
                 continuation.resume(returning: url)
             }
@@ -562,7 +575,8 @@ final class ColorMeshBuilder {
 
     private static func buildPLY(
         pieces: [UUID: MeshPiece], store: SamplerStore,
-        refineLargeTriangles: Bool, fillUncoloredVertices: Bool
+        refineLargeTriangles: Bool, fillUncoloredVertices: Bool,
+        geometryOnly: Bool = false
     ) -> URL? {
         // Gộp lưới thành 1 mảng đỉnh + mặt (dời chỉ số).
         //
@@ -598,11 +612,18 @@ final class ColorMeshBuilder {
         // chiếu TẠM tới kho khung màu chỉ sống trong khung ngăn xếp của `paintColors`, nên khi
         // nó trả về thì `store` là nơi DUY NHẤT còn giữ kho — dọn hai trường ngay sau đó mới
         // thật sự trả bộ nhớ về hệ điều hành.
-        let colors = paintColors(
-            vertices: vertices, normals: normals, faces: faces,
-            geos: store.geos, samplers: store.samplers,
-            fillUncoloredVertices: fillUncoloredVertices
-        )
+        // 🔴 ĐƯỜNG LƯU NHANH vẫn phải cấp mảng màu ĐỦ ĐỘ DÀI, không được để rỗng: PLY dưới
+        // đây ghi 15 byte/đỉnh (12 vị trí + 3 RGB) và `ColoredMeshPLY.parse` ĐÒI đúng bố cục
+        // đó; `ColoredOBJExporter.writeOBJ` thì đọc `mesh.colors[k]` cho MỌI đỉnh → mảng rỗng
+        // là CRASH ngoài tầm do/catch, ngay sau buổi quét 10–30 phút. Màu hằng số nén rất tốt
+        // nên zip vẫn nhẹ đi nhiều dù OBJ vẫn ghi 6 số mỗi đỉnh.
+        let colors = geometryOnly
+            ? [SIMD3<UInt8>](repeating: uncoloredGrey, count: vertices.count)
+            : paintColors(
+                vertices: vertices, normals: normals, faces: faces,
+                geos: store.geos, samplers: store.samplers,
+                fillUncoloredVertices: fillUncoloredVertices
+            )
 
         // 🔴 NHẢ KHO KHUNG MÀU NGAY TẠI ĐÂY — TRƯỚC khi cấp phát `Data` của PLY (~102MB ở 2,5
         // triệu đỉnh). Đây là đỉnh RAM của cả quy trình lưu, và kho khung là khối lớn nhất
@@ -649,6 +670,11 @@ final class ColorMeshBuilder {
             return nil
         }
     }
+
+    /// Xám của đỉnh CHƯA lấy được màu — và của TOÀN BỘ mesh ở đường lưu nhanh
+    /// (`exportColoredPLY(geometryOnly:)`). MỘT hằng số cho cả hai đường để đội vẽ mở file
+    /// không phải đoán tông nào là "chưa có màu".
+    static let uncoloredGrey = SIMD3<UInt8>(150, 150, 150)
 
     // MARK: - Chia nhỏ tam giác lớn (cờ refineLargeTriangles — chỉ chế độ Mesh)
 
@@ -999,7 +1025,7 @@ final class ColorMeshBuilder {
         geos: [SamplerGeo], samplers: [KeyframeSampler],
         fillUncoloredVertices: Bool
     ) -> [SIMD3<UInt8>] {
-        var colors = [SIMD3<UInt8>](repeating: SIMD3(150, 150, 150), count: vertices.count)
+        var colors = [SIMD3<UInt8>](repeating: uncoloredGrey, count: vertices.count)
         // Đỉnh không lấy được màu (mọi khung bị bộ lọc chuẩn loại) — để 2 lượt vá cứu sau.
         var uncolored = [Bool](repeating: false, count: vertices.count)
         // Song song hóa theo chunk: mỗi chunk ghi một dải chỉ số RIÊNG (không giao nhau),

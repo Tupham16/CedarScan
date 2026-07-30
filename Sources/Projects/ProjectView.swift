@@ -242,7 +242,8 @@ struct ProjectView: View {
                         videoURL: result.videoURL, meshURL: result.meshURL,
                         trackURL: result.trackURL,
                         texshotsURL: result.texshotsDir,
-                        name: result.name, projectId: projectId, quality: result.quality
+                        name: result.name, projectId: projectId, quality: result.quality,
+                        geometryOnly: result.geometryOnly
                     )
                     if result.hitCap { meshCapFollowUp = true }
                     return saved
