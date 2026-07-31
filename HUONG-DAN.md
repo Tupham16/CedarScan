@@ -42,17 +42,7 @@ biết bản vẽ này của căn nào. Gõ địa chỉ tự do, không ép đ�
 > Nhiều bản quét cùng một căn thì gắn chung một địa chỉ, lúc đặt hàng tick cả mấy bản vào
 > **MỘT đơn** — rẻ hơn đặt lẻ.
 
-### Bước 2: Chọn độ nét
-
-Hai mức: **Nét** (mặc định) và **Siêu nét**.
-
-Hai mức cho **hình học và dung lượng file y hệt nhau** — chỉ khác app chụp khung màu dày hay thưa.
-Mức Siêu nét chụp **gấp đôi số khung màu**, nên **màu thật hơn và đều hơn**. Càng quét lâu càng ăn:
-buổi 8 phút chụp dày gấp 2, buổi 10 phút gấp 4, từ 15 phút trở lên gấp 2. Chỉ buổi **rất ngắn (dưới
-khoảng 2 phút)** thì hai mức mới như nhau. Đổi lại nó **giữ nhiều bộ nhớ hơn trong lúc quét** và
-**lưu lâu hơn một chút**.
-
-### Bước 3: Quét
+### Bước 2: Quét
 
 Bấm **"Bắt đầu quét"** rồi đi một vòng. Trong lúc quét:
 

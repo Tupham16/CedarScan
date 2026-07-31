@@ -13,8 +13,9 @@ struct MeshScanResult {
     /// trạm, sẽ được đóng KÈM vào model-colored.zip; nil khi không chụp được ảnh nào.
     let texshotsDir: URL?
     let name: String?
-    /// Mức nét THẬT SỰ đã quét (không đọc lại AppStorage lúc lưu — tránh lệch
-    /// khi cửa sổ khác đổi tier giữa chừng trên iPad).
+    /// Cấu hình THẬT SỰ đã quét buổi này (ScanStore ghi rawValue vào meta.json). Picker độ nét
+    /// đã bỏ 2026-07-31 nên nay luôn là `MeshQuality.storageDefault` — vẫn mang theo kết quả
+    /// thay vì đọc lại ở chỗ lưu, để chỗ lưu không bao giờ khai một cấu hình khác cái đã quét.
     let quality: MeshQuality
     /// Mô hình từng chạm trần 2M trong lúc quét → dữ liệu CÓ PHẦN BỊ THIẾU;
     /// call-site nên mời khách quét bản BỔ SUNG cho phần còn lại sau khi lưu.

@@ -38,11 +38,6 @@ struct HomeView: View {
     @State private var pendingProjectId: UUID?
     @State private var meshCapFollowUp = false
     @State private var showScanNextPart = false
-    // Mặc định .high (KHÔNG phải .ultra): mức trên chỉ dày màu hơn, đổi lại giữ thêm ~179MB
-    // RAM suốt buổi quét — không đẩy mọi máy sang đó khi chưa ai bấm chọn. Người dùng cũ còn
-    // lưu "light"/"medium" trong UserDefaults tự rơi về mặc định này vì rawValue đó không còn
-    // khớp case nào (nhãn của bản quét CŨ vẫn hiện đúng nhờ MeshQuality.storedLabel).
-    @AppStorage("meshQuality") private var meshQuality: MeshQuality = MeshQuality.storageDefault
     @State private var recordToRename: ScanRecord?
     @State private var renameText = ""
     @State private var saveError: String?
@@ -112,7 +107,7 @@ struct HomeView: View {
             // gọi dismiss() rồi onStart() trong CÙNG một transaction, nên present thẳng ở đó là
             // present-trong-lúc-sheet-đang-đóng — đúng thứ mà chú thích ngay dưới cảnh báo.
             // Hậu quả nếu không sửa: lần cài MỚI đầu tiên, bấm "Hiểu rồi — bắt đầu quét" thì
-            // guide đóng mà sheet độ nét không hiện, người dùng phải bấm nút Quét lần hai. Và vì
+            // guide đóng mà sheet địa chỉ không hiện, người dùng phải bấm nút Quét lần hai. Và vì
             // seenKey đã được set TRƯỚC dismiss nên lần hai đi thẳng — lỗi tự lành và không bao
             // giờ tái hiện trên máy đã dùng, tức không thể bắt được bằng test thủ công thông thường.
             .sheet(isPresented: $showGuide, onDismiss: {
@@ -139,7 +134,7 @@ struct HomeView: View {
                 isMeshScanning = true
             }) {
                 // Không .presentationDetents: đây là Form nhiều mục (hai nút tắt + ô địa chỉ +
-                // gợi ý + độ nét), ép .medium là phần gợi ý bị bóp còn một hai dòng.
+                // gợi ý), ép .medium là phần gợi ý bị bóp còn một hai dòng.
                 ScanAddressView { projectId in
                     pendingProjectId = projectId
                     pendingScanStart = true
@@ -158,7 +153,7 @@ struct HomeView: View {
                 }
             ) {
                 MeshScanFlowView(
-                    quality: meshQuality,
+                    quality: MeshQuality.storageDefault,
                     onOrderNow: { record in pendingOrderRecord = record },
                     onScanMore: { pendingScanMore = true }
                 ) { result in
@@ -522,15 +517,11 @@ struct ScanRow: View {
         return parts.joined(separator: " · ")
     }
 
-    /// Bản mesh/video không có roomCount ý nghĩa — hiện loại (+ mức nét) thay vì "0 phòng".
-    /// (Không có mức nét trên dòng thì test 3 mức ra 3 dòng giống hệt nhau.)
+    /// Bản mesh/video không có roomCount ý nghĩa — hiện loại thay vì "0 phòng".
+    /// (Nhãn mức nét đã bỏ 2026-07-31 cùng picker: chỉ còn MỘT mức nên nó chỉ là chữ thừa.)
     private var typePart: String {
         if record.isMeshOnly {
-            let base = L.t("3D mesh", "Mesh 3D")
-            // storedLabel (không phải MeshQuality(rawValue:)) — bản quét cũ lưu "light" đã
-            // không còn case tương ứng, dùng init thẳng là nhãn mức nét biến mất lặng lẽ.
-            guard let raw = record.meshQuality, let tierLabel = MeshQuality.storedLabel(raw) else { return base }
-            return base + " (" + tierLabel + ")"
+            return L.t("3D mesh", "Mesh 3D")
         }
         if record.isVideoOnly {
             return L.t("Video walkthrough", "Video khảo sát")

@@ -2,8 +2,9 @@ import Foundation
 import SwiftUI
 import UIKit // UIApplication.openSettingsURLString — đưa khách sang Cài đặt khi quyền vị trí bị tắt
 
-/// Màn chèn giữa nút Quét và màn quét: gắn bản quét sắp tới vào một CĂN NHÀ (dự án), rồi chọn
-/// độ nét. Thay cho sheet chỉ-chọn-độ-nét của P2 — gộp vào một màn để không thêm một chạm.
+/// Màn chèn giữa nút Quét và màn quét: gắn bản quét sắp tới vào một CĂN NHÀ (dự án).
+/// Ô chọn độ nét đã BỎ 2026-07-31 (chỉ còn một mức — xem `MeshQuality`), nên màn này giờ hỏi
+/// đúng một thứ: căn nhà.
 ///
 /// VÌ SAO ĐỊA CHỈ PHẢI ĐI QUA `ScanProject` CHỨ KHÔNG PHẢI `ScanRecord`:
 /// thẻ Kanban gửi đội vẽ lấy tên căn nhà từ DỰ ÁN — `ScanDetailView` gửi
@@ -29,7 +30,6 @@ struct ScanAddressView: View {
     /// sạch) — lúc đó thà cho quét còn hơn nuốt mất buổi quét vì một cái tên kỳ quặc.
     let onStart: (UUID?) -> Void
 
-    @AppStorage("meshQuality") private var meshQuality: MeshQuality = MeshQuality.storageDefault
     @State private var address = ""
     @State private var pickedProjectId: UUID?
     /// "Dùng vị trí hiện tại" + gợi ý địa chỉ khi gõ. Cả hai là ĐƯỜNG TẮT — xem `AddressLookup.swift`.
@@ -127,7 +127,6 @@ struct ScanAddressView: View {
             // với biểu thức SwiftUI lớn, và Form nhiều section là đúng dạng dễ dính.
             Form {
                 homeSection
-                qualitySection
             }
             .navigationTitle(L.t("Before scanning", "Trước khi quét"))
             .navigationBarTitleDisplayMode(.inline)
@@ -426,23 +425,6 @@ struct ScanAddressView: View {
         }
     }
 
-    private var qualitySection: some View {
-        Section(L.t("Mesh detail", "Độ nét mesh")) {
-            Picker(L.t("Mesh detail", "Độ nét mesh"), selection: $meshQuality) {
-                ForEach(MeshQuality.allCases) { q in
-                    Text(q.label).tag(q)
-                }
-            }
-            .pickerStyle(.segmented)
-            Text(meshQuality.caption)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            Text(MeshQuality.sharedNote)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        }
-    }
-
     /// Thanh nút ghim đáy màn — LUÔN nhìn thấy, không phụ thuộc danh sách dài bao nhiêu.
     ///
     /// Lý do nút xám nằm NGAY TRONG thanh, không trông vào footer của section: từ khi ghim đáy,
@@ -502,8 +484,8 @@ struct ScanAddressView: View {
     // (Nút "Bỏ qua" từng tồn tại hồi địa chỉ còn tuỳ chọn — nó vừa thừa vừa dễ lẫn với "Hủy" ở
     // góc trên: hai lựa chọn cạnh nhau mà nghĩa ngược hẳn, Hủy = không quét, Bỏ qua = vẫn quét.)
 
-    /// dismiss() TRƯỚC onStart() — cùng khuôn với ScanQualityPickerView: người gọi present màn quét
-    /// từ onDismiss của sheet này, nên onStart chỉ được set cờ, không được present gì.
+    /// dismiss() TRƯỚC onStart(): người gọi present màn quét từ onDismiss của sheet này, nên
+    /// onStart chỉ được set cờ, không được present gì.
     ///
     /// Chọn dòng trong danh sách → dùng căn đó. Không chọn → tạo căn mới theo chữ đã gõ. Ô rỗng
     /// → nil, bản quét không gắn căn nào (vẫn gắn sau được bằng "Chuyển vào dự án" ở màn chính).

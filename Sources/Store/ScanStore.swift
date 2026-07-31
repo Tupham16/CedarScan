@@ -209,8 +209,9 @@ final class ScanStore: ObservableObject {
             areaSqm: nil,
             projectId: projectId,
             captureType: "mesh",
-            // Không có mesh (chỉ cứu được video) thì đừng gắn nhãn tier — dòng danh sách
-            // sẽ không quảng cáo "Mesh 3D (Nét)" cho một bản chỉ có video.
+            // Không có mesh (chỉ cứu được video) thì để nil — trường này nói "bản quét mesh
+            // này quét ở cấu hình nào", vô nghĩa với bản chỉ có video.
+            // (Không màn nào HIỆN nó nữa từ 2026-07-31; giữ ghi vào meta.json để truy vết.)
             meshQuality: hasMesh ? quality.rawValue : nil
         )
         let folder = folderURL(for: record)

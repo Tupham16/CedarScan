@@ -14,20 +14,16 @@ struct ProjectView: View {
     @Binding var path: NavigationPath
 
     @State private var isMeshScanning = false
-    @State private var showQualityPicker = false
     @State private var showGuide = false
     /// Người dùng đã BẤM "Bắt đầu quét" trong guide (khác với "guide đang mở"). Reset ở LỐI VÀO
     /// chứ không chỉ trong onDismiss — xem giải thích đầy đủ ở HomeView.startAfterGuide.
     @State private var startAfterGuide = false
-    /// Khách đã bấm "Bắt đầu quét" ở sheet độ nét — xem HomeView.pendingScanStart.
-    @State private var pendingScanStart = false
     /// Khách bấm "Quét thêm khu vực còn thiếu" ở màn preview → mở lại phiên quét cho CÙNG căn.
     @State private var pendingScanMore = false
     /// Bản quét khách vừa bấm "Đặt hàng ngay" ở màn preview.
     @State private var pendingOrderRecord: ScanRecord?
     @State private var meshCapFollowUp = false
     @State private var showScanNextPart = false
-    @AppStorage("meshQuality") private var meshQuality: MeshQuality = MeshQuality.storageDefault
     /// Mục tiêu của form đặt hàng: DANH TÍNH các bản quét đã chốt đúng lúc mở form.
     ///
     /// 🔴 Dùng `.sheet(item:)`, KHÔNG dùng `.sheet(isPresented:)` + cờ Bool riêng. Đây là chỗ đã
@@ -209,17 +205,6 @@ struct ProjectView: View {
         }) {
             ScanGuideView { startAfterGuide = true }
         }
-        // Mở cover từ onDismiss của sheet (chờ sheet đóng XONG mới present) — như HomeView.
-        .sheet(isPresented: $showQualityPicker, onDismiss: {
-            guard pendingScanStart else { return }
-            pendingScanStart = false
-            isMeshScanning = true
-        }) {
-            ScanQualityPickerView {
-                pendingScanStart = true
-            }
-            .presentationDetents([.medium, .large])
-        }
         .fullScreenCover(
             isPresented: $isMeshScanning,
             // Mở lại phiên quét cho "Quét thêm" PHẢI chờ cover đóng HẲN (onDismiss), không được
@@ -233,7 +218,7 @@ struct ProjectView: View {
             }
         ) {
             MeshScanFlowView(
-                quality: meshQuality,
+                quality: MeshQuality.storageDefault,
                 onOrderNow: { record in pendingOrderRecord = record },
                 onScanMore: { pendingScanMore = true }
             ) { result in
@@ -414,11 +399,15 @@ struct ProjectView: View {
 
     /// Tách khỏi thân nút để guide gọi lại được từ onDismiss.
     /// Reset hai cờ ở LỐI VÀO — xem giải thích đầy đủ ở HomeView.startScanning.
+    ///
+    /// 🔴 VÀO THẲNG cover, không còn sheet trung gian: `ScanQualityPickerView` đã xoá cùng picker
+    /// độ nét (2026-07-31). Gọi từ onDismiss của guide vẫn AN TOÀN — onDismiss chạy SAU khi sheet
+    /// guide đóng hẳn, đúng khuôn "present cover từ onDismiss" mà HomeView đang dùng.
+    /// Căn nhà đã biết (`projectId` của màn này) nên không có gì để hỏi trước khi quét nữa.
     private func startScanning() {
-        pendingScanStart = false
         pendingOrderRecord = nil
         pendingScanMore = false
-        showQualityPicker = true
+        isMeshScanning = true
     }
 
     /// Xem HomeView.goToPendingOrder — cùng một việc, trên cùng một NavigationStack.

@@ -150,8 +150,8 @@ final class ColorMeshBuilder {
         displayLink = nil
     }
 
-    /// VAN XẢ KHI iOS KÊU THIẾU BỘ NHỚ. Kho khung màu là khối lớn nhất app giữ suốt buổi quét
-    /// (179MB mức Nét, 358MB mức Siêu nét) và nó nằm cạnh ARKit + bộ mã hoá video + lớp phủ
+    /// VAN XẢ KHI iOS KÊU THIẾU BỘ NHỚ. Kho khung màu (~67MB từ 2026-07-31, trước là 179/358MB)
+    /// là một trong những khối app giữ suốt buổi quét, và nó nằm cạnh ARKit + bộ mã hoá video + lớp phủ
     /// lưới. Không có đường xả thì cảnh báo của hệ thống trôi qua vô ích rồi app bị giết — mất
     /// trắng buổi quét 10–30 phút, thứ đắt nhất với khách.
     ///
@@ -180,13 +180,13 @@ final class ColorMeshBuilder {
     /// 🔴 CHỐNG CHÙM BẰNG THỜI GIAN, KHÔNG BẰNG BỘ ĐẾM TRỌN ĐỜI. iOS bắn cảnh báo theo CHÙM
     /// (nhiều lần trong vài trăm mili giây của cùng một đợt áp lực), nhưng một buổi quét 25
     /// phút có thể gặp NHIỀU đợt. Bản vá đời trước dùng bộ đếm trọn đời chặn ở 2 nấc: chùm
-    /// ĐẦU TIÊN nuốt sạch ngân sách trong chưa đầy một giây, rồi kho khung mọc lại đủ 320
-    /// (358MB) mà van đã CHẾT VĨNH VIỄN — nên đúng cửa sổ nguy hiểm nhất (hoàn tất video
-    /// H.264 ở cuối buổi) thì không còn gì để xả.
+    /// ĐẦU TIÊN nuốt sạch ngân sách trong chưa đầy một giây, rồi kho khung mọc lại đầy mà van
+    /// đã CHẾT VĨNH VIỄN — nên đúng cửa sổ nguy hiểm nhất (hoàn tất video H.264 ở cuối buổi)
+    /// thì không còn gì để xả.
     /// Van tự giới hạn nhờ SÀN: từ kho đầy, xả tối đa HAI nấc rồi chạm sàn và dừng hẳn
-    /// (Siêu nét 320 → 160 → 80; Nét 160 → 80 → 40). Nấc thứ hai KHÔNG cần kho mọc lại — chỉ
-    /// cần qua thời gian chờ — vì 160 vẫn thoả sàn 80. Muốn xả tiếp nữa thì mới phải chờ kho
-    /// mọc lại, và ở nhịp chụp đã nhân đôi thì việc đó tốn nhiều phút.
+    /// (nay 60 → 30 → 15; trước đợt bỏ picker là 160 → 80 → 40). Nấc thứ hai KHÔNG cần kho mọc
+    /// lại — chỉ cần qua thời gian chờ. Muốn xả tiếp nữa thì mới phải chờ kho mọc lại, và ở
+    /// nhịp chụp đã nhân đôi thì việc đó tốn nhiều phút.
     ///
     /// 🔴 SÀN ĐO Ở TRẠNG THÁI SAU KHI XẢ, KHÔNG PHẢI TRƯỚC. Đời trước kiểm `count > sàn`
     /// rồi mới chia đôi: 81 khung vẫn qua được sàn 80 và tụt còn 41 — thấp hơn chính cái sàn
@@ -499,9 +499,9 @@ final class ColorMeshBuilder {
     ///
     /// `geometryOnly` = ĐƯỜNG LƯU NHANH (chỉ khi buổi quét đã có đủ ảnh texture cho máy
     /// trạm — `MeshScanController.stopAndExport` quyết định). Bỏ TOÀN BỘ phần đắt: chia nhỏ
-    /// tam giác, bake màu (400–800 TRIỆU vòng lọc), vá đỉnh xám. Đỉnh vẫn có màu XÁM HẰNG SỐ
+    /// tam giác, bake màu (~150 TRIỆU vòng lọc: 2,5 triệu đỉnh × 60 khung), vá đỉnh xám. Đỉnh vẫn có màu XÁM HẰNG SỐ
     /// chứ không phải mảng rỗng — xem `uncoloredGrey`.
-    /// Bonus RAM: không cần kho khung màu nên nó chết NGAY (179MB mức Nét / 358MB Siêu nét)
+    /// Bonus RAM: không cần kho khung màu nên nó chết NGAY (~67MB — trước đợt bỏ picker là 179/358MB)
     /// trước khi cấp phát `Data` của PLY.
     @MainActor
     func exportColoredPLY(geometryOnly: Bool = false) async -> URL? {
@@ -516,9 +516,9 @@ final class ColorMeshBuilder {
 
         // Dựng sampler NGAY TẠI ĐÂY (rẻ: O(K), một phép nghịch đảo 4×4 mỗi khung) rồi THẢ
         // `self.keyframes`. Mảng `ColorFrame` chết đi, còn bộ nhớ ảnh thật (rgb/depth) vẫn
-        // sống vì sampler giữ tham chiếu — đó là thứ vòng bake cần. Kho ảnh này là khối lớn
-        // nhất của cả quy trình lưu (179MB mức Nét, 358MB mức Siêu nét) nên nó phải chết
-        // TRƯỚC khi cấp phát vùng `Data` của file PLY — xem `SamplerStore` và `buildPLY`.
+        // sống vì sampler giữ tham chiếu — đó là thứ vòng bake cần. Kho ảnh này ~67MB (trước
+        // đợt bỏ picker là 179/358MB) nên nó phải chết TRƯỚC khi cấp phát vùng `Data` của file
+        // PLY — xem `SamplerStore` và `buildPLY`.
         let store = geometryOnly
             ? SamplerStore(geos: [], samplers: [])
             : SamplerStore(
@@ -626,8 +626,8 @@ final class ColorMeshBuilder {
             )
 
         // 🔴 NHẢ KHO KHUNG MÀU NGAY TẠI ĐÂY — TRƯỚC khi cấp phát `Data` của PLY (~102MB ở 2,5
-        // triệu đỉnh). Đây là đỉnh RAM của cả quy trình lưu, và kho khung là khối lớn nhất
-        // trong đó (179MB mức Nét / 358MB mức Siêu nét).
+        // triệu đỉnh). Đây là đỉnh RAM của cả quy trình lưu; kho khung (~67MB) cộng thêm vào
+        // đúng đỉnh đó nếu không thả.
         // ⚠ ĐỪNG đưa hai dòng này vào TRONG `paintColors`: ở đó chúng lại chỉ hạ số đếm tham
         // chiếu chứ không giải phóng, đúng cái bẫy đã tả ở `SamplerStore`.
         store.samplers = []
@@ -763,8 +763,8 @@ final class ColorMeshBuilder {
 
     /// Phần HÌNH HỌC của một khung màu — thuần số, KHÔNG chứa tham chiếu (`Array`).
     ///
-    /// 🔴 TÁCH RA LÀM GÌ: vòng lọc trong `sampleColor` chạy V×K lần (2,5 triệu đỉnh × 320
-    /// khung = 800 TRIỆU lần ở mức Siêu nét). Nếu vòng đó đọc nguyên `KeyframeSampler` —
+    /// 🔴 TÁCH RA LÀM GÌ: vòng lọc trong `sampleColor` chạy V×K lần (2,5 triệu đỉnh × 60
+    /// khung = 150 TRIỆU lần). Nếu vòng đó đọc nguyên `KeyframeSampler` —
     /// struct có 2 tham chiếu Array — thì mỗi lần lặp là một cặp retain/release tiềm tàng,
     /// và 6 luồng `concurrentPerform` sẽ đập atomic lên CÙNG hai bộ đếm tham chiếu. Struct
     /// POD này không thể sinh ARC dù trình tối ưu có làm gì đi nữa. Ảnh (`rgb`/`depth`) chỉ
@@ -911,8 +911,8 @@ final class ColorMeshBuilder {
         // đường nối màu hình thành — chứ không phải cả mô hình.
         // ⚠ Đời đầu của bản vá đặt 0,45/0,80: khi đó khung lệch tới 1,1·d vẫn tham gia, tức
         // gần như MỌI đỉnh đều bị trộn ba khung và khung thắng chỉ còn ~40% trọng số → cả mô
-        // hình mềm đi (nhoè theo sai số pose của ARKit sau loop closure), đúng thứ mà mức
-        // Siêu nét đang bán thì lại mất. Review đối kháng bắt được bằng cách giải dạng đóng.
+        // hình mềm đi (nhoè theo sai số pose của ARKit sau loop closure) — đúng thứ kho khung
+        // màu sinh ra để tránh. Review đối kháng bắt được bằng cách giải dạng đóng.
         //
         // ⚠ KHÔNG khẳng định "giống hệt bản cũ ở vùng thắng rõ": hàm ĐIỂM cũng đổi trong đợt
         // này (bỏ sqrt), nên ngay cả nơi không trộn, khung THẮNG vẫn có thể là khung khác.
@@ -976,8 +976,8 @@ final class ColorMeshBuilder {
         // chỗ hoán) mà chỉ đổi sang một khung màu khác → bậc bằng lệch màu chia 3. Đừng bào
         // chữa bằng câu "lúc đó ba khung đầu đã đủ giống nhau": giống về ĐIỂM (góc/khoảng cách)
         // không suy ra giống về MÀU — chênh phơi sáng 1–2 EV giữa hai khung cùng nhìn một chỗ
-        // chính là tiền đề của cả cơ chế này. Ở mức Siêu nét (320 khung), đứng lại vài chục
-        // giây trước một mảng tường là có ngay 5+ khung gần cùng tư thế, nên ca này KHÔNG hiếm.
+        // chính là tiền đề của cả cơ chế này. Đứng lại vài chục giây trước một mảng tường là
+        // có ngay 5+ khung gần cùng tư thế, nên ca này KHÔNG hiếm.
         let wSum = w0 + w1 + w2      // > 0 vì w0 = s0² > 0
         let mixed = (c0v * w0 + c1v * w1 + c2v * w2) / wSum
         return SIMD3<UInt8>(
@@ -1017,7 +1017,7 @@ final class ColorMeshBuilder {
     /// 🔴 VÌ SAO LÀ HÀM RIÊNG chứ không viết thẳng trong `buildPLY`: hai tham số `geos`/
     /// `samplers` được truyền theo kiểu MƯỢN, nên mọi tham chiếu tạm tới kho khung màu chết
     /// đúng lúc hàm này trả về. Nhờ vậy `buildPLY` dọn `store` ngay sau đó là giải phóng THẬT.
-    /// Viết thẳng vào `buildPLY` thì các biến cục bộ sống tới cuối hàm và kho khung 179–358MB
+    /// Viết thẳng vào `buildPLY` thì các biến cục bộ sống tới cuối hàm và kho khung màu
     /// nằm lì qua bước cấp phát `Data` của PLY — đúng đỉnh RAM mà cả đợt này muốn hạ.
     private static func paintColors(
         vertices: [SIMD3<Float>], normals: [SIMD3<Float>],
@@ -1030,8 +1030,8 @@ final class ColorMeshBuilder {
         var uncolored = [Bool](repeating: false, count: vertices.count)
         // Song song hóa theo chunk: mỗi chunk ghi một dải chỉ số RIÊNG (không giao nhau),
         // dữ liệu đọc (vertices/normals/geos/samplers) bất biến → an toàn. Nguyên căn sau khi
-        // chia nhỏ tam giác là ~2,5 triệu đỉnh; nhân 160 khung (mức Nét) = 400 TRIỆU vòng lọc,
-        // nhân 320 khung (mức Siêu nét) = 800 triệu — tuần tự sẽ bắt chờ rất lâu.
+        // chia nhỏ tam giác là ~2,5 triệu đỉnh; nhân 60 khung = 150 TRIỆU vòng lọc — tuần tự
+        // sẽ bắt chờ rất lâu.
         let total = vertices.count
         let chunkSize = 16_384
         let chunkCount = (total + chunkSize - 1) / chunkSize
@@ -1211,7 +1211,7 @@ final class ColorMeshBuilder {
     /// trải lên bề mặt lớn.
     /// ⚠ TỪ 2026-07-29 CHẠY TỐI ĐA 3 LẦN/ĐỈNH, không còn 1 lần như đời trước: `sampleColor`
     /// trộn tốp 3 nên mỗi ứng viên có trọng số dương đều phải đọc ảnh. Mỗi lần là 4 truy cập
-    /// bộ nhớ NGẪU NHIÊN vào kho khung 179–358MB. Khi bấm giờ màn "Đang dựng mô hình 3D…" trên
+    /// bộ nhớ NGẪU NHIÊN vào kho khung màu. Khi bấm giờ màn "Đang dựng mô hình 3D…" trên
     /// máy thật mà thấy bake chậm hơn dự kiến thì đây là chỗ nhìn ĐẦU TIÊN — `scoreWeight`
     /// chặn được kha khá lượt đọc, nhưng ở chỗ người quét đứng lại lâu (nhiều khung gần cùng
     /// tư thế) thì thường có đủ cả 3 ứng viên.

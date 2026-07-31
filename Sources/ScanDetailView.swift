@@ -583,12 +583,10 @@ struct ScanDetailView: View {
         )
     }
 
+    /// Nhãn mức nét đã bỏ 2026-07-31 cùng picker (chỉ còn MỘT mức) — `record.meshQuality` vẫn
+    /// được ghi vào meta.json nhưng không còn màn nào hiện nó.
     private var meshTitle: String {
-        let base = L.t("3D mesh scan", "Bản quét Mesh 3D")
-        // storedLabel: giữ nhãn cho bản quét cũ lưu rawValue "light" (bỏ 2026-07-19) và
-        // "medium" (bỏ 2026-07-29) — trả nil là nhãn mức nét biến mất không một tiếng động.
-        guard let raw = current.meshQuality, let tierLabel = MeshQuality.storedLabel(raw) else { return base }
-        return base + " · " + tierLabel
+        L.t("3D mesh scan", "Bản quét Mesh 3D")
     }
 
     /// Bản quét video: xem lại video + lưu ý độ chính xác.
