@@ -67,6 +67,13 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
         colorMesh?.recordedAnchorCounts ?? [:]
     }
 
+    /// Vùng đã có ẢNH TEXTURE LƯU (item 2 PLAN-PHU-DU-DO-DUNG) — MeshOverlayRenderer đọc
+    /// để lưới trắng nói đúng "bản giao chỗ này sẽ có ảnh". nil trước khi start (overlay
+    /// coi như phủ đủ — không phạt oan).
+    var textureCoverage: TextureCoverageGrid? {
+        texShots?.coverage
+    }
+
     /// Gọi từ onAppear của MeshScanFlowView — makeUIView của ARCameraViewRepresentable đã
     /// chạy trước đó, nên gán arSession.delegate tại đây chắc chắn KHÔNG bị ARSCNView đè.
     func startSession() {

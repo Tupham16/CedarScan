@@ -5,6 +5,101 @@ import CoreVideo
 import ImageIO
 import simd
 
+/// Lưới voxel THÔ (0.25m) đánh dấu "chỗ này đã có ẢNH TEXTURE ĐÃ LƯU" — nguồn sự thật cho
+/// lưới quét đổi nghĩa TRẮNG (PLAN-PHU-DU-DO-DUNG item 2, chủ app chốt 03/08: trắng =
+/// "bản GIAO chỗ này sẽ CÓ ẢNH", không thêm màu mới; trước đây trắng chỉ nói mesh ARKit
+/// đã vào file — người quét tưởng đủ mà bản giao bị thủng texture ở chỗ lia nhanh).
+///
+/// Ghi: ioQueue của TextureShotRecorder, SAU khi JPEG đã nằm trên đĩa (một khung được
+/// "đếm" đúng lúc nó chắc chắn đi theo zip). Đọc: main (MeshOverlayRenderer, nhịp 0.5s).
+/// NSLock — critical section vài µs, ~2 lần khoá mỗi giây khi quét + ~600 lần đọc/0.5s
+/// lúc đầu buổi (giảm dần vì renderer memo anchor đã phủ — tập voxel CHỈ PHÌNH).
+/// ⚠ thinOnDisk KHÔNG gỡ voxel của ảnh bị thưa: ảnh giữ lại (xen kẽ trên cùng đường đi)
+/// phủ gần y vùng đó, và gỡ cần sổ voxel-theo-shot — không đáng độ phức tạp.
+final class TextureCoverageGrid {
+    static let voxelSize: Float = 0.25
+    private let lock = NSLock()
+    private var voxels = Set<Int64>()
+
+    /// Pack toạ độ voxel 21 bit/trục (offset giữa dải) — ±262km quanh gốc phiên là thừa.
+    /// MỘT nguồn sự thật cho cả bên ghi (recorder) lẫn bên đọc (overlay) — lệch công thức
+    /// là coverage sai IM LẶNG.
+    static func key(_ p: SIMD3<Float>) -> Int64 {
+        let x = Int64((p.x / voxelSize).rounded(.down)) &+ 0x1000_00
+        let y = Int64((p.y / voxelSize).rounded(.down)) &+ 0x1000_00
+        let z = Int64((p.z / voxelSize).rounded(.down)) &+ 0x1000_00
+        return (x & 0x1F_FFFF) | ((y & 0x1F_FFFF) << 21) | ((z & 0x1F_FFFF) << 42)
+    }
+
+    /// Voxel chứa điểm + 6 voxel kề mặt — nới lúc GHI để mẫu đỉnh mesh rơi sát vách voxel
+    /// không trượt oan; nhờ vậy bên đọc chỉ cần 1 lookup/mẫu.
+    private static let dilation: [SIMD3<Float>] = [
+        SIMD3(0, 0, 0),
+        SIMD3(voxelSize, 0, 0), SIMD3(-voxelSize, 0, 0),
+        SIMD3(0, voxelSize, 0), SIMD3(0, -voxelSize, 0),
+        SIMD3(0, 0, voxelSize), SIMD3(0, 0, -voxelSize),
+    ]
+
+    /// Đánh dấu vùng một khung ĐÃ LƯU nhìn thấy: chiếu lưới thưa ~32×24 của depth map
+    /// (256×192) ra world rồi cắm voxel. Chạy trên ioQueue (~vài trăm µs), KHÔNG đụng main.
+    /// Depth không hữu hạn / ngoài 0.25–3.5m (dải tin được của LiDAR, cùng fuse.py) thì bỏ.
+    /// fx/fy/cx/cy là intrinsics THEO ẢNH LƯU (đúng thứ nằm trong ShotMeta) — scale về lưới
+    /// depth bằng dw/w, dh/h y như ghi chú shots.json dạy máy trạm.
+    func markShot(depthRaw: Data, dw: Int, dh: Int, cam2world m: simd_float4x4,
+                  fx: Float, fy: Float, cx: Float, cy: Float, imgW: Int, imgH: Int) {
+        guard dw > 0, dh > 0, imgW > 0, imgH > 0, depthRaw.count >= dw * dh * 4 else { return }
+        let sx = Float(dw) / Float(imgW)
+        let sy = Float(dh) / Float(imgH)
+        let dfx = fx * sx
+        let dfy = fy * sy
+        let dcx = cx * sx
+        let dcy = cy * sy
+        guard dfx > 0, dfy > 0 else { return }
+        var keys: [Int64] = []
+        keys.reserveCapacity((32 + 1) * (24 + 1) * Self.dilation.count)
+        depthRaw.withUnsafeBytes { (raw: UnsafeRawBufferPointer) in
+            guard let base = raw.baseAddress?.assumingMemoryBound(to: Float32.self) else { return }
+            let stepU = max(1, dw / 32)
+            let stepV = max(1, dh / 24)
+            var v = stepV / 2
+            while v < dh {
+                var u = stepU / 2
+                while u < dw {
+                    let d = base[v * dw + u]
+                    // Quy ước chiếu = note trong shots.json: camera nhìn -Z, +u phải, +v xuống.
+                    if d.isFinite, d > 0.25, d < 3.5 {
+                        let qc = SIMD4<Float>((Float(u) - dcx) * d / dfx,
+                                              -(Float(v) - dcy) * d / dfy,
+                                              -d, 1)
+                        let pw = m * qc
+                        if pw.x.isFinite, pw.y.isFinite, pw.z.isFinite {
+                            let p = SIMD3(pw.x, pw.y, pw.z)
+                            for off in Self.dilation {
+                                keys.append(Self.key(p + off))
+                            }
+                        }
+                    }
+                    u += stepU
+                }
+                v += stepV
+            }
+        }
+        guard !keys.isEmpty else { return }
+        lock.lock()
+        voxels.formUnion(keys)
+        lock.unlock()
+    }
+
+    /// Đếm bao nhiêu key nằm trong tập phủ — MỘT lần khoá cho cả anchor (✗ khoá từng mẫu).
+    func containedCount(of keys: [Int64]) -> Int {
+        lock.lock()
+        defer { lock.unlock() }
+        var n = 0
+        for k in keys where voxels.contains(k) { n += 1 }
+        return n
+    }
+}
+
 /// Chụp ảnh JPEG 1440×1080 + depth thô + pose camera trong lúc quét — NGUYÊN LIỆU cho bước bake texture
 /// CHIẾU-1-KHUNG (kiểu CubiCasa) chạy trên máy trạm, KHÔNG phải trên máy khách (chủ app
 /// chốt 2026-07-29). Đầu ra: thư mục `texture-shots/` (shot-NNNN.jpg + shots.json) được
@@ -64,6 +159,11 @@ final class TextureShotRecorder {
     /// lastPathComponent luôn là "texture-shots" sạch sẽ khi được copy vào zip.
     /// HỢP ĐỒNG với ScanStore: dọn dẹp = xoá THƯ MỤC CHA (deletingLastPathComponent).
     let shotsDirURL: URL
+
+    /// Vùng ĐÃ CÓ ẢNH LƯU (item 2) — MeshOverlayRenderer đọc để quyết lưới trắng.
+    /// Sống cùng recorder; khung không có sceneDepth thì không đánh dấu được (hiếm trên
+    /// máy LiDAR, ngưỡng % bên overlay hấp thụ).
+    let coverage = TextureCoverageGrid()
 
     private weak var arSession: ARSession?
     private var displayLink: CADisplayLink?
@@ -310,6 +410,17 @@ final class TextureShotRecorder {
                     m.dh = nil
                 }
                 self?.metas.append(m)
+                // Item 2: ảnh đã chắc chắn theo zip → đánh dấu vùng nó thấy vào lưới
+                // coverage (lưới quét đổi TRẮNG theo đây). Dùng depthRaw trong RAM —
+                // KHÔNG phụ thuộc file .depth ghi được hay không (ảnh mới là thứ bake
+                // cần). Không có sceneDepth thì thôi (hiếm; ngưỡng % overlay hấp thụ).
+                if let depthRaw {
+                    self?.coverage.markShot(
+                        depthRaw: depthRaw, dw: depthW, dh: depthH, cam2world: tf,
+                        fx: meta.fx, fy: meta.fy, cx: meta.cx, cy: meta.cy,
+                        imgW: meta.w, imgH: meta.h
+                    )
+                }
             }
             DispatchQueue.main.async {
                 guard let self else { return }

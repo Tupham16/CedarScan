@@ -90,8 +90,11 @@ struct MeshScanFlowView: View {
             // Trần hiển thị 600k (RoomPlan chỉ 150k): khách quay lại khu đã quét phải còn THẤY
             // lưới để biết chỗ nào đã phủ — nhà thường sẽ không bị "quên" nữa. Nếu test thấy
             // nóng/giật thì hạ số này.
-            // recordedCounts: lưới tô THEO DỮ LIỆU XUẤT THẬT — trắng = đã vào file, đỏ = chưa
-            // được ghi (builder tắt vì gián đoạn, hoặc mô hình đầy). Vùng chưa có mesh thì lớp
+            // recordedCounts + photoCoverage: lưới trắng = đã vào file VÀ đã có ẢNH texture
+            // lưu (item 2 PLAN-PHU-DU-DO-DUNG, chủ app chốt 03/08 — trắng phải nói đúng
+            // "bản GIAO chỗ này sẽ có ảnh"). Có mesh mà CHƯA có ảnh (lia nhanh) → lưới +
+            // mặt nạ ẩn đi, phủ đỏ hiện lại như chưa quét. Đỏ giữ nguyên vai "chưa được
+            // ghi" (builder tắt vì gián đoạn, hoặc mô hình đầy). Vùng chưa có mesh thì lớp
             // phủ tự tô đỏ mờ (xem `MeshOverlayRenderer`).
             // Tắt lưới khi đã sang màn preview: nhịp cập nhật dừng hẳn nên CADisplayLink 30Hz
             // không quay không tải suốt lúc khách ngồi xem lại video.
@@ -108,7 +111,8 @@ struct MeshScanFlowView: View {
                 // nên giải phóng rồi không phải dựng lại; còn ở màn đặt tên thì khách vẫn bấm
                 // "Quay lại" để quét thêm được.
                 showMesh: showScanMesh && savedRecord == nil && !isSaving,
-                recordedCounts: { [weak controller] in controller?.recordedAnchorCounts ?? [:] }
+                recordedCounts: { [weak controller] in controller?.recordedAnchorCounts ?? [:] },
+                photoCoverage: { [weak controller] in controller?.textureCoverage }
             )
             .ignoresSafeArea()
 

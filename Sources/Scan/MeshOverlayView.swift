@@ -5,8 +5,13 @@ import simd
 
 /// Lớp phủ LƯỚI LiDAR (wireframe) vẽ TRONG scene của ARSCNView đang hiện hình camera — để
 /// người quét biết bề mặt nào đã được quét (giống CubiCasa/Polycam).
-/// Ngôn ngữ màu (chủ app chốt 2026-07-28): lưới TRẮNG = đã vào file; lưới ĐỎ = có mesh nhưng
-/// CHƯA được ghi; vùng KHÔNG có mesh phủ ĐỎ MỜ (`tintNode` + mặt nạ depth) = chưa quét tới.
+/// Ngôn ngữ màu (chủ app chốt 2026-07-28; TRẮNG đổi nghĩa 2026-08-03, item 2
+/// PLAN-PHU-DU-DO-DUNG): lưới TRẮNG = đã vào file **VÀ đã có ẢNH TEXTURE lưu** (bản giao
+/// chỗ này sẽ có ảnh); có mesh mà CHƯA CÓ ẢNH (lia nhanh, keyframe chưa đậu) → lưới + mặt
+/// nạ của anchor đó ẨN đi nên phủ đỏ hiện lại — trông như chưa quét, quay lại lia chậm là
+/// trắng (chủ app CHỌN không thêm màu thứ 3); lưới ĐỎ = có mesh nhưng CHƯA được ghi (mất
+/// dữ liệu builder — vai này GIỮ NGUYÊN, ✗ chiếm); vùng KHÔNG có mesh phủ ĐỎ MỜ
+/// (`tintNode` + mặt nạ depth) = chưa quét tới.
 ///
 /// 🔴 KHÔNG PHẢI MỘT VIEW. Đây là bộ dựng node, gắn vào scene của ARSCNView (xem `attach(to:)`
 /// và chú thích đầu `ARCameraView.swift`).
@@ -198,6 +203,22 @@ final class MeshOverlayRenderer: NSObject {
     /// chặn có ID trùng nhưng bản trong file NHỎ hơn bản hiển thị → vẫn phải tô đỏ.
     /// nil (luồng RoomPlan cũ không dùng cơ chế này) → mọi lưới trắng, không tô đỏ "chưa ghi".
     var recordedCounts: (() -> [UUID: Int])?
+    /// Item 2 PLAN-PHU-DU-DO-DUNG (chủ app chốt 03/08): TRẮNG còn cần "≥75% mẫu đỉnh nằm
+    /// trong voxel ĐÃ CÓ ẢNH LƯU" (TextureCoverageGrid của TextureShotRecorder). Chưa đạt
+    /// → GIẤU lưới + mặt nạ anchor đó (phủ đỏ hiện = "chưa xong chỗ này"). nil = luồng
+    /// không có recorder → hành vi cũ nguyên vẹn.
+    var photoCoverage: (() -> TextureCoverageGrid?)?
+    /// Voxel-key MẪU THEO WORLD của từng anchor — lấy ~32 đỉnh lúc DỰNG geometry ở luồng
+    /// nền (transform anchor gần như bất động — ARKit chỉ nhích dưới mm lúc khép vòng,
+    /// voxel 25cm nuốt trọn; anchor đổi hình học là rebuild → key tươi lại). Sống qua
+    /// evictWire như anchorSigs (mask còn khoét thì còn cần coverage), chết ở removeAnchor.
+    private var anchorCoverageKeys: [UUID: [Int64]] = [:]
+    /// Memo MỘT CHIỀU anchor đã đủ ảnh — tập voxel chỉ PHÌNH nên trắng rồi là trắng luôn
+    /// (không nhấp nháy), và mỗi nhịp chỉ còn phải đo anchor CHƯA phủ.
+    private var coveredAnchors: Set<UUID> = []
+    /// X% mẫu đỉnh phải nằm trong voxel có ảnh. 0.75 theo plan (dải 70–85) — chỉnh bằng
+    /// mắt trên máy thật nếu chớp trắng↔đỏ ở mép vùng đang quét.
+    private static let coverageMinFraction: Float = 0.75
     /// Thời điểm anchor xuất hiện lần đầu — anchor mới được "ân hạn" 1.5s trước khi bị tô
     /// đỏ (builder tick 2–5Hz cần chút thời gian gom; không có ân hạn thì lưới mới nào
     /// cũng chớp đỏ rồi mới trắng, nhìn như lỗi).
@@ -316,6 +337,8 @@ final class MeshOverlayRenderer: NSObject {
         anchorSigs.removeAll()
         anchorDists.removeAll()
         anchorFirstSeen.removeAll()
+        anchorCoverageKeys.removeAll()
+        coveredAnchors.removeAll()
         inFlight.removeAll()
         totalVerts = 0
         maskVerts = 0
@@ -545,13 +568,17 @@ final class MeshOverlayRenderer: NSObject {
             let vStride = vSource.stride
             let fCount = fElement.count
             let bpi = fElement.bytesPerIndex
+            // Transform chốt CÙNG LÚC với buffer — luồng nền tính voxel-key coverage theo
+            // world mà không phải đọc lại anchor (item 2).
+            let anchorTf = mesh.transform
 
             // …rồi DỰNG geometry ở nền, gán lại trên main. Nhờ vậy main thread không bị chiếm
             // → ARKit/RoomPlan không rớt frame (trước đây gây "đứng lại" + hủy bản quét + crash).
             buildQueue.async {
                 let built = Self.makeGeometries(
                     vBytes: vBytes, vCount: vCount, vStride: vStride,
-                    iBytes: iBytes, faceCount: fCount, bytesPerIndex: bpi
+                    iBytes: iBytes, faceCount: fCount, bytesPerIndex: bpi,
+                    transform: anchorTf
                 )
                 DispatchQueue.main.async { [weak self] in
                     guard let self else { return }
@@ -575,6 +602,11 @@ final class MeshOverlayRenderer: NSObject {
                     // Cache lưới cho lần NHẬN LẠI sau khi bị nhả khỏi trần hiển thị — kể cả
                     // khi anchor hiện không có node lưới (bị trần từ chối lúc lên lịch dựng).
                     self.wireGeos[id] = built.wire
+                    // Key coverage TƯƠI theo geometry mới; bỏ memo "đã phủ" của anchor này —
+                    // anchor PHÌNH sang vùng chưa chụp mà giữ memo là trắng nói dối đúng
+                    // chỗ đang quét dở. retint nhịp kế (≤0.5s) đo lại bằng key mới.
+                    self.anchorCoverageKeys[id] = built.coverageKeys
+                    self.coveredAnchors.remove(id)
                     if let node = self.anchorNodes[id] {
                         // Chọn vật liệu NGAY khi gán geometry mới — không đợi retint 0.5s.
                         // (makeGeometries gán trắng mặc định; anchor ĐỎ đang được ARKit cập
@@ -626,6 +658,15 @@ final class MeshOverlayRenderer: NSObject {
 
     /// Tô lại lưới theo dữ liệu xuất thật: anchor chưa vào bộ tích lũy sau thời gian ân hạn
     /// → ĐỎ. So sánh identity vật liệu nên vòng lặp gần như miễn phí khi không đổi trạng thái.
+    ///
+    /// Item 2 (03/08): thêm lượt GIẤU/HIỆN theo ảnh chụp. Anchor "sẽ trắng" (đã ghi hoặc
+    /// đang ân hạn) mà CHƯA đủ ảnh → ẩn cả node lưới LẪN mask depth: phủ đỏ hiện lại =
+    /// "chưa xong chỗ này" (chủ app chọn không thêm màu). Anchor ĐỎ không bao giờ bị giấu —
+    /// vai mất-dữ-liệu phải luôn nhìn thấy. Đi theo SỔ MASK (superset: anchor bị evict
+    /// wire vẫn còn mask đang khoét phủ đỏ — mask trắng oan là vùng thiếu ảnh trông như
+    /// xong). Khi `maskingDisabled` (mô hình đầy, tint đã tắt hẳn) coverage NGỪNG áp:
+    /// giấu lưới lúc không còn tấm phủ chỉ làm mất nốt tín hiệu — `disableMasking` đã
+    /// hiện lại mọi node.
     private func retintForRecording() {
         guard let recorded = recordedCounts?() else { return }
         for (id, node) in anchorNodes {
@@ -635,6 +676,31 @@ final class MeshOverlayRenderer: NSObject {
                 geometry.materials = [material]
             }
         }
+        guard !maskingDisabled, let grid = photoCoverage?() else { return }
+        for (id, mask) in maskNodes {
+            let wouldBeWhite = materialFor(id, recorded: recorded) === Self.wireframeMaterial
+            let hide = wouldBeWhite && !coveredForPhotos(id, grid: grid)
+            if mask.isHidden != hide { mask.isHidden = hide }
+            if let node = anchorNodes[id], node.isHidden != hide { node.isHidden = hide }
+        }
+    }
+
+    /// "Đã đủ ảnh" cho một anchor — memo một chiều + ân hạn dùng CHUNG mốc `anchorFirstSeen`
+    /// với vai đỏ (anchor mới có 1.5s để ảnh kịp lưu, không thì mọi lưới mới đều chớp
+    /// ẩn→hiện). Chưa có key mẫu (bản dựng đầu còn bay) = coi như đủ — thà trắng sớm 0.5–1.5s
+    /// còn hơn chớp; key về là nhịp sau đo thật.
+    private func coveredForPhotos(_ id: UUID, grid: TextureCoverageGrid) -> Bool {
+        if coveredAnchors.contains(id) { return true }
+        if lastFrameTimestamp - (anchorFirstSeen[id] ?? lastFrameTimestamp) < 1.5 {
+            return true
+        }
+        guard let keys = anchorCoverageKeys[id], !keys.isEmpty else { return true }
+        let need = max(1, Int((Float(keys.count) * Self.coverageMinFraction).rounded(.up)))
+        if grid.containedCount(of: keys) >= need {
+            coveredAnchors.insert(id)
+            return true
+        }
+        return false
     }
 
     /// Nhả PHẦN LƯỚI của các vùng XA camera hơn `dist` (xa nhất trước) cho tới khi đủ chỗ cho
@@ -689,6 +755,8 @@ final class MeshOverlayRenderer: NSObject {
         }
         wireGeos.removeValue(forKey: id)
         anchorSigs.removeValue(forKey: id)
+        anchorCoverageKeys.removeValue(forKey: id)
+        coveredAnchors.remove(id)
         // Anchor chết giữa đợt dựng lại vẫn phải rời sổ, không thì cổng tấm phủ kẹt mãi —
         // và nếu nó là thành viên CUỐI thì phải mở cổng luôn tại đây, vì sẽ không còn
         // completion nào về để làm việc đó.
@@ -731,16 +799,25 @@ final class MeshOverlayRenderer: NSObject {
             entry.node.removeFromParentNode()
         }
         dyingMasks.removeAll()
+        // Item 2: coverage ngừng áp từ đây (tint đã tắt, giấu lưới chỉ mất nốt tín hiệu) —
+        // HIỆN LẠI node đã giấu, không thì cờ isHidden mắc kẹt vĩnh viễn (vòng giấu/hiện
+        // trong retint đi theo sổ mask, mà sổ vừa bị xoá sạch).
+        for node in anchorNodes.values where node.isHidden {
+            node.isHidden = false
+        }
     }
 
     /// Dựng CẶP geometry từ dữ liệu ĐÃ copy (chạy ở luồng nền — không đụng buffer của ARKit
     /// nữa): `wire` là lưới nhìn thấy, `mask` là bản fill chỉ-ghi-depth để khoét lớp phủ đỏ.
     /// Hai geometry DÙNG CHUNG source/element (bất biến, SceneKit cho phép chia sẻ) nên bản
     /// thứ hai gần như miễn phí về bộ nhớ.
+    /// `coverageKeys` (item 2): ~32 đỉnh mẫu rải đều → world qua `transform` → voxel-key,
+    /// tính luôn ở nền để main chỉ còn tra Set khi đo "đã đủ ảnh".
     private static func makeGeometries(
         vBytes: Data, vCount: Int, vStride: Int,
-        iBytes: Data, faceCount: Int, bytesPerIndex: Int
-    ) -> (wire: SCNGeometry, mask: SCNGeometry)? {
+        iBytes: Data, faceCount: Int, bytesPerIndex: Int,
+        transform: simd_float4x4
+    ) -> (wire: SCNGeometry, mask: SCNGeometry, coverageKeys: [Int64])? {
         guard vCount > 0, faceCount > 0 else { return nil }
 
         var verts = [SCNVector3]()
@@ -757,6 +834,18 @@ final class MeshOverlayRenderer: NSObject {
         }
         guard !verts.isEmpty else { return nil }
 
+        var coverageKeys: [Int64] = []
+        let sampleStep = max(1, verts.count / 32)
+        var si = sampleStep / 2
+        while si < verts.count {
+            let v = verts[si]
+            let w = transform * SIMD4<Float>(v.x, v.y, v.z, 1)
+            if w.x.isFinite, w.y.isFinite, w.z.isFinite {
+                coverageKeys.append(TextureCoverageGrid.key(SIMD3(w.x, w.y, w.z)))
+            }
+            si += sampleStep
+        }
+
         let element = SCNGeometryElement(
             data: iBytes, primitiveType: .triangles,
             primitiveCount: faceCount, bytesPerIndex: bytesPerIndex
@@ -766,7 +855,7 @@ final class MeshOverlayRenderer: NSObject {
         wire.materials = [Self.wireframeMaterial]
         let mask = SCNGeometry(sources: [source], elements: [element])
         mask.materials = [Self.depthMaskMaterial]
-        return (wire: wire, mask: mask)
+        return (wire: wire, mask: mask, coverageKeys: coverageKeys)
     }
 }
 

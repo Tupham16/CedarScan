@@ -31,6 +31,9 @@ struct ARCameraViewRepresentable: UIViewRepresentable {
     var showMesh: Bool = false
     /// Đưa vào từ mesh mode để lưới tô trung thực (trắng = đã ghi, đỏ = chưa); RoomPlan để nil.
     var recordedCounts: (() -> [UUID: Int])? = nil
+    /// Lưới coverage ảnh texture (item 2): trắng còn cần "chỗ này ĐÃ CÓ ẢNH LƯU".
+    /// nil (RoomPlan/không recorder) = hành vi cũ nguyên vẹn.
+    var photoCoverage: (() -> TextureCoverageGrid?)? = nil
 
     func makeCoordinator() -> Coordinator { Coordinator() }
 
@@ -59,6 +62,7 @@ struct ARCameraViewRepresentable: UIViewRepresentable {
 
         let renderer = MeshOverlayRenderer(arSession: arSession, maxVerts: meshMaxVerts)
         renderer.recordedCounts = recordedCounts
+        renderer.photoCoverage = photoCoverage
         renderer.attach(to: view)
         renderer.setVisible(showMesh)
         context.coordinator.renderer = renderer
@@ -68,6 +72,7 @@ struct ARCameraViewRepresentable: UIViewRepresentable {
     func updateUIView(_ uiView: ARSCNView, context: Context) {
         guard let renderer = context.coordinator.renderer else { return }
         renderer.recordedCounts = recordedCounts
+        renderer.photoCoverage = photoCoverage
         renderer.setVisible(showMesh)
     }
 
