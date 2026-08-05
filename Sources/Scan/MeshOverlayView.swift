@@ -215,78 +215,13 @@ final class MeshOverlayRenderer: NSObject {
     private var anchorCoverageKeys: [UUID: [Int64]] = [:]
     /// Memo MỘT CHIỀU anchor đã đủ ảnh — tập voxel chỉ PHÌNH nên trắng rồi là trắng luôn
     /// (không nhấp nháy), và mỗi nhịp chỉ còn phải đo anchor CHƯA phủ.
-    /// ⚠ Memo này BỊ XOÁ mỗi lần anchor dựng lại (xem chỗ gán `anchorCoverageKeys`) — cố ý,
-    /// nhưng chính vì vậy mà cần `everCovered` bên dưới, đọc chú thích đó trước khi đụng.
     private var coveredAnchors: Set<UUID> = []
-    /// 🔴 SỔ TRỄ "anchor này ĐÃ TỪNG đạt trắng" — KHÔNG bị xoá khi dựng lại (khác
-    /// `coveredAnchors`). Sinh ra để trị lỗi chủ app báo 05/08: *"một số khu vực đã hiện lưới
-    /// trắng nhưng ngay lập tức quay lại đỏ, phải để máy vài giây mới trắng lại"*.
-    /// Cơ chế đã truy: ARKit tinh chỉnh anchor liên tục ở vùng đang nhìn → mỗi lần đổi chữ ký
-    /// là rebuild → rebuild XOÁ memo → verdict được GIEO LẠI từ một mẫu ~32 ĐỈNH KHÁC.
-    /// Với độ phủ thật ~80%, sai số chuẩn của mẫu 32 điểm là ~7% → ước lượng dao động
-    /// ~73–87% quanh ngưỡng 0.75, tức là TUNG ĐỒNG XU mỗi ~0.5–1s. Cộng thêm ca anchor phình
-    /// thật sang vùng chưa chụp. Cả hai cho đúng triệu chứng trắng→đỏ→(vài giây)→trắng.
-    /// Cách trị = TRỄ (hysteresis), không phải hạ ngưỡng: đã trắng thì chỉ mất trắng khi tụt
-    /// hẳn xuống dưới `coverageKeepFraction`, còn nhiễu lấy mẫu quanh 0.75 không lật được nữa.
-    /// ✗ thay bằng "giữ memo luôn, đừng xoá": anchor phình sang vùng chưa chụp sẽ trắng nói
-    /// dối vĩnh viễn — chính là thứ dòng `coveredAnchors.remove(id)` được đặt ra để chặn.
-    private var everCovered: Set<UUID> = []
-    /// X% mẫu đỉnh phải nằm trong voxel có ảnh để LÊN trắng. 0.75 theo plan (dải 70–85) —
-    /// chỉnh bằng mắt trên máy thật nếu chớp trắng↔đỏ ở mép vùng đang quét.
+    /// X% mẫu đỉnh phải nằm trong voxel có ảnh. 0.75 theo plan (dải 70–85) — chỉnh bằng
+    /// mắt trên máy thật nếu chớp trắng↔đỏ ở mép vùng đang quét.
     private static let coverageMinFraction: Float = 0.75
-    /// Ngưỡng GIỮ trắng của anchor đã từng trắng (`everCovered`). 0.55 = dưới 0.75 gần 3 lần
-    /// sai số chuẩn của mẫu 32 điểm → nhiễu lấy mẫu KHÔNG lật được, mà anchor phình thật sang
-    /// vùng chưa chụp (mất >45% mẫu) thì VẪN tụt về đỏ đúng vai "đỏ = chắc thiếu".
-    /// ✗ nâng sát 0.75 (mất tác dụng trễ) · ✗ hạ về 0 (thành "trắng vĩnh viễn").
-    private static let coverageKeepFraction: Float = 0.55
-    /// 🔴 Mốc lần CHẾT gần nhất của một anchor ĐÃ TỪNG trắng — dấu vân tay của ca ARKit GỘP
-    /// anchor (bản cũ biến mất + bản thay thế sinh ra CÙNG frame, xem chú `dyingMasks`).
-    /// Vấn đề (chủ app vẫn thấy chớp sau vá `2651968`): bản thay thế mang id MỚI nên mất
-    /// sạch sổ trễ `everCovered` → đo lần đầu ở ngưỡng ĐẦY 0.75, mà vùng GỘP thường kèm
-    /// phần chưa chụp → 55–74% = TRẮNG ĐÃ XÁC NHẬN nhảy về đỏ, phải đứng chụp thêm vài
-    /// giây (1 ảnh/≥1,2s) mới leo lại 0.75. Vá: trong `coverageMergeWindow` giây sau một
-    /// covered-death, anchor CHƯA-trắng cũng được chấm ở ngưỡng GIỮ — vùng gộp ≥55% phủ
-    /// thì trắng liền mạch, dưới 55% vẫn đỏ thật thà.
-    /// Chấp nhận hẹp: anchor MỚI TINH sinh trong đúng cửa sổ 3s đó mà phủ sẵn 55–74% cũng
-    /// lên trắng sớm — hiếm (covered-death xảy ra ở vùng CHÍN, không ở mép đang quét) và
-    /// vùng như vậy vốn đã chụp 2/3 rồi.
-    private var lastCoveredDeathAt: TimeInterval = -.infinity
-    /// Cửa sổ nhận thừa kế: trễ completion của bản dựng thay thế (0.1–1.5s khi queue dồn)
-    /// + nhịp retint 0.5s, dư ra chút. Cùng bậc với `dyingMasks` 1.5s, dài hơn có chủ đích.
-    private static let coverageMergeWindow: TimeInterval = 3.0
-
-    // 🔴 DEBOUNCE TRẮNG→ĐỎ (05/08 tối — chủ app vẫn thấy chớp SAU cả ba vá ngưỡng/thừa kế,
-    // và chốt yêu cầu ở tầng TRẢI NGHIỆM: "khách hàng nhìn vậy sẽ đánh giá app có vấn đề").
-    // Đổi chiến lược: không đuổi bắt từng cơ chế tụt-điểm nữa (đã bịt 3, còn lại là tổ hợp
-    // ARKit gộp/phình + độ trễ builder + nhiễu mẫu — không liệt kê hết được). Thay vào đó:
-    // TRẮNG ĐANG HIỆN chỉ được phép rơi về đỏ khi phán quyết "thiếu" đứng vững LIÊN TỤC đủ
-    // lâu. Tụt thoáng qua (nguồn nào cũng vậy) tự lành trong im lặng — khách không thấy gì.
-    // Ngữ nghĩa GIỮ NGUYÊN: chỗ thật sự thiếu ảnh VẪN đỏ, chỉ trễ `photoRedGraceSec`;
-    // "đỏ = chắc thiếu" nay đúng theo cả nghĩa đen — app phải CHẮC rồi mới nói.
-    /// Anchor đang trắng đo trượt lần đầu lúc nào — trắng giữ tới khi trượt LIÊN TỤC quá
-    /// `photoRedGraceSec`. Đo ĐẠT một lần là xoá mốc (đồng hồ chạy lại từ đầu ở cú tụt sau).
-    private var photoRedSince: [UUID: TimeInterval] = [:]
-    /// 5s = đủ cho 2–4 ảnh lấp vùng gộp/phình (nhịp chụp 1,2–2,4s + mark lúc bấm máy);
-    /// đo thật chủ app thấy hồi phục "vài giây". Chỗ thiếu thật thì đỏ hiện sau 5s và ĐỨNG —
-    /// lượt soát cuối buổi vẫn bắt được. ✗ nâng quá ~8s: đỏ thành tin cũ, người quét đã rời đi.
-    private static let photoRedGraceSec: TimeInterval = 5.0
-    /// Sàn cho anchor GỘP chưa từng trắng được hưởng debounce trong cửa sổ merge: union
-    /// ≥35% phủ = chắc chắn con của vùng đã chụp (mảnh mới toanh ở mép chỉ 0–20%) → cho 5s
-    /// lấp nốt thay vì đỏ tức thì. Dưới sàn = mép thật → đỏ ngay, giữ thật thà.
-    private static let mergeDebounceMinFraction: Float = 0.35
-    /// Cùng khuôn cho vai ĐÃ GHI (`materialFor`): anchor CÓ dữ liệu trong file mà tỉ lệ tụt
-    /// dưới 0.85 (ARKit vừa phình nó, builder 2–5Hz chưa gom kịp) — nhịn `recordRedGraceSec`
-    /// rồi mới tô đỏ. Anchor saved==0 (chưa từng vào file / bị trần chặn từ đầu) KHÔNG được
-    /// nhịn — đó là tín hiệu mất-dữ-liệu thật, phải hiện ngay.
-    private var recordRedSince: [UUID: TimeInterval] = [:]
-    /// 2s ≈ 4 lần trễ tối đa của một vòng builder — đủ nuốt cú gom trễ, đủ ngắn để anchor
-    /// kẹt trần (saved đứng yên, shown phình) vẫn báo đỏ gần như tức thì theo cảm nhận.
-    private static let recordRedGraceSec: TimeInterval = 2.0
     /// Thời điểm anchor xuất hiện lần đầu — anchor mới được "ân hạn" 1.5s trước khi bị tô
     /// đỏ (builder tick 2–5Hz cần chút thời gian gom; không có ân hạn thì lưới mới nào
     /// cũng chớp đỏ rồi mới trắng, nhìn như lỗi).
-    /// ⚠ CHỈ vai ĐỎ (`materialFor`) còn dùng mốc này. Vai ẢNH (`coveredForPhotos`) đã BỎ ân
-    /// hạn 05/08 — lý do đầy đủ ghi trong hàm đó, ✗ nối lại "cho nhất quán".
     private var anchorFirstSeen: [UUID: TimeInterval] = [:]
     /// Timestamp frame gần nhất — cho materialFor dùng được cả ngoài updateMeshes
     /// (closure gán geometry ở main.async không còn frame trong scope).
@@ -404,10 +339,6 @@ final class MeshOverlayRenderer: NSObject {
         anchorFirstSeen.removeAll()
         anchorCoverageKeys.removeAll()
         coveredAnchors.removeAll()
-        everCovered.removeAll()
-        lastCoveredDeathAt = -.infinity
-        photoRedSince.removeAll()
-        recordRedSince.removeAll()
         inFlight.removeAll()
         totalVerts = 0
         maskVerts = 0
@@ -674,10 +605,6 @@ final class MeshOverlayRenderer: NSObject {
                     // Key coverage TƯƠI theo geometry mới; bỏ memo "đã phủ" của anchor này —
                     // anchor PHÌNH sang vùng chưa chụp mà giữ memo là trắng nói dối đúng
                     // chỗ đang quét dở. retint nhịp kế (≤0.5s) đo lại bằng key mới.
-                    // 🔴 CHỈ xoá `coveredAnchors`, ✗ `everCovered`: sổ kia là thứ duy nhất
-                    // nhớ "anchor này đã từng trắng" nên phép đo lại được chấm ở NGƯỠNG GIỮ.
-                    // Xoá cả hai = quay lại đúng lỗi chớp trắng→đỏ mỗi lần ARKit tinh chỉnh
-                    // anchor (chủ app báo 05/08) — đọc chú thích `everCovered` trước khi sửa.
                     self.anchorCoverageKeys[id] = built.coverageKeys
                     self.coveredAnchors.remove(id)
                     if let node = self.anchorNodes[id] {
@@ -726,24 +653,7 @@ final class MeshOverlayRenderer: NSObject {
         let shown = anchorSigs[id]?.v ?? 0
         let saved = recorded[id] ?? 0
         let isRecorded = saved > 0 && (shown == 0 || Float(saved) >= Float(shown) * 0.85)
-        if isRecorded {
-            recordRedSince.removeValue(forKey: id)
-            return Self.wireframeMaterial
-        }
-        // Tụt dưới 0.85 nhưng CÓ dữ liệu trong file = gần như chắc chắn ARKit vừa phình
-        // anchor mà builder chưa gom kịp (một vòng tick, ≤~0.5s) — nhịn `recordRedGraceSec`
-        // trước khi tô đỏ, cùng triết lý `photoRedSince`. Kẹt trần thật thì saved đứng yên
-        // → hết nhịn là đỏ và ĐỨNG. saved==0 không nhịn: chưa từng vào file là thiếu thật.
-        if saved > 0 {
-            let since = recordRedSince[id] ?? lastFrameTimestamp
-            recordRedSince[id] = since
-            if lastFrameTimestamp - since < Self.recordRedGraceSec {
-                return Self.wireframeMaterial
-            }
-        } else {
-            recordRedSince.removeValue(forKey: id)
-        }
-        return Self.unrecordedMaterial
+        return isRecorded ? Self.wireframeMaterial : Self.unrecordedMaterial
     }
 
     /// Tô lại lưới theo dữ liệu xuất thật: anchor chưa vào bộ tích lũy sau thời gian ân hạn
@@ -775,64 +685,21 @@ final class MeshOverlayRenderer: NSObject {
         }
     }
 
-    /// "Đã đủ ảnh" cho một anchor — memo một chiều. Chưa có key mẫu (bản dựng đầu còn bay)
-    /// = coi như đủ; ca đó anchor CHƯA có hình học nào (wire lẫn mask đều nhận geometry ở
-    /// completion) nên phán quyết không vẽ ra pixel nào — vùng đó vẫn đang là ĐỎ vì mask
-    /// chưa khoét được. Key về là nhịp sau đo thật.
-    ///
-    /// 🔴 ✗ THÊM LẠI ÂN HẠN "COI NHƯ CÓ ẢNH" CHO ANCHOR MỚI (đã gỡ 05/08 — lỗi chủ app báo:
-    /// *"khu vực đã hiện lưới trắng nhưng ngay lập tức quay lại đỏ, phải để máy vài giây mới
-    /// trắng lại"*). KHÁC với debounce `photoRedSince` bên dưới: debounce nhịn chiều
-    /// TRẮNG→ĐỎ của anchor ĐÃ chứng minh có ảnh; ân hạn cũ TẶNG trắng cho anchor CHƯA
-    /// chứng minh gì. Một cái chống chớp, một cái tạo chớp.
-    /// Đời cũ dùng chung mốc `anchorFirstSeen` 1.5s với vai đỏ. Nhưng hai vai KHÁC BẢN CHẤT:
-    ///  · `materialFor` ân hạn = "builder 2–5Hz chưa kịp GHI anchor mới" — trễ thật, vài
-    ///    trăm ms, ân hạn là đúng (VẪN GIỮ, xem hàm đó).
-    ///  · ở đây ân hạn = "coi như CHỖ NÀY ĐÃ CÓ ẢNH" trong khi có thể chưa chụp phút nào.
-    /// Hai ân hạn cộng lại: MỌI anchor mới đều trắng 1,5s rồi rơi về đỏ — đúng cái chớp
-    /// người quét thấy. Bỏ ân hạn ở vai ảnh thì chuỗi thành ĐỎ → trắng, một chiều, không
-    /// chớp; và KHÔNG sinh chớp ngược lại (trước khi có geometry vùng đó vốn đã đỏ sẵn).
-    ///
-    /// 🔴 NGƯỠNG KÉP (cùng đợt, xem `everCovered`): LÊN trắng cần `coverageMinFraction`,
-    /// GIỮ trắng chỉ cần `coverageKeepFraction`. Anchor tụt dưới cả ngưỡng giữ thì rời
-    /// `everCovered` → lần sau phải leo lại từ ngưỡng ĐẦY (✗ để nó giữ ngưỡng thấp vĩnh
-    /// viễn sau một lần trượt).
+    /// "Đã đủ ảnh" cho một anchor — memo một chiều + ân hạn dùng CHUNG mốc `anchorFirstSeen`
+    /// với vai đỏ (anchor mới có 1.5s để ảnh kịp lưu, không thì mọi lưới mới đều chớp
+    /// ẩn→hiện). Chưa có key mẫu (bản dựng đầu còn bay) = coi như đủ — thà trắng sớm 0.5–1.5s
+    /// còn hơn chớp; key về là nhịp sau đo thật.
     private func coveredForPhotos(_ id: UUID, grid: TextureCoverageGrid) -> Bool {
         if coveredAnchors.contains(id) { return true }
-        guard let keys = anchorCoverageKeys[id], !keys.isEmpty else { return true }
-        // Ngưỡng GIỮ áp cho: (1) anchor đã từng trắng, (2) anchor bất kỳ trong cửa sổ
-        // sau một covered-death — thừa kế qua ca ARKit GỘP anchor (id mới, mất sổ trễ);
-        // xem chú `lastCoveredDeathAt`.
-        let inMergeWindow = lastFrameTimestamp - lastCoveredDeathAt < Self.coverageMergeWindow
-        // Đồng hồ nhịn đang chạy cũng giữ ngưỡng THẤP: cửa sổ merge 3s có thể đóng giữa lúc
-        // debounce 5s còn nhịn — không giữ thì bar tự nhảy 0.55→0.75 ngay lúc anchor đang
-        // lấp nốt ảnh, hồi phục thành bất khả thi một cách vô lý.
-        let bar = (everCovered.contains(id) || inMergeWindow || photoRedSince[id] != nil)
-            ? Self.coverageKeepFraction : Self.coverageMinFraction
-        let need = max(1, Int((Float(keys.count) * bar).rounded(.up)))
-        let hit = grid.containedCount(of: keys)
-        if hit >= need {
-            coveredAnchors.insert(id)
-            everCovered.insert(id)
-            photoRedSince.removeValue(forKey: id)
+        if lastFrameTimestamp - (anchorFirstSeen[id] ?? lastFrameTimestamp) < 1.5 {
             return true
         }
-        // Trượt — nhưng TRẮNG ĐANG HIỆN không được rơi ngay (xem chú `photoRedSince`).
-        // Đủ điều kiện nhịn: đã từng trắng · đồng hồ nhịn đang chạy (giữ mạch qua lúc
-        // cửa sổ merge đóng giữa chừng) · anchor gộp đủ sàn kế thừa trong cửa sổ merge.
-        let eligible = everCovered.contains(id)
-            || photoRedSince[id] != nil
-            || (inMergeWindow
-                && Float(hit) >= Float(keys.count) * Self.mergeDebounceMinFraction)
-        if eligible {
-            let since = photoRedSince[id] ?? lastFrameTimestamp
-            photoRedSince[id] = since
-            if lastFrameTimestamp - since < Self.photoRedGraceSec { return true }
+        guard let keys = anchorCoverageKeys[id], !keys.isEmpty else { return true }
+        let need = max(1, Int((Float(keys.count) * Self.coverageMinFraction).rounded(.up)))
+        if grid.containedCount(of: keys) >= need {
+            coveredAnchors.insert(id)
+            return true
         }
-        // Hết nhịn (hoặc chưa từng trắng): đỏ thật. Rời sổ trễ = lần sau muốn trắng phải
-        // leo lại từ ngưỡng ĐẦY 0.75; đồng hồ nhịn cũng xoá (đợt tụt sau đếm lại từ đầu).
-        everCovered.remove(id)
-        photoRedSince.removeValue(forKey: id)
         return false
     }
 
@@ -890,13 +757,6 @@ final class MeshOverlayRenderer: NSObject {
         anchorSigs.removeValue(forKey: id)
         anchorCoverageKeys.removeValue(forKey: id)
         coveredAnchors.remove(id)
-        // Anchor TRẮNG chết = gần như chắc chắn ARKit vừa GỘP nó vào một anchor mới —
-        // mở cửa sổ thừa kế ngưỡng GIỮ cho bản thay thế (xem `lastCoveredDeathAt`).
-        if everCovered.remove(id) != nil {
-            lastCoveredDeathAt = lastFrameTimestamp
-        }
-        photoRedSince.removeValue(forKey: id)
-        recordRedSince.removeValue(forKey: id)
         // Anchor chết giữa đợt dựng lại vẫn phải rời sổ, không thì cổng tấm phủ kẹt mãi —
         // và nếu nó là thành viên CUỐI thì phải mở cổng luôn tại đây, vì sẽ không còn
         // completion nào về để làm việc đó.
