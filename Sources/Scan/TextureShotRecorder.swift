@@ -10,10 +10,15 @@ import simd
 /// "bản GIAO chỗ này sẽ CÓ ẢNH", không thêm màu mới; trước đây trắng chỉ nói mesh ARKit
 /// đã vào file — người quét tưởng đủ mà bản giao bị thủng texture ở chỗ lia nhanh).
 ///
-/// Ghi: ioQueue của TextureShotRecorder, SAU khi JPEG đã nằm trên đĩa (một khung được
-/// "đếm" đúng lúc nó chắc chắn đi theo zip). Đọc: main (MeshOverlayRenderer, nhịp 0.5s).
-/// NSLock — critical section vài µs, ~2 lần khoá mỗi giây khi quét + ~600 lần đọc/0.5s
-/// lúc đầu buổi (giảm dần vì renderer memo anchor đã phủ — tập voxel CHỈ PHÌNH).
+/// Ghi: MAIN, trong tick của TextureShotRecorder, NGAY LÚC BẤM MÁY — 🔴 đổi từ
+/// PLAN-LUOI-TRANG-NHANH mục 1; TRƯỚC ĐÂY ghi trên ioQueue SAU khi JPEG nằm trên đĩa, và
+/// chính quãng chờ hàng-đợi-ghi (0,1–0,5s, hơn nữa khi nghẽn I/O) là một phần độ trễ lưới
+/// trắng mà chủ app phàn nàn. Đánh đổi ĐÃ DUYỆT: ghi ảnh hỏng để lại voxel đã đánh dấu.
+/// Đọc: main (MeshOverlayRenderer, nhịp 0.5s) — nay CẢ HAI chiều đều trên main nên NSLock
+/// gần như không tranh chấp; ✗ bỏ khoá (là bất biến của lớp, người sau có thể gọi từ nền)
+/// và ✗ thêm khoá thứ hai ở call site. Critical section vài µs, ~1 lần khoá ghi mỗi 1,2s
+/// khi quét + ~600 lần đọc/0.5s lúc đầu buổi (giảm dần vì renderer memo anchor đã phủ —
+/// tập voxel CHỈ PHÌNH).
 /// ⚠ thinOnDisk KHÔNG gỡ voxel của ảnh bị thưa: ảnh giữ lại (xen kẽ trên cùng đường đi)
 /// phủ gần y vùng đó, và gỡ cần sổ voxel-theo-shot — không đáng độ phức tạp.
 final class TextureCoverageGrid {
@@ -31,6 +36,12 @@ final class TextureCoverageGrid {
         return (x & 0x1F_FFFF) | ((y & 0x1F_FFFF) << 21) | ((z & 0x1F_FFFF) << 42)
     }
 
+    /// Lưới lấy mẫu trên depth map 256×192 → bước 4px mỗi trục (PLAN-LUOI-TRANG-NHANH mục 2,
+    /// trước là 32×24 = bước 8px). MỘT chỗ khai để chú thích và `reserveCapacity` không thể
+    /// lệch khỏi vòng lặp.
+    private static let sampleCols = 64
+    private static let sampleRows = 48
+
     /// Voxel chứa điểm + 6 voxel kề mặt — nới lúc GHI để mẫu đỉnh mesh rơi sát vách voxel
     /// không trượt oan; nhờ vậy bên đọc chỉ cần 1 lookup/mẫu.
     private static let dilation: [SIMD3<Float>] = [
@@ -40,8 +51,16 @@ final class TextureCoverageGrid {
         SIMD3(0, 0, voxelSize), SIMD3(0, 0, -voxelSize),
     ]
 
-    /// Đánh dấu vùng một khung ĐÃ LƯU nhìn thấy: chiếu lưới thưa ~32×24 của depth map
-    /// (256×192) ra world rồi cắm voxel. Chạy trên ioQueue (~vài trăm µs), KHÔNG đụng main.
+    /// Đánh dấu vùng một khung VỪA CHỤP nhìn thấy: chiếu lưới 64×48 của depth map
+    /// (256×192) ra world rồi cắm voxel.
+    /// 🔴 Chạy trên MAIN ngay lúc bấm máy (PLAN-LUOI-TRANG-NHANH mục 1), ✗ chờ ảnh xuống
+    /// đĩa: hàng đợi ghi trễ 0,1–0,5s (hơn nữa khi nghẽn I/O) là lưới trắng chậm đúng ngần
+    /// ấy. Giá phải trả ĐÃ DUYỆT: ghi ảnh hỏng để lại voxel đã đánh dấu (hiếm — đĩa đầy là
+    /// vấn đề lớn hơn). Khoá NSLock của chính lớp này phủ luôn đường ghi mới → ✗ thêm khoá
+    /// thứ hai ở call site.
+    /// Lưới 64×48 (PLAN mục 2, trước là 32×24): thưa quá thì mảng tường đo hụt, kẹt ~74%
+    /// dưới ngưỡng 75% của overlay và phải CHỜ ẢNH SAU mới đủ — dày lên là hết chờ oan.
+    /// ~3k phép chiếu + ~21k key/shot, vài ms trên main, mỗi shot cách nhau ≥1,2s.
     /// Depth không hữu hạn / ngoài 0.25–3.5m (dải tin được của LiDAR, cùng fuse.py) thì bỏ.
     /// fx/fy/cx/cy là intrinsics THEO ẢNH LƯU (đúng thứ nằm trong ShotMeta) — scale về lưới
     /// depth bằng dw/w, dh/h y như ghi chú shots.json dạy máy trạm.
@@ -56,11 +75,11 @@ final class TextureCoverageGrid {
         let dcy = cy * sy
         guard dfx > 0, dfy > 0 else { return }
         var keys: [Int64] = []
-        keys.reserveCapacity((32 + 1) * (24 + 1) * Self.dilation.count)
+        keys.reserveCapacity((Self.sampleCols + 1) * (Self.sampleRows + 1) * Self.dilation.count)
         depthRaw.withUnsafeBytes { (raw: UnsafeRawBufferPointer) in
             guard let base = raw.baseAddress?.assumingMemoryBound(to: Float32.self) else { return }
-            let stepU = max(1, dw / 32)
-            let stepV = max(1, dh / 24)
+            let stepU = max(1, dw / Self.sampleCols)
+            let stepV = max(1, dh / Self.sampleRows)
             var v = stepV / 2
             while v < dh {
                 var u = stepU / 2
@@ -121,8 +140,10 @@ final class TextureCoverageGrid {
 ///    của ARKit qua async — pool của ARKit rất nhỏ, giữ lâu là tracking sụt), nén JPEG
 ///    + DEFLATE depth + ghi đĩa ở queue nền.
 ///  - Kho đầy (480 ảnh ≈ 90–100MB + depth ~15–25MB): BỎ 1 ẢNH XEN KẼ TRÊN ĐĨA (kèm file
-///    depth của nó) rồi nhân đôi giãn cách — đúng cơ chế trải-đều của kho khung màu,
-///    nhưng trả giá bằng đĩa (rẻ) thay vì RAM.
+///    depth của nó) rồi nhân đôi giãn cách NHƯNG KẸP Ở `maxInterval` 2,4s — đúng cơ chế
+///    trải-đều của kho khung màu, nhưng trả giá bằng đĩa (rẻ) thay vì RAM. Vì có trần
+///    nhịp, buổi dài đi qua vòng thưa-bớt NHIỀU LẦN HƠN (mỗi ~9,6' thay vì thưa dần vô
+///    hạn) — ảnh giữ lại vẫn trải ĐỀU trên trục thời gian (loại xen kẽ = lấy mẫu đều).
 ///  - Ảnh giữ NGUYÊN HƯỚNG CẢM BIẾN (landscape) — không xoay pixel, không gắn EXIF:
 ///    intrinsics của ARKit tham chiếu đúng lưới pixel đó, xoay ảnh là phải xoay cả
 ///    intrinsics (chỗ sai kinh điển, lộ ra thành texture lệch toàn bộ mà không ai bắt được
@@ -137,8 +158,15 @@ final class TextureShotRecorder {
     /// kho 480 ảnh ~50MB (960/q0.62) → ~90–100MB thay vì ~110MB, nằm trong mức
     /// "+50–60MB zip" chủ app duyệt. Độ nét ăn theo RESOLUTION, không theo nấc q này.
     private static let jpegQuality: Double = 0.55
-    /// Giãn cách TỐI THIỂU giữa hai ảnh (giây) — nhân đôi mỗi lần kho đầy.
+    /// Giãn cách TỐI THIỂU giữa hai ảnh (giây) — nhân đôi mỗi lần kho đầy, KẸP ở `maxInterval`.
     private static let startInterval: TimeInterval = 1.2
+    /// 🔴 TRẦN của nhịp giãn-đôi (PLAN-LUOI-TRANG-NHANH mục 3). Trước đây nhân đôi VÔ HẠN
+    /// (1,2 → 2,4 → 4,8 → 9,6s): chủ app ĐO ĐƯỢC kho 480 đầy ở phút ~10 của buổi quét bình
+    /// thường, nên NỬA SAU mọi buổi quét thật xác nhận lưới trắng chậm gấp 2–8 lần. Kẹp 2,4s
+    /// = chậm nhất cũng chỉ gấp đôi, đều từ đầu tới cuối buổi kể cả nhà 20–30'.
+    /// Dung lượng zip KHÔNG do nhịp này giữ — nó do trần ĐẾM `maxShots` + `thinOnDisk` giữ;
+    /// giá phải trả (đã duyệt) là chụp-rồi-bỏ nhiều hơn ở buổi dài ("đĩa rẻ").
+    private static let maxInterval: TimeInterval = 2.4
     /// Ngưỡng "đã sang góc nhìn mới": dịch ≥ 0.4m HOẶC xoay ≥ 25°. Đứng yên một chỗ thì
     /// một ảnh là đủ cho texture — không tốn thêm.
     private static let minTravel: Float = 0.4
@@ -147,10 +175,12 @@ final class TextureShotRecorder {
     /// tick sau. 30°/s chỉ chặn cú vụt mạnh; nhoè nhẹ là "noise chấp nhận được" của lối
     /// texture này (chính chủ app mô tả CubiCasa y hệt).
     private static let maxTurnRateDegPerSec: Float = 30
-    /// Trần số ảnh trên đĩa. Chạm là bỏ xen kẽ còn một nửa + nhân đôi giãn cách —
+    /// Trần số ảnh trên đĩa. Chạm là bỏ xen kẽ còn một nửa + giãn nhịp (kẹp `maxInterval`) —
     /// buổi quét dài bao nhiêu cũng hội tụ dưới ~480 ảnh ≈ 90–100MB (mức 1440/q0.55)
-    /// + depth thô ~15–25MB. ⚠ Trần này GẮN với nhịp giãn-đôi — muốn giảm dung lượng
-    /// thì hạ jpegQuality, ✗ hạ trần (buổi dài sẽ dồn hết ảnh vào phút đầu).
+    /// + depth thô ~15–25MB. 🔴 Từ PLAN-LUOI-TRANG-NHANH, trần ĐẾM này (cùng `thinOnDisk`)
+    /// là thứ DUY NHẤT giữ dung lượng zip — nhịp giãn-đôi đã bị kẹp nên KHÔNG còn gánh vai
+    /// đó nữa. Muốn giảm dung lượng thì hạ jpegQuality, ✗ hạ trần (buổi dài sẽ dồn hết ảnh
+    /// vào phút đầu).
     private static let maxShots = 480
     /// Còn quá nhiều ảnh chờ nén thì bỏ lượt này (I/O nghẽn) — không xếp hàng vô hạn.
     private static let maxPendingEncodes = 3
@@ -364,6 +394,18 @@ final class TextureShotRecorder {
         pendingEncodes += 1
         approxShotCount += 1
 
+        // Item 2 coverage (lưới quét đổi TRẮNG theo đây) — đánh dấu NGAY LÚC BẤM, không
+        // chờ JPEG xuống đĩa (PLAN-LUOI-TRANG-NHANH mục 1: hàng đợi ghi là 0,1–0,5s trễ
+        // thuần). Dùng depthRaw vừa chép trên main, KHÔNG phụ thuộc file .depth ghi được
+        // hay không. Không có sceneDepth thì thôi (hiếm; ngưỡng % bên overlay hấp thụ).
+        if let depthRaw {
+            coverage.markShot(
+                depthRaw: depthRaw, dw: depthW, dh: depthH, cam2world: tf,
+                fx: meta.fx, fy: meta.fy, cx: meta.cx, cy: meta.cy,
+                imgW: meta.w, imgH: meta.h
+            )
+        }
+
         let dirURL = shotsDirURL
         let context = ciContext
         ioQueue.async { [weak self] in
@@ -410,17 +452,6 @@ final class TextureShotRecorder {
                     m.dh = nil
                 }
                 self?.metas.append(m)
-                // Item 2: ảnh đã chắc chắn theo zip → đánh dấu vùng nó thấy vào lưới
-                // coverage (lưới quét đổi TRẮNG theo đây). Dùng depthRaw trong RAM —
-                // KHÔNG phụ thuộc file .depth ghi được hay không (ảnh mới là thứ bake
-                // cần). Không có sceneDepth thì thôi (hiếm; ngưỡng % overlay hấp thụ).
-                if let depthRaw {
-                    self?.coverage.markShot(
-                        depthRaw: depthRaw, dw: depthW, dh: depthH, cam2world: tf,
-                        fx: meta.fx, fy: meta.fy, cx: meta.cx, cy: meta.cy,
-                        imgW: meta.w, imgH: meta.h
-                    )
-                }
             }
             DispatchQueue.main.async {
                 guard let self else { return }
@@ -435,7 +466,7 @@ final class TextureShotRecorder {
         // sau mọi lệnh ghi đang chờ — thấy đủ ảnh).
         if approxShotCount >= Self.maxShots {
             approxShotCount = (approxShotCount + 1) / 2
-            minInterval *= 2
+            minInterval = min(Self.maxInterval, minInterval * 2)
             ioQueue.async { [weak self] in
                 self?.thinOnDisk()
             }
