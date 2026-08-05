@@ -215,13 +215,35 @@ final class MeshOverlayRenderer: NSObject {
     private var anchorCoverageKeys: [UUID: [Int64]] = [:]
     /// Memo MỘT CHIỀU anchor đã đủ ảnh — tập voxel chỉ PHÌNH nên trắng rồi là trắng luôn
     /// (không nhấp nháy), và mỗi nhịp chỉ còn phải đo anchor CHƯA phủ.
+    /// ⚠ Memo này BỊ XOÁ mỗi lần anchor dựng lại (xem chỗ gán `anchorCoverageKeys`) — cố ý,
+    /// nhưng chính vì vậy mà cần `everCovered` bên dưới, đọc chú thích đó trước khi đụng.
     private var coveredAnchors: Set<UUID> = []
-    /// X% mẫu đỉnh phải nằm trong voxel có ảnh. 0.75 theo plan (dải 70–85) — chỉnh bằng
-    /// mắt trên máy thật nếu chớp trắng↔đỏ ở mép vùng đang quét.
+    /// 🔴 SỔ TRỄ "anchor này ĐÃ TỪNG đạt trắng" — KHÔNG bị xoá khi dựng lại (khác
+    /// `coveredAnchors`). Sinh ra để trị lỗi chủ app báo 05/08: *"một số khu vực đã hiện lưới
+    /// trắng nhưng ngay lập tức quay lại đỏ, phải để máy vài giây mới trắng lại"*.
+    /// Cơ chế đã truy: ARKit tinh chỉnh anchor liên tục ở vùng đang nhìn → mỗi lần đổi chữ ký
+    /// là rebuild → rebuild XOÁ memo → verdict được GIEO LẠI từ một mẫu ~32 ĐỈNH KHÁC.
+    /// Với độ phủ thật ~80%, sai số chuẩn của mẫu 32 điểm là ~7% → ước lượng dao động
+    /// ~73–87% quanh ngưỡng 0.75, tức là TUNG ĐỒNG XU mỗi ~0.5–1s. Cộng thêm ca anchor phình
+    /// thật sang vùng chưa chụp. Cả hai cho đúng triệu chứng trắng→đỏ→(vài giây)→trắng.
+    /// Cách trị = TRỄ (hysteresis), không phải hạ ngưỡng: đã trắng thì chỉ mất trắng khi tụt
+    /// hẳn xuống dưới `coverageKeepFraction`, còn nhiễu lấy mẫu quanh 0.75 không lật được nữa.
+    /// ✗ thay bằng "giữ memo luôn, đừng xoá": anchor phình sang vùng chưa chụp sẽ trắng nói
+    /// dối vĩnh viễn — chính là thứ dòng `coveredAnchors.remove(id)` được đặt ra để chặn.
+    private var everCovered: Set<UUID> = []
+    /// X% mẫu đỉnh phải nằm trong voxel có ảnh để LÊN trắng. 0.75 theo plan (dải 70–85) —
+    /// chỉnh bằng mắt trên máy thật nếu chớp trắng↔đỏ ở mép vùng đang quét.
     private static let coverageMinFraction: Float = 0.75
+    /// Ngưỡng GIỮ trắng của anchor đã từng trắng (`everCovered`). 0.55 = dưới 0.75 gần 3 lần
+    /// sai số chuẩn của mẫu 32 điểm → nhiễu lấy mẫu KHÔNG lật được, mà anchor phình thật sang
+    /// vùng chưa chụp (mất >45% mẫu) thì VẪN tụt về đỏ đúng vai "đỏ = chắc thiếu".
+    /// ✗ nâng sát 0.75 (mất tác dụng trễ) · ✗ hạ về 0 (thành "trắng vĩnh viễn").
+    private static let coverageKeepFraction: Float = 0.55
     /// Thời điểm anchor xuất hiện lần đầu — anchor mới được "ân hạn" 1.5s trước khi bị tô
     /// đỏ (builder tick 2–5Hz cần chút thời gian gom; không có ân hạn thì lưới mới nào
     /// cũng chớp đỏ rồi mới trắng, nhìn như lỗi).
+    /// ⚠ CHỈ vai ĐỎ (`materialFor`) còn dùng mốc này. Vai ẢNH (`coveredForPhotos`) đã BỎ ân
+    /// hạn 05/08 — lý do đầy đủ ghi trong hàm đó, ✗ nối lại "cho nhất quán".
     private var anchorFirstSeen: [UUID: TimeInterval] = [:]
     /// Timestamp frame gần nhất — cho materialFor dùng được cả ngoài updateMeshes
     /// (closure gán geometry ở main.async không còn frame trong scope).
@@ -339,6 +361,7 @@ final class MeshOverlayRenderer: NSObject {
         anchorFirstSeen.removeAll()
         anchorCoverageKeys.removeAll()
         coveredAnchors.removeAll()
+        everCovered.removeAll()
         inFlight.removeAll()
         totalVerts = 0
         maskVerts = 0
@@ -605,6 +628,10 @@ final class MeshOverlayRenderer: NSObject {
                     // Key coverage TƯƠI theo geometry mới; bỏ memo "đã phủ" của anchor này —
                     // anchor PHÌNH sang vùng chưa chụp mà giữ memo là trắng nói dối đúng
                     // chỗ đang quét dở. retint nhịp kế (≤0.5s) đo lại bằng key mới.
+                    // 🔴 CHỈ xoá `coveredAnchors`, ✗ `everCovered`: sổ kia là thứ duy nhất
+                    // nhớ "anchor này đã từng trắng" nên phép đo lại được chấm ở NGƯỠNG GIỮ.
+                    // Xoá cả hai = quay lại đúng lỗi chớp trắng→đỏ mỗi lần ARKit tinh chỉnh
+                    // anchor (chủ app báo 05/08) — đọc chú thích `everCovered` trước khi sửa.
                     self.anchorCoverageKeys[id] = built.coverageKeys
                     self.coveredAnchors.remove(id)
                     if let node = self.anchorNodes[id] {
@@ -685,21 +712,36 @@ final class MeshOverlayRenderer: NSObject {
         }
     }
 
-    /// "Đã đủ ảnh" cho một anchor — memo một chiều + ân hạn dùng CHUNG mốc `anchorFirstSeen`
-    /// với vai đỏ (anchor mới có 1.5s để ảnh kịp lưu, không thì mọi lưới mới đều chớp
-    /// ẩn→hiện). Chưa có key mẫu (bản dựng đầu còn bay) = coi như đủ — thà trắng sớm 0.5–1.5s
-    /// còn hơn chớp; key về là nhịp sau đo thật.
+    /// "Đã đủ ảnh" cho một anchor — memo một chiều. Chưa có key mẫu (bản dựng đầu còn bay)
+    /// = coi như đủ; ca đó anchor CHƯA có hình học nào (wire lẫn mask đều nhận geometry ở
+    /// completion) nên phán quyết không vẽ ra pixel nào — vùng đó vẫn đang là ĐỎ vì mask
+    /// chưa khoét được. Key về là nhịp sau đo thật.
+    ///
+    /// 🔴 ✗ THÊM LẠI ÂN HẠN THỜI GIAN Ở ĐÂY (đã gỡ 05/08 — lỗi chủ app báo: *"khu vực đã
+    /// hiện lưới trắng nhưng ngay lập tức quay lại đỏ, phải để máy vài giây mới trắng lại"*).
+    /// Đời cũ dùng chung mốc `anchorFirstSeen` 1.5s với vai đỏ. Nhưng hai vai KHÁC BẢN CHẤT:
+    ///  · `materialFor` ân hạn = "builder 2–5Hz chưa kịp GHI anchor mới" — trễ thật, vài
+    ///    trăm ms, ân hạn là đúng (VẪN GIỮ, xem hàm đó).
+    ///  · ở đây ân hạn = "coi như CHỖ NÀY ĐÃ CÓ ẢNH" trong khi có thể chưa chụp phút nào.
+    /// Hai ân hạn cộng lại: MỌI anchor mới đều trắng 1,5s rồi rơi về đỏ — đúng cái chớp
+    /// người quét thấy. Bỏ ân hạn ở vai ảnh thì chuỗi thành ĐỎ → trắng, một chiều, không
+    /// chớp; và KHÔNG sinh chớp ngược lại (trước khi có geometry vùng đó vốn đã đỏ sẵn).
+    ///
+    /// 🔴 NGƯỠNG KÉP (cùng đợt, xem `everCovered`): LÊN trắng cần `coverageMinFraction`,
+    /// GIỮ trắng chỉ cần `coverageKeepFraction`. Anchor tụt dưới cả ngưỡng giữ thì rời
+    /// `everCovered` → lần sau phải leo lại từ ngưỡng ĐẦY (✗ để nó giữ ngưỡng thấp vĩnh
+    /// viễn sau một lần trượt).
     private func coveredForPhotos(_ id: UUID, grid: TextureCoverageGrid) -> Bool {
         if coveredAnchors.contains(id) { return true }
-        if lastFrameTimestamp - (anchorFirstSeen[id] ?? lastFrameTimestamp) < 1.5 {
-            return true
-        }
         guard let keys = anchorCoverageKeys[id], !keys.isEmpty else { return true }
-        let need = max(1, Int((Float(keys.count) * Self.coverageMinFraction).rounded(.up)))
+        let bar = everCovered.contains(id) ? Self.coverageKeepFraction : Self.coverageMinFraction
+        let need = max(1, Int((Float(keys.count) * bar).rounded(.up)))
         if grid.containedCount(of: keys) >= need {
             coveredAnchors.insert(id)
+            everCovered.insert(id)
             return true
         }
+        everCovered.remove(id)
         return false
     }
 
@@ -757,6 +799,7 @@ final class MeshOverlayRenderer: NSObject {
         anchorSigs.removeValue(forKey: id)
         anchorCoverageKeys.removeValue(forKey: id)
         coveredAnchors.remove(id)
+        everCovered.remove(id)
         // Anchor chết giữa đợt dựng lại vẫn phải rời sổ, không thì cổng tấm phủ kẹt mãi —
         // và nếu nó là thành viên CUỐI thì phải mở cổng luôn tại đây, vì sẽ không còn
         // completion nào về để làm việc đó.
