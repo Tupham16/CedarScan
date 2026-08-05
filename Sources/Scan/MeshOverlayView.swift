@@ -239,6 +239,21 @@ final class MeshOverlayRenderer: NSObject {
     /// vùng chưa chụp (mất >45% mẫu) thì VẪN tụt về đỏ đúng vai "đỏ = chắc thiếu".
     /// ✗ nâng sát 0.75 (mất tác dụng trễ) · ✗ hạ về 0 (thành "trắng vĩnh viễn").
     private static let coverageKeepFraction: Float = 0.55
+    /// 🔴 Mốc lần CHẾT gần nhất của một anchor ĐÃ TỪNG trắng — dấu vân tay của ca ARKit GỘP
+    /// anchor (bản cũ biến mất + bản thay thế sinh ra CÙNG frame, xem chú `dyingMasks`).
+    /// Vấn đề (chủ app vẫn thấy chớp sau vá `2651968`): bản thay thế mang id MỚI nên mất
+    /// sạch sổ trễ `everCovered` → đo lần đầu ở ngưỡng ĐẦY 0.75, mà vùng GỘP thường kèm
+    /// phần chưa chụp → 55–74% = TRẮNG ĐÃ XÁC NHẬN nhảy về đỏ, phải đứng chụp thêm vài
+    /// giây (1 ảnh/≥1,2s) mới leo lại 0.75. Vá: trong `coverageMergeWindow` giây sau một
+    /// covered-death, anchor CHƯA-trắng cũng được chấm ở ngưỡng GIỮ — vùng gộp ≥55% phủ
+    /// thì trắng liền mạch, dưới 55% vẫn đỏ thật thà.
+    /// Chấp nhận hẹp: anchor MỚI TINH sinh trong đúng cửa sổ 3s đó mà phủ sẵn 55–74% cũng
+    /// lên trắng sớm — hiếm (covered-death xảy ra ở vùng CHÍN, không ở mép đang quét) và
+    /// vùng như vậy vốn đã chụp 2/3 rồi.
+    private var lastCoveredDeathAt: TimeInterval = -.infinity
+    /// Cửa sổ nhận thừa kế: trễ completion của bản dựng thay thế (0.1–1.5s khi queue dồn)
+    /// + nhịp retint 0.5s, dư ra chút. Cùng bậc với `dyingMasks` 1.5s, dài hơn có chủ đích.
+    private static let coverageMergeWindow: TimeInterval = 3.0
     /// Thời điểm anchor xuất hiện lần đầu — anchor mới được "ân hạn" 1.5s trước khi bị tô
     /// đỏ (builder tick 2–5Hz cần chút thời gian gom; không có ân hạn thì lưới mới nào
     /// cũng chớp đỏ rồi mới trắng, nhìn như lỗi).
@@ -362,6 +377,7 @@ final class MeshOverlayRenderer: NSObject {
         anchorCoverageKeys.removeAll()
         coveredAnchors.removeAll()
         everCovered.removeAll()
+        lastCoveredDeathAt = -.infinity
         inFlight.removeAll()
         totalVerts = 0
         maskVerts = 0
@@ -734,7 +750,12 @@ final class MeshOverlayRenderer: NSObject {
     private func coveredForPhotos(_ id: UUID, grid: TextureCoverageGrid) -> Bool {
         if coveredAnchors.contains(id) { return true }
         guard let keys = anchorCoverageKeys[id], !keys.isEmpty else { return true }
-        let bar = everCovered.contains(id) ? Self.coverageKeepFraction : Self.coverageMinFraction
+        // Ngưỡng GIỮ áp cho: (1) anchor đã từng trắng, (2) anchor bất kỳ trong cửa sổ
+        // sau một covered-death — thừa kế qua ca ARKit GỘP anchor (id mới, mất sổ trễ);
+        // xem chú `lastCoveredDeathAt`.
+        let inherits = everCovered.contains(id)
+            || lastFrameTimestamp - lastCoveredDeathAt < Self.coverageMergeWindow
+        let bar = inherits ? Self.coverageKeepFraction : Self.coverageMinFraction
         let need = max(1, Int((Float(keys.count) * bar).rounded(.up)))
         if grid.containedCount(of: keys) >= need {
             coveredAnchors.insert(id)
@@ -799,7 +820,11 @@ final class MeshOverlayRenderer: NSObject {
         anchorSigs.removeValue(forKey: id)
         anchorCoverageKeys.removeValue(forKey: id)
         coveredAnchors.remove(id)
-        everCovered.remove(id)
+        // Anchor TRẮNG chết = gần như chắc chắn ARKit vừa GỘP nó vào một anchor mới —
+        // mở cửa sổ thừa kế ngưỡng GIỮ cho bản thay thế (xem `lastCoveredDeathAt`).
+        if everCovered.remove(id) != nil {
+            lastCoveredDeathAt = lastFrameTimestamp
+        }
         // Anchor chết giữa đợt dựng lại vẫn phải rời sổ, không thì cổng tấm phủ kẹt mãi —
         // và nếu nó là thành viên CUỐI thì phải mở cổng luôn tại đây, vì sẽ không còn
         // completion nào về để làm việc đó.
