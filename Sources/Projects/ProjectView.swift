@@ -207,14 +207,31 @@ struct ProjectView: View {
         }
         .fullScreenCover(
             isPresented: $isMeshScanning,
-            // Mở lại phiên quét cho "Quét thêm" PHẢI chờ cover đóng HẲN (onDismiss), không được
-            // set cờ trong onChange bên dưới: onChange chạy ngay lúc binding lật false, và set lại
-            // true trong cùng nhịp đó thì SwiftUI gộp false→true thành KHÔNG ĐỔI — cover không bao
-            // giờ được tháo và dựng lại, nên nó treo nguyên ở màn preview của bản quét vừa xong.
+            // 🔴 MỌI việc hậu-quét nằm Ở ĐÂY (cover đã tháo HẲN), ✗ trong
+            // `.onChange(of: isMeshScanning)` — onChange nổ ngay lúc binding lật false, tức
+            // push/alert rơi vào GIỮA hoạt ảnh đóng cover → "Đặt hàng ngay" văng app (chủ app
+            // báo 06/08). Giải thích đầy đủ + lý do riêng của nhánh "Quét thêm" ở chú thích
+            // cùng chỗ trong HomeView. Thứ tự ưu tiên GIỮ NGUYÊN: lỗi lưu > quét thêm > chạm
+            // trần > đặt hàng.
             onDismiss: {
-                guard pendingScanMore else { return }
-                pendingScanMore = false
-                isMeshScanning = true
+                if let message = pendingSaveError {
+                    pendingSaveError = nil
+                    meshCapFollowUp = false
+                    pendingOrderRecord = nil
+                    pendingScanMore = false
+                    saveError = message
+                } else if pendingScanMore {
+                    pendingScanMore = false
+                    meshCapFollowUp = false
+                    pendingOrderRecord = nil
+                    isMeshScanning = true
+                } else if meshCapFollowUp {
+                    // Xem giải thích thứ tự ưu tiên ở HomeView.
+                    meshCapFollowUp = false
+                    showScanNextPart = true
+                } else {
+                    goToPendingOrder()
+                }
             }
         ) {
             MeshScanFlowView(
@@ -238,27 +255,9 @@ struct ProjectView: View {
                 }
             }
         }
-        .onChange(of: isMeshScanning) { _, presented in
-            guard !presented else { return }
-            if let message = pendingSaveError {
-                pendingSaveError = nil
-                meshCapFollowUp = false
-                pendingOrderRecord = nil
-                pendingScanMore = false
-                saveError = message
-            } else if pendingScanMore {
-                // Việc mở lại phiên quét do onDismiss của cover lo. Ở đây chỉ dọn các ý định khác
-                // để chúng không nổ chồng lên phiên quét mới.
-                meshCapFollowUp = false
-                pendingOrderRecord = nil
-            } else if meshCapFollowUp {
-                // Xem giải thích thứ tự ưu tiên ở HomeView.
-                meshCapFollowUp = false
-                showScanNextPart = true
-            } else {
-                goToPendingOrder()
-            }
-        }
+        // (Khối `.onChange(of: isMeshScanning)` hậu-quét đã GỠ 06/08 — nay nằm trong `onDismiss`
+        // của cover, xem chú thích 🔴 ở đó. Cái `.onChange(of: isMeshScanning)` còn lại ở `body`
+        // — leaveDeadProject — là việc KHÁC và vẫn đúng chỗ: nó không present gì, đã tự hoãn nhịp.)
         .alert(
             L.t("Part of the home is missing", "Còn một phần nhà chưa vào bản quét"),
             isPresented: $showScanNextPart

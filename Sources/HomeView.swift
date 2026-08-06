@@ -142,14 +142,41 @@ struct HomeView: View {
             }
             .fullScreenCover(
                 isPresented: $isMeshScanning,
-                // Mở lại phiên quét cho "Quét thêm" PHẢI chờ cover đóng HẲN (onDismiss), không được
-                // set cờ trong onChange bên dưới: onChange chạy ngay lúc binding lật false, và set lại
-                // true trong cùng nhịp đó thì SwiftUI gộp false→true thành KHÔNG ĐỔI — cover không bao
-                // giờ được tháo và dựng lại, nên nó treo nguyên ở màn preview của bản quét vừa xong.
+                // 🔴 MỌI việc hậu-quét (alert lỗi lưu, mở lại phiên quét, alert chạm trần, đẩy
+                // sang trang đặt hàng) phải nằm Ở ĐÂY — onDismiss chạy khi cover đã tháo HẲN.
+                // Đời trước chỉ có nhánh "Quét thêm" ở đây, ba nhánh kia nằm trong
+                // `.onChange(of: isMeshScanning)`: onChange nổ NGAY lúc binding lật false, tức
+                // `path.append`/alert rơi vào GIỮA hoạt ảnh đóng cover — push một màn trong khi
+                // UIKit đang tháo dở màn quét (kèm ARSCNView đang giải phóng). Hậu quả thật:
+                // "Đặt hàng ngay" ở màn preview VĂNG APP (chủ app báo 06/08). Cùng họ bẫy #9
+                // và cùng luật với "present từ onDismiss" của sheet guide/địa chỉ ngay trên.
+                // Riêng lý do "Quét thêm" không được đặt trong onChange còn thêm một tầng: set
+                // lại true trong cùng nhịp binding lật false thì SwiftUI gộp false→true thành
+                // KHÔNG ĐỔI — cover không bao giờ được tháo và dựng lại.
+                // Thứ tự ưu tiên GIỮ NGUYÊN của bản cũ: lỗi lưu > quét thêm > chạm trần > đặt hàng.
                 onDismiss: {
-                    guard pendingScanMore else { return }
-                    pendingScanMore = false
-                    isMeshScanning = true
+                    if let message = pendingSaveError {
+                        pendingSaveError = nil
+                        meshCapFollowUp = false
+                        pendingOrderRecord = nil // không mời đặt hàng một bản quét vừa lưu hụt
+                        pendingScanMore = false
+                        saveError = message
+                    } else if pendingScanMore {
+                        pendingScanMore = false
+                        // Dọn các ý định khác để chúng không nổ chồng lên phiên quét mới.
+                        meshCapFollowUp = false
+                        pendingOrderRecord = nil
+                        isMeshScanning = true
+                    } else if meshCapFollowUp {
+                        // Mô hình chạm trần = bản quét THIẾU dữ liệu. Lời mời quét bù phải đi
+                        // TRƯỚC việc đưa sang trang đặt hàng, kể cả khi khách đã bấm "Đặt hàng
+                        // ngay": đặt một bản thiếu phòng là đơn phải làm lại. Hai nút của alert
+                        // tự quyết định số phận `pendingOrderRecord`.
+                        meshCapFollowUp = false
+                        showScanNextPart = true
+                    } else {
+                        goToPendingOrder()
+                    }
                 }
             ) {
                 MeshScanFlowView(
@@ -175,30 +202,9 @@ struct HomeView: View {
                     }
                 }
             }
-            .onChange(of: isMeshScanning) { _, presented in
-                guard !presented else { return }
-                if let message = pendingSaveError {
-                    pendingSaveError = nil
-                    meshCapFollowUp = false
-                    pendingOrderRecord = nil // không mời đặt hàng một bản quét vừa lưu hụt
-                    pendingScanMore = false
-                    saveError = message
-                } else if pendingScanMore {
-                    // Việc mở lại phiên quét do onDismiss của cover lo. Ở đây chỉ dọn các ý định
-                    // khác để chúng không nổ chồng lên phiên quét mới.
-                    meshCapFollowUp = false
-                    pendingOrderRecord = nil
-                } else if meshCapFollowUp {
-                    // Mô hình chạm trần = bản quét THIẾU dữ liệu. Lời mời quét bù phải đi TRƯỚC
-                    // việc đưa sang trang đặt hàng, kể cả khi khách đã bấm "Đặt hàng ngay":
-                    // đặt một bản thiếu phòng là đơn phải làm lại. Hai nút của alert tự quyết
-                    // định số phận `pendingOrderRecord`.
-                    meshCapFollowUp = false
-                    showScanNextPart = true
-                } else {
-                    goToPendingOrder()
-                }
-            }
+            // (Khối `.onChange(of: isMeshScanning)` cũ đã GỠ 06/08 — mọi việc hậu-quét nay nằm
+            // trong `onDismiss` của cover ở trên, xem chú thích 🔴 tại đó. ✗ thêm lại onChange
+            // cho isMeshScanning: nó nổ giữa lúc cover đang đóng, push/alert ở đó là văng app.)
             .alert(
                 L.t("Part of the home is missing", "Còn một phần nhà chưa vào bản quét"),
                 isPresented: $showScanNextPart
