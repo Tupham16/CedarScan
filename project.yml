@@ -39,6 +39,10 @@ targets:
     info:
       path: Sources/Info.plist
       properties:
+        # 🔴 KHÔNG CÓ DÒNG NÀY THÌ SỐ PHIÊN BẢN KHÔNG ĂN: XcodeGen thấy khối `info:` tự khai
+        # là nó ghi CỨNG "1.0" vào Info.plist, MARKETING_VERSION ở settings bị bỏ qua im lặng
+        # (đã dính 06/08 — IPA build xong vẫn 1.0). Trỏ về biến để chỉ một nguồn sự thật.
+        CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleDisplayName: CedarScan
         NSCameraUsageDescription: CedarScan cần dùng camera và cảm biến LiDAR để quét không gian 3D.
         # Chỉ dùng cho nút "Dùng vị trí hiện tại" ở màn nhập địa chỉ trước khi quét: lấy toạ độ
