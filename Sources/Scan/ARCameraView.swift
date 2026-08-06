@@ -33,6 +33,9 @@ struct ARCameraViewRepresentable: UIViewRepresentable {
     var recordedCounts: (() -> [UUID: Int])? = nil
     /// Lưới coverage ảnh texture (item 2): trắng còn cần "chỗ này ĐÃ CÓ ẢNH LƯU".
     /// nil (RoomPlan/không recorder) = hành vi cũ nguyên vẹn.
+    /// 🔴 06/08: MESH MODE CŨNG CỐ Ý ĐỂ nil (chủ app chốt sau vụ "60% vùng đỏ" —
+    /// SESSION-HANDOFF §STATE `b7b6d47`). Thấy không ai truyền thì đó KHÔNG phải thiếu sót,
+    /// ✗ tự nối lại — lý do ghi tại chỗ gọi trong `MeshScanFlowView`.
     var photoCoverage: (() -> TextureCoverageGrid?)? = nil
 
     func makeCoordinator() -> Coordinator { Coordinator() }

@@ -13,6 +13,12 @@ import simd
 /// dữ liệu builder — vai này GIỮ NGUYÊN, ✗ chiếm); vùng KHÔNG có mesh phủ ĐỎ MỜ
 /// (`tintNode` + mặt nạ depth) = chưa quét tới.
 ///
+/// 🔴 06/08: VẾ "ĐÃ CÓ ẢNH" ĐÃ BỊ RÚT KHỎI HIỂN THỊ — `MeshScanFlowView` KHÔNG nối
+/// `photoCoverage` nữa (closure nil → toàn bộ nhánh coverage trong file này ngủ, đường cũ
+/// byte-for-byte). Lưới trắng nay = ĐÃ VÀO FILE, thế thôi. Lý do + điều kiện nối lại ghi
+/// tại chỗ nối (MeshScanFlowView) và SESSION-HANDOFF §STATE `b7b6d47`. Code coverage bên
+/// dưới GIỮ NGUYÊN làm nền cho bản sửa gốc sau này — ✗ dọn "cho sạch".
+///
 /// 🔴 KHÔNG PHẢI MỘT VIEW. Đây là bộ dựng node, gắn vào scene của ARSCNView (xem `attach(to:)`
 /// và chú thích đầu `ARCameraView.swift`).
 ///

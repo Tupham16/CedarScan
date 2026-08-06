@@ -90,12 +90,18 @@ struct MeshScanFlowView: View {
             // Trần hiển thị 600k (RoomPlan chỉ 150k): khách quay lại khu đã quét phải còn THẤY
             // lưới để biết chỗ nào đã phủ — nhà thường sẽ không bị "quên" nữa. Nếu test thấy
             // nóng/giật thì hạ số này.
-            // recordedCounts + photoCoverage: lưới trắng = đã vào file VÀ đã có ẢNH texture
-            // lưu (item 2 PLAN-PHU-DU-DO-DUNG, chủ app chốt 03/08 — trắng phải nói đúng
-            // "bản GIAO chỗ này sẽ có ảnh"). Có mesh mà CHƯA có ảnh (lia nhanh) → lưới +
-            // mặt nạ ẩn đi, phủ đỏ hiện lại như chưa quét. Đỏ giữ nguyên vai "chưa được
-            // ghi" (builder tắt vì gián đoạn, hoặc mô hình đầy). Vùng chưa có mesh thì lớp
-            // phủ tự tô đỏ mờ (xem `MeshOverlayRenderer`).
+            // recordedCounts: lưới trắng = đã vào file. Đỏ giữ vai "chưa được ghi" (builder
+            // tắt vì gián đoạn, hoặc mô hình đầy). Vùng chưa có mesh thì lớp phủ tự tô đỏ mờ
+            // (xem `MeshOverlayRenderer`).
+            // 🔴 photoCoverage KHÔNG NỐI NỮA (chủ app chốt 06/08) — trước đó trắng còn đòi
+            // "đã có ẢNH texture lưu" (item 2, 03/08). Điều kiện ảnh bị RÚT khỏi hiển thị vì
+            // sổ voxel độ phủ ghi theo toạ độ THẾ GIỚI CŨ: ARKit khép vòng kéo anchor đi mà
+            // không kéo sổ theo → quay lại vùng cũ là phán quyết tụt oan (chớp trắng→đỏ, đỉnh
+            // điểm "60% vùng đỏ" ở 11c08e2 — đã hoàn). 5 bản vá tầng hiển thị đều chết vì gốc
+            // này; chi tiết ở SESSION-HANDOFF §STATE `b7b6d47`. Recorder VẪN CHỤP ẢNH đầy đủ
+            // (nhịp riêng, không liên quan màu lưới) — bản giao không đổi. Closure nil =
+            // renderer đi đường cũ byte-for-byte (bất biến ghi ở `MeshOverlayRenderer`).
+            // ✗ nối lại khi chưa sửa GỐC sổ-theo-anchor và chưa hỏi chủ app.
             // Tắt lưới khi đã sang màn preview: nhịp cập nhật dừng hẳn nên CADisplayLink 30Hz
             // không quay không tải suốt lúc khách ngồi xem lại video.
             ARCameraViewRepresentable(
@@ -111,8 +117,8 @@ struct MeshScanFlowView: View {
                 // nên giải phóng rồi không phải dựng lại; còn ở màn đặt tên thì khách vẫn bấm
                 // "Quay lại" để quét thêm được.
                 showMesh: showScanMesh && savedRecord == nil && !isSaving,
-                recordedCounts: { [weak controller] in controller?.recordedAnchorCounts ?? [:] },
-                photoCoverage: { [weak controller] in controller?.textureCoverage }
+                recordedCounts: { [weak controller] in controller?.recordedAnchorCounts ?? [:] }
+                // photoCoverage CỐ Ý không truyền (default nil) — đọc chú thích 🔴 ở trên.
             )
             .ignoresSafeArea()
 
