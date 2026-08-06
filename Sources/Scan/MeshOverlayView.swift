@@ -13,12 +13,6 @@ import simd
 /// dữ liệu builder — vai này GIỮ NGUYÊN, ✗ chiếm); vùng KHÔNG có mesh phủ ĐỎ MỜ
 /// (`tintNode` + mặt nạ depth) = chưa quét tới.
 ///
-/// 🔴 CÓ MỘT NGOẠI LỆ CÓ CHỦ ĐÍCH (05/08, PLAN-CHONG-CHOP-THEO-SU-KIEN): trong cửa sổ ARKit
-/// TÁI ĐỊNH VỊ (quay lại vùng cũ, gộp lưới lớn) lưới+mask của vùng đó bị ẨN vài giây nên phủ
-/// đỏ lộ ra — "loé đỏ ngắn rồi tự trắng lại". KHÔNG PHẢI LỖI, chủ app đã được dặn trước: đúng
-/// cửa sổ đó mesh THẬT SỰ đang sai chỗ, hiện nó lên mới là nói dối. Cơ chế + hằng số ở khối
-/// "DÒ SỰ KIỆN TÁI ĐỊNH VỊ" trong phần thuộc tính — đọc nó trước khi chỉnh bất cứ gì.
-///
 /// 🔴 KHÔNG PHẢI MỘT VIEW. Đây là bộ dựng node, gắn vào scene của ARSCNView (xem `attach(to:)`
 /// và chú thích đầu `ARCameraView.swift`).
 ///
@@ -221,136 +215,17 @@ final class MeshOverlayRenderer: NSObject {
     private var anchorCoverageKeys: [UUID: [Int64]] = [:]
     /// Memo MỘT CHIỀU anchor đã đủ ảnh — tập voxel chỉ PHÌNH nên trắng rồi là trắng luôn
     /// (không nhấp nháy), và mỗi nhịp chỉ còn phải đo anchor CHƯA phủ.
-    /// ⚠ Memo này BỊ XOÁ mỗi lần anchor dựng lại (xem chỗ gán `anchorCoverageKeys`) — cố ý,
-    /// nhưng chính vì vậy mà cần `everCovered` bên dưới, đọc chú thích đó trước khi đụng.
     private var coveredAnchors: Set<UUID> = []
-    /// 🔴 SỔ TRỄ "anchor này ĐÃ TỪNG đạt trắng" — KHÔNG bị xoá khi dựng lại (khác
-    /// `coveredAnchors`). Sinh ra để trị lỗi chủ app báo 05/08: *"một số khu vực đã hiện lưới
-    /// trắng nhưng ngay lập tức quay lại đỏ, phải để máy vài giây mới trắng lại"*.
-    /// Cơ chế đã truy: ARKit tinh chỉnh anchor liên tục ở vùng đang nhìn → mỗi lần đổi chữ ký
-    /// là rebuild → rebuild XOÁ memo → verdict được GIEO LẠI từ một mẫu ~32 ĐỈNH KHÁC.
-    /// Với độ phủ thật ~80%, sai số chuẩn của mẫu 32 điểm là ~7% → ước lượng dao động
-    /// ~73–87% quanh ngưỡng 0.75, tức là TUNG ĐỒNG XU mỗi ~0.5–1s. Cộng thêm ca anchor phình
-    /// thật sang vùng chưa chụp. Cả hai cho đúng triệu chứng trắng→đỏ→(vài giây)→trắng.
-    /// Cách trị = TRỄ (hysteresis), không phải hạ ngưỡng: đã trắng thì chỉ mất trắng khi tụt
-    /// hẳn xuống dưới `coverageKeepFraction`, còn nhiễu lấy mẫu quanh 0.75 không lật được nữa.
-    /// ✗ thay bằng "giữ memo luôn, đừng xoá": anchor phình sang vùng chưa chụp sẽ trắng nói
-    /// dối vĩnh viễn — chính là thứ dòng `coveredAnchors.remove(id)` được đặt ra để chặn.
-    private var everCovered: Set<UUID> = []
-    /// X% mẫu đỉnh phải nằm trong voxel có ảnh để LÊN trắng. 0.75 theo plan (dải 70–85) —
-    /// chỉnh bằng mắt trên máy thật nếu chớp trắng↔đỏ ở mép vùng đang quét.
+    /// X% mẫu đỉnh phải nằm trong voxel có ảnh. 0.75 theo plan (dải 70–85) — chỉnh bằng
+    /// mắt trên máy thật nếu chớp trắng↔đỏ ở mép vùng đang quét.
     private static let coverageMinFraction: Float = 0.75
-    /// Ngưỡng GIỮ trắng của anchor đã từng trắng (`everCovered`). 0.55 = dưới 0.75 gần 3 lần
-    /// sai số chuẩn của mẫu 32 điểm → nhiễu lấy mẫu KHÔNG lật được, mà anchor phình thật sang
-    /// vùng chưa chụp (mất >45% mẫu) thì VẪN tụt về đỏ đúng vai "đỏ = chắc thiếu".
-    /// ✗ nâng sát 0.75 (mất tác dụng trễ) · ✗ hạ về 0 (thành "trắng vĩnh viễn").
-    private static let coverageKeepFraction: Float = 0.55
-    /// 🔴 Mốc lần CHẾT gần nhất của một anchor ĐÃ TỪNG trắng — dấu vân tay của ca ARKit GỘP
-    /// anchor (bản cũ biến mất + bản thay thế sinh ra CÙNG frame, xem chú `dyingMasks`).
-    /// Vấn đề: bản thay thế mang id MỚI nên mất sạch sổ trễ `everCovered` → đo lần đầu ở
-    /// ngưỡng ĐẦY 0.75, mà vùng GỘP thường kèm phần chưa chụp → 55–74% = TRẮNG ĐÃ XÁC NHẬN
-    /// nhảy về đỏ, phải đứng chụp thêm vài giây (1 ảnh/≥1,2s) mới leo lại 0.75. Vá: trong
-    /// `coverageMergeWindow` giây sau một covered-death, anchor CHƯA-trắng cũng được chấm ở
-    /// ngưỡng GIỮ — vùng gộp ≥55% phủ thì trắng liền mạch, dưới 55% vẫn đỏ thật thà.
-    /// Chấp nhận hẹp: anchor MỚI TINH sinh trong đúng cửa sổ đó mà phủ sẵn 55–74% cũng lên
-    /// trắng sớm — hiếm (covered-death xảy ra ở vùng CHÍN, không ở mép đang quét).
-    private var lastCoveredDeathAt: TimeInterval = -.infinity
-    /// 🔴 VỊ TRÍ của cú covered-death đó — thừa kế phải BÓ THEO CHỖ, không phải toàn cầu.
-    /// Review đối kháng 05/08 (3 lens cùng bắt) chỉ ra lỗ của bản `b4b16b0`: mốc thời gian là
-    /// MỘT SỐ VÔ HƯỚNG DÙNG CHUNG, mà nhà lớn thì cứ vài giây lại có một anchor trắng bị gộp
-    /// → cửa sổ 3s gần như KHÔNG BAO GIỜ đóng → ngưỡng LÊN 0.75 mất tác dụng trên toàn bộ
-    /// căn nhà, mọi anchor lên trắng ở 0.55. Đó là "trắng NÓI DỐI" (hứa bản giao có ảnh ở chỗ
-    /// mới chụp 55%). Nay chỉ anchor nằm trong `coverageMergeRadius` quanh chỗ vừa có
-    /// covered-death mới được thừa kế. Chưa biết vị trí (anchor chưa qua nhịp 30Hz nào) →
-    /// rơi về hành vi cũ (cho thừa kế), ✗ siết oan đúng ca (c) sinh ra để chữa.
-    private var lastCoveredDeathPos: SIMD3<Float>?
-    /// Cửa sổ nhận thừa kế: trễ completion của bản dựng thay thế (0.1–1.5s khi queue dồn)
-    /// + nhịp retint 0.5s, dư ra chút. Cùng bậc với `dyingMasks` 1.5s, dài hơn có chủ đích.
-    private static let coverageMergeWindow: TimeInterval = 3.0
-    /// Bán kính thừa kế quanh cú covered-death. Rộng hơn một khối voxel ARKit (bản thay thế
-    /// của một cú gộp nằm sát chỗ cũ), hẹp hơn nhiều so với "cả căn nhà".
-    private static let coverageMergeRadius: Float = 3.0
     /// Thời điểm anchor xuất hiện lần đầu — anchor mới được "ân hạn" 1.5s trước khi bị tô
     /// đỏ (builder tick 2–5Hz cần chút thời gian gom; không có ân hạn thì lưới mới nào
     /// cũng chớp đỏ rồi mới trắng, nhìn như lỗi).
-    /// ⚠ CHỈ vai ĐỎ (`materialFor`) còn dùng mốc này. Vai ẢNH (`coveredForPhotos`) đã BỎ ân
-    /// hạn 05/08 — lý do đầy đủ ghi trong hàm đó, ✗ nối lại "cho nhất quán".
     private var anchorFirstSeen: [UUID: TimeInterval] = [:]
     /// Timestamp frame gần nhất — cho materialFor dùng được cả ngoài updateMeshes
     /// (closure gán geometry ở main.async không còn frame trong scope).
     private var lastFrameTimestamp: TimeInterval = 0
-
-    // MARK: - DÒ SỰ KIỆN TÁI ĐỊNH VỊ ("settling") — PLAN-CHONG-CHOP-THEO-SU-KIEN 05/08
-    //
-    // 🔴 ĐỌC TRƯỚC KHI ĐỤNG BẤT CỨ HẰNG SỐ NÀO DƯỚI ĐÂY.
-    // Chuỗi 4 bản vá trước (2651968 → b4b16b0 → 365b20d → revert 8264f1f) chứng minh CHỚP và
-    // LỆCH là HAI MẶT CỦA MỘT SỰ KIỆN: ARKit tái định vị khi người quét quay lại vùng cũ.
-    //  · Bản `2ccb7d6`: đúng cửa sổ đó, verdict coverage tụt → lưới ẨN sau phủ đỏ → lệch vô
-    //    hình, NHƯNG cú ẩn ngẫu nhiên đó chính là cái CHỚP trắng→đỏ chủ app báo.
-    //  · Bản debounce `365b20d`: giữ trắng HIỆN xuyên cửa sổ → hết chớp nhưng LỆCH LỘ RA
-    //    ("lưới trắng không bám tường nữa") → chủ app bắt hoàn về.
-    // ⇒ Nhịn theo ĐỒNG HỒ là mù. Phải dò ĐÚNG SỰ KIỆN: trong cửa sổ tái định vị mesh THẬT SỰ
-    //   sai chỗ, nên ẩn nó đi là UX ĐÚNG (chủ app đã được dặn: loé đỏ ngắn CÓ CHỦ ĐÍCH, tự
-    //   trắng lại, không cần chụp bù). Ngoài cửa sổ đó thì (a)(b)(c) giữ trắng đứng im.
-    //
-    // BA TÍN HIỆU VÀO (mỗi tín hiệu độc lập, đều chỉ ẩn anchor SẼ-TRẮNG — vai ĐỎ mất-dữ-liệu
-    // không bao giờ bị giấu):
-    //  (i)  NHẢY: gốc anchor dời ≥ `settleJumpMeters` so với mốc tham chiếu → ARKit vừa kéo
-    //       anchor về khớp. Đây là tín hiệu CHÍNH xác nhất (anchor tĩnh không tự dịch).
-    //  (ii) GỘP HÀNG LOẠT: ≥ `settleMergeBurst` anchor chết trong MỘT lượt updateMeshes.
-    //  (iii) QUAY LẠI: anchor ĐÃ TỪNG TRẮNG nằm im ≥ `settleRevisitIdleSec` rồi đổi hình học
-    //       trở lại = người quét vừa quay về vùng cũ. 🔴 TÍN HIỆU NÀY GIỮ ĐÚNG LỜI HỨA "KHÔNG
-    //       CÒN LƯỚI TRẮNG LỆCH TƯỜNG": (i) và (ii) chỉ nổ khi ARKit ĐÃ sửa xong, mà lệch thì
-    //       lộ ra TRƯỚC đó vài giây (drift tích luỹ, AutoWall đo 0,2–0,5m giữa phòng). Trước
-    //       đợt này cửa sổ lệch được che NGẪU NHIÊN bởi chính cú tụt verdict — mà (b) vừa dập
-    //       tắt cú tụt đó, nên không có (iii) là ta ship lại đúng triệu chứng của `365b20d`.
-    //       Chặn chỉ-anchor-`everCovered` để loé đúng chỗ có thể nói dối (trắng), ✗ chỗ vốn đỏ.
-    //
-    // ✗ ĐỪNG thêm "lan sang anchor kề cận" hay "leo thang toàn cục" — đã cân nhắc và BỎ:
-    //   một cú sửa bản đồ dời TRỌN vùng nên mọi anchor trong đó tự nhảy và tự vào settling;
-    //   anchor KHÔNG nhảy thì theo định nghĩa là không sai chỗ, ẩn nó chỉ tổ loé cả màn hình.
-    /// Mốc tham chiếu vị trí gốc anchor. CỐ Ý không cập nhật mỗi khung — chỉ đặt lại khi sinh
-    /// và khi vừa kích hoạt settling. Nhờ vậy bắt được cả cú sửa RẢI ĐỀU nhiều khung (mỗi
-    /// khung 1–2cm, so khung-liền-khung thì không bao giờ chạm ngưỡng). An toàn vì
-    /// `ARMeshAnchor.transform` là gốc khối voxel — ARKit gán lúc tạo rồi để yên, nhiễu dưới
-    /// milimet (xem §RUNG LƯỚI), nên tích đủ 5cm chỉ có thể là hiệu chỉnh THẬT.
-    private var anchorRefPos: [UUID: SIMD3<Float>] = [:]
-    /// Anchor đang trong cửa sổ settling → giá trị là mốc HẾT hạn. Giữ lại entry sau khi hết
-    /// hạn (không xoá) cho khỏi churn dict; dọn theo anchor ở `removeAnchor`/`releaseAll`.
-    private var settlingUntil: [UUID: TimeInterval] = [:]
-    /// Lần gần nhất chữ ký hình học của anchor đổi — nguyên liệu của tín hiệu (iii).
-    private var lastSigChangeAt: [UUID: TimeInterval] = [:]
-    /// Ngưỡng NHẢY. 5cm = trên hẳn nhiễu (dưới mm) và dưới hẳn drift giữa phòng (0,2–0,5m).
-    /// 🔴 Lever tune #2: hạ (nhạy hơn, loé nhiều hơn) / nâng (lì hơn, sót sự kiện → lệch lộ).
-    /// ⚠ CÂU HỎI CHƯA CÓ SỐ ĐO MÁY THẬT: chưa ai chứng minh ARKit có thật sự DỜI
-    /// `ARMeshAnchor.transform` khi khép vòng hay chỉ dựng lại HÌNH HỌC tại chỗ. Nếu là vế
-    /// sau thì tín hiệu (i) không bao giờ nổ và (iii) đang gánh toàn bộ. Bật `logSettling`
-    /// để trả lời — ĐẾM số dòng "jump" trong một buổi có đi vòng, ✗ suy đoán tiếp.
-    private static let settleJumpMeters: Float = 0.05
-    /// Transform phải ÊM bấy nhiêu giây thì mới thoát settling (mỗi cú nhảy đẩy mốc ra xa).
-    private static let settleQuietSec: TimeInterval = 0.7
-    /// Số anchor CHẾT trong một lượt `updateMeshes` (0.5s) để tính là gộp hàng loạt.
-    private static let settleMergeBurst = 3
-    /// (iii) Anchor phải nằm im bấy nhiêu giây thì lần đổi hình học kế mới bị coi là "quay lại
-    /// vùng cũ". 🔴 LEVER TUNE #1 — chỉnh CÁI NÀY TRƯỚC khi chủ app phàn nàn. Quá THẤP = loé
-    /// vặt ngay giữa lúc quét tiến, quá CAO = lệch lộ ra khi quay lại. Đặt `.infinity` là TẮT
-    /// HẲN tín hiệu (iii) mà không đụng gì khác — làm vậy là quay về đúng phạm vi plan gốc
-    /// (chỉ (i)+(ii)), chấp nhận rủi ro lệch lộ.
-    /// ⚠ SAI DƯƠNG ĐÃ BIẾT, review đối kháng bắt: anchor CHÍN nằm im ≥25s **trong khi vẫn
-    /// đang nhìn nó** (người quét đứng lâu một chỗ) rồi nhích máy → nổ oan, loé 2s giữa lúc
-    /// quét tiến. Đã cân nhắc thêm điều kiện "chữ ký đổi phải ĐỦ LỚN" để lọc ca này và BỎ:
-    /// hai núm chỉnh mù cùng lúc thì vòng tune không đọc được số. Nếu chủ app báo "loé vặt"
-    /// thì ĐÓ là ứng viên vá tiếp (lever #3), ✗ hạ ngưỡng khác.
-    private static let settleRevisitIdleSec: TimeInterval = 25
-    /// (iii)/(ii) là tín hiệu MỘT PHÁT (✗ gia hạn): giữ ẩn đúng bấy nhiêu giây rồi chấm lại.
-    /// Đủ dài để ôm trọn cú tái định vị thường thấy; nếu cú sửa về muộn hơn thì (i) tự nổ và
-    /// nối tiếp cửa sổ. ⚠ Tự giới hạn tần suất: trong lúc còn nhìn vùng đó, chữ ký đổi mỗi
-    /// ~0.5s nên `settleRevisitIdleSec` không bao giờ đạt lại → không loé lần hai.
-    private static let settleHoldSec: TimeInterval = 2.0
-    /// 🔴 Log dò sự kiện. TẮT mặc định vì chủ app chạy bản RELEASE cài qua AltStore và không
-    /// có đường đọc console — bật là việc của phiên dev (đổi `true`, build lại, chạy qua
-    /// Xcode/Console.app). Giữ nguyên các chuỗi log: vòng tune sau đọc số từ đây, ✗ đoán.
-    private static let logSettling = false
 
     init(arSession: ARSession, maxVerts: Int = 150_000) {
         self.arSession = arSession
@@ -464,12 +339,6 @@ final class MeshOverlayRenderer: NSObject {
         anchorFirstSeen.removeAll()
         anchorCoverageKeys.removeAll()
         coveredAnchors.removeAll()
-        everCovered.removeAll()
-        lastCoveredDeathAt = -.infinity
-        lastCoveredDeathPos = nil
-        anchorRefPos.removeAll()
-        settlingUntil.removeAll()
-        lastSigChangeAt.removeAll()
         inFlight.removeAll()
         totalVerts = 0
         maskVerts = 0
@@ -534,64 +403,7 @@ final class MeshOverlayRenderer: NSObject {
             let id = mesh.identifier
             anchorNodes[id]?.simdTransform = mesh.transform
             maskNodes[id]?.simdTransform = mesh.transform
-
-            // Tín hiệu (i) NHẢY — dò ở ĐÂY chứ không ở `updateMeshes` vì chỗ này chạy 30Hz:
-            // cửa sổ tái định vị chỉ dài 1–2s, đợi nhịp 0.5s là ẩn muộn mất nửa cửa sổ.
-            let c = mesh.transform.columns.3
-            let pos = SIMD3<Float>(c.x, c.y, c.z)
-            guard let ref = anchorRefPos[id] else {
-                anchorRefPos[id] = pos   // lần đầu thấy: chỉ gieo mốc, ✗ tính là nhảy
-                continue
-            }
-            guard simd_distance(ref, pos) >= Self.settleJumpMeters else { continue }
-            anchorRefPos[id] = pos
-            beginSettling(id, now: frame.timestamp, hold: Self.settleQuietSec,
-                          extending: true, reason: "jump")
         }
-    }
-
-    // MARK: - Cửa sổ settling (xem khối chú thích ở phần thuộc tính)
-
-    /// Đưa một anchor vào cửa sổ settling.
-    /// - `extending: true` (tín hiệu NHẢY): mỗi cú nhảy đẩy mốc hết hạn ra xa → cửa sổ tự dài
-    ///   ra suốt lúc ARKit còn đang kéo anchor, và chỉ đóng khi transform ÊM đủ `hold` giây.
-    /// - `extending: false` (GỘP / QUAY LẠI): một phát, ✗ gia hạn — không thì anchor đang được
-    ///   cập nhật liên tục sẽ ẩn mãi trong lúc người quét đang nhìn thẳng vào nó.
-    private func beginSettling(_ id: UUID, now: TimeInterval, hold: TimeInterval,
-                               extending: Bool, reason: String) {
-        let deadline = settlingUntil[id] ?? -.infinity
-        let wasSettling = deadline > now
-        if wasSettling && !extending { return }
-        // 🔴 `max`, ✗ gán đè. Cú NHẢY (hold 0.7s) rơi vào giữa một cửa sổ QUAY LẠI (hold 2.0s)
-        // mà gán đè là RÚT NGẮN cửa sổ đang mở — đúng lúc ARKit vừa chứng minh vùng đó đang
-        // bị kéo. Cửa sổ settling chỉ được DÀI RA.
-        settlingUntil[id] = max(deadline, now + hold)
-        guard !wasSettling else { return }
-        if Self.logSettling {
-            print("[settle] \(reason) anchor=\(id.uuidString.prefix(8)) t=\(now) hold=\(hold)")
-        }
-        hideForSettling(id)
-    }
-
-    private func isSettling(_ id: UUID) -> Bool {
-        (settlingUntil[id] ?? -.infinity) > lastFrameTimestamp
-    }
-
-    /// Ẩn NGAY khi vào settling, không đợi nhịp retint 0.5s (xem lý do ở tín hiệu (i)).
-    /// Vai ĐỎ mất-dữ-liệu KHÔNG bao giờ bị giấu — đọc VẬT LIỆU ĐANG GÁN thay vì gọi lại
-    /// `materialFor` (rẻ, và `recordedCounts()` dựng nguyên một dictionary, ✗ gọi ở 30Hz).
-    /// Anchor chưa có node lưới (bị trần hiển thị từ chối / vừa evict) vẫn ẩn mask: mask mới
-    /// là thứ khoét phủ đỏ, nó là toàn bộ tín hiệu người quét nhìn thấy ở vùng đó.
-    private func hideForSettling(_ id: UUID) {
-        // 🔴 ĐÚNG BẰNG ĐIỀU KIỆN của vòng giấu/hiện trong `retintForRecording` — vòng đó là
-        // chỗ DUY NHẤT biết HIỆN LẠI. Giấu ở đây trong lúc vòng kia đang bị `guard` chặn
-        // (chưa có recorder / recorder đã đóng lúc lưu / mô hình đầy) là node kẹt ẩn cho tới
-        // `releaseAll`, IM LẶNG — đúng lớp lỗi "cờ isHidden mắc kẹt" đã trả giá ở
-        // `disableMasking`. Rẻ: chỉ chạy ở SƯỜN LÊN của settling, không phải mỗi tick.
-        guard !maskingDisabled, recordedCounts != nil, photoCoverage?() != nil else { return }
-        if anchorNodes[id]?.geometry?.firstMaterial === Self.unrecordedMaterial { return }
-        maskNodes[id]?.isHidden = true
-        anchorNodes[id]?.isHidden = true
     }
 
     // MARK: - Lớp phủ đỏ bám theo camera của ARSCNView
@@ -663,22 +475,10 @@ final class MeshOverlayRenderer: NSObject {
         // trong khi banner "Mô hình đã đầy" (đếm theo builder, vốn dọn-trước-đếm-sau) không
         // hề hiện. Review vòng 2 (2026-07-29) bắt.
         let present = Set(frame.anchors.compactMap { ($0 as? ARMeshAnchor)?.identifier })
-        var deaths = 0
         for id in Array(anchorDists.keys) where !present.contains(id) {
             removeAnchor(id)
-            deaths += 1
-        }
-        // Sổ dò sự kiện được ghi ở nhịp 30Hz nên có thể chứa anchor SINH-RỒI-CHẾT gọn trong
-        // một quãng 0.5s, tức chưa bao giờ vào `anchorDists` để `removeAnchor` ghé qua. Quét
-        // thẳng theo `present` cho khỏi rò. (Mọi khoá của `settlingUntil` hoặc nằm ở đây —
-        // đường NHẢY luôn gieo `anchorRefPos` trước — hoặc đã vào `anchorDists` — đường GỘP
-        // /QUAY LẠI chỉ chạm anchor đang ở trong vòng lặp dưới, nên `removeAnchor` phủ nốt.)
-        for id in Array(anchorRefPos.keys) where !present.contains(id) {
-            anchorRefPos.removeValue(forKey: id)
-            settlingUntil.removeValue(forKey: id)
         }
         purgeDyingMasks(now: frame.timestamp)
-        var newBorn: [UUID] = []
         for anchor in frame.anchors {
             guard let mesh = anchor as? ARMeshAnchor else { continue }
             let id = mesh.identifier
@@ -688,7 +488,6 @@ final class MeshOverlayRenderer: NSObject {
             anchorDists[id] = dist
             if anchorFirstSeen[id] == nil {
                 anchorFirstSeen[id] = frame.timestamp
-                newBorn.append(id)
             }
 
             let vSource = mesh.geometry.vertices
@@ -739,19 +538,6 @@ final class MeshOverlayRenderer: NSObject {
             }
             // Pose cập nhật mỗi lần (rẻ). Hình học chỉ dựng lại khi ĐỔI và không đang dựng dở.
             node?.simdTransform = mesh.transform
-
-            // Tín hiệu (iii) QUAY LẠI vùng cũ — đo TRƯỚC cổng dựng lại (cổng còn đòi
-            // `!inFlight` + buffer hợp lệ; bỏ lỡ một lần đổi chữ ký là mốc "nằm im" sai).
-            if anchorSigs[id] != sig {
-                let lastChange = lastSigChangeAt[id]
-                lastSigChangeAt[id] = frame.timestamp
-                if let lastChange,
-                   frame.timestamp - lastChange >= Self.settleRevisitIdleSec,
-                   everCovered.contains(id) {
-                    beginSettling(id, now: frame.timestamp, hold: Self.settleHoldSec,
-                                  extending: false, reason: "revisit")
-                }
-            }
 
             // 3. Dựng lại geometry khi anchor ĐỔI — chạy cho cả anchor chỉ-có-mask.
             let vLen = vSource.stride * vSource.count
@@ -819,49 +605,19 @@ final class MeshOverlayRenderer: NSObject {
                     // Key coverage TƯƠI theo geometry mới; bỏ memo "đã phủ" của anchor này —
                     // anchor PHÌNH sang vùng chưa chụp mà giữ memo là trắng nói dối đúng
                     // chỗ đang quét dở. retint nhịp kế (≤0.5s) đo lại bằng key mới.
-                    // 🔴 CHỈ xoá `coveredAnchors`, ✗ `everCovered`: sổ kia là thứ duy nhất
-                    // nhớ "anchor này đã từng trắng" nên phép đo lại được chấm ở NGƯỠNG GIỮ.
-                    // Xoá cả hai = quay lại đúng lỗi chớp trắng→đỏ mỗi lần ARKit tinh chỉnh
-                    // anchor (chủ app báo 05/08) — đọc chú thích `everCovered` trước khi sửa.
                     self.anchorCoverageKeys[id] = built.coverageKeys
                     self.coveredAnchors.remove(id)
-                    var material: SCNMaterial? = nil
-                    if let recorded = self.recordedCounts?() {
-                        material = self.materialFor(id, recorded: recorded)
-                    }
                     if let node = self.anchorNodes[id] {
                         // Chọn vật liệu NGAY khi gán geometry mới — không đợi retint 0.5s.
                         // (makeGeometries gán trắng mặc định; anchor ĐỎ đang được ARKit cập
                         // nhật liên tục sẽ chớp trắng↔đỏ ~2Hz nếu chỉ dựa vào retint —
                         // đúng lúc người quét cần tín hiệu "chưa ghi" tin cậy nhất.)
-                        if let material {
-                            built.wire.materials = [material]
+                        if let recorded = self.recordedCounts?() {
+                            built.wire.materials = [self.materialFor(id, recorded: recorded)]
                         }
                         node.geometry = built.wire
                     }
                     self.maskNodes[id]?.geometry = built.mask
-                    // 🔴 ÁP PHÁN QUYẾT ẢNH NGAY TẠI ĐÂY, ✗ ĐỢI RETINT. Đây là CHỚP TRẮNG CÒN
-                    // SÓT mà review đối kháng 05/08 bắt được: hình học về ở completion (0,1–1,5s
-                    // sau khi anchor sinh) làm node BẮT ĐẦU VẼ — wire trắng (vai đỏ đang ân hạn
-                    // 1.5s) + mask khoét thủng phủ đỏ — rồi phải đợi tới nhịp retint kế (≤0,5s)
-                    // mới bị đo và giấu đi. Tức MỌI anchor mới ở mép vùng quét loé TRẮNG ~0,2s
-                    // rồi tụt đỏ, liên tục suốt buổi. Đời `2ccb7d6` không lộ vì ân hạn 1.5s ở
-                    // vai ẢNH giữ nó trắng luôn (chính là cơ chế (a) vừa gỡ) — gỡ (a) mà không
-                    // vá chỗ này là đổi chớp 1,2s lấy chớp 0,2s, ✗ hết chớp.
-                    // `recorded == nil` (luồng RoomPlan) → không áp gì, hành vi cũ nguyên vẹn.
-                    // (`material` chỉ khác nil khi `recordedCounts` khác nil — nó CHÍNH LÀ cờ
-                    // "luồng này có dùng cơ chế trắng-theo-ảnh".)
-                    if let material, !self.maskingDisabled, let grid = self.photoCoverage?() {
-                        let wouldBeWhite = material === Self.wireframeMaterial
-                        let hide = wouldBeWhite
-                            && (self.isSettling(id) || !self.coveredForPhotos(id, grid: grid))
-                        if let mask = self.maskNodes[id], mask.isHidden != hide {
-                            mask.isHidden = hide
-                        }
-                        if let node = self.anchorNodes[id], node.isHidden != hide {
-                            node.isHidden = hide
-                        }
-                    }
                     // NGOÀI một đợt dựng đang chờ: mask có hình học là mở cổng ngay. Ca này
                     // xảy ra khi anchor MỚI xuất hiện lúc quét bình thường (đợt trước đã rút
                     // hết) — lúc đó cổng vốn đã mở nên `openCarveGate` là no-op; nó chỉ thật sự
@@ -870,23 +626,6 @@ final class MeshOverlayRenderer: NSObject {
                         self.openCarveGate()
                     }
                 }
-            }
-        }
-        // Tín hiệu (ii) GỘP HÀNG LOẠT: nhiều anchor chết trong CÙNG một lượt = ARKit vừa nhập
-        // các khối voxel lại. Chỉ đánh dấu các anchor VỪA SINH trong đúng lượt đó — chúng là
-        // sản phẩm gộp (id mới, trắng sổ `everCovered`), và cửa sổ thừa kế `coverageMergeWindow`
-        // vẫn đang mở nên khi thoát settling chúng được chấm ở ngưỡng GIỮ chứ không phải 0.75.
-        // ✗ đánh dấu cả anchor SỐNG SÓT phình to: phần phình có thể là vùng chưa chụp thật, đỏ
-        // ở đó là đúng (chủ app xác nhận "thiếu đứng >5s" có thật).
-        if deaths >= Self.settleMergeBurst {
-            if Self.logSettling {
-                print("[settle] merge-burst deaths=\(deaths) born=\(newBorn.count) t=\(frame.timestamp)")
-            }
-            // `settleHoldSec`, ✗ `settleQuietSec`: bản dựng của anchor thay thế về sau
-            // 0,1–1,5s (lâu hơn khi hàng dồn), cửa sổ phải sống tới lúc có hình học để đo.
-            for id in newBorn {
-                beginSettling(id, now: frame.timestamp, hold: Self.settleHoldSec,
-                              extending: false, reason: "merge")
             }
         }
         // ĐÓNG SỔ đợt dựng lại ngay cuối lượt ĐẦU sau `releaseAll`: từ lượt sau, anchor mới
@@ -937,80 +676,29 @@ final class MeshOverlayRenderer: NSObject {
                 geometry.materials = [material]
             }
         }
-        // `maskingDisabled` thì `disableMasking` đã hiện lại mọi node rồi (và xoá sạch sổ mask).
-        guard !maskingDisabled else { return }
-        guard let grid = photoCoverage?() else {
-            // Coverage NGỪNG cấp (recorder chưa mở đầu buổi, hoặc đã đóng ở `stopAndExport`):
-            // từ đây không còn ai tính lại giấu/hiện → HIỆN LẠI tất cả, không thì cờ isHidden
-            // kẹt vĩnh viễn. Cùng lớp lỗi với `disableMasking`; hố này có sẵn từ `2ccb7d6`
-            // nhưng đợt này bịt luôn vì `hideForSettling` chạy NGOÀI vòng retint.
-            // Vùng đã lưu thà hiện thừa còn hơn biến mất im lặng.
-            for node in anchorNodes.values where node.isHidden { node.isHidden = false }
-            for node in maskNodes.values where node.isHidden { node.isHidden = false }
-            return
-        }
+        guard !maskingDisabled, let grid = photoCoverage?() else { return }
         for (id, mask) in maskNodes {
             let wouldBeWhite = materialFor(id, recorded: recorded) === Self.wireframeMaterial
-            // 🔴 TRONG SETTLING: TREO phán quyết. `||` chập mạch nên `coveredForPhotos` KHÔNG
-            // chạy → không đo, không ghi/xoá `everCovered` (sổ trễ đóng băng nguyên trạng qua
-            // cả cửa sổ, để lúc thoát còn được chấm ở ngưỡng GIỮ 0.55 mà trắng lại KHÔNG cần
-            // ảnh mới). Đo trong cửa sổ này là đo lúc mesh đang sai chỗ = số rác.
-            let hide = wouldBeWhite && (isSettling(id) || !coveredForPhotos(id, grid: grid))
+            let hide = wouldBeWhite && !coveredForPhotos(id, grid: grid)
             if mask.isHidden != hide { mask.isHidden = hide }
             if let node = anchorNodes[id], node.isHidden != hide { node.isHidden = hide }
         }
     }
 
-    /// "Đã đủ ảnh" cho một anchor — memo một chiều. Chưa có key mẫu (bản dựng đầu còn bay)
-    /// = coi như đủ; ca đó anchor CHƯA có hình học nào (wire lẫn mask đều nhận geometry ở
-    /// completion) nên phán quyết không vẽ ra pixel nào — vùng đó vẫn đang là ĐỎ vì mask
-    /// chưa khoét được. Key về là nhịp sau đo thật.
-    ///
-    /// 🔴 ✗ THÊM LẠI ÂN HẠN THỜI GIAN Ở ĐÂY (đã gỡ 05/08 — lỗi chủ app báo: *"khu vực đã
-    /// hiện lưới trắng nhưng ngay lập tức quay lại đỏ, phải để máy vài giây mới trắng lại"*).
-    /// Đời cũ dùng chung mốc `anchorFirstSeen` 1.5s với vai đỏ. Nhưng hai vai KHÁC BẢN CHẤT:
-    ///  · `materialFor` ân hạn = "builder 2–5Hz chưa kịp GHI anchor mới" — trễ thật, vài
-    ///    trăm ms, ân hạn là đúng (VẪN GIỮ, xem hàm đó).
-    ///  · ở đây ân hạn = "coi như CHỖ NÀY ĐÃ CÓ ẢNH" trong khi có thể chưa chụp phút nào.
-    /// Hai ân hạn cộng lại: MỌI anchor mới đều trắng 1,5s rồi rơi về đỏ — đúng cái chớp
-    /// người quét thấy. Bỏ ân hạn ở vai ảnh thì chuỗi thành ĐỎ → trắng, một chiều, không
-    /// chớp; và KHÔNG sinh chớp ngược lại (trước khi có geometry vùng đó vốn đã đỏ sẵn).
-    ///
-    /// 🔴 NGƯỠNG KÉP (xem `everCovered`): LÊN trắng cần `coverageMinFraction`, GIỮ trắng chỉ
-    /// cần `coverageKeepFraction`. Anchor tụt dưới cả ngưỡng giữ thì rời `everCovered` → lần
-    /// sau phải leo lại từ ngưỡng ĐẦY (✗ để nó giữ ngưỡng thấp vĩnh viễn sau một lần trượt).
-    ///
-    /// ⚠ HÀM NÀY KHÔNG ĐƯỢC GỌI TRONG CỬA SỔ SETTLING (xem `retintForRecording`) — nó ghi sổ,
-    /// mà đo lúc ARKit đang kéo anchor là ghi số rác vào sổ.
+    /// "Đã đủ ảnh" cho một anchor — memo một chiều + ân hạn dùng CHUNG mốc `anchorFirstSeen`
+    /// với vai đỏ (anchor mới có 1.5s để ảnh kịp lưu, không thì mọi lưới mới đều chớp
+    /// ẩn→hiện). Chưa có key mẫu (bản dựng đầu còn bay) = coi như đủ — thà trắng sớm 0.5–1.5s
+    /// còn hơn chớp; key về là nhịp sau đo thật.
     private func coveredForPhotos(_ id: UUID, grid: TextureCoverageGrid) -> Bool {
         if coveredAnchors.contains(id) { return true }
-        guard let keys = anchorCoverageKeys[id], !keys.isEmpty else { return true }
-        // Ngưỡng GIỮ áp cho: (1) anchor đã từng trắng, (2) anchor nằm GẦN một covered-death
-        // vừa xảy ra — thừa kế qua ca ARKit GỘP anchor (id mới, mất sổ trễ); xem chú
-        // `lastCoveredDeathAt` + `lastCoveredDeathPos`.
-        var inherits = everCovered.contains(id)
-        if !inherits, lastFrameTimestamp - lastCoveredDeathAt < Self.coverageMergeWindow {
-            if let deathPos = lastCoveredDeathPos, let here = anchorRefPos[id] {
-                inherits = simd_distance(deathPos, here) <= Self.coverageMergeRadius
-            } else {
-                inherits = true   // chưa biết vị trí → hành vi cũ, ✗ siết oan
-            }
-        }
-        let bar = inherits ? Self.coverageKeepFraction : Self.coverageMinFraction
-        let need = max(1, Int((Float(keys.count) * bar).rounded(.up)))
-        if grid.containedCount(of: keys) >= need {
-            coveredAnchors.insert(id)
-            everCovered.insert(id)
+        if lastFrameTimestamp - (anchorFirstSeen[id] ?? lastFrameTimestamp) < 1.5 {
             return true
         }
-        // 🔴 VỪA RA KHỎI SETTLING thì KHÔNG hạ sổ trễ. Rời `everCovered` = lần sau phải leo lại
-        // từ 0.75 = CHỦ APP PHẢI ĐỨNG CHỤP BÙ — đúng thứ cửa sổ settling được dựng lên để khỏi
-        // phải làm. Lưới voxel ảnh KHÔNG được ARKit kéo theo khi khép vòng (nó ghi theo tư thế
-        // camera lúc bấm máy), nên phép đo ngay sau một cú tái định vị có thể trượt vài phần
-        // trăm dù chỗ đó đã chụp đủ. Cho nó vài nhịp đo lại ở ngưỡng GIỮ; vẫn trả false nên
-        // vùng đó vẫn ĐỎ THẬT THÀ trong lúc chờ, và quá `coverageMergeWindow` thì hạ sổ như cũ.
-        if lastFrameTimestamp - (settlingUntil[id] ?? -.infinity) >= Self.coverageMergeWindow {
-            everCovered.remove(id)
+        guard let keys = anchorCoverageKeys[id], !keys.isEmpty else { return true }
+        let need = max(1, Int((Float(keys.count) * Self.coverageMinFraction).rounded(.up)))
+        if grid.containedCount(of: keys) >= need {
+            coveredAnchors.insert(id)
+            return true
         }
         return false
     }
@@ -1069,16 +757,6 @@ final class MeshOverlayRenderer: NSObject {
         anchorSigs.removeValue(forKey: id)
         anchorCoverageKeys.removeValue(forKey: id)
         coveredAnchors.remove(id)
-        // Anchor TRẮNG chết = gần như chắc chắn ARKit vừa GỘP nó vào một anchor mới — mở cửa
-        // sổ thừa kế ngưỡng GIỮ cho bản thay thế (xem `lastCoveredDeathAt`).
-        // 🔴 CHỤP VỊ TRÍ **TRƯỚC** khi xoá `anchorRefPos` — thừa kế bó theo chỗ cần nó.
-        if everCovered.remove(id) != nil {
-            lastCoveredDeathAt = lastFrameTimestamp
-            lastCoveredDeathPos = anchorRefPos[id]
-        }
-        anchorRefPos.removeValue(forKey: id)
-        settlingUntil.removeValue(forKey: id)
-        lastSigChangeAt.removeValue(forKey: id)
         // Anchor chết giữa đợt dựng lại vẫn phải rời sổ, không thì cổng tấm phủ kẹt mãi —
         // và nếu nó là thành viên CUỐI thì phải mở cổng luôn tại đây, vì sẽ không còn
         // completion nào về để làm việc đó.
