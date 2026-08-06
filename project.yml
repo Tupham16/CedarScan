@@ -31,7 +31,11 @@ targets:
         # kiểu IM LẶNG, CI vẫn xanh, chỉ lộ khi sideload.
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
         CURRENT_PROJECT_VERSION: "1"
-        MARKETING_VERSION: "1.0"
+        # 🔴 TĂNG SỐ NÀY MỖI LẦN GIAO IPA CHO CHỦ APP. 06/08 có ba bản IPA ra cách nhau ~1
+        # tiếng, cùng hiện "1.0" → chủ app test trúng bản cũ mà không ai biết, báo "lỗi vẫn
+        # nguyên" oan. AltStore (My Apps) và Cài đặt iOS đều hiện số này — nó là cách DUY NHẤT
+        # xác minh từ xa máy ông đang chạy bản nào. Ghi số giao kèm vào SESSION-HANDOFF §STATE.
+        MARKETING_VERSION: "1.1"
     info:
       path: Sources/Info.plist
       properties:
