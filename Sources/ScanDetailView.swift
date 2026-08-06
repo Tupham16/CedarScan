@@ -15,6 +15,34 @@ struct ScanDetailView: View {
     @StateObject private var uploader = ScanUploader()
 
     @State private var mode = 0
+    /// 🔴 DỮ LIỆU THƯỜNG cho nút Share trên thanh điều hướng — CHỤP trong `.task` (nơi
+    /// environment còn nguyên vẹn), closure `.toolbar` CHỈ được đọc struct này.
+    ///
+    /// VÌ SAO (crash log chủ app gửi 06/08, bản 1.1, iOS 26, incident E7FBB13A, 100% tái
+    /// hiện trên đường "Đặt hàng ngay" ở màn preview → push màn này): UIKit dựng-và-đo bar
+    /// item SỚM — `UIKitBarItemHost.initializeSize` ngay trong `willMove(toSuperview:)` —
+    /// TRƯỚC khi cầu environment của SwiftUI nối tới host RIÊNG của thanh điều hướng.
+    /// Closure trong `.toolbar { }` chạy trong host đó, và `DynamicBody` CÀI LẠI property
+    /// wrapper theo host hiện tại (✗ dùng giá trị đã capture), nên đọc `@EnvironmentObject`
+    /// (store — `shareControl` cũ đụng qua `current`/`folder`) là `EnvironmentObject.error()`
+    /// → SIGTRAP. Stack: _assertionFailure ← EnvironmentObject.error ← ViewBodyAccessor ←
+    /// UIKitBarItemHost.initializeSize ← willMove(toSuperview:).
+    /// · ✗ chèn `.environmentObject(store)` vào trong ToolbarItem — chính biểu thức đó cũng
+    ///   phải đọc wrapper trong host chưa nối, chết y hệt.
+    /// · ✗ đưa computed property nào đụng store/account vào closure toolbar.
+    /// · @State đọc trong host chưa nối chỉ trả giá trị hiện có (không trap) → snapshot nằm
+    ///   ở @State; trước khi `.task` chạy nó rỗng → nút Share hiện trễ một nhịp, chấp nhận.
+    private struct ShareSnapshot {
+        var videoOnlyURL: URL?
+        var meshBundle: [URL] = []
+        var isLegacy = false
+        var legacyUSDZ: URL?
+        var legacyGLB: URL?
+        var legacyOBJZip: URL?
+        var legacyPLY: URL?
+        var legacyPlanPNG: URL?
+    }
+    @State private var shareSnapshot = ShareSnapshot()
     @State private var planImageURL: URL?
     /// Ảnh mặt bằng của bản quét RoomPlan CŨ, đọc từ floorplan.png trên đĩa. Nạp MỘT LẦN vào
     /// state chứ không gọi trong body: body dựng lại nhiều lần mỗi giây suốt lúc upload.
@@ -82,7 +110,10 @@ struct ScanDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                shareControl
+                // 🔴 CHỈ dữ liệu thường (ShareSnapshot) — đọc chú thích tại struct đó trước
+                // khi thêm BẤT CỨ GÌ vào closure này. Đụng @EnvironmentObject ở đây là văng
+                // app (đã xảy ra, crash log 06/08).
+                shareButton(shareSnapshot)
             }
         }
         .safeAreaInset(edge: .bottom) {
@@ -130,12 +161,17 @@ struct ScanDetailView: View {
                FileManager.default.fileExists(atPath: videoURL.path) {
                 player = AVPlayer(url: videoURL)
             }
-            guard !current.isVideoOnly else { return }
+            guard !current.isVideoOnly else {
+                shareSnapshot = makeShareSnapshot() // video-only cũng có nút Share
+                return
+            }
             coloredGLBExists = FileManager.default.fileExists(atPath: coloredGLBURL.path)
             coloredZipExists = FileManager.default.fileExists(atPath: coloredZipURL.path)
             if coloredZipExists, meshShareURL == nil {
                 meshShareURL = prepareNamedZip()
             }
+            // Chụp SAU khi các cờ file + meshShareURL đã chốt — snapshot đọc chúng.
+            shareSnapshot = makeShareSnapshot()
             if current.isMeshOnly {
                 await loadTexturedURL()
                 return
@@ -618,28 +654,52 @@ struct ScanDetailView: View {
     /// thứ họ không định gửi.
     ///
     /// Không có gì để chia sẻ (file mất sạch) → KHÔNG hiện nút, thay vì mở một bảng chia sẻ
-    /// rỗng không làm gì (đúng bài học ở `legacyShareItems`).
+    /// rỗng không làm gì.
+    ///
+    /// 🔴 CHỈ ĐỌC `ShareSnapshot` (tham số) — hàm này chạy trong HOST CỦA THANH ĐIỀU HƯỚNG,
+    /// nơi environment có thể CHƯA nối (đọc chú thích tại `ShareSnapshot`). Đụng
+    /// `current`/`store`/`account` hay bất cứ computed property nào của view ở đây là văng
+    /// app trở lại. (Action closure của Button thì được — nó chỉ chạy lúc CHẠM, khi thanh đã
+    /// gắn xong từ lâu.)
     @ViewBuilder
-    private var shareControl: some View {
-        if current.isVideoOnly {
-            if FileManager.default.fileExists(atPath: videoURL.path) {
-                ShareLink(item: videoURL) {
-                    Text(L.t("Share", "Share"))
-                }
+    private func shareButton(_ s: ShareSnapshot) -> some View {
+        if let video = s.videoOnlyURL {
+            ShareLink(item: video) {
+                Text(L.t("Share", "Share"))
             }
-        } else if current.isMeshOnly {
-            if !meshShareBundle.isEmpty {
-                ShareLink(items: meshShareBundle) {
-                    Text(L.t("Share", "Share"))
-                }
+        } else if !s.meshBundle.isEmpty {
+            ShareLink(items: s.meshBundle) {
+                Text(L.t("Share", "Share"))
             }
-        } else {
+        } else if s.isLegacy {
             Menu {
-                legacyShareItems
+                legacyShareItems(s)
             } label: {
                 Text(L.t("Share", "Share"))
             }
         }
+    }
+
+    /// Chụp dữ liệu cho nút Share. 🔴 CHỈ gọi từ nơi environment còn nguyên (`.task` của thân
+    /// view) — nó đọc `current` (store) + hệ file; gọi từ closure toolbar là đúng cái chết cũ.
+    /// Gọi SAU khi `coloredGLBExists`/`coloredZipExists`/`meshShareURL` đã chốt.
+    private func makeShareSnapshot() -> ShareSnapshot {
+        var s = ShareSnapshot()
+        if current.isVideoOnly {
+            if FileManager.default.fileExists(atPath: videoURL.path) {
+                s.videoOnlyURL = videoURL
+            }
+        } else if current.isMeshOnly {
+            s.meshBundle = meshShareBundle
+        } else {
+            s.isLegacy = true
+            if FileManager.default.fileExists(atPath: usdzURL.path) { s.legacyUSDZ = usdzURL }
+            if coloredGLBExists { s.legacyGLB = coloredGLBURL }
+            if coloredZipExists { s.legacyOBJZip = meshShareURL ?? coloredZipURL }
+            if FileManager.default.fileExists(atPath: plyURL.path) { s.legacyPLY = plyURL }
+            if FileManager.default.fileExists(atPath: planURL.path) { s.legacyPlanPNG = planURL }
+        }
+        return s
     }
 
     /// Trọn gói chia sẻ của bản quét mesh: mô hình tốt nhất + video (thứ nào còn trên đĩa).
@@ -676,28 +736,29 @@ struct ScanDetailView: View {
         return nil
     }
 
-    /// Menu chia sẻ cho bản quét RoomPlan CŨ.
+    /// Menu chia sẻ cho bản quét RoomPlan CŨ — đọc TỪ SNAPSHOT (đã chụp trong `.task`), cùng
+    /// luật với `shareButton`: hàm này cũng chạy trong host của thanh điều hướng.
     ///
-    /// MỌI mục đều gác `fileExists`, kể cả USDZ — trước đây `ShareLink(item: usdzURL)` đứng vô
-    /// điều kiện vì luồng RoomPlan luôn ghi model.usdz. Nay không còn luồng nào ghi nó, nên bản
-    /// quét thiếu file (export USDZ từng lỗi, hoặc file bị xoá) sẽ mở ra bảng chia sẻ rỗng —
-    /// khách bấm Chia sẻ, được một hộp thoại không làm gì, và không hiểu vì sao.
+    /// MỌI mục đều gác file-tồn-tại (nay = field snapshot khác nil), kể cả USDZ — trước đây
+    /// `ShareLink(item: usdzURL)` đứng vô điều kiện vì luồng RoomPlan luôn ghi model.usdz. Nay
+    /// không còn luồng nào ghi nó, nên bản quét thiếu file sẽ mở ra bảng chia sẻ rỗng — khách
+    /// bấm Chia sẻ, được một hộp thoại không làm gì, và không hiểu vì sao.
     @ViewBuilder
-    private var legacyShareItems: some View {
-        if FileManager.default.fileExists(atPath: usdzURL.path) {
-            ShareLink(item: usdzURL) {
+    private func legacyShareItems(_ s: ShareSnapshot) -> some View {
+        if let usdz = s.legacyUSDZ {
+            ShareLink(item: usdz) {
                 Label(L.t("Share 3D model (USDZ)", "Chia sẻ mô hình 3D (USDZ)"), systemImage: "cube")
             }
         }
         // Mô hình LiDAR CÓ MÀU.
         // GLB: Blender/most viewers ra màu ngay (khuyến nghị). OBJ: hợp MeshLab/CloudCompare.
-        if coloredGLBExists {
-            ShareLink(item: coloredGLBURL) {
+        if let glb = s.legacyGLB {
+            ShareLink(item: glb) {
                 Label(L.t("Share colored 3D (GLB)", "Chia sẻ mô hình màu (GLB)"), systemImage: "cube.fill")
             }
         }
-        if coloredZipExists {
-            ShareLink(item: meshShareURL ?? coloredZipURL) {
+        if let objZip = s.legacyOBJZip {
+            ShareLink(item: objZip) {
                 Label(L.t("Share colored 3D (OBJ)", "Chia sẻ mô hình màu (OBJ)"), systemImage: "square.stack.3d.up")
             }
         }
@@ -705,15 +766,16 @@ struct ScanDetailView: View {
         // đây là lối chia sẻ mô hình màu DUY NHẤT còn lại. Trước đây màn này tự dựng bù zip/GLB
         // khi mở nên ca đó "tự lành"; nay không dựng nữa, thiếu mục này là mô hình 3D kẹt trong
         // máy vĩnh viễn.
-        if FileManager.default.fileExists(atPath: plyURL.path) {
-            ShareLink(item: plyURL) {
+        if let ply = s.legacyPLY {
+            ShareLink(item: ply) {
                 Label(L.t("Share raw mesh (PLY)", "Chia sẻ mesh thô (PLY)"), systemImage: "square.3.layers.3d")
             }
         }
         // OBJ (RoomPlan) + video là NGUYÊN LIỆU NỘI BỘ (gửi về đội xử lý qua đơn hàng), không cho khách chia sẻ.
-        if FileManager.default.fileExists(atPath: planURL.path) {
+        // (Action closure đụng @State là ĐƯỢC — chỉ chạy lúc CHẠM, thanh đã gắn xong từ lâu.)
+        if let plan = s.legacyPlanPNG {
             Button {
-                planImageURL = planURL
+                planImageURL = plan
             } label: {
                 Label(L.t("Share floor plan (PNG)", "Chia sẻ ảnh mặt bằng (PNG)"), systemImage: "photo")
             }
