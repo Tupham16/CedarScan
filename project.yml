@@ -35,7 +35,7 @@ targets:
         # tiếng, cùng hiện "1.0" → chủ app test trúng bản cũ mà không ai biết, báo "lỗi vẫn
         # nguyên" oan. AltStore (My Apps) và Cài đặt iOS đều hiện số này — nó là cách DUY NHẤT
         # xác minh từ xa máy ông đang chạy bản nào. Ghi số giao kèm vào SESSION-HANDOFF §STATE.
-        MARKETING_VERSION: "1.2"
+        MARKETING_VERSION: "1.3"
     info:
       path: Sources/Info.plist
       properties:
@@ -60,6 +60,13 @@ targets:
         # tại là thứ App Store sẽ hỏi, và người đọc plist sau này sẽ tưởng app còn ghi âm.
         # NẾU sau này thêm thuyết minh giọng nói cho mesh mode thì khai lại KÈM code thật —
         # thiếu purpose string lúc xin quyền là app CRASH.
+        # Measurement build 1.3 (2026-08-09): expose the app's Documents/ folder in the
+        # iOS Files app so the owner can pull ScanPerfProfiler reports from
+        # Documents/perf-logs/ without Xcode (AltStore Release build has no console).
+        # Side effect: Documents/Scans/ becomes user-visible too — acceptable for
+        # owner-only sideload builds; REVIEW these two keys before any App Store push.
+        UIFileSharingEnabled: true
+        LSSupportsOpeningDocumentsInPlace: true
         UILaunchScreen: {}
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait

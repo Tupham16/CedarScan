@@ -238,6 +238,8 @@ final class TextureShotRecorder {
     }
 
     @objc private func tick() {
+        let perfT0 = ScanPerfProfiler.tickBegin()
+        defer { ScanPerfProfiler.tickEnd(.texShot, perfT0) }
         guard !isFinishing, let frame = arSession?.currentFrame else { return }
         // Phiên pause/gián đoạn thì currentFrame lặp lại khung cũ — bỏ qua ngay cho rẻ.
         guard frame.timestamp != lastSeenFrameTime else { return }

@@ -138,6 +138,8 @@ final class ScanQualityMonitor: NSObject, ObservableObject {
     // MARK: - Vòng lặp chính (12 Hz, chỉ đọc — không giữ ARFrame)
 
     @objc private func tick() {
+        let perfT0 = ScanPerfProfiler.tickBegin()
+        defer { ScanPerfProfiler.tickEnd(.quality, perfT0) }
         guard let frame = arSession?.currentFrame else { return }
         let t = frame.timestamp
         let camera = frame.camera

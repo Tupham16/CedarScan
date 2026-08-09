@@ -210,6 +210,8 @@ final class ColorMeshBuilder {
     }
 
     @objc private func tick() {
+        let perfT0 = ScanPerfProfiler.tickBegin()
+        defer { ScanPerfProfiler.tickEnd(.colorMesh, perfT0) }
         guard let frame = arSession?.currentFrame else { return }
         ingestMesh(from: frame)
         maybeCaptureColorFrame(from: frame)

@@ -89,6 +89,9 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
             qualityMonitor.tooCloseCoachEnabled = true
         }
         // Giữ isLightEstimationEnabled mặc định (true) — cảnh báo thiếu sáng cần nó.
+        // Perf measurement (observation only — see ScanPerfProfiler). Started BEFORE
+        // arSession.run so the fragile first seconds of VIO init are captured.
+        ScanPerfProfiler.start(session: arSession)
         arSession.run(config)
 
         // wholeHomePreset: hình học full mật độ ARKit, trần 2M chỉ là van an toàn RAM —
@@ -152,6 +155,7 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
     ) {
         guard !isStopped else { return (nil, nil, nil, nil, false, false) }
         isStopped = true
+        ScanPerfProfiler.noteEvent("stop-and-save")
         teardownCommon()
         // teardownCommon vừa bật lại auto-lock, nhưng export còn chạy hàng chục giây tới
         // vài phút (chia tam giác + bake màu): người quét bấm Lưu rồi ĐẶT MÁY XUỐNG, máy
@@ -189,6 +193,7 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
     func cancel() {
         guard !isStopped else { return }
         isStopped = true
+        ScanPerfProfiler.noteEvent("cancel")
         teardownCommon()
         recorder?.cancel()
         recorder = nil
@@ -202,6 +207,9 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
     }
 
     private func teardownCommon() {
+        // Both exits (Stop & Save, Cancel) funnel through here exactly once
+        // (isStopped guard) — the scan phase is over, flush the perf report.
+        ScanPerfProfiler.stop(reason: "scan-ended")
         qualityMonitor.stop()
         capPollTimer?.invalidate()
         capPollTimer = nil
@@ -216,6 +224,7 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
     // phá mesh (hai "căn nhà ma" chồng nhau) — nên chỉ gom tiếp khi tracking đã về normal.
 
     func sessionWasInterrupted(_ session: ARSession) {
+        ScanPerfProfiler.noteEvent("session-interrupted")
         guard !isStopped else { return }
         isInterrupted = true
         // Rung báo "đang KHÔNG ghi" — từ giờ lưới quét thêm sẽ hiện ĐỎ trên overlay.
@@ -229,6 +238,7 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
     }
 
     func sessionInterruptionEnded(_ session: ARSession) {
+        ScanPerfProfiler.noteEvent("session-interruption-ended")
         guard !isStopped else { return }
         isInterrupted = false
         // Chờ relocalize tối đa 10s; không về normal được → khuyên lưu phần đã quét.
@@ -249,6 +259,9 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
     }
 
     func session(_ session: ARSession, cameraDidChangeTrackingState camera: ARCamera) {
+        // Before the guards: transitions DURING an interruption are exactly the
+        // drift-window data the measurement campaign is after.
+        ScanPerfProfiler.noteTracking(camera.trackingState)
         guard !isStopped, !isInterrupted else { return }
         if case .normal = camera.trackingState {
             relocalizeTimer?.invalidate()
@@ -265,6 +278,7 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
     }
 
     func session(_ session: ARSession, didFailWithError error: Error) {
+        ScanPerfProfiler.noteEvent("session-error code=\((error as? ARError)?.code.rawValue ?? -1)")
         guard !isStopped else { return }
         // Quyền camera bị từ chối là một trạng thái RIÊNG, không phải "mất định vị": nó không tự
         // hồi phục và cách xử lý (mở Cài đặt) khác hẳn. Tách ra để UI hiện đúng thông điệp.
