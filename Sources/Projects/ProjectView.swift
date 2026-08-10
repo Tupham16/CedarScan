@@ -50,7 +50,7 @@ struct ProjectView: View {
     ///
     /// 🔴 Dùng `.sheet(item:)`, KHÔNG dùng `.sheet(isPresented:)` + cờ Bool riêng. Đây là chỗ đã
     /// trả giá một lần: bản trước để `@State showOrderSheet` (Bool) và một `@State` thứ hai chứa
-    /// danh sách id, cả hai set CÙNG một nhịp trong `presentOrderSheet()`. Nhưng `.sheet(isPresented:)`
+    /// danh sách id, cả hai set CÙNG một nhịp trong `presentSendSheet()`. Nhưng `.sheet(isPresented:)`
     /// dựng nội dung khi cờ lật true, và ở nhịp đó `@State` thứ hai CHƯA kịp commit — lần ĐẦU mở
     /// form của mỗi `ProjectView` (giá trị còn nil) cho ra một sheet TRẮNG trượt lên rồi phải vuốt
     /// xuống; lần sau đã có giá trị nên hết, mở dự án khác (ProjectView mới) lại nil → trắng lại.
@@ -70,6 +70,15 @@ struct ProjectView: View {
         let scanIds: [UUID]
     }
     @State private var orderTarget: OrderSheetTarget?
+    /// Đích của màn **GỬI BỔ SUNG** — cùng khuôn `OrderSheetTarget` và cùng lý do: chỉ giữ
+    /// `[UUID]`, ✗ `[ScanRecord]` (đóng băng `cloudScanId` = tải lên lại + đẻ scan id mới).
+    /// Kiểu RIÊNG chứ ✗ dùng lại `OrderSheetTarget`: hai `.sheet(item:)` phân biệt nhau bằng
+    /// KIỂU của binding, và một cờ Bool chung là đúng lỗi đã trả giá ở chính `orderTarget`.
+    private struct SupplementTarget: Identifiable {
+        let id = UUID()
+        let scanIds: [UUID]
+    }
+    @State private var supplementTarget: SupplementTarget?
     /// Cổng đăng nhập/xác minh mở tại chỗ — xem `AccountGateSheet`.
     @State private var showAccountGate = false
     @State private var showLowQualityConfirm = false
@@ -91,6 +100,10 @@ struct ProjectView: View {
     private var project: ScanProject? { store.project(with: projectId) }
     private var scans: [ScanRecord] { project.map { store.scans(in: $0) } ?? [] }
     private var orderableScans: [ScanRecord] { scans.filter { $0.cloudOrderNumber == nil } }
+    /// Dự án ĐÃ có đơn ⇒ mọi bản quét sau chỉ còn đường GỬI BỔ SUNG, ✗ đặt đơn thứ hai.
+    /// Chủ app chốt 11/08: *"1 dự án chỉ có 1 đơn"*. Hỏi `ScanStore` — nguồn DUY NHẤT trả lời câu
+    /// này cho cả ba màn; ✗ tự lọc `cloudOrderNumber` tại chỗ.
+    private var projectOrderNumber: String? { store.orderNumber(ofProject: projectId) }
     /// Xem ghi chú ở `HomeView.isSupported` — hỏi ARKit, không hỏi RoomPlan.
     private var isSupported: Bool {
         ARWorldTrackingConfiguration.supportsSceneReconstruction(.mesh)
@@ -350,6 +363,9 @@ struct ProjectView: View {
         .sheet(item: $orderTarget) { target in
             orderSheetBody(target)
         }
+        .sheet(item: $supplementTarget) { target in
+            supplementSheetBody(target)
+        }
         .sheet(isPresented: $showAccountGate, onDismiss: {
             // Qua được cổng thì ĐI TIẾP việc khách đang làm dở, đừng bắt họ bấm lại đúng cái nút
             // vừa bấm.
@@ -392,23 +408,32 @@ struct ProjectView: View {
         if orderableScans.contains(where: { $0.qualityRescan == true }) {
             showLowQualityConfirm = true
         } else {
-            presentOrderSheet()
+            presentSendSheet()
         }
     }
 
-    /// LỐI VÀO DUY NHẤT của form đặt hàng.
+    /// LỐI VÀO DUY NHẤT của form đặt hàng **và** của màn gửi bổ sung.
     ///
-    /// Mọi chỗ muốn mở sheet phải gọi hàm này, ĐỪNG gán `orderTarget` thẳng ở nơi khác: đóng gói
-    /// việc chốt danh tính vào một chỗ. Có đúng hai lối vào (nút "Đặt làm mặt bằng" và nút "Vẫn
-    /// đặt hàng" của cảnh báo chất lượng thấp), và lối thứ hai đã một lần bị bỏ quên khi sửa lối
-    /// thứ nhất.
-    private func presentOrderSheet() {
-        // Tập rỗng thì không có gì để đặt. Nút gọi hàm này vốn đã ẩn khi rỗng, nên đây là lớp thứ
-        // hai — fail-closed. Tính `ids` TRƯỚC rồi mới dựng target: gán `orderTarget` là thao tác
-        // DUY NHẤT bật sheet (sheet(item:) hiện khi item != nil), nên target phải đủ dữ liệu ngay.
+    /// Mọi chỗ muốn mở sheet phải gọi hàm này, ĐỪNG gán `orderTarget`/`supplementTarget` thẳng ở
+    /// nơi khác: đóng gói việc chốt danh tính vào một chỗ. Có đúng hai lối vào (nút đáy và nút
+    /// "Vẫn đặt hàng" của cảnh báo chất lượng thấp), và lối thứ hai đã một lần bị bỏ quên khi sửa
+    /// lối thứ nhất.
+    ///
+    /// 🔴 **RẼ NHÁNH THEO STORE, ✗ theo nút nào vừa bấm.** Cùng một điều kiện
+    /// (`projectOrderNumber != nil`) quyết định CẢ nhãn nút LẪN việc mở sheet nào — nên nhãn
+    /// không thể nói một đằng mà hành động đi một nẻo, kể cả khi khách qua cổng tài khoản rồi
+    /// `onDismiss` tự đi tiếp hộ họ (đường đó cũng vào đây).
+    private func presentSendSheet() {
+        // Tập rỗng thì không có gì để gửi. Nút gọi hàm này vốn đã ẩn khi rỗng, nên đây là lớp thứ
+        // hai — fail-closed. Tính `ids` TRƯỚC rồi mới dựng target: gán target là thao tác DUY
+        // NHẤT bật sheet (sheet(item:) hiện khi item != nil), nên target phải đủ dữ liệu ngay.
         let ids = orderableScans.map(\.id)
         guard !ids.isEmpty else { return }
-        orderTarget = OrderSheetTarget(scanIds: ids)
+        if projectOrderNumber != nil {
+            supplementTarget = SupplementTarget(scanIds: ids)
+        } else {
+            orderTarget = OrderSheetTarget(scanIds: ids)
+        }
     }
 
     /// Nội dung form đặt hàng: DANH TÍNH chốt lúc mở (trong `target`), GIÁ TRỊ đọc SỐNG từ store
@@ -435,9 +460,23 @@ struct ProjectView: View {
         }
     }
 
+    /// Nội dung màn GỬI BỔ SUNG. Cùng khuôn `orderSheetBody`: danh tính chốt lúc mở, giá trị đọc
+    /// sống. `projectOrderNumber` đọc lại ở đây (✗ chụp vào target) vì nó là thứ QUYẾT ĐỊNH gửi
+    /// vào đơn nào — chụp một số đơn cũ rồi gửi vào đó là nhét file sang nhầm đơn.
+    @ViewBuilder
+    private func supplementSheetBody(_ target: SupplementTarget) -> some View {
+        if let orderNumber = projectOrderNumber, !liveScans(of: target).isEmpty {
+            SupplementSheet(records: liveScans(of: target), orderNumber: orderNumber)
+        }
+    }
+
     /// Giải danh tính đã chốt thành bản ghi SỐNG. Bản quét bị dọn mất giữa chừng thì rơi khỏi
     /// danh sách (compactMap) thay vì kéo theo dữ liệu ma.
     private func liveScans(of target: OrderSheetTarget) -> [ScanRecord] {
+        target.scanIds.compactMap { id in store.records.first { $0.id == id } }
+    }
+
+    private func liveScans(of target: SupplementTarget) -> [ScanRecord] {
         target.scanIds.compactMap { id in store.records.first { $0.id == id } }
     }
 
@@ -569,9 +608,16 @@ struct ProjectView: View {
                     }
                     startOrderFlow()
                 } label: {
+                    // 🔴 Dự án ĐÃ có đơn ⇒ nhãn phải là "Gửi bổ sung", ✗ "Đặt làm mặt bằng".
+                    // Bỏ sót chỗ này là khách vẫn đặt được ĐƠN THỨ HAI cho cùng căn nhà và quy
+                    // tắc "1 dự án 1 đơn" của chủ app chỉ đúng một nửa. Nhãn và hành động cùng
+                    // đọc MỘT điều kiện (`projectOrderNumber`) — xem `presentSendSheet()`.
                     Label(
-                        L.t("Order Floor Plan (\(orderableScans.count) scan(s))",
-                            "Đặt làm mặt bằng (\(orderableScans.count) bản quét)"),
+                        projectOrderNumber != nil
+                            ? L.t("Send extra scan (\(orderableScans.count))",
+                                  "Gửi bổ sung bản quét (\(orderableScans.count))")
+                            : L.t("Order Floor Plan (\(orderableScans.count) scan(s))",
+                                  "Đặt làm mặt bằng (\(orderableScans.count) bản quét)"),
                         systemImage: "paperplane.fill"
                     )
                     .font(.headline)
@@ -585,7 +631,7 @@ struct ProjectView: View {
                     titleVisibility: .visible
                 ) {
                     Button(L.t("Order anyway", "Vẫn đặt hàng")) {
-                        presentOrderSheet()
+                        presentSendSheet()
                     }
                     Button(L.t("I'll rescan first", "Để tôi quét lại"), role: .cancel) {}
                 } message: {

@@ -102,6 +102,8 @@ struct ScanDetailView: View {
     /// tiến độ, tức body dựng lại nhiều lần mỗi giây suốt lúc tải 40–200MB.
     @State private var player: AVPlayer?
     @State private var showOrderSheet = false
+    /// Màn "Gửi bổ sung bản quét" — mở khi dự án của bản quét này ĐÃ có đơn.
+    @State private var showSupplementSheet = false
     /// Đã tự mở form đặt hàng lần nào chưa (chỉ có nghĩa khi `autoOpenOrder`).
     ///
     /// 🔴 BẮT BUỘC. `.task` KHÔNG phải "chạy một lần" — SwiftUI huỷ nó ở `onDisappear` và chạy
@@ -377,6 +379,14 @@ struct ScanDetailView: View {
                 projectName: store.project(with: current.projectId)?.name
             )
         }
+        // Gửi bổ sung bản quét vào đơn ĐÃ đặt của dự án. `.sheet(isPresented:)` an toàn ở đây
+        // (khác `ProjectView`): nội dung chỉ phụ thuộc `current` + `supplementOrderNumber`, cả
+        // hai đã có giá trị từ trước khi cờ lật — không có khe nil như ca `orderTarget`.
+        .sheet(isPresented: $showSupplementSheet) {
+            if let orderNumber = supplementOrderNumber {
+                SupplementSheet(records: [current], orderNumber: orderNumber)
+            }
+        }
         .sheet(isPresented: $showAccountGate) {
             AccountGateSheet()
         }
@@ -437,6 +447,17 @@ struct ScanDetailView: View {
         }
     }
 
+    /// Số đơn của DỰ ÁN chứa bản quét này — khác nil ⇒ bản quét này chỉ còn đường GỬI BỔ SUNG.
+    ///
+    /// Hỏi `ScanStore.orderNumber(ofProject:)`, nguồn DUY NHẤT của quy tắc "1 dự án 1 đơn" (chủ
+    /// app chốt 11/08). ✗ tự lọc `cloudOrderNumber` ở đây: ba màn tự tính là ba màn sẽ trôi khỏi
+    /// nhau, và hậu quả là khách đặt được đơn thứ hai cho cùng căn nhà.
+    ///
+    /// Bản quét LẺ (chưa vào dự án nào) → nil → đường đặt hàng bình thường, đúng như trước.
+    private var supplementOrderNumber: String? {
+        store.orderNumber(ofProject: current.projectId)
+    }
+
     @ViewBuilder
     private var serviceCard: some View {
         VStack(spacing: 8) {
@@ -491,6 +512,28 @@ struct ScanDetailView: View {
                     ),
                     action: L.t("Verify email", "Xác minh email")
                 )
+            } else if let supplementNumber = supplementOrderNumber {
+                // 🔴 Bản quét LẺ thuộc một dự án ĐÃ CÓ ĐƠN → "Gửi bổ sung", ✗ "Đặt làm mặt bằng"
+                // (chủ app chốt "1 dự án chỉ có 1 đơn"). Bỏ sót màn này là khách vẫn mở được form
+                // giá từ đây và đặt ĐƠN THỨ HAI cho cùng căn nhà.
+                //
+                // ✗ đi qua `startUploadOrOrder()`: `SupplementSheet` TỰ lo việc tải lên (cùng
+                // khuôn `ensureUploaded`, idempotent theo `cloudScanId`). Cho nó tải là đường
+                // gửi bổ sung có ĐÚNG MỘT chỗ tải lên thay vì hai, và màn này khỏi phải nhân
+                // đôi máy trạng thái `uploader.phase`.
+                Button {
+                    showSupplementSheet = true
+                } label: {
+                    Label(
+                        L.t("Send extra scan to \(supplementNumber)",
+                            "Gửi bổ sung vào đơn \(supplementNumber)"),
+                        systemImage: "paperplane.fill"
+                    )
+                    .font(.headline)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+                }
+                .buttonStyle(.borderedProminent)
             } else {
                 switch uploader.phase {
                 case .idle, .failed:
@@ -599,6 +642,14 @@ struct ScanDetailView: View {
         didAutoOpenOrder = true
         guard stillExists, current.cloudOrderNumber == nil else { return }
         guard account.isSignedIn, !account.needsVerification else { return }
+        // 🔴 Dự án đã có đơn ⇒ mở màn GỬI BỔ SUNG, ✗ form đặt hàng. Đây chính là đường chủ app
+        // mô tả: *"khi bấm vào đó rồi quét xong thì cái nút đặt hàng ngay nên sửa lại là Gửi bổ
+        // sung bản quét"*. Nhãn nút ở màn preview và hành động ở đây đọc CÙNG một điều kiện
+        // (`ScanStore.orderNumber(ofProject:)`) nên không thể nói một đằng làm một nẻo.
+        if supplementOrderNumber != nil {
+            showSupplementSheet = true
+            return
+        }
         showOrderSheet = true
     }
 

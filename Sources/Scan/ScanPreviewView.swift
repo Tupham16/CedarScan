@@ -29,6 +29,11 @@ struct ScanPreviewView: View {
     /// pause ARSession, nên phiên sau là một `ARSession` mới với GỐC TOẠ ĐỘ MỚI — hai mesh nằm ở
     /// hai hệ toạ độ không liên quan nhau và đội vẽ ghép tay lúc dựng, y như nhà nhiều tầng.
     /// (Muốn máy tự ghép thì phải đi đường `ARWorldMap` + relocalize — dự án riêng.)
+    /// Dự án này ĐÃ có đơn ⇒ nút chính là **"Gửi bổ sung bản quét"**, ✗ "Đặt hàng ngay"
+    /// (chủ app chốt 11/08: *"1 dự án chỉ có 1 đơn"*). Màn này cố ý KHÔNG tự tra `ScanStore` —
+    /// nó nhận toàn giá trị thường (xem các `let` ở trên), nên điều kiện được tính ở
+    /// `MeshScanFlowView` bằng `ScanStore.orderNumber(ofProject:)`, cùng nguồn với hai màn kia.
+    var isSupplement = false
     let onScanMore: () -> Void
     let onOrderLater: () -> Void
     let onOrderNow: () -> Void
@@ -229,7 +234,12 @@ struct ScanPreviewView: View {
                 .buttonStyle(.bordered)
 
                 Button(action: onOrderNow) {
-                    Text(L.t("Order now", "Đặt hàng ngay"))
+                    // Bổ sung thì KHÔNG mở form giá (không thu tiền) — nhãn phải nói đúng việc
+                    // sắp xảy ra, không thì khách bấm "Đặt hàng ngay" rồi thấy một màn không có
+                    // giá và tưởng app hỏng.
+                    Text(isSupplement
+                         ? L.t("Send extra scan", "Gửi bổ sung bản quét")
+                         : L.t("Order now", "Đặt hàng ngay"))
                         .font(.headline)
                         .lineLimit(1)
                         .minimumScaleFactor(0.7)

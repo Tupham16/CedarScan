@@ -467,6 +467,11 @@ struct MeshScanFlowView: View {
             scanName: record.name,
             videoURL: playable,
             meshPreviewURL: viewableMesh,
+            // 🔴 Đây là chỗ chủ app mô tả TRỰC TIẾP: *"khi bấm vào đó rồi quét xong thì cái nút
+            // đặt hàng ngay nên sửa lại là Gửi bổ sung bản quét"*. Điều kiện hỏi
+            // `ScanStore.orderNumber(ofProject:)` — cùng nguồn với nhãn nút ở `ProjectView` và
+            // với việc `ScanDetailView.autoOpenOrderIfNeeded()` mở màn nào sau khi push.
+            isSupplement: store.orderNumber(ofProject: record.projectId) != nil,
             onScanMore: {
                 onScanMore()
                 dismiss()

@@ -63,6 +63,27 @@ struct OrderScanResponse: Decodable {
     let hasTour: Bool? // đơn có add-on Virtual Tour → mời khách thêm ảnh phòng ngay
 }
 
+/// Kết quả "gửi bổ sung bản quét" (`POST orders/{id}/supplement-scan`).
+///
+/// 🔴 `scanIds` gồm CẢ bản vừa nối LẪN bản đã nối từ lượt trước (nhánh idempotent khi khách gửi
+/// lại sau lỗi mạng) — app phải đóng dấu `setOrderNumber` cho **toàn bộ** danh sách này. Đóng dấu
+/// thiếu là khách thấy bản quét vẫn "chưa đặt", bấm đặt lần nữa và **TRẢ TIỀN HAI LẦN**.
+///
+/// Mọi trường ngoài `ok`/`orderNumber` để Optional: server có thể bổ sung/đổi field, mà
+/// `JSONDecoder` ném lỗi cho CẢ response nếu thiếu một field non-optional.
+struct SupplementScanResponse: Decodable {
+    let ok: Bool
+    let orderId: String?
+    let orderNumber: String
+    let status: String?
+    /// Mọi bản quét lượt này gửi (đã nối vào đơn, dù nối lần này hay lần trước).
+    let scanIds: [String]?
+    let attachedScanIds: [String]?
+    let alreadyAttachedScanIds: [String]?
+    let supplementCount: Int?
+    let fileCount: Int?
+}
+
 // MARK: Bảng giá dịch vụ
 
 struct CatalogPackage: Decodable, Identifiable {
@@ -266,6 +287,15 @@ struct TourPhotoCompleteResponse: Decodable {
 struct APIError: LocalizedError {
     let message: String
     let statusCode: Int
+    /// Mã lỗi MÁY ĐỌC ĐƯỢC do server gửi kèm (khoá `code` trong body). Hiện chỉ đường "gửi bổ
+    /// sung bản quét" dùng: `"order_delivered"` ⇒ app phải mở `RevisionSheet` thay vì báo lỗi
+    /// (chủ app chốt "đã giao thì chỉ là yêu cầu sửa"), `"order_closed"` ⇒ bảo khách liên hệ.
+    ///
+    /// 🔴 PHẢI là `var` có giá trị mặc định, ✗ `let`: `let code: String? = nil` thì Swift LOẠI
+    /// nó khỏi memberwise init (thành hằng nil vĩnh viễn) — im lặng, CI vẫn xanh, và mọi phán
+    /// quyết "đơn đã giao" rơi về nhánh lỗi thô. Với `var` thì các call site cũ
+    /// `APIError(message:statusCode:)` vẫn compile nguyên.
+    var code: String? = nil
     var errorDescription: String? { message }
 }
 
@@ -277,7 +307,11 @@ final class APIClient {
     let baseURL = URL(string: "https://app.cedar247.com/api/app/v1")!
     var token: String?
 
-    private struct ServerError: Decodable { let error: String }
+    private struct ServerError: Decodable {
+        let error: String
+        /// Optional: chỉ vài endpoint gửi kèm. Thiếu nó KHÔNG được làm hỏng việc đọc `error`.
+        let code: String?
+    }
 
     private func makeRequest(
         path: String,
@@ -316,10 +350,11 @@ final class APIClient {
         let (data, response) = try await URLSession.shared.data(for: request)
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
         if !(200...299).contains(status) {
-            let message = (try? JSONDecoder().decode(ServerError.self, from: data))?.error
+            let body = try? JSONDecoder().decode(ServerError.self, from: data)
             throw APIError(
-                message: message ?? L.t("Something went wrong. Please try again.", "Có lỗi xảy ra. Vui lòng thử lại."),
-                statusCode: status
+                message: body?.error ?? L.t("Something went wrong. Please try again.", "Có lỗi xảy ra. Vui lòng thử lại."),
+                statusCode: status,
+                code: body?.code
             )
         }
         return try JSONDecoder().decode(T.self, from: data)
@@ -453,6 +488,29 @@ final class APIClient {
 
     func listOrders() async throws -> OrdersResponse {
         try await send("orders")
+    }
+
+    // MARK: Gửi bổ sung bản quét vào đơn ĐÃ ĐẶT
+
+    /// Gửi thêm bản quét vào một đơn đã đặt — KHÔNG tạo đơn mới, KHÔNG thu tiền.
+    /// Server: `order-webapp/HANDOFF.md` §7e (đã lên prod 11/08).
+    ///
+    /// 🔴 `orderId` là **cuid của đơn**, ✗ số đơn `#LS-…`: cột `Order.number` không unique nên
+    /// server cố ý không nhận số đơn. App chỉ lưu `cloudOrderNumber` trong `meta.json` ⇒ phải
+    /// ánh xạ qua `listOrders()` trước (xem `SupplementSheet.resolveOrderId`). Không tốn thêm
+    /// gì: muốn gửi bổ sung thì đằng nào cũng phải online để tải 40–200MB lên.
+    ///
+    /// 🔴 Lỗi 409 mang `code`: `"order_delivered"` ⇒ mở `RevisionSheet`; `"order_closed"` ⇒
+    /// bảo khách liên hệ support. Đọc `APIError.code`, ✗ so khớp câu chữ tiếng Anh.
+    func supplementScan(
+        orderId: String,
+        scanId: String,
+        extraScanIds: [String] = []
+    ) async throws -> SupplementScanResponse {
+        try await send("orders/\(orderId)/supplement-scan", method: "POST", json: [
+            "scanId": scanId,
+            "extraScanIds": extraScanIds,
+        ])
     }
 
     struct RevisionResponse: Decodable {

@@ -514,6 +514,29 @@ final class ScanStore: ObservableObject {
         update(record) { $0.cloudOrderNumber = orderNumber }
     }
 
+    /// Số đơn mà DỰ ÁN này đã đặt — `nil` = chưa có đơn nào ⇒ đường ĐẶT HÀNG bình thường.
+    /// Khác nil ⇒ mọi bản quét sau của dự án chỉ còn đường **GỬI BỔ SUNG** vào đúng đơn đó.
+    ///
+    /// 🔴 LỜI CHỐT CỦA CHỦ APP (11/08), ✗ diễn giải lại: *"1 dự án chỉ có 1 đơn. nếu họ đặt 1 đơn
+    /// thì các bản quét sau trong dự án đó chỉ là gửi bổ sung"*. Đây là NGUỒN DUY NHẤT trả lời
+    /// câu hỏi đó — cả ba màn (`ProjectView`, `ScanDetailView`, màn preview sau khi quét) phải
+    /// hỏi hàm này, ✗ tự lọc `cloudOrderNumber` tại chỗ. Ba màn tự tính là ba màn sẽ trôi khỏi
+    /// nhau, và hậu quả ở đây là khách đặt được ĐƠN THỨ HAI cho cùng căn nhà.
+    ///
+    /// 🔴 Trả lời được HOÀN TOÀN OFFLINE (dữ liệu đã nằm trong `meta.json`) — nhờ vậy NHÃN NÚT
+    /// luôn đúng kể cả mất mạng. Chỉ CÚ GỬI mới cần mạng (để ánh xạ số đơn → orderId).
+    ///
+    /// Dự án mang NHIỀU số đơn khác nhau là dữ liệu ĐỜI CŨ (tạo trước quy tắc trên) → lấy đơn
+    /// của bản quét MỚI NHẤT. Sau khi tính năng này ra thì ca đó không sinh thêm được nữa.
+    /// `projectId == nil` (bản quét lẻ, chưa vào dự án) → nil: không có dự án thì không có quy tắc.
+    func orderNumber(ofProject projectId: UUID?) -> String? {
+        guard let projectId else { return nil }
+        return records
+            .filter { $0.projectId == projectId && $0.cloudOrderNumber != nil }
+            .max { $0.createdAt < $1.createdAt }?
+            .cloudOrderNumber
+    }
+
     private func update(_ record: ScanRecord, _ mutate: (inout ScanRecord) -> Void) {
         guard let index = records.firstIndex(where: { $0.id == record.id }) else { return }
         mutate(&records[index])
