@@ -7,8 +7,37 @@ import UniformTypeIdentifiers // UTType — suy ra MIME + giới hạn loại fi
 // được sau 10 phút CI.
 import UIKit
 
+/// Ý ĐỊNH "Đặt hàng ngay" — một giá trị điều hướng RIÊNG, cố ý KHÔNG dùng lại `ScanRecord`.
+///
+/// Vì sao phải là một KIỂU khác chứ không phải một cờ dùng chung: `navigationDestination(for:)`
+/// khớp theo KIỂU, và cả hai màn (HomeView, ProjectView) đẩy vào CÙNG một `NavigationPath` do
+/// HomeView sở hữu. Chạm một dòng bản quét đẩy `ScanRecord`; bấm "Đặt hàng ngay" ở màn preview
+/// đẩy giá trị này. Nhờ vậy màn đích biết mình được mở ĐỂ LÀM GÌ mà không cần một `@State` chia
+/// sẻ giữa hai màn — loại cờ đó chính là thứ `pendingOrderRecord` phải chống bằng kỷ luật "reset
+/// ở LỐI VÀO" (xem `HomeView.startScanning`), và ở đây thì không có lối vào nào để reset.
+///
+/// 🔴 Chỉ cần `Hashable`. `NavigationPath` của app KHÔNG được ghi xuống đĩa (không nơi nào dùng
+/// `CodableRepresentation`) nên đừng thêm `Codable` "cho chắc" — thêm là buộc kiểu này vào một
+/// hợp đồng dữ liệu mà nó không có.
+struct ScanOrderIntent: Hashable {
+    let record: ScanRecord
+}
+
 struct ScanDetailView: View {
     let record: ScanRecord
+    /// Màn này được mở bằng nút "Đặt hàng ngay" ở màn preview (✗ bằng cách chạm một dòng danh
+    /// sách) → tự mở FORM đặt hàng thay vì bắt khách bấm thêm một nút đặt hàng thứ hai.
+    ///
+    /// Chủ app 10/08 (phản hồi bản 1.4, mục 3): "Đặt hàng ngay" phải vào thẳng BƯỚC ĐẶT HÀNG chứ
+    /// không phải vào một màn có nút đặt hàng THỨ HAI. Hỏi tiếp là muốn kiểu nào thì ông chốt
+    /// nguyên văn **"Form trước"** — ✗ tải file lên trước rồi mới hiện form. Lý do đường "tải
+    /// trước" bị bác: `ScanUploader` KHÔNG có API hủy, nên nó biến một cú chạm thành 40–200MB
+    /// không hủy được trên 4G của khách TRƯỚC KHI họ nhìn thấy giá.
+    ///
+    /// 🔴 CỐ Ý KHÔNG CÓ GIÁ TRỊ MẶC ĐỊNH (bẫy #13). `= false` sẽ để một call site tương lai quên
+    /// truyền mà vẫn compile xanh, và tính năng chết IM LẶNG. Hiện có đúng hai call site, cả hai
+    /// trong `HomeView` (hai `navigationDestination`).
+    let autoOpenOrder: Bool
     @EnvironmentObject private var store: ScanStore
     @EnvironmentObject private var account: AccountStore
     @Environment(\.dismiss) private var dismiss
@@ -56,6 +85,14 @@ struct ScanDetailView: View {
     /// tiến độ, tức body dựng lại nhiều lần mỗi giây suốt lúc tải 40–200MB.
     @State private var player: AVPlayer?
     @State private var showOrderSheet = false
+    /// Đã tự mở form đặt hàng lần nào chưa (chỉ có nghĩa khi `autoOpenOrder`).
+    ///
+    /// 🔴 BẮT BUỘC. `.task` KHÔNG phải "chạy một lần" — SwiftUI huỷ nó ở `onDisappear` và chạy
+    /// LẠI mỗi lần view hiện lại: đóng trình xem lưới xám/texture (cả hai là `fullScreenCover`,
+    /// tức view chủ bị GỠ khỏi cây), quay về từ tab khác. Thiếu cờ này thì form đặt hàng tự bật
+    /// ra lại sau mỗi lần khách đóng nó — khách không có cách nào ở lại màn bản quét.
+    /// Cùng lớp lỗi với `texturedAsked` bên dưới, cùng lý do.
+    @State private var didAutoOpenOrder = false
     /// Cổng đăng nhập/xác minh mở tại chỗ — xem `AccountGateSheet`.
     @State private var showAccountGate = false
     @State private var showLowQualityConfirm = false
@@ -154,6 +191,35 @@ struct ScanDetailView: View {
         // sang một `@State` như `ProjectView.renamedTitle`, ✗ quay lại `current.name`.
         .navigationTitle(record.name)
         .navigationBarTitleDisplayMode(.inline)
+        // 🔴 MÀN PUSH TỰ KHAI TRẠNG THÁI THANH TAB (mục 3a). Thanh gốc bị ẩn ở TỪNG tab trong
+        // `RootView`, còn màn được PUSH thì trước dòng này không khai gì — trạng thái nó dùng là
+        // thứ THỪA HƯỞNG được lúc hosting controller của nó được dựng. Khai tường minh để việc
+        // chừa chỗ đáy không phụ thuộc vào THỜI ĐIỂM dựng màn.
+        //
+        // ⚠ ĐÂY LÀ ỨNG VIÊN, ✗ PHẢI BẢN VÁ ĐÃ CHỨNG MINH. Đọc trước khi tin:
+        // Chủ app báo (bản 1.4, có ảnh chụp): vào màn này bằng nút "Đặt hàng ngay" — tức đẩy từ
+        // `onDismiss` của cover quét (`HomeView.goToPendingOrder`) — thì thẻ nút đặt hàng nằm
+        // THẤP HƠN ~30pt và bị đĩa Scan đè mép dưới; vào bằng cách CHẠM một dòng bản quét (từ
+        // Home hay từ Dự án) thì đúng. Số học khớp với đúng MỘT chẩn đoán: vùng an toàn ĐÁY của
+        // màn này bằng **0 thay vì 34pt** trên đường hỏng. Tính từ đáy MÀN HÌNH, với inset 34:
+        // đáy thẻ = 34 + `reservedHeight` 94 = 128, đáy NÚT = +8 đệm dọc của thẻ = 136, mép trên
+        // vòng Scan = 34 + 92 = 126 ⇒ hở 10pt (quầng sáng với tới 135, dừng ~1pt dưới nút) —
+        // khớp "có khoảng hở" ông tả. Với inset 0: đáy thẻ 94, đáy nút 102, mà vòng Scan choán
+        // 54…126 ⇒ 24pt cuối của nút nằm TRONG đĩa — khớp ảnh ông gửi.
+        // Thoát app rồi vào lại KHÔNG chữa được ⇒ giá trị bị CHỐT MỘT LẦN lúc dựng màn, ✗ "đo
+        // hụt rồi kẹt" — nên mọi cách hoãn thêm nhịp trước khi đẩy đều vô ích (đường đó ĐÃ hoãn
+        // qua `onDismiss` rồi mà vẫn sai).
+        //
+        // 🔴 DÒNG NÀY KHÔNG GIẢI THÍCH ĐƯỢC VÌ SAO INSET THÀNH 0, nên nó có thể KHÔNG ĐỦ. Ghi
+        // nó vì ba lý do: rẻ, KHÔNG THỂ HẠI (thanh gốc vốn đã ẩn ở mọi tab nên không có thanh
+        // nào để hiện ra, và thanh THẤY ĐƯỢC là `CedarTabBar` gắn bằng `safeAreaInset` trên
+        // TabView — modifier này không đụng tới), và handoff §CRASH ĐANG MỞ liệt đúng nó là ứng
+        // viên CHƯA VÁ (bản này vá — sửa dòng đó trong handoff cùng lượt).
+        // 🔴 NẾU MÁY THẬT VẪN THẤY NÚT THẤP: bước tiếp đã có sẵn thứ để phân biệt — `autoOpenOrder`
+        // đúng bằng ĐƯỜNG HỎNG, nên cộng thêm vùng an toàn đáy của CỬA SỔ vào `.padding(.bottom,)`
+        // ở `.safeAreaInset` bên dưới CHỈ khi cờ đó bật là hết triệu chứng. ⚠ Đó là CHE chứ ✗
+        // chữa: làm thì phải ghi vào handoff và ✗ đóng mục 3a.
+        .toolbar(.hidden, for: .tabBar)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 // 🔴 CHỈ dữ liệu thường (ShareSnapshot) — đọc chú thích tại struct đó trước
@@ -200,6 +266,10 @@ struct ScanDetailView: View {
             // lại bản zip 40–200MB mỗi lượt quay lại. Các dòng `fileExists` bên dưới rẻ + idempotent
             // nên để nguyên.
             //
+            // TỰ MỞ FORM ĐẶT HÀNG (mục 3b) — đặt TRƯỚC mọi thứ trong `.task` vì hai nhánh
+            // `return` bên dưới thoát sớm theo LOẠI bản quét, mà lời mời đặt hàng thì không phụ
+            // thuộc loại (bản video-only cũng đặt được — `serviceCard` không hề lọc theo loại).
+            autoOpenOrderIfNeeded()
             // Dựng player trước mọi nhánh vì bản quét video-only cũng cần, nhưng CHỈ cho hai loại
             // thật sự có khu video: bản quét cũ đời RoomPlan đi vào `legacyTab` (3D + mặt bằng),
             // không có chỗ nào phát video nên cấp phát AVPlayer ở đó là thừa.
@@ -468,6 +538,45 @@ struct ScanDetailView: View {
                 ProgressView()
             }
         }
+    }
+
+    /// Mở thẳng FORM đặt hàng khi khách vào màn này bằng nút "Đặt hàng ngay" ở màn preview.
+    ///
+    /// 🔴 GỌI TỪ `.task`, ✗ từ bất cứ chỗ nào set cờ CÙNG NHỊP với cú push. Trình bày một sheet
+    /// ngay trong nhịp đẩy màn là đúng cấu trúc đã làm văng app một lần (`48dc791`: UIKit dựng
+    /// và ĐO bar item trước khi cầu environment nối tới host của thanh). `.task` chạy sau khi
+    /// màn đã appear, tức ngoài cửa sổ đó.
+    ///
+    /// 🔴 KHÔNG TẢI FILE LÊN Ở ĐÂY, và đó là cả điểm của mục này. Đường của NÚT bấm
+    /// (`proceedUploadOrOrder`) tải 40–200MB TRƯỚC rồi mới hiện form; ở đây thì ngược lại —
+    /// `OrderSheet.submit()` tự lo việc tải lên qua `ensureUploaded` khi khách thật sự bấm
+    /// "Đặt hàng", đúng thứ màn Dự án đã làm từ lâu. Khách thấy GIÁ trước khi tốn dữ liệu.
+    /// ⚠ HỆ QUẢ, ✗ phải lỗi: ở đường này thanh % tải lên của `serviceCard` không chạy nữa —
+    /// lúc bấm "Đặt hàng" trong form chỉ có vòng xoay + "Đang tải <tên>…" (`OrderSheet` dùng
+    /// một `ScanUploader` cục bộ mà nó không quan sát `phase`). Muốn có % ở đó là việc RIÊNG.
+    ///
+    /// 🔴 GÁC HẸP HƠN NÚT BẤM, VÀ ĐÓ LÀ CỐ Ý — bẫy #18: guard "có CHẶN khách không" ≠ guard "có
+    /// TỰ ĐI TIẾP HỘ khách không". Nút chỉ gác `isSignedIn` (gác thêm `needsVerification` ở nút
+    /// là khoá nhầm khách đã xác minh khi mạng yếu — lý do dài ở `ProjectView`). Chỗ này thì tự
+    /// mở giùm, nên phải đủ điều kiện đặt thật: chưa đăng nhập / chưa xác minh thì KHÔNG mở gì
+    /// cả, khách thấy đúng thẻ đăng nhập của `serviceCard` rồi tự bấm — hướng sai duy nhất có
+    /// thể xảy ra là "bắt bấm thêm một lần", ✗ chặn ai. Tự mở form cho tài khoản chưa xác minh
+    /// chỉ dẫn tới 403 SAU KHI đã tải xong file (bẫy #19).
+    ///
+    /// ⚠ CỐ Ý KHÔNG chạy nhánh cảnh báo chất lượng thấp của `startUploadOrOrder()`. Chủ app xin
+    /// "vào luôn bước đặt hàng"; bật một `confirmationDialog` ngay khi màn vừa hiện là đổi một
+    /// nút thừa lấy một hộp thoại thừa. Cảnh báo KHÔNG mất: dòng "Chất lượng quét: x/100 · nên
+    /// quét lại" vẫn nằm ngay đầu `serviceCard`, và khách đóng form rồi bấm nút thì hộp thoại
+    /// chạy như cũ. Ông kêu thì đây là chỗ đổi, một dòng.
+    private func autoOpenOrderIfNeeded() {
+        guard autoOpenOrder, !didAutoOpenOrder else { return }
+        // Đặt cờ TRƯỚC mọi guard còn lại: đây là lời mời MỘT LẦN cho cú "Đặt hàng ngay" vừa bấm.
+        // Đặt sau các guard thì một khách chưa đăng nhập sẽ bị form tự bật vào mặt ở lần `.task`
+        // chạy lại BẤT KỲ sau khi họ đăng nhập xong — kể cả khi lúc đó họ đang xem mô hình 3D.
+        didAutoOpenOrder = true
+        guard stillExists, current.cloudOrderNumber == nil else { return }
+        guard account.isSignedIn, !account.needsVerification else { return }
+        showOrderSheet = true
     }
 
     private func startUploadOrOrder() {

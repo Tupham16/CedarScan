@@ -168,6 +168,15 @@ struct ProjectView: View {
         // CỐ + vá lỗi tiêu đề rỗng, KHÔNG phải bản vá đã chứng minh của vụ văng app.
         .navigationTitle(displayTitle)
         .navigationBarTitleDisplayMode(.inline)
+        // Màn PUSH tự khai trạng thái thanh tab — mục 3a. Lý do đầy đủ, số học của chỗ hở và
+        // việc "đây là ỨNG VIÊN chứ ✗ bản vá đã chứng minh" ghi ở CHÍNH chỗ này trong
+        // `ScanDetailView`; ✗ chép lại, ĐỌC nó.
+        // Màn này chưa ai báo lệch — lối vào DUY NHẤT của nó là chạm một dòng dự án ở Home
+        // (`NavigationLink(value: project)`), tức đúng kiểu đẩy vẫn cho ra bố cục đúng. Vẫn khai
+        // vì nó là màn PUSH thứ hai và cũng tự chừa `CedarTabBar.reservedHeight` bên dưới: để
+        // hai màn khai khác nhau là tự đẻ ra một cặp màn song sinh lệch nhau, thứ repo này đã
+        // trả giá nhiều lần.
+        .toolbar(.hidden, for: .tabBar)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
@@ -458,11 +467,14 @@ struct ProjectView: View {
         isMeshScanning = true
     }
 
-    /// Xem HomeView.goToPendingOrder — cùng một việc, trên cùng một NavigationStack.
+    /// Xem HomeView.goToPendingOrder — cùng một việc, trên cùng một NavigationStack, và phải đẩy
+    /// CÙNG MỘT KIỂU (`ScanOrderIntent`): `navigationDestination` khai ở HomeView phục vụ cả hai
+    /// màn, nên đẩy `ScanRecord` trần ở đây là rơi vào destination "chỉ xem" và mục 3b chết đúng
+    /// một nửa — im lặng, chỉ ở đường quét-từ-dự-án.
     private func goToPendingOrder() {
         guard let record = pendingOrderRecord else { return }
         pendingOrderRecord = nil
-        path.append(record)
+        path.append(ScanOrderIntent(record: record))
     }
 
     /// Lặp lại lời giải thích ở ĐÂY chứ không trông vào việc người dùng đã đọc ở trang chủ.

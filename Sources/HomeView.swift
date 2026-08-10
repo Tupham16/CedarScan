@@ -253,8 +253,18 @@ struct HomeView: View {
             } message: {
                 Text(saveError ?? "")
             }
+            // Chạm một dòng bản quét: chỉ XEM lại, không mời đặt hàng.
             .navigationDestination(for: ScanRecord.self) { record in
-                ScanDetailView(record: record)
+                ScanDetailView(record: record, autoOpenOrder: false)
+            }
+            // Bấm "Đặt hàng ngay" ở màn preview: vào thẳng BƯỚC ĐẶT HÀNG (mục 3b, chủ app chốt
+            // 10/08 "Form trước"). Hai destination cùng dựng `ScanDetailView`, khác nhau đúng
+            // một cờ — xem `ScanOrderIntent` để biết vì sao phải là hai KIỂU chứ không phải một
+            // cờ dùng chung, và `ScanDetailView.autoOpenOrder` để biết cờ đó làm gì.
+            // 🔴 `ProjectView` KHÔNG khai destination nào: nó nằm trong CHÍNH stack này (nhận
+            // `$path`) nên cả hai đường đẩy của nó đều rơi vào hai closure ở đây.
+            .navigationDestination(for: ScanOrderIntent.self) { intent in
+                ScanDetailView(record: intent.record, autoOpenOrder: true)
             }
             .navigationDestination(for: ScanProject.self) { project in
                 // Truyền `path` xuống: ProjectView nằm TRONG stack này (nó không có
@@ -270,17 +280,19 @@ struct HomeView: View {
         }
     }
 
-    /// Đưa khách tới trang bản quét vừa lưu (nơi có nút đặt hàng) nếu họ đã bấm "Đặt hàng ngay"
-    /// ở màn preview. CHỈ gọi sau khi cover quét đã đóng hẳn.
+    /// Đưa khách tới BƯỚC ĐẶT HÀNG của bản quét vừa lưu, nếu họ đã bấm "Đặt hàng ngay" ở màn
+    /// preview. CHỈ gọi sau khi cover quét đã đóng hẳn.
     ///
-    /// Đích là `ScanDetailView` chứ không phải mở thẳng form đặt hàng: mọi cửa kiểm trước khi đặt
-    /// (đăng nhập, xác minh email, cảnh báo chất lượng thấp) đều nằm ở đó, và bước đầu tiên của
-    /// việc đặt là TẢI LÊN 40–200MB — thứ không được tự chạy khi khách chưa bấm nút nào trên
-    /// mạng di động của họ.
+    /// Đích vẫn là `ScanDetailView`, nhưng đẩy `ScanOrderIntent` chứ ✗ `ScanRecord` trần: màn đó
+    /// tự mở form đặt hàng trong `.task` của nó (mục 3b — chủ app chốt 10/08 **"Form trước"**,
+    /// tức thấy giá trước, chưa gửi byte nào).
+    /// 🔴 ✗ mở form TỪ ĐÂY. Mọi cửa kiểm trước khi đặt (đăng nhập, xác minh email) nằm trong
+    /// `ScanDetailView`, và trình bày một sheet trong CHÍNH nhịp đẩy màn là cấu trúc đã làm văng
+    /// app một lần (`48dc791`) — việc mở phải xảy ra ở `.task` của màn đích, sau khi nó appear.
     private func goToPendingOrder() {
         guard let record = pendingOrderRecord else { return }
         pendingOrderRecord = nil
-        path.append(record)
+        path.append(ScanOrderIntent(record: record))
     }
 
     private var renameAlertBinding: Binding<Bool> {

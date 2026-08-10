@@ -63,6 +63,9 @@ Bấm **"Bắt đầu quét"** rồi đi một vòng. Trong lúc quét:
 
 Sau khi lưu, app hiện **màn xem lại**: video vừa quay + địa chỉ. Từ đây bạn chọn
 **"Quét thêm khu vực còn thiếu"**, **"Đặt hàng sau"**, hoặc **"Đặt hàng ngay"**.
+**"Đặt hàng ngay"** mở luôn form đặt hàng cho bản quét vừa lưu — chưa gửi file lên mạng, bạn xem
+giá trước rồi mới bấm "Đặt hàng". (Nếu chưa đăng nhập/chưa xác minh email thì app dừng ở màn bản
+quét với nút đăng nhập; đăng nhập xong bấm **"Đặt làm mặt bằng"**.)
 
 ### 🔴 Khi bạn quét bản thứ hai cho cùng một căn
 
@@ -135,6 +138,8 @@ kèm số lượt còn lại.
 >   bấm**, tải xong mới mở form. Bản đã tải từ lần trước thì form mở luôn, không tải lại.
 > - **Từ trang căn nhà** (nút "Đặt làm mặt bằng (N bản quét)"): form mở ngay, **toàn bộ** các bản
 >   quét mới được tải lên lúc bấm **"Đặt hàng"** — đây mới là lúc tốn mạng nhất.
+> - **Từ nút "Đặt hàng ngay"** ngay sau khi quét xong: form mở ngay, bản quét được tải lên lúc bấm
+>   **"Đặt hàng"** — giống đường từ trang căn nhà.
 
 Bấm **"Đặt hàng"** để chốt. Sau khi đặt sẽ có link thanh toán (Stripe/PayPal); đội ngũ bắt đầu làm
 sau khi nhận thanh toán.
