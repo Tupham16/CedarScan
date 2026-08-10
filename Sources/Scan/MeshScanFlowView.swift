@@ -12,6 +12,11 @@ struct MeshScanResult {
     /// Thư mục texture-shots/ (JPEG + shots.json) — nguyên liệu bake texture trên máy
     /// trạm, sẽ được đóng KÈM vào model-colored.zip; nil khi không chụp được ảnh nào.
     let texshotsDir: URL?
+    /// Lưới XÁM nhẹ (mesh-preview.bin) cho trình xem 3D trong app — file TẠM, `ScanStore`
+    /// chuyển vào thư mục bản quét. nil = bản quét này không có (chỉ có video, hoặc dựng hụt)
+    /// → hai màn xem đều tự ẩn nút 3D. 🔴 KHÔNG được đóng vào model-colored.zip (máy trạm
+    /// bake + tool cắt mặt bằng đọc zip đó) và KHÔNG thêm vào `ScanUploader.fileKinds`.
+    let previewURL: URL?
     let name: String?
     /// Cấu hình THẬT SỰ đã quét buổi này (ScanStore ghi rawValue vào meta.json). Picker độ nét
     /// đã bỏ 2026-07-31 nên nay luôn là `MeshQuality.storageDefault` — vẫn mang theo kết quả
@@ -393,12 +398,21 @@ struct MeshScanFlowView: View {
     /// Và phải `fileExists` thật — `saveMeshScan` move bằng `try?` không kiểm lại, nên "đã lưu
     /// xong" KHÔNG bảo đảm có video.
     private func previewOverlay(_ record: ScanRecord) -> some View {
-        let videoURL = store.folderURL(for: record).appendingPathComponent("scan-video.mp4")
+        let folder = store.folderURL(for: record)
+        let videoURL = folder.appendingPathComponent("scan-video.mp4")
         let playable = FileManager.default.fileExists(atPath: videoURL.path) ? videoURL : nil
+        // Lưới xám để khách xem ngay tại đây (chủ app duyệt 10/08). `fileExists` chứ ✗ tin
+        // `exported.previewURL`: file đó là URL TẠM và đã bị `saveMeshScan` MOVE đi — cùng
+        // cái bẫy với video ở trên. Không có file (bản chỉ-có-video, dựng hụt, hoặc bản quét
+        // của bản app cũ) → ScanPreviewView tự ẩn nút "Mô hình 3D".
+        let meshPreview = folder.appendingPathComponent(MeshPreviewFile.fileName)
+        let viewableMesh = FileManager.default.fileExists(atPath: meshPreview.path)
+            ? meshPreview : nil
         return ScanPreviewView(
             addressName: store.project(with: record.projectId)?.name,
             scanName: record.name,
             videoURL: playable,
+            meshPreviewURL: viewableMesh,
             onScanMore: {
                 onScanMore()
                 dismiss()
@@ -434,6 +448,7 @@ struct MeshScanFlowView: View {
                 meshURL: exported.meshURL,
                 trackURL: exported.trackURL,
                 texshotsDir: exported.texshotsDir,
+                previewURL: exported.previewURL,
                 name: name.isEmpty ? nil : name,
                 quality: controller.quality,
                 hitCap: exported.hitCap,

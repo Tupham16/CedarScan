@@ -164,6 +164,11 @@ final class ScanStore: ObservableObject {
         meshURL: URL?,
         trackURL: URL? = nil,
         texshotsURL: URL? = nil,
+        /// Lưới xám xem-trong-app (mesh-preview.bin). CỐ Ý KHÔNG CÓ GIÁ TRỊ MẶC ĐỊNH: có
+        /// `= nil` thì call-site thứ ba ở pha sau quên truyền vẫn compile sạch và tính năng
+        /// chết IM LẶNG đúng ở bản quét mới (bẫy #13). Hai call-site hiện có: HomeView,
+        /// ProjectView.
+        previewURL: URL?,
         name: String?,
         projectId: UUID? = nil,
         quality: MeshQuality,
@@ -187,6 +192,14 @@ final class ScanStore: ObservableObject {
         defer {
             if let texshotsURL {
                 try? fileManager.removeItem(at: texshotsURL.deletingLastPathComponent())
+            }
+        }
+
+        // Cùng luật cho file lưới xem-trước tạm: dọn ở MỌI đường thoát. Đường thành công đã
+        // MOVE nó vào thư mục bản quét nên `removeItem` không còn gì để xoá và không hại gì.
+        defer {
+            if let previewURL {
+                try? fileManager.removeItem(at: previewURL)
             }
         }
 
@@ -256,6 +269,25 @@ final class ScanStore: ObservableObject {
             if (try? fileManager.moveItem(at: trackURL, to: dest)) != nil {
                 savedTrackURL = dest
             }
+        }
+
+        // 1c. Lưới XÁM nhẹ (mesh-preview.bin) — thứ DUY NHẤT trình xem 3D trong app đọc được.
+        //     🔴 NẰM TRONG THƯ MỤC BẢN QUÉT LÀ CỐ Ý, dù §Xem texture trong app dặn "cache phải
+        //     ở .cachesDirectory". Luật đó dành cho `TexturedModelCache` — thứ tải lại được từ
+        //     R2 bất cứ lúc nào. File này KHÔNG dựng lại được: hình học của nó chỉ còn nằm
+        //     trong model-colored.zip mà app không có bộ giải nén, nên để ở Caches (thư mục
+        //     iOS được phép dọn bất kỳ lúc nào) là trình xem chết vĩnh viễn, im lặng.
+        //     `purgeDelivered` xoá trọn thư mục này thì không sao: bản ghi biến mất cùng lúc.
+        //     🔴 ✗ ĐƯA VÀO `extraFiles` bên dưới (đó là ruột model-colored.zip — máy trạm bake
+        //     texture và tool cắt mặt bằng đều đọc zip đó) và ✗ thêm vào
+        //     `ScanUploader.fileKinds`. Cả hai đều là danh sách LIỆT KÊ TƯỜNG MINH nên chỉ ghi
+        //     file vào thư mục là không rò đi đâu cả.
+        //     Gác `hasMesh`: bản chỉ-có-video không có gì để xem 3D.
+        if hasMesh, let previewURL, fileManager.fileExists(atPath: previewURL.path) {
+            try? fileManager.moveItem(
+                at: previewURL,
+                to: folder.appendingPathComponent(MeshPreviewFile.fileName)
+            )
         }
 
         // 2. Mô hình 3D: giữ OBJ màu ĐÃ NÉN (obj+mtl+glb trong model-colored.zip). OBJ là text

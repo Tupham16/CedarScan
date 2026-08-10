@@ -150,10 +150,10 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
     /// (SE-0338) → Timer.invalidate/UIApplication/pause + sửa state đua với delegate main.
     @MainActor
     func stopAndExport() async -> (
-        videoURL: URL?, meshURL: URL?, trackURL: URL?, texshotsDir: URL?, hitCap: Bool,
-        geometryOnly: Bool
+        videoURL: URL?, meshURL: URL?, trackURL: URL?, texshotsDir: URL?, previewURL: URL?,
+        hitCap: Bool, geometryOnly: Bool
     ) {
-        guard !isStopped else { return (nil, nil, nil, nil, false, false) }
+        guard !isStopped else { return (nil, nil, nil, nil, nil, false, false) }
         isStopped = true
         ScanPerfProfiler.noteEvent("stop-and-save")
         teardownCommon()
@@ -186,8 +186,19 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
         // giây) → máy trạm sẽ KHÔNG bake được, phải giữ màu-đỉnh cho đội vẽ có cái mà xem.
         let fastSave = (texshots?.shotCount ?? 0) >= Self.fastSaveMinShots
         let meshURL = await colorMesh?.exportColoredPLY(geometryOnly: fastSave)
+        // Lưới XÁM nhẹ cho trình xem 3D trong app (mesh-preview.bin) — chủ app duyệt 10/08.
+        // 🔴 Dựng SAU exportColoredPLY, không phải trước: `queue` của builder là SERIAL nên
+        // chạy trước là đẩy FILE GIAO — thứ khách đang đứng chờ sau overlay "Đang dựng mô hình
+        // 3D…" — ra sau một tính năng phụ; và nếu chỗ này có lỗi thì file chính đã nằm trên đĩa.
+        // Không có mesh thì không có gì để xem (bản chỉ-có-video) → khỏi tốn công.
+        // ✗ viết gọn thành `meshURL == nil ? nil : await …`: Swift cấm `await` đứng bên phải
+        // toán tử không-phải-gán, và một vòng CI đắt hơn ba dòng.
+        var previewURL: URL?
+        if meshURL != nil {
+            previewURL = await colorMesh?.exportPreviewMesh()
+        }
         colorMesh = nil
-        return (videoURL, meshURL, trackURL, texshots?.dir, hitCap, fastSave)
+        return (videoURL, meshURL, trackURL, texshots?.dir, previewURL, hitCap, fastSave)
     }
 
     func cancel() {

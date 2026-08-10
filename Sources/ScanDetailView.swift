@@ -61,6 +61,15 @@ struct ScanDetailView: View {
     @State private var showLowQualityConfirm = false
     @State private var coloredZipExists = false
     @State private var coloredGLBExists = false
+    /// Có `mesh-preview.bin` trong thư mục bản quét không (lưới xám xem trong app).
+    /// Bản quét lưu TRƯỚC bản 1.4 không có file này và KHÔNG dựng lại được trên máy (hình học
+    /// chỉ còn trong model-colored.zip mà app không giải nén được) → dòng "Xem mô hình 3D"
+    /// đơn giản là không hiện. Cố ý: một nút bấm vào ra màn trống còn tệ hơn không có nút.
+    @State private var meshPreviewExists = false
+    /// `.fullScreenCover(item:)` chứ ✗ `.sheet`: trình xem 3D ăn TOÀN BỘ cử chỉ kéo để xoay
+    /// mô hình, mà sheet lại dùng chính cú kéo xuống để tự đóng — khách xoay xuống một cái là
+    /// màn đóng mất. Cover không có kéo-để-đóng, và mô hình cũng được cả màn hình.
+    @State private var greyMeshURL: URL?
     /// Bản sao zip mang TÊN BẢN QUÉT để chia sẻ ra ngoài (Floor 1.zip thay vì
     /// model-colored.zip). nil → dùng file gốc.
     @State private var meshShareURL: URL?
@@ -95,6 +104,11 @@ struct ScanDetailView: View {
     private var plyURL: URL { folder.appendingPathComponent("colored-mesh.ply") }
     private var coloredZipURL: URL { folder.appendingPathComponent("model-colored.zip") }
     private var coloredGLBURL: URL { folder.appendingPathComponent("model-colored.glb") }
+    /// Lưới xám nhẹ cho trình xem 3D trong app — xem `MeshPreviewFile`.
+    /// ⚠ File này CHỈ để xem tại chỗ: nó KHÔNG vào nút Share (`meshShareBundle` liệt kê tường
+    /// minh zip/obj/glb/ply + video) và KHÔNG vào `ScanUploader.fileKinds`. Đội vẽ nhận mesh
+    /// đầy đủ trong zip, đưa thêm bản đã giảm đỉnh cho họ chỉ tổ gây nhầm.
+    private var meshPreviewURL: URL { folder.appendingPathComponent(MeshPreviewFile.fileName) }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -167,6 +181,7 @@ struct ScanDetailView: View {
             }
             coloredGLBExists = FileManager.default.fileExists(atPath: coloredGLBURL.path)
             coloredZipExists = FileManager.default.fileExists(atPath: coloredZipURL.path)
+            meshPreviewExists = FileManager.default.fileExists(atPath: meshPreviewURL.path)
             if coloredZipExists, meshShareURL == nil {
                 meshShareURL = prepareNamedZip()
             }
@@ -191,6 +206,11 @@ struct ScanDetailView: View {
         // với cờ mở → sheet TRẮNG lần đầu (bẫy #7 trong handoff, chỉ lộ khi test tay).
         .sheet(item: $textured.readyURL) { url in
             USDZPreview(url: url)
+        }
+        // Lưới xám: `item:` chứ ✗ `isPresented:` (bẫy #7 — nội dung đọc @State set cùng nhịp),
+        // và `fullScreenCover` chứ ✗ `sheet` (lý do ở khai báo `greyMeshURL`).
+        .fullScreenCover(item: $greyMeshURL) { url in
+            GreyMeshViewerScreen(url: url)
         }
         .sheet(isPresented: $showOrderSheet) {
             // Không còn callback "đã đặt" ở đây: `OrderSheet.submit()` tự đóng dấu số đơn cho
@@ -473,8 +493,31 @@ struct ScanDetailView: View {
     private var meshTab: some View {
         VStack(spacing: 10) {
             videoArea(missing: L.t("No walkthrough video in this scan", "Bản quét này không có video"))
+            greyMeshRow
             texturedRow
             meshInfoFooter
+        }
+    }
+
+    /// Xem lưới XÁM ngay trên máy — mở tức thì, không cần mạng, không cần đã đặt hàng.
+    /// Đứng TRÊN `texturedRow` cố ý: bản có texture đẹp hơn nhưng phải chờ máy trạm bake xong
+    /// và phải tải 29–75MB, còn dòng này lúc nào cũng dùng được.
+    @ViewBuilder
+    private var greyMeshRow: some View {
+        if meshPreviewExists {
+            Button {
+                greyMeshURL = meshPreviewURL
+            } label: {
+                Label(
+                    L.t("View 3D model (grey)", "Xem mô hình 3D (xám)"),
+                    systemImage: "cube"
+                )
+                .font(.subheadline.weight(.semibold))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 9)
+            }
+            .buttonStyle(.bordered)
+            .padding(.horizontal)
         }
     }
 

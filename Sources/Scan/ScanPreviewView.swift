@@ -20,6 +20,9 @@ struct ScanPreviewView: View {
     /// Đã kiểm `fileExists` TRƯỚC khi truyền vào. nil = không có video (recorder fail lặng lẽ,
     /// hoặc `moveItem` lúc lưu hỏng — `ScanStore.saveMeshScan` dùng `try?` và không kiểm lại).
     let videoURL: URL?
+    /// Lưới XÁM nhẹ (mesh-preview.bin) trong thư mục bản quét, ĐÃ kiểm `fileExists`.
+    /// nil = không có gì để xem → ô chọn Video/Mô hình 3D không hiện, màn này y hệt bản cũ.
+    let meshPreviewURL: URL?
     /// "Quét thêm khu vực còn thiếu" — mở một phiên quét MỚI cho CÙNG căn nhà.
     ///
     /// KHÔNG phải "quét tiếp": `stopAndExport` đã giải phóng bộ tích lũy mesh, đóng recorder và
@@ -31,6 +34,8 @@ struct ScanPreviewView: View {
     let onOrderNow: () -> Void
 
     @State private var player: AVPlayer?
+    /// Ô chọn Video / Mô hình 3D. Chỉ tồn tại khi có `meshPreviewURL`.
+    @State private var showingMesh = false
 
     var body: some View {
         ZStack {
@@ -41,11 +46,28 @@ struct ScanPreviewView: View {
 
             VStack(spacing: 0) {
                 header
-                videoArea
+                mediaPicker
+                mediaArea
                 footer
             }
         }
+        // Video và mô hình 3D KHÔNG bao giờ sống cùng lúc: đổi tab là tháo hẳn view kia khỏi
+        // cây, nên chỉ có MỘT bộ giải mã / MỘT scene SceneKit tại một thời điểm.
+        // AVPlayer sống theo @State chứ không theo view, nên bỏ view đi mà không pause là nó
+        // chạy tiếp dưới nền (cùng bẫy với `onDisappear` bên dưới, và với #12).
+        .onChange(of: showingMesh) { _, mesh in
+            if mesh {
+                player?.pause()
+            } else {
+                player?.play()
+            }
+        }
         .task {
+            // Không quay được video mà vẫn có mô hình → mở thẳng tab 3D, đừng bắt khách nhìn
+            // ô "không có video" rồi tự đoán là còn tab khác.
+            if videoURL == nil, meshPreviewURL != nil {
+                showingMesh = true
+            }
             guard let videoURL else { return }
             let player = AVPlayer(url: videoURL)
             self.player = player
@@ -88,6 +110,36 @@ struct ScanPreviewView: View {
         .padding(.bottom, 10)
     }
 
+    // MARK: - Chọn Video / Mô hình 3D
+
+    /// Chủ app duyệt 10/08: "trong 3dscannerapp khi khách quét xong thì ngoài xem video thì nó
+    /// cũng cho xem cả mesh (đen trắng)". MỘT ô chọn hai mục — không thêm nút, không thêm màn:
+    /// khu vực media vốn đã chiếm hết chỗ giữa, đây chỉ là đổi thứ đang vẽ trong đó.
+    /// Bản quét cũ / bản không dựng được lưới xem-trước thì ô này KHÔNG hiện chút nào.
+    @ViewBuilder
+    private var mediaPicker: some View {
+        if meshPreviewURL != nil {
+            Picker("", selection: $showingMesh) {
+                Text(L.t("Video", "Video")).tag(false)
+                Text(L.t("3D model", "Mô hình 3D")).tag(true)
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .padding(.horizontal, 16)
+            .padding(.bottom, 8)
+        }
+    }
+
+    @ViewBuilder
+    private var mediaArea: some View {
+        if showingMesh, let meshPreviewURL {
+            MeshPreviewView(url: meshPreviewURL)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else {
+            videoArea
+        }
+    }
+
     // MARK: - Video vừa quay
 
     @ViewBuilder
@@ -123,12 +175,18 @@ struct ScanPreviewView: View {
 
     private var footer: some View {
         VStack(spacing: 10) {
-            // Chỉ còn một việc: soi video. Chuyện "đặt sau vẫn được" đã nằm ngay trên nhãn nút
-            // nên nhắc lại ở đây là thừa.
-            Text(L.t(
-                "Check the video for any room you missed.",
-                "Xem lại video để chắc không sót phòng nào."
-            ))
+            // Chỉ còn một việc: soi lại thứ vừa quét. Chuyện "đặt sau vẫn được" đã nằm ngay
+            // trên nhãn nút nên nhắc lại ở đây là thừa. Câu chữ theo đúng tab đang mở — bảo
+            // "xem lại video" trong lúc khách đang xoay mô hình là chỉ sai chỗ.
+            Text(showingMesh
+                ? L.t(
+                    "Spin the model to check for any room you missed.",
+                    "Xoay mô hình để chắc không sót phòng nào."
+                )
+                : L.t(
+                    "Check the video for any room you missed.",
+                    "Xem lại video để chắc không sót phòng nào."
+                ))
             .font(.caption)
             .foregroundStyle(.secondary)
             .multilineTextAlignment(.center)

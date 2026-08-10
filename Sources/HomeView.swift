@@ -189,6 +189,7 @@ struct HomeView: View {
                             videoURL: result.videoURL, meshURL: result.meshURL,
                             trackURL: result.trackURL,
                             texshotsURL: result.texshotsDir,
+                            previewURL: result.previewURL,
                             name: result.name, projectId: pendingProjectId,
                             quality: result.quality, geometryOnly: result.geometryOnly
                         )

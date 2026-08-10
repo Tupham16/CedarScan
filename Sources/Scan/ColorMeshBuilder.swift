@@ -541,6 +541,214 @@ final class ColorMeshBuilder {
         }
     }
 
+    // MARK: - Grey PREVIEW mesh for the in-app 3D viewer (mesh-preview.bin)
+
+    /// Vertex budget for the preview. **Owner picked "Nhẹ — 120k đỉnh" on 2026-08-10** when
+    /// shown the three options (120k ≈ 3–6MB/scan, 200k ≈ 5–10MB, 400k ≈ 10–19MB) — same
+    /// standing constraint as everywhere else in this app: "nhẹ và nhanh cho khách".
+    /// It is a SOFT budget: `buildPreview` coarsens and retries a bounded number of times, so
+    /// a pathological scan may land somewhat above it rather than looping forever.
+    /// ✗ raise it without asking him — it is a per-scan cost on the customer's phone.
+    private static let previewVertexBudget = 120_000
+    /// Never cluster finer than this. ARKit's own mesh sits around 4–6cm (see
+    /// `refineEdgeThreshold`), so 3cm merges little beyond true duplicates — a small scan is
+    /// therefore not coarsened any further than this weld, and the seams between neighbouring
+    /// anchors get welded, which looks better, not worse.
+    /// ⚠ Still a WELD, ✗ read it as lossless — see the warning on `clusterPreview`.
+    private static let previewMinVoxel: Float = 0.03
+    /// Assumed ARKit vertex spacing, used ONLY to guess the first voxel size. The two
+    /// directions of being wrong are NOT symmetric:
+    /// · too SMALL → first pass lands over budget → one extra clustering pass, then correct;
+    /// · too LARGE → first pass lands under budget and the loop breaks immediately. NOT
+    ///   self-correcting: `buildPreview` only ever coarsens, never refines, so the preview
+    ///   just comes out blockier than the budget paid for, silently.
+    /// Look here first if the owner ever says the 3D preview is too coarse.
+    private static let previewAssumedSpacing: Float = 0.05
+    private static let previewMaxPasses = 4
+
+    /// Writes a small grey mesh (`MeshPreviewFile` format) to a temp file and returns its URL;
+    /// `ScanStore.saveMeshScan` moves it into the scan folder. nil = no preview for this scan
+    /// (both call sites then simply hide the 3D button).
+    ///
+    /// 🔴 CALL THIS **AFTER** `exportColoredPLY`, never before. Two reasons: (1) `queue` is
+    /// SERIAL, so running it first would push the delivery file — the thing the customer is
+    /// actually waiting on behind "Đang dựng mô hình 3D…" — behind a nice-to-have; (2) if this
+    /// code ever misbehaves, the file that matters is already on disk.
+    /// Cost measured by construction, not by stopwatch, and quoted PER CLUSTERING PASS: one
+    /// hash lookup per source vertex plus three array reads per face — ~0.2s on a normal house,
+    /// well under ~1s on a 2M vertex scan. `buildPreview` re-sweeps the WHOLE mesh on every
+    /// retry (the pass gets coarser, the input does not get smaller), so multiply by the pass
+    /// count: one retry is ordinary — see `previewAssumedSpacing` — and `previewMaxPasses` = 4
+    /// is the ceiling. RAM ~10MB on top of `pieces`, which is alive either way.
+    @MainActor
+    func exportPreviewMesh() async -> URL? {
+        let pieces = self.pieces
+        guard !pieces.isEmpty else { return nil }
+        return await withCheckedContinuation { (continuation: CheckedContinuation<URL?, Never>) in
+            queue.async {
+                continuation.resume(returning: Self.buildPreview(pieces: pieces))
+            }
+        }
+    }
+
+    private static func buildPreview(pieces: [UUID: MeshPiece]) -> URL? {
+        // Sorted-key walk exactly like `buildPLY`: Swift's Dictionary order is not stable, and
+        // saving the same scan twice must not produce two different files.
+        let keys = pieces.keys.sorted { $0.uuidString < $1.uuidString }
+        var totalVerts = 0
+        for key in keys {
+            totalVerts += pieces[key]?.worldVertices.count ?? 0
+        }
+        guard totalVerts > 0 else { return nil }
+
+        // First guess: output ≈ surfaceArea / voxel², and surfaceArea ≈ totalVerts × spacing²,
+        // hence voxel ≈ spacing × sqrt(totalVerts / budget). Already under budget → clamp to
+        // the floor: the finest we ever cluster, but still the WELD described on
+        // `clusterPreview`, ✗ the source resolution.
+        var voxel = previewMinVoxel
+        if totalVerts > previewVertexBudget {
+            let ratio = Float(totalVerts) / Float(previewVertexBudget)
+            voxel = max(previewMinVoxel, previewAssumedSpacing * ratio.squareRoot())
+        }
+
+        var result: (positions: [SIMD3<Float>], normals: [SIMD3<Float>], indices: [UInt32])
+            = ([], [], [])
+        var pass = 0
+        repeat {
+            result = clusterPreview(pieces: pieces, keys: keys, voxel: voxel)
+            pass += 1
+            if result.positions.count <= previewVertexBudget { break }
+            // Correct the guess by the measured overshoot, but never by less than 1.35× so the
+            // loop provably makes progress instead of creeping (`over.squareRoot()` alone
+            // approaches 1.0 exactly in the near-saturation case where the voxel is already at
+            // ARKit's own spacing and coarsening slightly merges nothing).
+            // ⚠ Only THREE coarsenings precede the 4th and LAST clustering call — the
+            // multiplier computed after it is discarded — so the guaranteed floor on the
+            // returned mesh is 1.35³ ≈ 2.5× coarser ≈ 6× fewer vertices than pass 1, NOT 1.35⁴.
+            // Size the worst case from that number.
+            let over = Float(result.positions.count) / Float(previewVertexBudget)
+            voxel *= max(1.35, over.squareRoot())
+        } while pass < previewMaxPasses
+
+        guard !result.positions.isEmpty, !result.indices.isEmpty else { return nil }
+
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("mesh-preview-\(UUID().uuidString.prefix(8)).bin")
+        do {
+            try MeshPreviewFile.write(
+                positions: result.positions,
+                normals: result.normals,
+                indices: result.indices,
+                to: url
+            )
+            return url
+        } catch {
+            // Never fail the save because of the preview — the scan itself is already exported.
+            try? FileManager.default.removeItem(at: url)
+            return nil
+        }
+    }
+
+    /// Voxel-cluster every piece into one shared vertex table and remap the faces.
+    /// Position of a cell = CENTROID of the vertices that fell into it (not the cell centre),
+    /// so a cell holding a single vertex returns that vertex exactly where it was.
+    ///
+    /// 🔴 ✗ READ THAT AS "LOSSLESS", not even at `previewMinVoxel`. This is a WELD: any two
+    /// source vertices inside one cell — anchor-seam duplicates, or the two faces of a
+    /// sub-3cm partition — collapse to one vertex at their centroid with their normals summed
+    /// (hence the zero-normal fallback at the end of this function, which invents a value that
+    /// was never in the scan); non-finite vertices are dropped outright; and a triangle whose
+    /// corners collapse into one cell is dropped. The cell table is shared across ALL pieces,
+    /// so the weld crosses anchors too.
+    /// ⇒ `mesh-preview.bin` is a LOOK-AT file. ✗ measure from it, ✗ diff it against model.obj
+    /// and treat the difference as a bug.
+    private static func clusterPreview(
+        pieces: [UUID: MeshPiece], keys: [UUID], voxel: Float
+    ) -> (positions: [SIMD3<Float>], normals: [SIMD3<Float>], indices: [UInt32]) {
+        let inv = 1 / voxel
+        // Sentinel for "this source vertex produced no output vertex" — any face touching it
+        // is dropped. `positions.count` can never reach UInt32.max here (budget is 120k).
+        let dropped = UInt32.max
+
+        var cellIndex = [Int64: UInt32]()
+        cellIndex.reserveCapacity(previewVertexBudget * 2)
+        var positions = [SIMD3<Float>]()
+        var normals = [SIMD3<Float>]()
+        var counts = [Float]()
+        var indices = [UInt32]()
+        indices.reserveCapacity(previewVertexBudget * 6)
+        var remap = [UInt32]()
+
+        for key in keys {
+            guard let piece = pieces[key] else { continue }
+            let verts = piece.worldVertices
+            let norms = piece.worldNormals
+            guard !verts.isEmpty, verts.count == norms.count else { continue }
+            remap.removeAll(keepingCapacity: true)
+            remap.reserveCapacity(verts.count)
+            for i in verts.indices {
+                let p = verts[i]
+                guard p.x.isFinite, p.y.isFinite, p.z.isFinite else {
+                    remap.append(dropped)
+                    continue
+                }
+                let cell = cellKey(p, inv)
+                if let existing = cellIndex[cell] {
+                    let slot = Int(existing)
+                    positions[slot] += p
+                    normals[slot] += norms[i]
+                    counts[slot] += 1
+                    remap.append(existing)
+                } else {
+                    let slot = UInt32(positions.count)
+                    cellIndex[cell] = slot
+                    positions.append(p)
+                    normals.append(norms[i])
+                    counts.append(1)
+                    remap.append(slot)
+                }
+            }
+            for f in piece.faces {
+                let a = Int(f.0), b = Int(f.1), c = Int(f.2)
+                // ARKit index buffers have handed this app garbage before — see the identical
+                // guard in `subdivideLargeTriangles`. ✗ index `remap` unchecked.
+                guard a < remap.count, b < remap.count, c < remap.count else { continue }
+                let ra = remap[a], rb = remap[b], rc = remap[c]
+                guard ra != dropped, rb != dropped, rc != dropped else { continue }
+                // Two corners in one cell = zero-area triangle after clustering; SceneKit would
+                // draw nothing but it still costs a vertex fetch, and it breaks nothing to drop.
+                guard ra != rb, rb != rc, ra != rc else { continue }
+                indices.append(ra)
+                indices.append(rb)
+                indices.append(rc)
+            }
+        }
+
+        for i in positions.indices {
+            let n = counts[i]
+            if n > 1 { positions[i] /= n }
+            let len = simd_length(normals[i])
+            // The two faces of a thin wall can land in one cell and cancel out. A zero normal
+            // shades as pure black, so keep something usable instead.
+            normals[i] = len > 1e-5 ? normals[i] / len : SIMD3<Float>(0, 1, 0)
+        }
+        return (positions, normals, indices)
+    }
+
+    /// EXACT voxel key — ✗ a spatial hash. A hash collision here would weld two vertices on
+    /// opposite sides of the house into one and draw a triangle straight across the model,
+    /// which is exactly the kind of defect nobody would trace back to a hash function.
+    /// Three signed 21-bit cell coordinates packed into an Int64: ±1,048,575 cells, i.e. ±31km
+    /// at the 3cm floor, so real scans never reach the clamp (and garbage coordinates that do
+    /// simply collapse together, which is harmless).
+    private static func cellKey(_ p: SIMD3<Float>, _ inv: Float) -> Int64 {
+        let limit: Float = 1_048_575
+        let x = Int64(min(max((p.x * inv).rounded(.down), -limit), limit))
+        let y = Int64(min(max((p.y * inv).rounded(.down), -limit), limit))
+        let z = Int64(min(max((p.z * inv).rounded(.down), -limit), limit))
+        return ((x & 0x1F_FFFF) << 42) | ((y & 0x1F_FFFF) << 21) | (z & 0x1F_FFFF)
+    }
+
     /// Dữ liệu chiếu tính sẵn một lần cho mỗi khung (hoist `simd_inverse` + intrinsics ra
     /// khỏi vòng lặp: trước đây bị tính lại cho TỪNG đỉnh × TỪNG khung, hàng chục triệu lần thừa).
     private static func makeSamplers(_ keyframes: [ColorFrame]) -> [KeyframeSampler] {
