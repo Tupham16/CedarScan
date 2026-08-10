@@ -172,7 +172,12 @@ final class ScanStore: ObservableObject {
         name: String?,
         projectId: UUID? = nil,
         quality: MeshQuality,
-        geometryOnly: Bool = false
+        geometryOnly: Bool = false,
+        /// Đầu thu % cho màn "Đang dựng mô hình 3D…" (xem `ScanSaveProgress`). CỐ Ý KHÔNG CÓ
+        /// GIÁ TRỊ MẶC ĐỊNH, cùng lý do với `previewURL` (bẫy #13): nửa cuối thời gian chờ
+        /// (đọc PLY + ghi OBJ + nén zip) nằm TRONG hàm này, nên call-site quên truyền là thanh
+        /// % đứng hình đúng ở đoạn lâu nhất — hỏng lặng lẽ, CI vẫn xanh.
+        progress: @escaping SaveStageReport
     ) async throws -> ScanRecord {
         // Khoá việc dọn-sau-khi-giao suốt quá trình lưu. Bản ghi chỉ được `records.insert` ở
         // CUỐI hàm (dòng ~297), sau khi await nén zip/GLB — việc mất hàng chục giây tới vài
@@ -322,7 +327,8 @@ final class ScanStore: ObservableObject {
             let converted = await Task.detached(priority: .userInitiated) { () -> Bool in
                 do {
                     try ColoredOBJExporter.makeOBJZip(
-                        fromPLY: meshURL, to: zipURL, includeGLB: wantGLB, extraFiles: extraFiles
+                        fromPLY: meshURL, to: zipURL, includeGLB: wantGLB, extraFiles: extraFiles,
+                        progress: progress
                     )
                     return true
                 } catch {
@@ -337,8 +343,12 @@ final class ScanStore: ObservableObject {
                     // đường cần cứu nhất — lượt hai lúc đó là "dọn rác rồi thử lại một lần".
                     try? FileManager.default.removeItem(at: zipURL)
                     do {
+                        // Lượt hai báo lại từ đầu dải; bộ thu chỉ lấy giá trị TĂNG nên thanh
+                        // KHÔNG lùi — nó đứng yên tới khi lượt hai vượt qua mốc cũ. Đứng yên
+                        // ở đây là đúng sự thật: đang làm lại việc vừa hỏng.
                         try ColoredOBJExporter.makeOBJZip(
-                            fromPLY: meshURL, to: zipURL, includeGLB: false, extraFiles: extraFiles
+                            fromPLY: meshURL, to: zipURL, includeGLB: false, extraFiles: extraFiles,
+                            progress: progress
                         )
                         return true
                     } catch {
@@ -346,6 +356,10 @@ final class ScanStore: ObservableObject {
                     }
                 }
             }.value
+            // Nén xong (kể cả đường rơi về PLY phao): phần còn lại của hàm chỉ là đổi tên file
+            // + chèn bản ghi, tính bằng mili giây. 100% cuối cùng do `MeshScanFlowView` đặt
+            // trong đúng nhịp chuyển sang màn preview.
+            progress(.packaging, 0.8)
             if converted {
                 try? fileManager.removeItem(at: meshURL)
             } else {

@@ -41,7 +41,13 @@ struct MeshScanFlowView: View {
     /// Lưu bản quét. Trả về bản ghi đã lưu, hoặc **nil khi lưu HỎNG** — lúc đó cover đóng ngay
     /// và call-site hiện alert lỗi qua pendingSaveError (không hiện alert khi cover còn mở, sẽ
     /// bị nuốt lúc dismiss).
-    let onFinish: (MeshScanResult) async -> ScanRecord?
+    ///
+    /// Tham số thứ HAI là đầu thu % (`SaveStageReport`) — call-site phải chuyển thẳng nó vào
+    /// `ScanStore.saveMeshScan(progress:)`. Nửa sau của thời gian chờ (đọc PLY, ghi OBJ, nén
+    /// zip) nằm trong `saveMeshScan`, mà view này không gọi hàm đó, nên đây là đường DUY NHẤT
+    /// để thanh % không đứng hình ở nửa cuối. ✗ đổi thành tham số có giá trị mặc định (bẫy
+    /// #13): call-site quên truyền thì thanh chết im lặng đúng ở đoạn chờ lâu nhất.
+    let onFinish: (MeshScanResult, SaveStageReport) async -> ScanRecord?
     /// Khách bấm "Đặt hàng ngay" ở màn preview. Call-site CHỈ được ghi nhớ ý định ở đây rồi điều
     /// hướng SAU khi cover đóng — cùng lý do với mọi present-trong-onDismiss khác của app này.
     ///
@@ -64,6 +70,13 @@ struct MeshScanFlowView: View {
     /// Khác nil = đã lưu xong, đang hiện màn preview. Phiên quét lúc này đã kết thúc hoàn toàn
     /// (`stopAndExport` đã pause ARSession) nên mọi đường thoát đều an toàn.
     @State private var savedRecord: ScanRecord?
+    /// Thanh % của màn "Đang dựng mô hình 3D…" — xem `ScanSaveProgress`. Chỉ được ghi từ
+    /// `saveAndClose()` (và từ các hàm xuất qua đầu thu `reporter()`); không màn nào khác đụng.
+    /// ⚠ Dựng trong `init` như `controller`, ✗ bằng giá trị mặc định `= ScanSaveProgress()`:
+    /// lớp đó `@MainActor` mà struct này có init RIÊNG, nên dạng giá trị mặc định lệ thuộc vào
+    /// luật "default value expression thừa hưởng isolation" (SE-0411, Swift 5.10). Dựng thẳng
+    /// trong thân init thì đúng ở mọi phiên bản — và máy này không compile được để thử.
+    @StateObject private var saveProgress: ScanSaveProgress
     @AppStorage("showScanMesh") private var showScanMesh = true
 
     /// ⚠ `onOrderNow` VÀ `onScanMore` PHẢI được truyền kèm NHÃN ở call-site. Viết trailing closure mà bỏ nhãn thì
@@ -73,9 +86,10 @@ struct MeshScanFlowView: View {
         quality: MeshQuality,
         onOrderNow: @escaping (ScanRecord) -> Void,
         onScanMore: @escaping () -> Void,
-        onFinish: @escaping (MeshScanResult) async -> ScanRecord?
+        onFinish: @escaping (MeshScanResult, SaveStageReport) async -> ScanRecord?
     ) {
         _controller = StateObject(wrappedValue: MeshScanController(quality: quality))
+        _saveProgress = StateObject(wrappedValue: ScanSaveProgress())
         self.onOrderNow = onOrderNow
         self.onScanMore = onScanMore
         self.onFinish = onFinish
@@ -363,17 +377,48 @@ struct MeshScanFlowView: View {
         )
     }
 
+    /// Màn chờ sau khi bấm Lưu. Khuôn lấy từ `ScanDetailView.progressRow` (thanh + % của
+    /// đoạn upload) — chủ app đã quen nhìn nó và tự lấy nó ra làm chuẩn khi đặt yêu cầu.
+    ///
+    /// Bố cục: tiêu đề CỐ ĐỊNH (giữ nguyên câu của bản 1.4) → thanh % → dòng "đang làm gì +
+    /// bao nhiêu %" → một câu đặt kỳ vọng. Bốn dòng, hơn bản cũ đúng MỘT dòng.
+    /// 🔴 Vòng xoay nhỏ chỉ hiện ở chặng KHÔNG báo được % bên trong (`showsSpinner`) — nó là
+    /// lời nói thật "máy vẫn chạy, chỗ này không đếm được", ✗ đổi nó thành thanh tự bò.
     private var savingOverlay: some View {
         ZStack {
             Color.black.opacity(0.5).ignoresSafeArea()
             VStack(spacing: 10) {
-                ProgressView()
                 Text(L.t("Building 3D model…", "Đang dựng mô hình 3D…"))
                     .font(.headline)
-                Text(L.t("This can take a moment at high detail.", "Mức nét cao có thể mất một lúc."))
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+                ProgressView(value: saveProgress.fraction)
+                HStack(spacing: 6) {
+                    if saveProgress.stage.showsSpinner {
+                        ProgressView().controlSize(.small)
+                    }
+                    Text(saveProgress.stage.label)
+                    Spacer(minLength: 8)
+                    // `.font(.footnote.monospacedDigit())` chứ ✗ `.monospacedDigit()` trần:
+                    // khuôn của `ScanDetailView.progressRow` (đã qua CI), và bản View của
+                    // modifier đó mới có từ iOS 16 — dạng Font thì iOS 15 đã có.
+                    Text("\(Int(saveProgress.fraction * 100))%")
+                        .font(.footnote.monospacedDigit())
+                }
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                // Câu cũ ("Mức nét cao có thể mất một lúc.") nói về một PICKER đã bỏ từ
+                // 31/07 và không đặt được kỳ vọng nào. Câu mới nói đúng thứ khách cần biết:
+                // nhà lớn thì lâu. Giữ MỘT dòng — chủ app không thích màn hình phình ra.
+                Text(L.t(
+                    "A whole house can take a few minutes.",
+                    "Nhà lớn có thể mất vài phút."
+                ))
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
             }
+            // Thanh ngang nở hết bề rộng được đề nghị, nên phải kẹp lại — không thì hộp
+            // material kéo dài sát hai mép màn hình và không còn ra hình cái thẻ.
+            .frame(maxWidth: 260)
             .padding(.horizontal, 24)
             .padding(.vertical, 16)
             .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14))
@@ -428,6 +473,10 @@ struct MeshScanFlowView: View {
     private func saveAndClose() {
         guard !isSaving else { return } // chống double-tap nút Lưu
         isSaving = true
+        saveProgress.reset()
+        // MỘT đầu thu dùng chung cho cả hai nửa (xuất trong controller + nén trong ScanStore):
+        // thang % là một dải liền, hai nửa chỉ khác nhau ở chặng nào đang chạy.
+        let report = saveProgress.reporter()
         let name = scanName.trimmingCharacters(in: .whitespacesAndNewlines)
         Task {
             // Giữ app sống nếu bị background đúng lúc export/lưu (cuộc gọi đến ở giây
@@ -442,7 +491,7 @@ struct MeshScanFlowView: View {
                     UIApplication.shared.endBackgroundTask(bgTask)
                 }
             }
-            let exported = await controller.stopAndExport()
+            let exported = await controller.stopAndExport(progress: report)
             let result = MeshScanResult(
                 videoURL: exported.videoURL,
                 meshURL: exported.meshURL,
@@ -454,7 +503,7 @@ struct MeshScanFlowView: View {
                 hitCap: exported.hitCap,
                 geometryOnly: exported.geometryOnly
             )
-            let saved = await onFinish(result)
+            let saved = await onFinish(result, report)
             // Lưu HỎNG → đóng ngay để call-site hiện alert lỗi. KHÔNG hiện màn preview: không có
             // bản ghi nào để trỏ tới, và mời "Đặt hàng ngay" một bản quét vừa lưu hụt là tệ nhất.
             //
@@ -469,6 +518,11 @@ struct MeshScanFlowView: View {
                 dismiss()
                 return
             }
+            // 100% CHỈ ở đây, trong cùng một nhịp main với việc chuyển sang màn preview: mọi
+            // việc đã xong thật. SwiftUI gộp ba phép gán này thành MỘT lượt dựng lại, nên
+            // khung 100% gần như không bao giờ được vẽ — đúng yêu cầu "✗ chạm 100% trước khi
+            // màn preview hiện ra". ✗ chuyển dòng này lên trước `guard let saved`.
+            saveProgress.report(.packaging, 1)
             // Thứ tự: đóng dấu bản ghi TRƯỚC rồi mới hạ cờ, để không có nhịp nào rơi vào
             // trạng thái (chưa có savedRecord && không còn đang lưu) làm lưới bật lại một nhịp.
             savedRecord = saved

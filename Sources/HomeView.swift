@@ -183,7 +183,7 @@ struct HomeView: View {
                     quality: MeshQuality.storageDefault,
                     onOrderNow: { record in pendingOrderRecord = record },
                     onScanMore: { pendingScanMore = true }
-                ) { result in
+                ) { result, saveProgress in
                     do {
                         let saved = try await store.saveMeshScan(
                             videoURL: result.videoURL, meshURL: result.meshURL,
@@ -191,7 +191,9 @@ struct HomeView: View {
                             texshotsURL: result.texshotsDir,
                             previewURL: result.previewURL,
                             name: result.name, projectId: pendingProjectId,
-                            quality: result.quality, geometryOnly: result.geometryOnly
+                            quality: result.quality, geometryOnly: result.geometryOnly,
+                            // Thanh % của màn "Đang dựng mô hình 3D…" — chuyển thẳng, ✗ nuốt.
+                            progress: saveProgress
                         )
                         // Nhà rất lớn chạm trần: sau khi cover đóng sẽ mời quét phần còn lại.
                         if result.hitCap { meshCapFollowUp = true }

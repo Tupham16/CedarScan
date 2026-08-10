@@ -238,7 +238,7 @@ struct ProjectView: View {
                 quality: MeshQuality.storageDefault,
                 onOrderNow: { record in pendingOrderRecord = record },
                 onScanMore: { pendingScanMore = true }
-            ) { result in
+            ) { result, saveProgress in
                 do {
                     let saved = try await store.saveMeshScan(
                         videoURL: result.videoURL, meshURL: result.meshURL,
@@ -246,7 +246,9 @@ struct ProjectView: View {
                         texshotsURL: result.texshotsDir,
                         previewURL: result.previewURL,
                         name: result.name, projectId: projectId, quality: result.quality,
-                        geometryOnly: result.geometryOnly
+                        geometryOnly: result.geometryOnly,
+                        // Thanh % của màn "Đang dựng mô hình 3D…" — chuyển thẳng, ✗ nuốt.
+                        progress: saveProgress
                     )
                     if result.hitCap { meshCapFollowUp = true }
                     return saved

@@ -148,8 +148,11 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
     /// camera/LiDAR và CPU dựng lưới cho việc dựng PLY (không còn RoomPlan nào cần session).
     /// @MainActor BẮT BUỘC: hàm async không isolation sẽ chạy thân hàm trên executor NỀN
     /// (SE-0338) → Timer.invalidate/UIApplication/pause + sửa state đua với delegate main.
+    ///
+    /// `progress`: đầu thu % cho màn "Đang dựng mô hình 3D…" (xem `ScanSaveProgress`). CHỈ để
+    /// báo số — không nhánh nào của hàm này đọc nó. ✗ cho nó giá trị mặc định (bẫy #13).
     @MainActor
-    func stopAndExport() async -> (
+    func stopAndExport(progress: @escaping SaveStageReport) async -> (
         videoURL: URL?, meshURL: URL?, trackURL: URL?, texshotsDir: URL?, previewURL: URL?,
         hitCap: Bool, geometryOnly: Bool
     ) {
@@ -170,6 +173,9 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
         // capReached STICKY của builder = "đã từng phải bỏ dữ liệu" → call-site dùng để
         // mời khách quét BẢN BỔ SUNG cho phần còn thiếu (nhà rất lớn chạm trần 2M).
         let hitCap = colorMesh?.capReached ?? false
+        // Chặng 1. Hai lời gọi finish() bên dưới KHÔNG có tiến độ nào để lấy (AVAssetWriter
+        // đóng file, recorder ảnh nén nốt ≤3 tấm) → chặng CÂM, màn hình hiện vòng xoay nhỏ.
+        progress(.finishingCapture, 0)
         let videoURL = await recorder?.finish()
         let trackURL = recorder?.cameraTrackURL // chỉ khác nil khi video hoàn tất OK
         recorder = nil
@@ -185,7 +191,7 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
         // không có (recorder hỏng, shots.json ném lỗi nên finish() trả nil, buổi quét vài
         // giây) → máy trạm sẽ KHÔNG bake được, phải giữ màu-đỉnh cho đội vẽ có cái mà xem.
         let fastSave = (texshots?.shotCount ?? 0) >= Self.fastSaveMinShots
-        let meshURL = await colorMesh?.exportColoredPLY(geometryOnly: fastSave)
+        let meshURL = await colorMesh?.exportColoredPLY(geometryOnly: fastSave, progress: progress)
         // Lưới XÁM nhẹ cho trình xem 3D trong app (mesh-preview.bin) — chủ app duyệt 10/08.
         // 🔴 Dựng SAU exportColoredPLY, không phải trước: `queue` của builder là SERIAL nên
         // chạy trước là đẩy FILE GIAO — thứ khách đang đứng chờ sau overlay "Đang dựng mô hình
@@ -195,6 +201,11 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
         // toán tử không-phải-gán, và một vòng CI đắt hơn ba dòng.
         var previewURL: URL?
         if meshURL != nil {
+            // Chặng CÂM ngắn (một tới bốn lượt gom voxel, ~0,2–4s tuỳ số đỉnh): cố ý KHÔNG
+            // xỏ đầu thu vào `buildPreview` — thêm tham số vào file trap-dense nhất app để
+            // mua 1–3 nhịp báo là không đáng. Nếu máy thật cho thấy nó đứng lâu hơn ~4s thì
+            // báo theo từng lượt trong `buildPreview` là chỗ sửa đúng.
+            progress(.previewMesh, 0)
             previewURL = await colorMesh?.exportPreviewMesh()
         }
         colorMesh = nil
