@@ -103,13 +103,57 @@ final class ScanStore: ObservableObject {
         persistProjects()
     }
 
-    /// Xoá dự án — các bản quét bên trong KHÔNG mất, chỉ trở về danh sách chưa phân loại.
-    func deleteProject(_ project: ScanProject) {
-        for record in records where record.projectId == project.id {
-            update(record) { $0.projectId = nil }
+    /// Xoá dự án VÀ XOÁ LUÔN FILE BẢN QUÉT CỦA NÓ KHỎI MÁY.
+    ///
+    /// 🔴 Chủ app chốt 10/08, nguyên văn: *"xóa dự án là xóa bản quét thôi. còn đơn đặt hàng là
+    /// file floorplan hay gì đó thì phải giữ lại vì đó là những thứ họ đã trả tiền"*, và xác nhận
+    /// lại: *"đúng rồi, xóa file bản quét trên máy thôi."* ⇒ hàm này xoá `Documents/Scans/<uuid>/`
+    /// của từng bản quét trong dự án **và KHÔNG ĐỤNG GÌ KHÁC**. Đơn hàng + file thành phẩm nằm
+    /// trên máy chủ Cedar247, app không có endpoint nào xoá chúng — hộp xác nhận PHẢI nói ra điều
+    /// đó, nếu không khách tưởng mình đang phá thứ đã trả tiền.
+    ///
+    /// 🔴 ĐỜI TRƯỚC HÀM NÀY GIẢI PHÓNG **0 BYTE**: nó chỉ `projectId = nil` rồi xoá dự án, bản
+    /// quét quay về mục "Chưa vào dự án" (`looseScans`). Đổi TÊN hàm chứ không sửa tại chỗ là cố
+    /// ý: hành vi đảo ngược hoàn toàn, đổi tên biến mọi call site bị bỏ sót thành lỗi CI thay vì
+    /// một cú xoá dữ liệu im lặng.
+    ///
+    /// 🔴 KHÔNG gác `isBusy` — đây là chỗ dễ "thêm cho chắc" nhất và nó SAI. `isBusy` bật khi
+    /// phiên quét đang mở hoặc đang lưu, mà cả hai lúc đó `fullScreenCover` đang che kín màn hình
+    /// nên không ngón tay nào chạm được nút xoá. Gác vào chỉ được một thứ: một cái nút thỉnh
+    /// thoảng không làm gì mà không báo gì. (`purgeDelivered` thì PHẢI gác — nó chạy TỰ ĐỘNG,
+    /// không có ngón tay nào.)
+    ///
+    /// - Returns: số bản quét đã xoá được thật khỏi đĩa.
+    @discardableResult
+    func deleteProjectAndScans(_ project: ScanProject) -> Int {
+        let doomed = records.filter { $0.projectId == project.id }
+
+        // CHỈ gỡ khỏi `records` bản mà thư mục ĐÃ BIẾN MẤT THẬT — cùng kỷ luật với
+        // `purgeDelivered`, và ở đây còn có một lý do thứ hai, mạnh hơn: `reload()` đọc lại
+        // `Documents/Scans/` mỗi lần khởi động, nên gỡ vô điều kiện KHÔNG giấu được gì cả — bản
+        // quét sẽ tự hiện lại ở lần mở app sau, chỉ khác là muộn hơn và khó hiểu hơn. Giữ lại
+        // ngay bây giờ thì nó rơi vào "Chưa vào dự án" (`looseScans` bắt cả bản trỏ vào dự án
+        // KHÔNG CÒN TỒN TẠI) → khách còn nhìn thấy, còn vuốt xoá được, và 40–200MB không thành
+        // rác vô hình.
+        var removed: [ScanRecord] = []
+        for record in doomed {
+            let folder = folderURL(for: record)
+            try? fileManager.removeItem(at: folder)
+            if !fileManager.fileExists(atPath: folder.path) {
+                removed.append(record)
+            }
         }
+        if !removed.isEmpty {
+            let removedIds = Set(removed.map(\.id))
+            records.removeAll { removedIds.contains($0.id) }
+        }
+
+        // ✗ ghi `projectId = nil` cho bản SỐNG SÓT: `looseScans` đã bắt được chúng qua vế "dự án
+        // không còn tồn tại", mà ghi lại meta.json vào đúng thư mục vừa xoá hụt là thêm một thao
+        // tác đĩa có thể hỏng nữa, đổi lấy đúng 0 thay đổi trên màn hình.
         projects.removeAll { $0.id == project.id }
         persistProjects()
+        return removed.count
     }
 
     func moveScan(_ record: ScanRecord, to project: ScanProject?) {
@@ -282,7 +326,10 @@ final class ScanStore: ObservableObject {
         //     R2 bất cứ lúc nào. File này KHÔNG dựng lại được: hình học của nó chỉ còn nằm
         //     trong model-colored.zip mà app không có bộ giải nén, nên để ở Caches (thư mục
         //     iOS được phép dọn bất kỳ lúc nào) là trình xem chết vĩnh viễn, im lặng.
-        //     `purgeDelivered` xoá trọn thư mục này thì không sao: bản ghi biến mất cùng lúc.
+        //     Ai xoá TRỌN thư mục này thì cũng không sao: bản ghi biến mất cùng lúc. Nay việc đó
+        //     chỉ còn do KHÁCH TỰ BẤM — xoá dự án (`deleteProjectAndScans`) hoặc vuốt xoá một
+        //     dòng (`delete`); việc dọn tự động sau 14 ngày đã TẮT ở bản 1.8
+        //     (`RootView.autoPurgeAfterDelivery`).
         //     🔴 ✗ ĐƯA VÀO `extraFiles` bên dưới (đó là ruột model-colored.zip — máy trạm bake
         //     texture và tool cắt mặt bằng đều đọc zip đó) và ✗ thêm vào
         //     `ScanUploader.fileKinds`. Cả hai đều là danh sách LIỆT KÊ TƯỜNG MINH nên chỉ ghi
@@ -394,6 +441,12 @@ final class ScanStore: ObservableObject {
     /// Dọn hẳn khỏi máy những bản quét thuộc đơn ĐÃ GIAO (chủ app chốt 2026-07-19: "máy khách
     /// chỉ lưu những dự án chưa đặt hàng"). Dữ liệu vẫn nằm trên R2 của chủ app; khách cần sửa
     /// thì chủ app tra đơn trên web. Mỗi bản mesh nặng 40–200MB nên đây là thứ giữ máy khách nhẹ.
+    ///
+    /// 🔴 **TỪ BẢN 1.8 HÀM NÀY KHÔNG CÒN ĐƯỢC GỌI NỮA** — người gọi DUY NHẤT
+    /// (`RootView.purgeDeliveredScans`) nay return sớm ở cờ `autoPurgeAfterDelivery = false`, chủ
+    /// app chốt 10/08: *"Có nút giỏ rác nên để khách chủ động xóa. Nên tắt."* Giữ nguyên toàn bộ
+    /// hàm + 10 chốt fail-closed của nó, ✗ xoá: bật lại là một dòng, còn dựng lại đúng 10 chốt đó
+    /// thì không. Vì vậy phần mô tả bên dưới nói về hành vi KHI ĐƯỢC BẬT.
     ///
     /// AN TOÀN — người gọi PHẢI chỉ truyền vào scanId của đơn mà khách ĐÃ CẦM ĐƯỢC thành phẩm
     /// (xem `OrderDTO.isDeliveredToCustomer`). Hàm này không tự kiểm tra điều đó.

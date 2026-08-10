@@ -17,7 +17,8 @@ people do that from the mesh and the walkthrough video.
   server catalogue, several floors in one order, payment link, order tracking, deliverable
   download, and revision requests
 - Virtual Tour add-on: attach 1–3 photos per room and get a shareable interactive tour
-- Delivered scans are removed from the device automatically after 14 days to reclaim space
+- Scans stay on the device until the customer deletes them — deleting a property deletes its scans
+  from the phone (orders and delivered files are untouched). Nothing is deleted on a timer.
 
 **Not in this app** (it was, before the RoomPlan flow was removed in July 2026)
 - No automatic 2D floor plan, room segmentation, or floor-area measurement on device

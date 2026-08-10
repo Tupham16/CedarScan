@@ -101,13 +101,18 @@ struct RootView: View {
         }
     }
 
-    /// Dọn IM LẶNG bản quét thuộc đơn đã giao (chủ app chốt: làm như CubiCasa, không hỏi khách).
+    /// Dọn IM LẶNG bản quét thuộc đơn đã giao.
+    ///
+    /// 🔴 **ĐÃ TẮT TỪ BẢN 1.8 — xem `autoPurgeAfterDelivery` ngay dưới.** Thân hàm giữ NGUYÊN.
     ///
     /// Mọi đường lỗi đều dẫn tới KHÔNG XOÁ GÌ — chưa đăng nhập, mất mạng, server trả rác, decode
     /// hỏng, `deliveredAt` parse không ra: tất cả `return`/lọc bỏ. Nguyên tắc: không chắc chắn
     /// thì đừng đụng vào dữ liệu của khách. Bỏ sót một lần dọn chỉ tốn dung lượng; xoá nhầm một
     /// lần là mất buổi quét 10–30 phút không lấy lại được.
     private func purgeDeliveredScans() async {
+        // 🔴 CỬA ĐẦU TIÊN, ĐỨNG TRƯỚC CẢ `isSignedIn`: tắt luôn cú `listOrders()` mỗi lần mở app
+        // và mỗi lần vào foreground, không chỉ tắt việc xoá.
+        guard Self.autoPurgeAfterDelivery else { return }
         guard account.isSignedIn else { return }
         guard let response = try? await APIClient.shared.listOrders() else { return }
 
@@ -131,8 +136,29 @@ struct RootView: View {
         store.purgeDelivered(scanIds: deliveredIds)
     }
 
+    /// 🔴 **CÔNG TẮC CỦA VIỆC DỌN TỰ ĐỘNG. `false` = TẮT HẲN, và đó là quyết định của chủ app
+    /// ngày 10/08, nguyên văn: *"Có nút giỏ rác nên để khách chủ động xóa. Nên tắt."***
+    ///
+    /// ⚠ Việc dọn tự động KHÔNG bị bỏ đi mà bị **THAY THẾ**: nút giỏ rác trên dòng dự án ở Home
+    /// (+ mục "Xóa dự án" trong menu của `ProjectView`) nay xoá luôn file bản quét khỏi máy
+    /// (`ScanStore.deleteProjectAndScans`). Hai thứ đó ra CÙNG một bản (1.8) là bắt buộc: tắt
+    /// dọn mà chưa có nút xoá gộp thì khách chỉ còn đường vuốt xoá từng bản một.
+    ///
+    /// 🔴 VÌ SAO LÀ CỜ CHẶN CHỨ ✗ XOÁ CODE: `§MULTI-ACCOUNT` chốt "chỉ được làm việc xoá CHẶT
+    /// HƠN — loại thay đổi duy nhất được phép ở `purgeDelivered`". Một cờ return sớm là chặt hơn
+    /// tuyệt đối. Xoá hàm đi thì 10 chốt fail-closed của nó (ghi ở `ScanStore.purgeDelivered` và
+    /// §purgeDelivered trong handoff) phải dựng lại từ đầu nếu chủ app đổi ý — mà chúng là thứ
+    /// đắt nhất của tính năng này, không phải phép trừ ngày tháng.
+    ///
+    /// ⚠ HỆ QUẢ ĐÃ BIẾT, ĐÃ NÓI VỚI CHỦ APP: mỗi bản quét ~150MB (nhà lớn tới ~220MB), 3 căn/tuần
+    /// ≈ 4GB/tháng, và `Documents/Scans/` NẰM TRONG bộ sao lưu iCloud (không chỗ nào đặt
+    /// `isExcludedFromBackup`) → khoảng 30 bản quét là đầy gói iCloud 5GB miễn phí và bản sao lưu
+    /// iPhone của khách bắt đầu lỗi. Ông được nghe con số này rồi vẫn chọn tắt.
+    private static let autoPurgeAfterDelivery = false
+
     /// Giữ bản quét thêm bấy nhiêu ngày SAU khi giao rồi mới dọn — cửa sổ để vòng "Yêu cầu sửa"
     /// kịp xảy ra (xem `OrderDTO.wasDeliveredAtLeast`). Hạ số này xuống 0 là khách có thể trắng
     /// tay giữa vòng sửa: server đã thu lại file thành phẩm mà máy thì đã xoá bản gốc.
+    /// (Chỉ có nghĩa khi `autoPurgeAfterDelivery` bật lại.)
     private static let keepAfterDeliveryDays = 14
 }

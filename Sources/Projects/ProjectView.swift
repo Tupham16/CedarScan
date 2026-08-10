@@ -98,7 +98,15 @@ struct ProjectView: View {
 
     var body: some View {
         content
-            // Dự án bị dọn (mọi tầng đã giao) trong lúc màn này đang mở → thoát ra.
+            // Dự án biến mất trong lúc màn này đang mở → thoát ra.
+            // ⚠ NGUỒN GÂY RA ĐÃ ĐỔI Ở BẢN 1.8, GUARD THÌ KHÔNG. Trước đây thủ phạm DUY NHẤT là
+            // việc dọn-sau-khi-giao chạy ngầm (nay đã tắt — `RootView.autoPurgeAfterDelivery`).
+            // Nay chỉ còn đường KHÁCH TỰ BẤM XOÁ, và đường đó tự `dismiss()` ngay trong nút của
+            // hộp thoại — tức hai lối thoát cùng bắn cho một cú xoá. Vô hại và đã như vậy từ
+            // trước: `leaveDeadProject` hoãn một nhịp rồi mới `dismiss()`, mà `dismiss()` lần hai
+            // trên một màn đã pop là việc không làm gì cả.
+            // ✗ GỠ hai `onChange` này theo (bẫy #3 ngược lại: ở đây LÝ DO VẪN CÒN — hàm
+            // `deleteProjectAndScans` vẫn nil hoá `project`, và cờ dọn có thể được bật lại).
             // NavigationStack giữ `ScanProject` trong path nên màn KHÔNG tự pop: tiêu đề thành
             // trắng, danh sách rỗng, mà nút "Quét căn nhà này" vẫn đó và trỏ vào một projectId
             // không còn tồn tại. Xảy ra thật khi app quay lại foreground lúc khách đang ở đây.
@@ -116,6 +124,10 @@ struct ProjectView: View {
     }
 
     /// Thoát khỏi một dự án đã bị dọn mất — HOÃN MỘT NHỊP, không `dismiss()` ngay tại chỗ.
+    ///
+    /// ⚠ Đoạn giải thích dưới đây tả cơ chế của việc DỌN TỰ ĐỘNG, thứ đã TẮT ở bản 1.8. Giữ
+    /// nguyên vì nó là lý do hàm này phải hoãn một nhịp thay vì `dismiss()` thẳng, và vì cờ
+    /// `autoPurgeAfterDelivery` bật lại là một dòng.
     ///
     /// 🔴 Vì sao phải hoãn: `purgeDeliveredScans()` (RootView) chạy mỗi lần app quay lại
     /// foreground và nó `await APIClient.listOrders()` TRƯỚC khi xoá — tức thời điểm nó xoá dự án
@@ -225,17 +237,19 @@ struct ProjectView: View {
             }
             Button(L.t("Cancel", "Hủy"), role: .cancel) {}
         }
-        .alert(L.t("Delete this property?", "Xóa dự án này?"), isPresented: $showDeleteConfirm) {
-            Button(L.t("Delete", "Xóa"), role: .destructive) {
-                if let project { store.deleteProject(project) }
+        // 🔴 XOÁ DỰ ÁN NAY XOÁ LUÔN FILE BẢN QUÉT KHỎI MÁY (mục 5b — chủ app chốt 10/08). Câu
+        // chữ lấy từ `DeleteProjectPrompt` chứ ✗ gõ tại chỗ: lối vào THỨ HAI là nút giỏ rác trên
+        // dòng dự án ở `HomeView`, và hai lối phải nói y hệt nhau. Xem chú thích ở enum đó.
+        // ⚠ Số bản quét đọc SỐNG (`scans.count`) ngay lúc dựng hộp thoại — đúng cái khách đang
+        // nhìn thấy trong danh sách ngay trên.
+        .alert(DeleteProjectPrompt.title, isPresented: $showDeleteConfirm) {
+            Button(DeleteProjectPrompt.confirmLabel(scanCount: scans.count), role: .destructive) {
+                if let project { store.deleteProjectAndScans(project) }
                 dismiss()
             }
             Button(L.t("Cancel", "Hủy"), role: .cancel) {}
         } message: {
-            Text(L.t(
-                "Scans inside will NOT be deleted — they move back to the main list.",
-                "Các bản quét bên trong KHÔNG bị xóa — chúng trở về danh sách chính."
-            ))
+            Text(DeleteProjectPrompt.message(scanCount: scans.count))
         }
         .alert(L.t("Rename scan", "Đổi tên bản quét"), isPresented: renameAlertBinding) {
             TextField(L.t("New name", "Tên mới"), text: $renameText)
@@ -589,5 +603,46 @@ struct ProjectView: View {
 
     private var lowQualityNames: String {
         orderableScans.filter { $0.qualityRescan == true }.map(\.name).joined(separator: ", ")
+    }
+}
+
+/// Câu chữ của hộp xác nhận "Xóa dự án" — VIẾT MỘT LẦN, DÙNG CHO CẢ HAI LỐI VÀO.
+///
+/// Hai lối: menu "…" của `ProjectView` (ngay trên) và **nút giỏ rác trên dòng dự án ở
+/// `HomeView`** (mục 6 của phản hồi 1.4). Chủ app chốt hai lối làm ĐÚNG MỘT VIỆC
+/// (`ScanStore.deleteProjectAndScans`) — mà repo này đã trả giá nhiều lần vì hai màn song sinh
+/// trôi khỏi nhau, nên chữ cũng chỉ được phép tồn tại ở một chỗ. Thêm lối thứ ba thì gọi vào đây.
+///
+/// 🔴 CÂU "ĐƠN ĐÃ ĐẶT KHÔNG BỊ ẢNH HƯỞNG" LÀ BẮT BUỘC, ✗ RÚT GỌN. Chủ app nói thẳng lý do:
+/// *"đơn đặt hàng là file floorplan hay gì đó thì phải giữ lại vì đó là những thứ họ đã trả
+/// tiền"*. Không có câu đó thì khách đọc nút giỏ rác thành "xoá luôn bản vẽ mình vừa mua" và sẽ
+/// không bao giờ bấm — tức tính năng thay thế cho việc dọn tự động chết ngay từ đầu.
+/// Câu này ĐÚNG SỰ THẬT về kỹ thuật: app không có endpoint nào xoá đơn hay file thành phẩm; nó
+/// chỉ xoá `Documents/Scans/<uuid>/` trên chính máy này.
+enum DeleteProjectPrompt {
+    static var title: String { L.t("Delete this property?", "Xóa dự án này?") }
+
+    /// Nhãn nút phá huỷ, CÓ SỐ BẢN QUÉT trong nhãn (chủ app duyệt). Người dùng bấm xuyên qua phần
+    /// chữ mô tả nhưng gần như luôn đọc nhãn nút — nên con số phải nằm ở đây, không chỉ trong
+    /// message.
+    static func confirmLabel(scanCount: Int) -> String {
+        guard scanCount > 0 else { return L.t("Delete property", "Xóa dự án") }
+        return L.t(
+            "Delete property and \(scanCount) scan(s)",
+            "Xóa dự án và \(scanCount) bản quét"
+        )
+    }
+
+    static func message(scanCount: Int) -> String {
+        guard scanCount > 0 else {
+            return L.t(
+                "This property has no scans on this iPhone.",
+                "Dự án này chưa có bản quét nào trên máy."
+            )
+        }
+        return L.t(
+            "\(scanCount) scan(s) will be deleted from this iPhone and cannot be recovered. Orders you have already placed and the finished drawings are NOT affected — they stay on Cedar247 and you can download them from the Orders tab any time.",
+            "\(scanCount) bản quét sẽ bị xóa khỏi iPhone, không lấy lại được. Đơn đã đặt và file thành phẩm KHÔNG bị ảnh hưởng — chúng nằm trên máy chủ Cedar247, tải lại ở tab Đơn hàng bất cứ lúc nào."
+        )
     }
 }

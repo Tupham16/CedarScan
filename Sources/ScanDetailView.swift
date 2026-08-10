@@ -126,9 +126,14 @@ struct ScanDetailView: View {
         store.records.first(where: { $0.id == record.id }) ?? record
     }
 
-    /// Bản quét còn trong store không. Việc dọn-sau-khi-giao (RootView.purgeDeliveredScans) có
-    /// thể nổ ngay dưới chân màn này: app quay lại foreground trong lúc khách đang mở chi tiết.
-    /// Không tự đóng thì họ ngồi nhìn một bản quét mà mọi file đã biến mất — bấm gì cũng hỏng.
+    /// Bản quét còn trong store không.
+    ///
+    /// ⚠ LÝ DO TỒN TẠI ĐÃ YẾU ĐI Ở BẢN 1.8, GUARD THÌ GIỮ NGUYÊN. Đời trước: việc dọn-sau-khi-giao
+    /// (`RootView.purgeDeliveredScans`) nổ ngay dưới chân màn này khi app quay lại foreground —
+    /// nay nó đã tắt (`autoPurgeAfterDelivery`). Đường xoá còn lại (khách bấm xoá dự án / vuốt xoá
+    /// một dòng) đều bắt buộc khách phải đang ở MÀN KHÁC, nên hôm nay guard này gần như không có
+    /// dịp nổ. Giữ vì nó là fail-safe rẻ và vì cờ dọn bật lại là một dòng: không tự đóng thì khách
+    /// ngồi nhìn một bản quét mà mọi file đã biến mất — bấm gì cũng hỏng.
     private var stillExists: Bool {
         store.records.contains { $0.id == record.id }
     }
@@ -236,8 +241,8 @@ struct ScanDetailView: View {
             serviceCard
                 .padding(.bottom, CedarTabBar.reservedHeight)
         }
-        // Bản quét bị dọn (đơn đã giao) trong lúc màn này đang mở → thoát ra, đừng để khách
-        // ngồi trước một bản quét mà mọi file đã biến mất.
+        // Bản quét biến mất trong lúc màn này đang mở → thoát ra, đừng để khách ngồi trước một
+        // bản quét mà mọi file đã biến mất. (Nguồn gây ra đã đổi ở 1.8 — xem `stillExists`.)
         //
         // HOÃN MỘT NHỊP + kiểm lại, cùng lý do với `ProjectView.leaveDeadProject()`: `dismiss()`
         // rơi vào giữa cú push là pop một view controller mà push của nó chưa xong.

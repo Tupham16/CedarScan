@@ -6,7 +6,9 @@ import Foundation
 /// xem trắng trơn, không lỗi, không log. Đuôi phải là `.usdz` để QuickLook chọn đúng renderer.
 ///
 /// 🔴 Cache nằm ở `.cachesDirectory`, ✗ trong thư mục bản quét:
-/// · thư mục bản quét bị `purgeDelivered` xoá TRỌN sau khi đơn được giao;
+/// · thư mục bản quét có thể bị xoá TRỌN bất cứ lúc nào — nay là do KHÁCH bấm xoá dự án
+///   (`ScanStore.deleteProjectAndScans`, bản 1.8) chứ không còn do việc dọn tự động sau khi giao
+///   (`RootView.autoPurgeAfterDelivery` đã tắt); kết luận không đổi;
 /// · file này dựng lại được từ R2 nên không đáng để iCloud backup;
 /// · caches là chỗ DUY NHẤT iOS được phép tự dọn khi máy hết chỗ (thay vì kill app).
 ///

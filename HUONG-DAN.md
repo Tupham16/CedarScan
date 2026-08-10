@@ -184,22 +184,27 @@ về Cedar247 là miễn phí.**
 
 ---
 
-## ⚠️ Quan trọng: app tự xoá bản quét sau 14 ngày
+## ⚠️ Quan trọng: bản quét nằm trên máy tới khi BẠN xoá
 
-**Sau khi đơn của bạn được giao, CedarScan tự xoá bản quét gốc khỏi iPhone sau 14 ngày** để giải
-phóng dung lượng (mỗi bản quét 40–200MB). Việc này **diễn ra tự động, không hỏi lại**.
+**App không tự xoá bất cứ thứ gì.** (Bản cũ tự xoá bản quét 14 ngày sau khi giao hàng — **đã bỏ**
+từ bản 1.8.)
 
-**File thành phẩm KHÔNG bị ảnh hưởng** — bản vẽ nằm trên máy chủ Cedar247, tải lại bất cứ lúc nào
-ở tab Đơn hàng.
+Mỗi bản quét nặng **40–200MB**, nên quét vài căn là máy đầy rất nhanh. Xong việc căn nào thì xoá
+căn đó:
 
-Thứ bị xoá là **nguyên liệu gốc trên máy bạn**: mô hình 3D và video walkthrough.
+- **Ở màn hình chính:** bấm **biểu tượng thùng rác 🗑️ ở cuối dòng dự án**.
+- **Hoặc:** mở dự án → nút **“…”** góc trên bên phải → **Xóa dự án**.
+- **Xoá lẻ một bản quét:** vuốt dòng bản quét sang trái → **Xóa**.
+
+Xoá dự án là **xoá luôn các bản quét bên trong khỏi iPhone**, và **không lấy lại được**.
+
+> ✅ **Đơn đã đặt và file thành phẩm KHÔNG bị ảnh hưởng.** Bản vẽ nằm trên máy chủ Cedar247, tải
+> lại bất cứ lúc nào ở tab **Đơn hàng**. Thứ bị xoá chỉ là **nguyên liệu gốc trên máy bạn**: mô
+> hình 3D và video walkthrough.
 
 > **Muốn giữ mô hình 3D hoặc video gốc?** Dùng nút **Chia sẻ** ở màn bản quét để lưu ra nơi khác
-> (iCloud, máy tính…) **trước khi hết 14 ngày**. Chia sẻ được: mô hình 3D màu (file .zip chứa OBJ +
-> GLB) và video.
-
-App có nhiều lớp bảo vệ để không xoá nhầm: bản quét còn dính **đơn chưa xong** thì không bị xoá;
-đang quét hoặc đang lưu thì hoãn; mất mạng hoặc dữ liệu không đầy đủ thì **không xoá gì cả**.
+> (iCloud, máy tính…) **trước khi xoá**. Chia sẻ được: mô hình 3D màu (file .zip chứa OBJ + GLB)
+> và video.
 
 ---
 

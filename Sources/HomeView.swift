@@ -39,6 +39,10 @@ struct HomeView: View {
     @State private var meshCapFollowUp = false
     @State private var showScanNextPart = false
     @State private var recordToRename: ScanRecord?
+    /// Dự án khách vừa bấm giỏ rác — cũng là cờ bật hộp xác nhận (mục 6). Giữ CẢ ĐỐI TƯỢNG chứ
+    /// không phải một Bool + một id riêng: hai `@State` set cùng một nhịp là đúng cái race đã làm
+    /// form đặt hàng của `ProjectView` hiện ra TRẮNG (bẫy #7/#20c).
+    @State private var projectToDelete: ScanProject?
     @State private var renameText = ""
     @State private var saveError: String?
     @State private var pendingSaveError: String?
@@ -253,6 +257,29 @@ struct HomeView: View {
             } message: {
                 Text(saveError ?? "")
             }
+            // Giỏ rác trên dòng dự án (mục 6). Câu chữ + hành động PHẢI y hệt menu "…" của
+            // `ProjectView` — chủ app chốt hai lối vào làm đúng một việc; xem `DeleteProjectPrompt`.
+            //
+            // 🔴 `.alert(_:isPresented:presenting:actions:message:)` — KHÔNG có overload
+            // `alert(item:)` hay `confirmationDialog(item:)` trong SwiftUI, đó là API tưởng-tượng
+            // đã suýt tốn một vòng CI. Dữ liệu đi qua `presenting:` nên hai nhánh nội dung luôn
+            // cầm đúng dự án đã chốt lúc bấm, kể cả khi danh sách đổi ngay sau đó.
+            .alert(
+                DeleteProjectPrompt.title,
+                isPresented: deleteProjectBinding,
+                presenting: projectToDelete
+            ) { project in
+                Button(
+                    DeleteProjectPrompt.confirmLabel(scanCount: store.scans(in: project).count),
+                    role: .destructive
+                ) {
+                    store.deleteProjectAndScans(project)
+                    projectToDelete = nil
+                }
+                Button(L.t("Cancel", "Hủy"), role: .cancel) { projectToDelete = nil }
+            } message: { project in
+                Text(DeleteProjectPrompt.message(scanCount: store.scans(in: project).count))
+            }
             // Chạm một dòng bản quét: chỉ XEM lại, không mời đặt hàng.
             .navigationDestination(for: ScanRecord.self) { record in
                 ScanDetailView(record: record, autoOpenOrder: false)
@@ -306,6 +333,13 @@ struct HomeView: View {
         Binding(
             get: { saveError != nil },
             set: { if !$0 { saveError = nil } }
+        )
+    }
+
+    private var deleteProjectBinding: Binding<Bool> {
+        Binding(
+            get: { projectToDelete != nil },
+            set: { if !$0 { projectToDelete = nil } }
         )
     }
 
@@ -376,27 +410,7 @@ struct HomeView: View {
             if !visibleProjects.isEmpty {
                 Section(L.t("Properties", "Dự án (căn nhà)")) {
                     ForEach(visibleProjects) { project in
-                        NavigationLink(value: project) {
-                            HStack(spacing: 10) {
-                                // `.tint` (màu nhấn của app) chứ KHÔNG phải `.blue` cứng: từ
-                                // 2026-07-23 màu nhấn là cobalt, để `.blue` hệ thống ở đây là
-                                // một icon xanh NHẠT nằm ngay cạnh thanh tab cobalt — trông như
-                                // lỗi render. Cùng lý do cho nhãn "Đã đặt" ở `ScanRow`.
-                                Image(systemName: "folder.fill")
-                                    .foregroundStyle(.tint)
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(project.name)
-                                        .font(.headline)
-                                    Text(L.t(
-                                        "\(store.scans(in: project).count) scan(s)",
-                                        "\(store.scans(in: project).count) bản quét"
-                                    ))
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                }
-                            }
-                            .padding(.vertical, 2)
-                        }
+                        projectRow(project)
                     }
                 }
             }
@@ -420,13 +434,88 @@ struct HomeView: View {
         // `.navigationTitle`. Xem chú thích 🔴 ở đó trước khi định đưa nó về lại.
     }
 
+    /// Một dòng dự án. **KHÔNG còn là `NavigationLink` — chính đó là bản vá của mục 6.**
+    ///
+    /// 🔴 Mũi tên ">" cuối dòng KHÔNG PHẢI của app: `grep -rn chevron Sources/` ra 0 kết quả. Nó
+    /// là disclosure indicator UIKit TỰ vẽ cho mọi `NavigationLink` nằm thẳng trong một `List`, và
+    /// không có modifier nào tắt được. Nên cách bỏ nó là **thôi làm `NavigationLink`**, ✗ đi tìm
+    /// cách ẩn nó.
+    /// ⚠ Đẩy màn bằng `path.append(project)` là **CÙNG MỘT CƠ CHẾ**, không phải một cách khác:
+    /// `NavigationLink(value:)` trong một `NavigationStack(path:)` cũng chỉ nối giá trị vào chính
+    /// `path` này. ✗ đọc mục 3a (nút bị đĩa Scan đè) thành "đẩy bằng code là hỏng bố cục" — ở đó
+    /// thủ phạm là THỜI ĐIỂM đẩy (`onDismiss` của cover quét, lúc cover `.ignoresSafeArea()` đang
+    /// tháo), không phải API.
+    ///
+    /// Tách thành HÀM có `let` cục bộ + `return` tường minh — khuôn bắt buộc của repo cho dòng
+    /// list nhiều tầng, CI từng chết vì "Swift type-check timeout" (xem `OrdersView.filterChip`,
+    /// `ScanAddressView.projectRow`).
+    private func projectRow(_ project: ScanProject) -> some View {
+        let count = store.scans(in: project).count
+        return HStack(spacing: 10) {
+            Button {
+                path.append(project)
+            } label: {
+                HStack(spacing: 10) {
+                    // `.tint` (màu nhấn của app) chứ KHÔNG phải `.blue` cứng: từ 2026-07-23 màu
+                    // nhấn là cobalt, để `.blue` hệ thống ở đây là một icon xanh NHẠT nằm ngay
+                    // cạnh thanh tab cobalt — trông như lỗi render. Cùng lý do cho nhãn "Đã đặt"
+                    // ở `ScanRow`.
+                    Image(systemName: "folder.fill")
+                        .foregroundStyle(.tint)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(project.name)
+                            .font(.headline)
+                        Text(L.t("\(count) scan(s)", "\(count) bản quét"))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    // Nuốt hết chỗ trống giữa chữ và giỏ rác, và `contentShape` bên dưới biến nó
+                    // thành vùng chạm — không thì chạm vào khoảng trắng giữa dòng là rơi tọt.
+                    Spacer(minLength: 8)
+                }
+                .contentShape(Rectangle())
+            }
+            // 🔴 PHẢI KHAI KIỂU NÚT TƯỜNG MINH CHO CẢ HAI NÚT, VÀ PHẢI LÀ CÙNG MỘT KIỂU.
+            // Kiểu MẶC ĐỊNH của một `Button` nằm trong `List` biến TOÀN BỘ DÒNG thành vùng chạm
+            // của nó — hai nút mặc định trong một dòng nghĩa là chạm chỗ nào cũng nổ CẢ HAI (vừa
+            // mở dự án vừa hiện hộp xoá). `.plain` tắt hành vi đó: mỗi nút chỉ ăn vùng của chính
+            // nó. Chọn `.plain` chứ ✗ `.borderless` cho cả hai vì `.plain` KHÔNG nhuộm nhãn theo
+            // accent — dòng này cần đúng ba màu riêng (`.tint` cho thư mục, primary/secondary cho
+            // chữ, đỏ cho giỏ rác), một kiểu có nhuộm là thêm một tầng phải cãi nhau.
+            // ⚠ Giá phải trả, chấp nhận: không còn dải xám nhấn-cả-dòng như `NavigationLink`.
+            // Khách vẫn thấy phản hồi ngay vì màn được đẩy tức thì.
+            .buttonStyle(.plain)
+
+            Button {
+                projectToDelete = project
+            } label: {
+                Image(systemName: "trash")
+                    .foregroundStyle(.red)
+                    // Ô chạm 44pt (mức tối thiểu của Apple) — icon thùng rác chỉ ~17pt, để trần
+                    // thì phải chạm rất chính xác, mà ngay bên trái nó là nút MỞ dự án: chạm
+                    // trượt ở đây không phải "bấm hụt" mà là "đi nhầm màn".
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain) // cùng lý do với nút trên — xem khối 🔴 ở đó
+            .accessibilityLabel(L.t("Delete property", "Xóa dự án"))
+        }
+        .padding(.vertical, 2)
+    }
+
     // KHÔNG lọc bản quét đã đặt ra khỏi danh sách này. Từng thử và đó là lỗi CHẶN: `ScanRow` là
     // NavigationLink DUY NHẤT tới ScanDetailView, và `store.delete` chỉ được gọi từ swipe của
     // chính nó — ẩn dòng đi là bản quét mồ côi hoàn toàn, không mở/chia sẻ/xoá được, file 40-200MB
     // kẹt vĩnh viễn. Tab Đơn hàng KHÔNG thay thế được: nó lấy đơn từ server, cần mạng + đăng nhập,
     // và không trỏ về ScanRecord nào trên máy.
-    // Cách làm gọn máy ĐÚNG (chủ app chốt 2026-07-19): giữ nguyên hiển thị cho tới khi đơn ĐÃ GIAO,
-    // rồi TỰ XOÁ hẳn file — đơn giao được tự nó là bằng chứng dữ liệu đã an toàn trên R2.
+    // 🔴 CÁCH LÀM GỌN MÁY ĐÃ ĐỔI HẲN Ở BẢN 1.8. Đời trước (chốt 2026-07-19): giữ nguyên hiển thị
+    // cho tới khi đơn ĐÃ GIAO rồi TỰ XOÁ hẳn file sau 14 ngày. Chủ app TẮT việc đó 10/08 —
+    // *"Có nút giỏ rác nên để khách chủ động xóa. Nên tắt."* (cờ `RootView.autoPurgeAfterDelivery`).
+    // Nay việc dọn là do KHÁCH BẤM: giỏ rác trên dòng dự án ở đây, hoặc menu "…" trong
+    // `ProjectView` — cả hai gọi `ScanStore.deleteProjectAndScans`. Vuốt xoá từng bản quét vẫn còn
+    // (`ScanRow.swipeActions`) và vẫn là lối duy nhất xoá MỘT bản quét lẻ.
+    // ⇒ Từ 1.8 KHÔNG còn thứ gì tự xoá dữ liệu khách theo đồng hồ. Ai định thêm lại thì đọc
+    // §purgeDelivered + §MULTI-ACCOUNT trong handoff trước.
 
     /// RESET Ở LỐI VÀO, không chỉ ở lối ra — cùng giáo lý với `startAfterGuide` ở trên.
     ///

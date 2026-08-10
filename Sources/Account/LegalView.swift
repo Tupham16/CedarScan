@@ -12,9 +12,10 @@ import SwiftUI
 /// câu "bản tiếng Anh là bản có hiệu lực", đừng dùng `L.t` trộn lẫn từng câu.
 ///
 /// ⚠ Nội dung dưới đây mô tả ĐÚNG những gì app/server đang làm thật (id thiết bị cho suất miễn
-/// phí, tự xoá bản quét TRÊN MÁY sau khi giao 14 ngày, PDF+JPG mặc định / DWG tính tiền, MapKit/
+/// phí, **bản quét nằm trên máy tới khi khách tự xoá — mục "How long we keep it" sửa 10/08 ở bản
+/// 1.8 khi việc tự xoá sau 14 ngày bị TẮT**, PDF+JPG mặc định / DWG tính tiền, MapKit/
 /// CLGeocoder gửi dữ liệu sang Apple). Đổi hành vi app mà quên sửa ở đây là văn bản nói sai —
-/// nguy hiểm hơn không có văn bản.
+/// nguy hiểm hơn không có văn bản. Sửa nội dung thì sửa cả `lastUpdated`.
 ///
 /// 🔴 HAI CÂU ĐÃ PHẢI VIẾT LẠI VÌ HỨA QUÁ (review đối kháng 2026-07-23 bắt, 4 lens độc lập):
 /// bản đầu nói xoá tài khoản là xoá "uploaded files" và nói file được "removed from active storage"
@@ -46,7 +47,7 @@ enum LegalDoc: String, CaseIterable, Identifiable {
     }
 
     /// Ngày cập nhật in ở đầu mỗi văn bản. SỬA NỘI DUNG THÌ SỬA CẢ NGÀY NÀY.
-    static let lastUpdated = "23 July 2026"
+    static let lastUpdated = "10 August 2026"
 
     static let contactEmail = "hello@cedar247.com"
 
@@ -101,7 +102,7 @@ extension LegalDoc {
         ("Where your data is held",
          "Our hosting and storage providers operate in the United States and the European Union, so your data may be transferred outside your own country. Where transfers are covered by European or United Kingdom rules, we rely on standard contractual clauses with those providers."),
         ("How long we keep it",
-         "On your phone, the app clears the scans of an order automatically about fourteen days after that order has been delivered, so a finished job does not sit on your device forever — download anything you still need before then. On our side we currently keep scan files, order attachments and order records for as long as they are needed for the order and its records; a delivered drawing can come back for revision, and order records are required for tax and accounting. We do not run an automatic purge on our storage today. Order attachments and order records outlive the account itself — see \"Deleting your account\" below for exactly what goes and what stays. If you want your scan files removed sooner, delete your account; for order attachments, email us and we will remove them once the order is closed."),
+         "On your phone, scans stay until you delete them — nothing is removed on a timer. Deleting a property in the app deletes that property's scans from the phone, and that cannot be undone; the copies we hold for your order are not affected. Each scan is large, so delete the properties you have finished with to reclaim space. On our side we currently keep scan files, order attachments and order records for as long as they are needed for the order and its records; a delivered drawing can come back for revision, and order records are required for tax and accounting. We do not run an automatic purge on our storage today. Order attachments and order records outlive the account itself — see \"Deleting your account\" below for exactly what goes and what stays. If you want your scan files removed sooner, delete your account; for order attachments, email us and we will remove them once the order is closed."),
         ("Deleting your account",
          "Account, Delete account removes your account and, from our storage, your scan files and any virtual tour photos. Three things deliberately survive it. First, orders already placed stay in our business records: the order number, date and amount, and also the name and email that were on the order, the property address or label you gave it, your order notes and the list of files that came with it — tax law requires the record, and a delivered drawing can still come back for revision. Second, files still needed to finish an order you have paid for stay until that order is closed; destroying a paid job halfway is not something we can undo either. Third, files you attached to an order yourself — a logo, a marked-up PDF sent with a revision request — stay attached to that order. Email \(contactEmail) if you want those attachments and the personal details on closed orders removed, and we will do it wherever the law lets us. Deletion of the account itself cannot be undone."),
         ("Your rights",

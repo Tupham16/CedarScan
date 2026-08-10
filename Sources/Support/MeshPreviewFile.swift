@@ -41,9 +41,11 @@ enum MeshPreviewFile {
     /// always re-download from R2. This file CANNOT be rebuilt — the geometry it came from
     /// lives only inside `model-colored.zip` and the app has no zip reader — and
     /// `.cachesDirectory` is exactly the folder iOS is allowed to empty whenever it likes,
-    /// which here would mean the 3D viewer silently dying forever. `purgeDelivered` wiping the
-    /// whole scan folder is fine: the ScanRecord disappears in the same breath, so there is no
-    /// screen left to open.
+    /// which here would mean the 3D viewer silently dying forever. Something wiping the whole
+    /// scan folder is fine: the ScanRecord disappears in the same breath, so there is no screen
+    /// left to open. (Since 1.8 the only thing that does that is the CUSTOMER — deleting a
+    /// property, `ScanStore.deleteProjectAndScans`, or swiping a scan row. The 14-day
+    /// delivered-scan purge is off: `RootView.autoPurgeAfterDelivery`.)
     ///
     /// 🔴 It must NOT reach the delivery pipeline: ✗ add it to `extraFiles` in
     /// `ScanStore.saveMeshScan` (that is what goes into `model-colored.zip`, which the

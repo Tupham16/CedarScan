@@ -167,6 +167,10 @@ struct OrderDTO: Decodable, Identifiable {
     /// Khách ĐÃ CẦM ĐƯỢC thành phẩm NẰM TRÊN HẠ TẦNG CỦA CHỦ APP — điều kiện cho phép xoá dữ
     /// liệu quét trên máy họ.
     ///
+    /// ⚠ Từ bản 1.8 thuộc tính này (và `wasDeliveredAtLeast`) KHÔNG còn người đọc lúc chạy: việc
+    /// dọn tự động đã tắt ở `RootView.autoPurgeAfterDelivery`. Giữ nguyên cả hai + lời khai dưới
+    /// đây, vì bật lại là một dòng còn dựng lại các chốt này thì không.
+    ///
     /// ĐÒI `deliveryFiles` KHÔNG RỖNG, và CỐ Ý KHÔNG chấp nhận `deliveredUrl` một mình:
     /// `deliveredUrl` có thể là link nhân viên gõ tay (`board-actions.ts` `buildDeliveryTarget`
     /// trả thẳng `order.deliveryLink` nếu ô đó có chữ) — tức có thể là Dropbox/WeTransfer của
