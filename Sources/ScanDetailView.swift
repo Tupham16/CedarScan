@@ -313,10 +313,12 @@ struct ScanDetailView: View {
         // Mô hình CÓ TEXTURE. Giữ `item:` chứ ✗ `isPresented:` (bẫy #7: nội dung đọc một giá
         // trị set CÙNG NHỊP với cờ mở → màn TRẮNG lần đầu), và đổi `sheet` → `fullScreenCover`
         // cùng lý do với lưới xám ở dưới: trình xem 3D ăn TOÀN BỘ cú kéo để xoay mô hình.
-        // 🔴 Nội dung là `TexturedModelViewerScreen` chứ ✗ `USDZPreview` trần — QuickLook nhúng
-        // KHÔNG vẽ nút Done nào (nút đó nằm trên `navigationItem` mà đây là VC con), nên trước
-        // bản này màn xem texture không có lối ra NÀO NHÌN THẤY ĐƯỢC. Lý do đầy đủ ở chính
-        // `TexturedModelViewerScreen`.
+        // 🔴 Nội dung là `TexturedModelViewerScreen`, và **từ bản 1.9 màn đó KHÔNG còn dùng
+        // QuickLook nữa** — nó tự vẽ bằng SceneKit. Hai lỗi, MỘT GỐC (QuickLook bị nhúng làm VC
+        // con nên thanh công cụ của Apple không vẽ ra): (1) không có nút Done — vá bằng nút X phủ
+        // ở bản 1.6; (2) chủ app test 1.8 và báo mô hình "bị phóng to, nền là camera đang mở" —
+        // đó là chế độ AR của AR Quick Look, không có nút gạt để thoát ra, và Apple không có API
+        // nào tắt nó. Toàn bộ lời khai + phép tính khung hình ở `TexturedModelView.swift`.
         //
         // ⚠ HAI HỆ QUẢ CỦA sheet→cover, cả hai đã cân nhắc, ✗ "sửa":
         // (1) cover GỠ view chủ khỏi cây nên `onDisappear` ở trên chạy ⇒ VIDEO TẠM DỪNG khi mở

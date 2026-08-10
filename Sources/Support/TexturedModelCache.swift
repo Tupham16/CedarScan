@@ -1,9 +1,12 @@
 import Foundation
 
-/// Tải file USDZ có texture (do MÁY TRẠM bake) về máy để `USDZPreview` mở bằng QuickLook.
+/// Tải file USDZ có texture (do MÁY TRẠM bake) về máy để `TexturedModelViewerScreen` mở.
 ///
-/// 🔴 Vì sao phải tải về: `QLPreviewController` chỉ mở FILE CỤC BỘ — đưa URL https vào là màn
-/// xem trắng trơn, không lỗi, không log. Đuôi phải là `.usdz` để QuickLook chọn đúng renderer.
+/// 🔴 Vì sao phải tải về: bộ đọc cảnh chỉ nhận FILE CỤC BỘ — đưa URL https vào là màn xem trắng
+/// trơn, không lỗi, không log. Đuôi phải là `.usdz` để chọn đúng bộ đọc.
+/// ⚠ Câu trên viết cho QuickLook; từ bản 1.9 trình xem là SceneKit (`SCNScene(url:)`) và ràng
+/// buộc "phải là file cục bộ, đuôi `.usdz`" vẫn y nguyên. Vì sao bỏ QuickLook:
+/// `TexturedModelView.swift` (nó mở ra ở chế độ AR, camera bật, không có đường thoát).
 ///
 /// 🔴 Cache nằm ở `.cachesDirectory`, ✗ trong thư mục bản quét:
 /// · thư mục bản quét có thể bị xoá TRỌN bất cứ lúc nào — nay là do KHÁCH bấm xoá dự án

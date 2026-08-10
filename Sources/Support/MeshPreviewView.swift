@@ -31,6 +31,16 @@ struct MeshPreviewView: View {
     /// disappear. Every 3D viewer (3DSA included) does the same.
     static let backdropColor = UIColor(white: 0.11, alpha: 1)
 
+    /// 🔴 **CHIỀU CULL DÙNG CHUNG CỦA CẢ HAI TRÌNH XEM 3D** — lưới xám ở file này và mô hình có
+    /// texture ở `TexturedModelView`. Lập luận vì sao là `.back` nằm nguyên ở `greyMaterial` bên
+    /// dưới; nó áp cho cả hai vì hai bên đọc CÙNG một hình học (mesh của app → OBJ giao → máy
+    /// trạm bake ra usdz), tức cùng một chiều winding.
+    /// ⚠ **CHIỀU NÀY CHƯA ĐƯỢC XÁC NHẬN TRÊN MÁY THẬT.** Nếu nhìn từ ngoài mà KHÔNG xuyên được
+    /// vào trong phòng (mô hình vẫn là khối đặc) thì chiều bị ngược: đổi ĐÚNG MỘT TỪ ở đây,
+    /// `.back` → `.front`, và hai trình xem cùng đúng theo. Đó chính là lý do hằng số này tồn tại
+    /// thay vì mỗi file viết một chữ.
+    static let sharedCullMode: SCNCullMode = .back
+
     var body: some View {
         ZStack {
             Color(uiColor: Self.backdropColor)
@@ -150,7 +160,7 @@ struct MeshPreviewView: View {
         m.specular.contents = UIColor(white: 0.18, alpha: 1)
         m.shininess = 0.15
         m.isDoubleSided = false
-        m.cullMode = .back
+        m.cullMode = MeshPreviewView.sharedCullMode
         return m
     }()
 
