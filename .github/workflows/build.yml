@@ -43,3 +43,22 @@ jobs:
         with:
           name: CedarScan-ipa
           path: build/CedarScan.ipa
+
+      # 🔴 dSYM = KHẢ NĂNG ĐỌC CRASH LOG. Không có nó thì mọi .ips chủ app gửi về chỉ có 4 dòng
+      # `imageOffset` trần trong ảnh CedarScan, và bản Release đã strip symtab nên KHÔNG cách nào
+      # dò ngược ra tên hàm — đó chính là chỗ bí của vụ văng 10/08 (2 log, không ai chỉ được đích
+      # danh dòng nào, mất một vòng suy đoán). Từ bản 1.5 trở đi, mỗi build giữ lại dSYM.
+      # Cách dùng khi có log mới:
+      #   1. tải artifact `CedarScan-dsym` của ĐÚNG build mà .ips ghi trong `app_version`;
+      #   2. đối chiếu `LC_UUID` của dSYM với `slice_uuid` ở dòng đầu .ips — PHẢI trùng, khác
+      #      là sai build, dừng lại;
+      #   3. `atos -o CedarScan.app.dSYM/Contents/Resources/DWARF/CedarScan -arch arm64 \
+      #        -l 0x100000000 <0x100000000 + imageOffset>` cho từng khung CedarScan.
+      #      (Cần máy Mac cho `atos`; GitHub Actions runner macos-15 chạy được.)
+      # ⚠ Artifact GitHub mặc định hết hạn sau 90 ngày — log cũ hơn thế thì phải build lại đúng
+      # commit đó, và UUID sẽ KHÁC nên symbolicate không còn khớp. Gặp crash thì lấy dSYM NGAY.
+      - name: Upload dSYM (for symbolicating crash logs)
+        uses: actions/upload-artifact@v4
+        with:
+          name: CedarScan-dsym
+          path: build/CedarScan.xcarchive/dSYMs

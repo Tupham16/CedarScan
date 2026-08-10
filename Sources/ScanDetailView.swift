@@ -112,21 +112,54 @@ struct ScanDetailView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            if current.isVideoOnly {
+            // `record` (dữ liệu ĐẨY VÀO) chứ ✗ `current`: LOẠI bản quét cố định từ lúc lưu
+            // (`captureType` không nơi nào ghi lại), nên đọc bản chụp không thể cũ — mà nó bỏ
+            // được một lần chạm `@EnvironmentObject` khỏi thứ ĐẦU TIÊN thân view này tính.
+            // Xem khối 🔴 ở `.navigationTitle` bên dưới để biết vì sao đáng làm.
+            if record.isVideoOnly {
                 videoTab
-            } else if current.isMeshOnly {
+            } else if record.isMeshOnly {
                 meshTab
             } else {
                 legacyTab
             }
         }
-        .navigationTitle(current.name)
+        // `record.name` (dữ liệu ĐẨY VÀO, một `let`), ✗ `current.name` (đọc `store`).
+        //
+        // ⚠ ĐÂY LÀ GIA CỐ, ✗ PHẢI LÀ BẢN VÁ ĐÃ CHỨNG MINH. Đọc kỹ trước khi tin:
+        // Bản 1.4 văng 2 lần (10/08, incident 0226F250 + 4A3E9FF6): SIGTRAP, `EnvironmentObject
+        // .error()` gọi từ 4 khung CedarScan dưới `ViewBodyAccessor.updateBody`, toàn bộ nằm
+        // trong `UIKitBarItemHost.initializeSize()` lúc iOS cấu hình NÚT BACK giữa cú push —
+        // cùng HỌ với vụ 06/08 (`48dc791`): thân view chạy trong host chưa nối environment thì
+        // đọc `@EnvironmentObject` là chết.
+        // 🔴 NHƯNG CHƯA AI CHỈ ĐƯỢC ĐÍCH DANH DÒNG NÀO. Soi đối kháng bắt được lỗ hổng trong
+        // suy luận "tại tiêu đề": `.navigationTitle(_:)` nhận STRING, tức biểu thức được tính
+        // trong THÂN VIEW MÀN NÀY chứ không phải trong host của bar item — nên đổi nó chưa chắc
+        // đụng tới chỗ trap. Mà hai thân bar item của app đều đã sạch (`shareButton` chỉ đọc
+        // `ShareSnapshot`; Menu của ProjectView chỉ có Image/Label). Nghĩa là còn một mắt xích
+        // chưa ai nhìn thấy.
+        // ⇒ Đổi dòng này CHỈ VÌ MỘT lý do tự thân, ✗ vì đã chứng minh: bỏ bớt một lần chạm
+        // environment ở chỗ sát thanh điều hướng — không thể hại.
+        // ⚠ Ở MÀN NÀY nó KHÔNG đổi hành vi một li nào: `current` (xem trên) đã có `?? record`,
+        // nên bản quét bị dọn mất thì tiêu đề vẫn hiện đúng tên cũ, chưa bao giờ rỗng. Lỗi tiêu
+        // đề RỖNG là chuyện của `ProjectView` (chỗ cũ ở đó là `project?.name ?? ""`) — ✗ chép
+        // lý do đó sang đây.
+        // 🔴 CÁCH BIẾT CHẮC (đã dựng sẵn ở bản 1.5): CI nay tải lên cả dSYM. Lần văng sau, đối
+        // chiếu 4 imageOffset trong .ips với dSYM là ra ĐÚNG dòng — đừng đoán thêm vòng nào nữa.
+        // Chi tiết + stack đầy đủ: SESSION-HANDOFF §CRASH ĐANG MỞ.
+        //
+        // ⚠ AN TOÀN khi đổi tên: bản quét CHỈ đổi tên được từ danh sách (`ScanRow.onRename` →
+        // HomeView / ProjectView), không có lối đổi tên nào TRONG màn này, nên `record.name`
+        // không thể cũ trong lúc màn đang mở. Ai thêm nút đổi tên vào đây thì phải chụp tên
+        // sang một `@State` như `ProjectView.renamedTitle`, ✗ quay lại `current.name`.
+        .navigationTitle(record.name)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 // 🔴 CHỈ dữ liệu thường (ShareSnapshot) — đọc chú thích tại struct đó trước
                 // khi thêm BẤT CỨ GÌ vào closure này. Đụng @EnvironmentObject ở đây là văng
-                // app (đã xảy ra, crash log 06/08).
+                // app (đã xảy ra, crash log 06/08). ⚠ Chỗ này ĐÃ SẠCH và KHÔNG phải nguồn của
+                // vụ văng 10/08 — nguồn đó chưa xác định, xem khối 🔴 ở `.navigationTitle`.
                 shareButton(shareSnapshot)
             }
         }

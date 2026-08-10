@@ -9,6 +9,28 @@ struct ProjectView: View {
     @EnvironmentObject private var account: AccountStore
     @Environment(\.dismiss) private var dismiss
     let projectId: UUID
+    /// Tên dự án CHỤP LÚC ĐẨY MÀN — dữ liệu THƯỜNG, cố ý KHÔNG tra từ `store`.
+    ///
+    /// ⚠ GIA CỐ + VÁ LỖI TIÊU ĐỀ RỖNG, ✗ PHẢI LÀ BẢN VÁ ĐÃ CHỨNG MINH CỦA VỤ VĂNG APP.
+    /// Bối cảnh: bản 1.4 văng 2 lần (10/08, incident 0226F250 + 4A3E9FF6) khi bấm vào dự án ở
+    /// Home — SIGTRAP, `EnvironmentObject.error()` gọi từ 4 khung CedarScan dưới
+    /// `ViewBodyAccessor.updateBody`, tất cả nằm trong `UIKitBarItemHost.initializeSize()` lúc
+    /// iOS cấu hình NÚT BACK giữa cú push. Cùng HỌ với vụ 06/08 (`48dc791`): thân view chạy
+    /// trong host chưa nối environment thì đọc `@EnvironmentObject` là chết.
+    /// 🔴 NHƯNG CHƯA XÁC ĐỊNH ĐƯỢC DÒNG NÀO. Suy luận "tại `.navigationTitle(project?.name)`"
+    /// đã bị soi đối kháng bẻ: `.navigationTitle(_:)` nhận STRING nên biểu thức được tính trong
+    /// THÂN VIEW này, không phải trong host của bar item. Mà hai thân bar item của app đều sạch.
+    /// Còn một mắt xích chưa ai nhìn thấy — ✗ ghi vào đâu rằng vụ này đã vá xong.
+    /// ⇒ Giữ thay đổi này vì hai lý do TỰ THÂN: bớt một lần chạm environment ở chỗ sát thanh
+    /// điều hướng (không thể hại), và vá một lỗi CÓ THẬT — dự án bị dọn mất thì tiêu đề cũ hiện
+    /// chuỗi RỖNG.
+    /// 🔴 CÁCH BIẾT CHẮC (đã dựng ở bản 1.5): CI nay tải lên cả dSYM. Lần văng sau, đối chiếu 4
+    /// `imageOffset` trong `.ips` với dSYM là ra ĐÚNG dòng. ✗ đoán thêm vòng nào nữa.
+    /// 🔴 LUẬT VẪN ĐÚNG và vẫn nên theo: thứ nuôi thanh điều hướng — tiêu đề, item `.toolbar`,
+    /// nhãn nút Back màn sau thừa hưởng — nên là dữ liệu THƯỜNG (`let`/`@State`). Đọc `@State`
+    /// ở host chưa nối thì AN TOÀN (chỉ trả giá trị hiện có) — lý do ở `ScanDetailView.ShareSnapshot`.
+    /// Chi tiết + stack: SESSION-HANDOFF §CRASH ĐANG MỞ.
+    let projectName: String
     /// Đường dẫn điều hướng của NavigationStack đang chứa màn này (sở hữu bởi HomeView) — cần
     /// để màn preview sau khi quét đẩy được sang trang bản quét.
     @Binding var path: NavigationPath
@@ -58,6 +80,13 @@ struct ProjectView: View {
     @State private var showDeleteConfirm = false
     @State private var pendingSaveError: String?
     @State private var saveError: String?
+    /// Tên MỚI sau khi khách đổi tên ngay trên màn này (lối đổi tên DUY NHẤT của dự án —
+    /// `store.renameProject` chỉ có một call site, trong `.alert` bên dưới). nil = chưa đổi.
+    /// 🔴 Phải là `@State`, ✗ đọc lại `store`: xem chú thích ở `projectName`.
+    @State private var renamedTitle: String?
+
+    /// Tiêu đề màn — CHỈ đọc `let` + `@State`, không chạm `store`. Xem `projectName`.
+    private var displayTitle: String { renamedTitle ?? projectName }
 
     private var project: ScanProject? { store.project(with: projectId) }
     private var scans: [ScanRecord] { project.map { store.scans(in: $0) } ?? [] }
@@ -134,13 +163,20 @@ struct ProjectView: View {
                 }
             }
         }
-        .navigationTitle(project?.name ?? "")
+        // `displayTitle` = `let` + `@State`, không tra `store`. Dòng này từng là
+        // `project?.name ?? ""`. ⚠ ĐỌC khối ở khai báo `projectName` trước khi đụng: đây là GIA
+        // CỐ + vá lỗi tiêu đề rỗng, KHÔNG phải bản vá đã chứng minh của vụ văng app.
+        .navigationTitle(displayTitle)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
                     Button {
-                        projectNameText = project?.name ?? ""
+                        // Đọc `store` ở đây AN TOÀN: closure hành động của Menu chỉ chạy khi
+                        // khách CHẠM, lúc đó thanh điều hướng đã gắn xong từ lâu và cầu
+                        // environment đã nối. Chỉ THÂN VIEW của bar item mới là chỗ chết
+                        // (xem `projectName`). Cùng lời khai với `48dc791`.
+                        projectNameText = displayTitle
                         showRenameProject = true
                     } label: {
                         Label(L.t("Rename property", "Đổi tên dự án"), systemImage: "pencil")
@@ -166,7 +202,17 @@ struct ProjectView: View {
         .alert(L.t("Rename property", "Đổi tên dự án"), isPresented: $showRenameProject) {
             TextField(L.t("Name", "Tên"), text: $projectNameText)
             Button(L.t("Save", "Lưu")) {
-                if let project { store.renameProject(project, to: projectNameText) }
+                // Tiêu đề KHÔNG còn tự theo store nữa (nó chỉ đọc `let`/`@State` — xem
+                // `projectName`), nên phải cập nhật tay ở đây.
+                // 🔴 Nằm TRONG `if let project` và dùng ĐÚNG phép chuẩn hoá của
+                // `ScanStore.renameProject` (cắt khoảng trắng, rỗng thì bỏ qua): tiêu đề chỉ
+                // được đổi khi đĩa THẬT SỰ đã đổi. Đặt ngoài thì dự án vừa bị dọn mất (project
+                // == nil) vẫn đổi được tiêu đề sang một cái tên chưa từng được ghi.
+                if let project {
+                    store.renameProject(project, to: projectNameText)
+                    let trimmed = projectNameText.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !trimmed.isEmpty { renamedTitle = trimmed }
+                }
             }
             Button(L.t("Cancel", "Hủy"), role: .cancel) {}
         }

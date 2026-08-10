@@ -258,7 +258,12 @@ struct HomeView: View {
                 // Truyền `path` xuống: ProjectView nằm TRONG stack này (nó không có
                 // NavigationStack riêng) nên muốn đẩy trang bản quét bằng code thì phải dùng
                 // chính đường dẫn ở đây.
-                ProjectView(projectId: project.id, path: $path)
+                // `projectName` truyền từ ĐÂY để tiêu đề của màn được đẩy chỉ đọc dữ liệu
+                // THƯỜNG (`let`/`@State`), không tra `store`.
+                // ⚠ GIA CỐ + vá lỗi tiêu đề RỖNG, ✗ phải bản vá đã chứng minh của vụ văng
+                // 10/08 — nguyên nhân vụ đó CHƯA xác định được. Khối đầy đủ (kèm vì sao suy
+                // luận "tại tiêu đề" bị bẻ) ở khai báo `ProjectView.projectName`.
+                ProjectView(projectId: project.id, projectName: project.name, path: $path)
             }
         }
     }
