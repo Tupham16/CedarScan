@@ -47,7 +47,14 @@ struct MeshScanFlowView: View {
     /// zip) nằm trong `saveMeshScan`, mà view này không gọi hàm đó, nên đây là đường DUY NHẤT
     /// để thanh % không đứng hình ở nửa cuối. ✗ đổi thành tham số có giá trị mặc định (bẫy
     /// #13): call-site quên truyền thì thanh chết im lặng đúng ở đoạn chờ lâu nhất.
-    let onFinish: (MeshScanResult, SaveStageReport) async -> ScanRecord?
+    /// 🔴 `@escaping` TRÊN THAM SỐ THỨ HAI LÀ BẮT BUỘC, ✗ gỡ. Tham số kiểu closure mặc định là
+    /// NON-ESCAPING, kể cả khi nó nằm trong một function type. Call-site nhận `saveProgress` rồi
+    /// chuyển thẳng vào `ScanStore.saveMeshScan(progress:)` — mà tham số đó LÀ `@escaping` (nó bị
+    /// `Task.detached` của bước nén zip giữ lại). Thiếu chữ này thì CI chết đúng ở HAI call-site:
+    /// "passing non-escaping parameter 'saveProgress' to function expecting an @escaping closure"
+    /// (đã dính thật ở lượt build đầu của bản 1.6 — nhánh phiên E tự soi sạch vì trong nhánh đó
+    /// chưa có call-site nào chuyển tiếp nó).
+    let onFinish: (MeshScanResult, @escaping SaveStageReport) async -> ScanRecord?
     /// Khách bấm "Đặt hàng ngay" ở màn preview. Call-site CHỈ được ghi nhớ ý định ở đây rồi điều
     /// hướng SAU khi cover đóng — cùng lý do với mọi present-trong-onDismiss khác của app này.
     ///
@@ -86,7 +93,9 @@ struct MeshScanFlowView: View {
         quality: MeshQuality,
         onOrderNow: @escaping (ScanRecord) -> Void,
         onScanMore: @escaping () -> Void,
-        onFinish: @escaping (MeshScanResult, SaveStageReport) async -> ScanRecord?
+        // Hai chữ `@escaping` ở đây khác vai: cái ĐẦU nói bản thân `onFinish` sống lâu hơn init;
+        // cái trong ngoặc nói THAM SỐ THỨ HAI của nó cũng escaping — xem chú thích ở thuộc tính.
+        onFinish: @escaping (MeshScanResult, @escaping SaveStageReport) async -> ScanRecord?
     ) {
         _controller = StateObject(wrappedValue: MeshScanController(quality: quality))
         _saveProgress = StateObject(wrappedValue: ScanSaveProgress())
