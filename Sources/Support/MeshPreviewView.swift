@@ -89,16 +89,68 @@ struct MeshPreviewView: View {
     // MARK: - Scene construction
 
     /// Shared, immutable — SceneKit is happy to reuse one material across scenes.
-    /// `.blinn` + a light grey diffuse is the "clay render" look; `isDoubleSided` covers the
-    /// back faces a LiDAR mesh always has (holes in walls seen from inside a room) so they
-    /// read as surface instead of as black gaps.
+    /// `.blinn` + a light grey diffuse is the "clay render" look.
+    ///
+    /// 🔴 **BACK-FACE CULLING IS ON BY REQUEST** (chủ app, 2026-08-10). Looking at the house
+    /// from outside now shows the INSIDE of the rooms — a dollhouse — instead of an opaque
+    /// block.
+    /// 🔴 WHY IT OPENS THE ROOF — and mind the two steps, they are easy to collapse into one
+    /// wrong sentence: the GPU decides front/back from **WINDING**, ✗ from the normal source
+    /// (the `.normal` `SCNGeometrySource` below is read only by the shader). So the argument
+    /// is (1) ARKit's normals point INTO the rooms — that is what `ColorMeshBuilder.sampleColor`
+    /// rides on, it only takes a keyframe when `dot(normal, toCamera) > minFacing` and the
+    /// camera walks INSIDE; plus (2) the winding is CCW-about-normal — evidence OUTSIDE this
+    /// repo: `C:/Block/texbake/bake.py` derives face normals from winding alone
+    /// (`np.cross(v1-v0, v2-v0)`) and hard-gates on `cosang > 0.2`, and the delivery OBJ ships
+    /// no `vn` at all, so if the winding were CW the baker would output a 100% grey model —
+    /// it outputs 0.0–0.4% grey on real houses, for weeks. (1)+(2) ⇒ the outer skin of an
+    /// interior scan is entirely BACK faces.
+    /// `cullMode = .back` is already SceneKit's default; it is written out so that a later
+    /// edit cannot flip it silently.
+    /// · If the device shows NO change at all, step (2) is wrong and the fix is one word
+    ///   (`.back` → `.front`) — but RECORD IT, because it would also mean the delivery OBJ's
+    ///   winding is not what the baker assumes.
+    /// · ✗ copy this to the three `isDoubleSided = true` in `Scan/MeshOverlayView.swift`. Those
+    ///   are the LIVE scan overlay: two `fillMode = .lines` wireframes (culling would drop the
+    ///   back-facing lines of every wireframe) and the depth mask that punches holes in the red
+    ///   unscanned-area tint (culling it leaves red bleeding over scanned areas). §Lưới + phủ đỏ.
+    /// · 🔴 KNOWN COST, ACCEPTED — and BIGGER than "a big house", so do not go hunting for a
+    ///   new bug when it shows up. `ColorMeshBuilder.buildPreview` picks `voxel = 0.03` while
+    ///   `totalVerts <= 120_000`, and `max(0.03, 0.05 · sqrt(totalVerts / 120_000))` above it.
+    ///   Source verts → pass-1 voxel: 300k ⇒ ~8cm, 600k ⇒ ~11cm, 1M ⇒ ~14cm, and
+    ///   `wholeHomePreset.maxVertices` = 2M — the ceiling a whole house is sized to fit under —
+    ///   ⇒ ~20cm. Retries only ever COARSEN, by `max(1.35, sqrt(over))` PER RETRY: ONE retry —
+    ///   which `exportPreviewMesh`'s doc calls the ordinary case — is ≥1.35× ⇒ ~27cm from 2M;
+    ///   only the full four passes reach ≥1.35³ ≈ 2.5× ⇒ ~50cm. Those are FLOORS, ✗ caps —
+    ///   `sqrt(over)` is unbounded and nothing clamps the voxel; the only ceiling in that loop
+    ///   is `previewMaxPasses`.
+    ///   A partition is 7–12cm thick, so on a whole-house scan the voxel is at or past it
+    ///   ALREADY ON PASS 1, and the wall's two faces weld into ONE zero-thickness sheet
+    ///   carrying triangles of BOTH windings (`clusterPreview` says the same thing at its
+    ///   zero-normal fallback). Culling drops one winding ⇒ those partitions read as TORN,
+    ///   ✗ as pinholes. `mesh-preview.bin` is a look-at file, ✗ a measurement source.
+    ///   ⚠ Size the expectation from the ONE RECORDED MEASUREMENT, ✗ from a room count:
+    ///   `MeshOverlayView`'s mask-ledger comment records a real 2-storey house at **~0.5–1.5M
+    ///   anchor vertices** ⇒ pass-1 voxel ~10–18cm, straddling the partition band ⇒ EXPECT torn
+    ///   partitions on a normal whole-house scan, ✗ treat it as a surprise. That figure is the
+    ///   overlay's ledger, not `buildPreview`'s own `totalVerts`, so confirm it on the first
+    ///   whole-house run; a one-room scan sits near the 3cm floor, looks clean, proves nothing.
+    ///   Escape hatches, in cost order — ALL THREE ARE OWNER CONVERSATIONS, ✗ pick one alone:
+    ///   (a) accept it; (b) `isDoubleSided = true` again and tell him the dollhouse costs torn
+    ///   partitions; (c) raise `previewVertexBudget` — 🔴 he personally chose "Nhẹ — 120k đỉnh",
+    ///   ✗ raise it without asking. ✗ the "re-orient each triangle to match its own normals"
+    ///   idea: for a welded partition the two sides' normals point OPPOSITE ways, so it is a
+    ///   no-op for exactly this failure, and it would read post-weld normals that may be the
+    ///   invented `SIMD3(0,1,0)`. And any decimator change helps NEW scans only —
+    ///   `mesh-preview.bin` cannot be rebuilt on-device.
     private static let greyMaterial: SCNMaterial = {
         let m = SCNMaterial()
         m.lightingModel = .blinn
         m.diffuse.contents = UIColor(white: 0.78, alpha: 1)
         m.specular.contents = UIColor(white: 0.18, alpha: 1)
         m.shininess = 0.15
-        m.isDoubleSided = true
+        m.isDoubleSided = false
+        m.cullMode = .back
         return m
     }()
 
@@ -164,7 +216,15 @@ struct MeshPreviewView: View {
         let fovDegrees: Float = 55
         let halfFov = fovDegrees * .pi / 360
         let distance = radius / tan(halfFov) * 1.5
-        let height = radius * 0.45
+        // Opening angle: 30° ABOVE the horizon, looking down into the rooms. With back-face
+        // culling on, the roof is gone, so the dollhouse only reads from above; the previous
+        // `height = radius * 0.45` put the camera at only ~8.9° (atan2(0.45, 2.8815)), i.e.
+        // almost eye level, where you see a wall of grey and no floor plan.
+        // 🔴 The camera stays on a sphere of radius exactly `distance` (sin² + cos² = 1), so
+        // the framing guarantee computed above still holds at any elevation — ✗ "simplify"
+        // this into `SCNVector3(0, someHeight, distance)`, that moves the camera FURTHER out
+        // than `distance` and re-opens the under/over-framing question.
+        let elevation: Float = 30 * .pi / 180
 
         let camera = SCNCamera()
         camera.fieldOfView = CGFloat(fovDegrees)
@@ -173,9 +233,10 @@ struct MeshPreviewView: View {
         camera.zFar = Double(distance + radius * 6 + 10)
         let cameraNode = SCNNode()
         cameraNode.camera = camera
-        cameraNode.position = SCNVector3(0, height, distance)
-        // Default SceneKit cameras look down −Z; pitch down by the angle back to the origin.
-        cameraNode.eulerAngles = SCNVector3(-atan2(height, distance), 0, 0)
+        cameraNode.position = SCNVector3(0, distance * sin(elevation), distance * cos(elevation))
+        // Default SceneKit cameras look down −Z; pitching by −elevation about X aims the
+        // camera back at the origin, which `makeScene` has already made the model's centre.
+        cameraNode.eulerAngles = SCNVector3(-elevation, 0, 0)
 
         // Key light is a CHILD OF THE CAMERA but rotated away from the view axis. A pure
         // headlight lights every visible face equally and flattens a grey mesh into a

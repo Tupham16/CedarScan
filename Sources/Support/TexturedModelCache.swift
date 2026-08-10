@@ -20,7 +20,10 @@ final class TexturedModelCache: ObservableObject {
     }
 
     @Published private(set) var phase: Phase = .idle
-    /// File đã nằm trên đĩa, sẵn sàng mở. Dùng làm `item` của `.sheet(item:)`.
+    /// File đã nằm trên đĩa, sẵn sàng mở. Dùng làm `item` của `.fullScreenCover(item:)` ở
+    /// `ScanDetailView` (đổi từ `.sheet` 10/08 — trình xem 3D ăn cú kéo xuống; đọc
+    /// `TexturedModelViewerScreen`). Đóng màn ghi `nil` NGƯỢC vào đây, nên ✗ đổi thành
+    /// `private(set)`: binding cần quyền ghi.
     @Published var readyURL: URL?
 
     /// Giữ tối đa bấy nhiêu file trong cache. Mỗi file 30–80MB nên không thể để lớn vô hạn;

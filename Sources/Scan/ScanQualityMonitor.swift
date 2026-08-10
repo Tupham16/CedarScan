@@ -8,7 +8,7 @@ import simd
 struct QualityAlert: Equatable {
     enum Severity { case caution, critical }
     enum Code {
-        case trackingLost, slowDown, turnSlowly, lowLight, overheating, tooClose
+        case trackingLost, slowDown, turnSlowly, lowLight, tooClose
     }
 
     var severity: Severity
@@ -20,7 +20,6 @@ struct QualityAlert: Equatable {
         case .slowDown: return L.t("Slow down", "Đi chậm lại")
         case .turnSlowly: return L.t("Turn slowly", "Xoay chậm lại")
         case .lowLight: return L.t("Turn on lights", "Bật thêm đèn")
-        case .overheating: return L.t("Phone is hot — short break", "Máy nóng — nghỉ chút cho nguội")
         case .tooClose: return L.t("Step back a little", "Lùi ra xa một chút")
         }
     }
@@ -56,10 +55,21 @@ final class ScanQualityMonitor: NSObject, ObservableObject {
     }
     private var poses: [PoseSample] = []
 
-    // Nhiệt: quét LiDAR + meshing + H.264 hàng chục phút dễ lên .serious — iOS hạ camera
-    // xuống 30fps và meshing chậm lại mà không báo ai. Theo dõi qua notification.
-    private var isHot = false
-    private var thermalObserver: NSObjectProtocol?
+    // 🔴 NHIỆT — CỐ Ý KHÔNG CÒN THEO DÕI, KHÔNG CÒN CẢNH BÁO. Chủ app chốt 2026-08-10:
+    // **"Tắt hết cảnh báo máy nóng"**, lý do của ông: *"các app khác không báo như vậy… làm
+    // giảm trải nghiệm khách. Và giờ có xem được mesh rồi nên họ không cần"*. Ông được hỏi
+    // ĐÚNG câu "tắt hết, hay vẫn nhắc 1 lần TRƯỚC khi bấm quét khi máy đang nóng?" và trả lời
+    // tắt hết ⇒ ✗ đề xuất lại, ✗ lặng lẽ thêm lại "cho khách đỡ khổ", ✗ dựng cổng ở màn bắt đầu.
+    //
+    // 🔴 NHƯNG SỰ THẬT ĐO ĐƯỢC VẪN ĐÚNG — GIỮ LẠI, nó tốn cả một chiến dịch đo mới có (bản 1.3,
+    // 2 log máy thật): thermal `.serious` ⇒ iOS ÂM THẦM hạ camera ARKit 60→30fps NGAY TỪ GIÂY
+    // ĐẦU. Đó là lời giải DUY NHẤT AI ĐÓ ĐANG CÓ cho vụ mesh TRÔI khi bắt đầu quét lúc máy đang
+    // nóng — chính xác thì: giả thuyết "đói main thread" ĐÃ ĐO VÀ BỊ BÁC (cpuMain 3–6%,
+    // mainGapMax median 18–19ms, hot và cool như nhau), còn các giả thuyết khác (nhịp depth
+    // LiDAR, phơi sáng, GPU throttle) thì CHƯA AI KIỂM — ✗ đọc thành "đã loại trừ hết".
+    // `ScanPerfProfiler` VẪN ghi nhiệt vào log nên dữ liệu không mất. Chủ app báo trôi lại thì
+    // ĐÓ là câu trả lời tốt nhất đang có, và cách xử lý là NÓI CHUYỆN VỚI ÔNG. Đọc lại nhiệt
+    // sau này là đúng MỘT dòng: `ProcessInfo.processInfo.thermalState`.
 
     // "Quá gần": LiDAR kém chính xác dưới ~25-30cm — dí sát vật thể tạo lỗ trên mesh
     // + khung màu out nét.
@@ -105,25 +115,11 @@ final class ScanQualityMonitor: NSObject, ObservableObject {
         link.add(to: .main, forMode: .common)
         displayLink = link
         cautionHaptic.prepare()
-
-        let hot = { (state: ProcessInfo.ThermalState) -> Bool in
-            state == .serious || state == .critical
-        }
-        isHot = hot(ProcessInfo.processInfo.thermalState)
-        thermalObserver = NotificationCenter.default.addObserver(
-            forName: ProcessInfo.thermalStateDidChangeNotification, object: nil, queue: .main
-        ) { [weak self] _ in
-            self?.isHot = hot(ProcessInfo.processInfo.thermalState)
-        }
     }
 
     func stop() {
         displayLink?.invalidate()
         displayLink = nil
-        if let thermalObserver {
-            NotificationCenter.default.removeObserver(thermalObserver)
-            self.thermalObserver = nil
-        }
         alert = nil
     }
 
@@ -250,7 +246,13 @@ final class ScanQualityMonitor: NSObject, ObservableObject {
     private func updateAlert(now: TimeInterval, speed: Float, rotationDps: Float) {
         var candidate: QualityAlert?
 
-        // Ưu tiên: mất tracking > quá gần > tốc độ > xoay > nhiệt > ánh sáng
+        // Ưu tiên: mất tracking > quá gần > tốc độ > xoay > ánh sáng
+        // ⚠ Vế NHIỆT đã gỡ khỏi chuỗi này 10/08 (xem khối chú thích ở phần thuộc tính). Hai hệ
+        // quả TRÔNG NHƯ LỖI MỚI nhưng là ĐÚNG: (1) cảnh báo THIẾU SÁNG nay hiện lại — vế `isHot`
+        // CŨ nằm ngay TRÊN nó và trên máy nóng thì luôn đúng, tức đã che nó suốt buổi quét;
+        // (2) rung/đọc tiếng nhiều hơn — `feedback(for:isNew:)` chỉ chạy khi `isNew`, mà cảnh
+        // báo nhiệt cũ không bao giờ tự tắt nên mọi caution sau nó tới trong IM LẶNG. Lever nếu
+        // chủ app kêu: hai toggle trong tab Tài khoản, ✗ sửa code.
         if limitedSince > 0 && now - limitedSince > config.trackingWarnAfterSec {
             candidate = QualityAlert(severity: .critical, code: .trackingLost)
         } else if tooCloseSince > 0 && now - tooCloseSince > 0.7,
@@ -265,8 +267,6 @@ final class ScanQualityMonitor: NSObject, ObservableObject {
         } else if overRotationSince > 0 && now - overRotationSince > 0.5 {
             let severity: QualityAlert.Severity = Double(rotationDps) > config.maxRotationHard ? .critical : .caution
             candidate = QualityAlert(severity: severity, code: .turnSlowly)
-        } else if isHot {
-            candidate = QualityAlert(severity: .caution, code: .overheating)
         } else if lowLightSince > 0 && now - lowLightSince > 1.0 {
             candidate = QualityAlert(severity: .caution, code: .lowLight)
         }
