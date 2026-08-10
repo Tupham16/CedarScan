@@ -35,10 +35,13 @@ struct MeshPreviewView: View {
     /// texture ở `ModelViewer.swift`. Lập luận vì sao là `.back` nằm nguyên ở `greyMaterial` bên
     /// dưới; nó áp cho cả hai vì hai bên đọc CÙNG một hình học (mesh của app → OBJ giao → máy
     /// trạm bake ra usdz), tức cùng một chiều winding.
-    /// ⚠ **CHIỀU NÀY CHƯA ĐƯỢC XÁC NHẬN TRÊN MÁY THẬT.** Nếu nhìn từ ngoài mà KHÔNG xuyên được
-    /// vào trong phòng (mô hình vẫn là khối đặc) thì chiều bị ngược: đổi ĐÚNG MỘT TỪ ở đây,
-    /// `.back` → `.front`, và hai trình xem cùng đúng theo. Đó chính là lý do hằng số này tồn tại
-    /// thay vì mỗi file viết một chữ.
+    /// ✅ **`.back` ĐÃ ĐƯỢC XÁC NHẬN TRÊN MÁY THẬT 10/08 (bản 2.0) — chủ app: "ĐÃ CULLING RỒI".**
+    /// Ông trả lời sau khi vừa gạt công tắc Texture qua lại nên đây là quan sát trên CẢ HAI chế
+    /// độ (ông không tách riêng từng chế độ, nhưng cả hai đọc chính hằng số này).
+    /// 🔴 **Vì vậy CHUỖI SUY LUẬN WINDING ở `greyMaterial` bên dưới cũng ĐÚNG** — pháp tuyến
+    /// ARKit hướng VÀO phòng, winding CCW-quanh-pháp-tuyến (bằng chứng gián tiếp từ
+    /// `texbake/bake.py`) ⇒ vỏ ngoài của một bản quét nội thất toàn là mặt SAU. Đó không còn là
+    /// giả thuyết. ✗ lật `.back` → `.front` "cho chắc".
     static let sharedCullMode: SCNCullMode = .back
 
     var body: some View {
@@ -117,9 +120,9 @@ struct MeshPreviewView: View {
     /// interior scan is entirely BACK faces.
     /// `cullMode = .back` is already SceneKit's default; it is written out so that a later
     /// edit cannot flip it silently.
-    /// · If the device shows NO change at all, step (2) is wrong and the fix is one word
-    ///   (`.back` → `.front`) — but RECORD IT, because it would also mean the delivery OBJ's
-    ///   winding is not what the baker assumes.
+    /// · ✅ **CONFIRMED ON A REAL DEVICE 10/08 (build 2.0) — the owner replied "ĐÃ CULLING RỒI".**
+    ///   So step (2) holds and the delivery OBJ's winding IS what the baker assumes. The
+    ///   `.back` → `.front` escape hatch below is kept as the record, ✗ as a pending question.
     /// · ✗ copy this to the three `isDoubleSided = true` in `Scan/MeshOverlayView.swift`. Those
     ///   are the LIVE scan overlay: two `fillMode = .lines` wireframes (culling would drop the
     ///   back-facing lines of every wireframe) and the depth mask that punches holes in the red

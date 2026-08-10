@@ -326,12 +326,14 @@ enum TexturedSceneLoader {
         // góc nghiêng — không giống cái máy trạm render ra. `.constant` là chế độ "vẽ thẳng ảnh
         // diffuse ra, không đổ bóng, không specular" — cùng công thức mọi trình xem ảnh 360° của
         // SceneKit dùng (quả cầu + ảnh + `.constant`, không đèn nào, vẫn sáng đủ).
-        // ⚠ Đèn ambient bên dưới là DÂY BẢO HIỂM, ✗ phải thứ bắt buộc: tài liệu của Apple tả
-        // `.constant` là "chỉ tính ánh sáng ambient", nên nếu bản SceneKit này thật sự nhân
-        // diffuse với ambient thì thiếu đèn là ra màn ĐEN. Có đèn thì đúng cả hai cách hiểu.
-        // 🔴 LEVER NẾU MÁY THẬT VẪN RA MÀN ĐEN: bỏ `.constant` (để nguyên vật liệu như file khai)
-        // và bật `autoenablesDefaultLighting = true` ở `ModelSceneView`. Hình sẽ hiện chắc chắn,
-        // đổi lại là bóng loáng. ✗ vặn cả hai núm cùng lúc, mất khả năng đọc kết quả.
+        // ✅ **ĐÃ CHẠY THẬT TRÊN MÁY 10/08 (bản 2.0) — chủ app: "OK RỒI, MÔ HÌNH HIỆN RA".** Rủi
+        // ro "màn đen" KHÔNG xảy ra. Đèn ambient bên dưới là DÂY BẢO HIỂM cho cách đọc tài liệu
+        // của Apple ("`.constant` chỉ tính ánh sáng ambient"); nay chưa ai tách được là hình hiện
+        // NHỜ đèn hay `.constant` vốn không cần đèn — nên **✗ gỡ đèn đi "cho gọn"**, đó là thí
+        // nghiệm không ai đang cần và hỏng thì hỏng ra màn đen.
+        // 🔴 LEVER NẾU MỘT NGÀY NÀO ĐÓ RA MÀN ĐEN: bỏ `.constant` (để nguyên vật liệu như file
+        // khai) và bật `autoenablesDefaultLighting = true` ở `ModelSceneView`. Hình sẽ hiện chắc
+        // chắn, đổi lại là bóng loáng. ✗ vặn cả hai núm cùng lúc, mất khả năng đọc kết quả.
         scene.rootNode.enumerateHierarchy { node, _ in
             guard let geometry = node.geometry else { return }
             for material in geometry.materials {
@@ -485,6 +487,17 @@ private struct ModelSceneView: UIViewRepresentable {
                 model.center.z + (old.position.z - coordinator.center.z)
             )
             model.camera.orientation = old.orientation
+            // 🔴 PHẢI MANG CẢ `fieldOfView`, và đây là kết luận ĐỌC RA TỪ MÁY THẬT chứ ✗ đoán.
+            // Chủ app test bản 2.0 (10/08): *"nếu chưa zoom in out thì gạt qua lại giữ nguyên
+            // góc, nhưng zoom in out thì nó quay về kích thước ban đầu"*. Góc XOAY giữ được mà
+            // độ PHÓNG thì không ⇒ `SCNCameraController` phóng to bằng cách đổi `fieldOfView`
+            // của đối tượng `SCNCamera`, ✗ bằng cách dời node lại gần (dời node thì đoạn chuyển
+            // vị trí ngay trên đã giữ hộ rồi). Mà mỗi cảnh mang một `SCNCamera` RIÊNG, nên đổi
+            // cảnh là về lại 55° gốc.
+            // ✗ chép luôn `zNear`/`zFar`: hai giá trị đó tính theo bán kính của TỪNG mô hình.
+            if let oldCamera = old.camera, let newCamera = model.camera.camera {
+                newCamera.fieldOfView = oldCamera.fieldOfView
+            }
         }
 
         view.scene = model.scene
