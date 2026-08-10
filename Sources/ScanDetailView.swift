@@ -23,6 +23,23 @@ struct ScanOrderIntent: Hashable {
     let record: ScanRecord
 }
 
+/// Thứ cần để mở trình xem 3D GỘP (`ModelViewerScreen`) — chốt lúc khách BẤM, ✗ đọc sống.
+///
+/// 🔴 `id = UUID()` và dùng qua `.fullScreenCover(item:)`, ✗ một cờ `Bool` + mấy `@State` đọc
+/// bên trong: bẫy #7 — nội dung của `.sheet/.cover(isPresented:)` được dựng NGAY nhịp cờ lật
+/// true, lúc đó `@State` set cùng nhịp CHƯA commit → lần đầu ra màn TRẮNG. Đã trả giá thật ở
+/// form đặt hàng của `ProjectView`; khuôn đúng là `OrderSheetTarget` của màn đó.
+///
+/// `greyURL == nil` = bản quét lưu trước 1.4 (không có `mesh-preview.bin`, không dựng lại được).
+/// `texturedRemote == nil` = chưa đặt hàng, hoặc máy trạm chưa bake xong.
+/// Cả hai nil thì `modelRow` không hiện nút, nên màn kia không bao giờ mở với hai bàn tay trắng.
+struct ModelViewerTarget: Identifiable {
+    let id = UUID()
+    let greyURL: URL?
+    let texturedRemote: URL?
+    let cloudScanId: String?
+}
+
 struct ScanDetailView: View {
     let record: ScanRecord
     /// Màn này được mở bằng nút "Đặt hàng ngay" ở màn preview (✗ bằng cách chạm một dòng danh
@@ -103,10 +120,15 @@ struct ScanDetailView: View {
     /// chỉ còn trong model-colored.zip mà app không giải nén được) → dòng "Xem mô hình 3D"
     /// đơn giản là không hiện. Cố ý: một nút bấm vào ra màn trống còn tệ hơn không có nút.
     @State private var meshPreviewExists = false
+    /// 🔴 **NGUỒN TRÌNH BÀY DUY NHẤT của trình xem 3D** (xám + texture gộp làm một từ bản 2.0).
+    /// Trước đó màn này chồng HAI `.fullScreenCover`, mà một view controller chỉ trình bày được
+    /// MỘT thứ — tải xong texture đúng lúc cover xám đang mở là nút texture chết tới khi thoát ra
+    /// vào lại. ✗ thêm cover thứ hai cho trình xem nào nữa; đưa vào `ModelViewerScreen`.
+    ///
     /// `.fullScreenCover(item:)` chứ ✗ `.sheet`: trình xem 3D ăn TOÀN BỘ cử chỉ kéo để xoay
     /// mô hình, mà sheet lại dùng chính cú kéo xuống để tự đóng — khách xoay xuống một cái là
-    /// màn đóng mất. Cover không có kéo-để-đóng, và mô hình cũng được cả màn hình.
-    @State private var greyMeshURL: URL?
+    /// màn đóng mất. Và `item:` chứ ✗ `isPresented:` (bẫy #7).
+    @State private var viewerTarget: ModelViewerTarget?
     /// Bản sao zip mang TÊN BẢN QUÉT để chia sẻ ra ngoài (Floor 1.zip thay vì
     /// model-colored.zip). nil → dùng file gốc.
     @State private var meshShareURL: URL?
@@ -310,48 +332,42 @@ struct ScanDetailView: View {
         .sheet(item: $planImageURL) { url in
             ShareSheet(items: [url])
         }
-        // Mô hình CÓ TEXTURE. Giữ `item:` chứ ✗ `isPresented:` (bẫy #7: nội dung đọc một giá
-        // trị set CÙNG NHỊP với cờ mở → màn TRẮNG lần đầu), và đổi `sheet` → `fullScreenCover`
-        // cùng lý do với lưới xám ở dưới: trình xem 3D ăn TOÀN BỘ cú kéo để xoay mô hình.
-        // 🔴 Nội dung là `TexturedModelViewerScreen`, và **từ bản 1.9 màn đó KHÔNG còn dùng
-        // QuickLook nữa** — nó tự vẽ bằng SceneKit. Hai lỗi, MỘT GỐC (QuickLook bị nhúng làm VC
-        // con nên thanh công cụ của Apple không vẽ ra): (1) không có nút Done — vá bằng nút X phủ
-        // ở bản 1.6; (2) chủ app test 1.8 và báo mô hình "bị phóng to, nền là camera đang mở" —
-        // đó là chế độ AR của AR Quick Look, không có nút gạt để thoát ra, và Apple không có API
-        // nào tắt nó. Toàn bộ lời khai + phép tính khung hình ở `TexturedModelView.swift`.
+        // 🔴 **CỬA TRÌNH BÀY DUY NHẤT CỦA TRÌNH XEM 3D (bản 2.0). ✗ THÊM CÁI THỨ HAI.**
+        // Đời trước màn này chồng HAI `.fullScreenCover` — một cho lưới xám, một cho texture —
+        // và §STATE đã ghi đó là lỗi CHƯA VÁ: một view controller chỉ trình bày ĐƯỢC MỘT thứ, mà
+        // hai đường đó với tới nhau ĐƯỢC (dòng xám cố ý nằm trên dòng texture để khách xem lưới
+        // trong lúc chờ tải 29–75MB). Tải xong đúng lúc cover xám đang mở ⇒ lượt trình bày thứ
+        // hai bị bỏ, trong khi `readyURL` vẫn khác nil và vẫn cùng `id` (`URL.id` =
+        // absoluteString) ⇒ **nút texture chết tới khi thoát ra vào lại màn.** Sổ tay đã ghi sẵn
+        // cách vá đúng là "gộp về MỘT nguồn trình bày" — nay là `viewerTarget`, và việc chủ app
+        // xin gộp hai nút làm một (công tắc Texture) đưa luôn tới đúng bản vá đó.
         //
-        // ⚠ HAI HỆ QUẢ CỦA sheet→cover, cả hai đã cân nhắc, ✗ "sửa":
+        // `item:` chứ ✗ `isPresented:` (bẫy #7), `fullScreenCover` chứ ✗ `sheet` (trình xem 3D
+        // ăn TOÀN BỘ cú kéo để xoay mô hình, mà sheet dùng chính cú kéo xuống để tự đóng).
+        //
+        // ⚠ HAI HỆ QUẢ CỦA cover (✗ sheet), cả hai đã cân nhắc, ✗ "sửa":
         // (1) cover GỠ view chủ khỏi cây nên `onDisappear` ở trên chạy ⇒ VIDEO TẠM DỪNG khi mở
-        //     trình xem texture (sheet thì không). Đó là điều mình muốn: bộ giải mã H.264 và
-        //     cảnh 3D không nên cùng sống, và cover lưới xám ở dưới vốn đã hành xử y hệt.
+        //     trình xem. Đó là điều mình muốn: bộ giải mã H.264 và cảnh 3D không nên cùng sống.
         // (2) lúc đóng, `.task` chạy LẠI. Mọi guard trong đó idempotent nên không mất gì, NHƯNG
         //     ✗ tưởng nó miễn phí: `loadTexturedURL` chỉ đóng `texturedAsked` khi SERVER trả về
         //     match. Đường cache (`TexturedModelCache.anyCached`) — máy MẤT MẠNG mà file texture
-        //     đã tải về từ trước — dựng được dòng texture với cờ VẪN MỞ, nên mỗi lượt đóng màn
-        //     tốn thêm MỘT GET `listOrders`. Cùng cỡ với cái giá `loadTexturedURL` đã tự nhận là
-        //     chấp nhận được, ✗ đóng cờ sớm để "tiết kiệm" (chú thích ở hàm đó nói vì sao đóng
-        //     sớm là giết tính năng).
+        //     đã tải về từ trước — dựng được `texturedRemote` với cờ VẪN MỞ, nên mỗi lượt đóng
+        //     màn tốn thêm MỘT GET `listOrders`. Cùng cỡ với cái giá `loadTexturedURL` đã tự
+        //     nhận là chấp nhận được, ✗ đóng cờ sớm để "tiết kiệm" (chú thích ở hàm đó nói vì
+        //     sao đóng sớm là giết tính năng).
         //     ⚠ ✗ ghi vào đây rằng "đơn đã giao thì listOrders thôi liệt kê texture" — SAI:
         //     route `/api/app/v1/orders` dựng `texturedScans` từ `orderScans.filter(texturedUrl)`
         //     KHÔNG gác theo `delivered`, và chính nó có chú thích cấm thêm cổng đó.
-        //
-        // 🔴 DỰ ĐOÁN TỪ CODE, CHƯA TÁI HIỆN TRÊN MÁY — và ✗ do đổi sheet→cover sinh ra (sheet
-        // va chạm y hệt): một view controller chỉ trình bày ĐƯỢC MỘT thứ. Bấm dòng texture (tải
-        // 29–75MB, vài phút qua 4G) rồi bấm dòng lưới xám để xem trong lúc chờ — đúng lý do
-        // dòng xám nằm TRÊN, xem chú thích ở `greyMeshRow` — thì lúc tải xong `readyURL` được
-        // gán trong khi cover xám đang mở ⇒ lượt trình bày thứ hai nhiều khả năng bị bỏ, mà
-        // `readyURL` vẫn khác nil VÀ vẫn cùng `id` (URL.id = absoluteString) nên bấm lại có thể
-        // KHÔNG kích hoạt gì: nút texture chết tới khi thoát ra vào lại màn. ĐO TRÊN MÁY TRƯỚC.
-        // Nếu đúng, vá là GỘP VỀ MỘT NGUỒN TRÌNH BÀY (một `@State ViewerTarget?` cho cả hai
-        // trình xem) — việc RIÊNG, ✗ nhét vào đợt này: nó viết lại tầng trình bày của MÀN CÓ
-        // NÚT ĐẶT HÀNG.
-        .fullScreenCover(item: $textured.readyURL) { url in
-            TexturedModelViewerScreen(url: url)
-        }
-        // Lưới xám: `item:` chứ ✗ `isPresented:` (bẫy #7 — nội dung đọc @State set cùng nhịp),
-        // và `fullScreenCover` chứ ✗ `sheet` (lý do ở khai báo `greyMeshURL`).
-        .fullScreenCover(item: $greyMeshURL) { url in
-            GreyMeshViewerScreen(url: url)
+        .fullScreenCover(item: $viewerTarget) { target in
+            ModelViewerScreen(
+                greyURL: target.greyURL,
+                texturedRemote: target.texturedRemote,
+                cloudScanId: target.cloudScanId,
+                // `textured` là `@StateObject` của MÀN NÀY, truyền xuống làm `@ObservedObject`:
+                // lượt tải 29–75MB phải sống lâu hơn cover (khách đóng màn giữa chừng rồi mở
+                // lại phải bám được vào lượt đang chạy — xem `TexturedModelCache.inFlight`).
+                textured: textured
+            )
         }
         .sheet(isPresented: $showOrderSheet) {
             // Không còn callback "đã đặt" ở đây: `OrderSheet.submit()` tự đóng dấu số đơn cho
@@ -669,85 +685,48 @@ struct ScanDetailView: View {
 
     /// Bản quét MESH 3D: video walkthrough + hướng dẫn chia sẻ mô hình màu.
     /// (Không có floorplan/USDZ của app — mesh là sản phẩm chính, gửi ra ngoài bằng nút Share.
-    /// Mô hình CÓ TEXTURE thì do máy trạm bake, xem qua `texturedRow`.)
+    /// Mô hình CÓ TEXTURE thì do máy trạm bake, xem qua công tắc trong `modelRow`.)
     private var meshTab: some View {
         VStack(spacing: 10) {
             videoArea(missing: L.t("No walkthrough video in this scan", "Bản quét này không có video"))
-            greyMeshRow
-            texturedRow
+            modelRow
             meshInfoFooter
         }
     }
 
-    /// Xem lưới XÁM ngay trên máy — mở tức thì, không cần mạng, không cần đã đặt hàng.
-    /// Đứng TRÊN `texturedRow` cố ý: bản có texture đẹp hơn nhưng phải chờ máy trạm bake xong
-    /// và phải tải 29–75MB, còn dòng này lúc nào cũng dùng được.
+    /// **MỘT nút xem mô hình duy nhất** (bản 2.0 — chủ app chốt: *"gom cái texture và xám thành
+    /// 1 … chỉ có nút xem mô hình"*). Đời trước đây là HAI dòng: "Xem mô hình 3D (xám)" và "Xem
+    /// mô hình 3D có texture", mỗi dòng một `.fullScreenCover` — chọn giữa xám/texture nay là
+    /// công tắc Texture ở góc TRONG trình xem, và cả khối tải/hủy/thử-lại cũng chuyển vào đó.
+    ///
+    /// Nút hiện khi có ÍT NHẤT MỘT thứ để xem. Hai vế độc lập nhau:
+    ///  · `meshPreviewExists` — `mesh-preview.bin`, chỉ bản quét lưu từ 1.4 trở đi mới có, mở tức
+    ///    thì, không cần mạng, không cần đã đặt hàng;
+    ///  · `texturedRemote` — máy trạm bake xong sau khi đặt đơn, phải tải 29–75MB.
+    /// Không có vế nào thì KHÔNG hiện nút: hứa một tính năng rồi cho khách bấm vào màn trống còn
+    /// tệ hơn là chưa nói (cùng lý lẽ với `meshPreviewExists` ở bản 1.4).
+    ///
+    /// 🔴 Chốt DANH TÍNH lúc bấm vào `ModelViewerTarget`, ✗ để trình xem tự đọc `@State` của màn
+    /// này — cùng khuôn `ProjectView.OrderSheetTarget` (bẫy #7: nội dung `.sheet/.cover` đọc một
+    /// giá trị set CÙNG NHỊP với cờ mở thì lần đầu ra màn TRẮNG).
+    /// ⚠ Cái giá đã biết: bake xong TRONG LÚC trình xem đang mở thì công tắc không tự mọc ra —
+    /// đóng rồi mở lại là có. Chấp nhận được, và đổi lại là không có khe trắng.
     @ViewBuilder
-    private var greyMeshRow: some View {
-        if meshPreviewExists {
+    private var modelRow: some View {
+        if meshPreviewExists || texturedRemote != nil {
             Button {
-                greyMeshURL = meshPreviewURL
-            } label: {
-                Label(
-                    L.t("View 3D model (grey)", "Xem mô hình 3D (xám)"),
-                    systemImage: "cube"
+                viewerTarget = ModelViewerTarget(
+                    greyURL: meshPreviewExists ? meshPreviewURL : nil,
+                    texturedRemote: texturedRemote,
+                    cloudScanId: current.cloudScanId
                 )
-                .font(.subheadline.weight(.semibold))
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 9)
+            } label: {
+                Label(L.t("View 3D model", "Xem mô hình 3D"), systemImage: "cube")
+                    .font(.subheadline.weight(.semibold))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 9)
             }
             .buttonStyle(.bordered)
-            .padding(.horizontal)
-        }
-    }
-
-    /// MỘT dòng duy nhất cho mô hình có texture — chỉ hiện khi máy trạm đã bake xong bản quét
-    /// này (`texturedRemote != nil`). Chưa bake thì KHÔNG hiện gì: hứa một tính năng rồi bắt
-    /// khách chờ vài phút không biết chờ gì còn tệ hơn là chưa nói.
-    @ViewBuilder
-    private var texturedRow: some View {
-        if let remote = texturedRemote, let cloudId = current.cloudScanId {
-            VStack(alignment: .leading, spacing: 6) {
-                switch textured.phase {
-                case .downloading:
-                    HStack(spacing: 10) {
-                        ProgressView()
-                        Text(L.t("Downloading textured model…", "Đang tải mô hình có texture…"))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        Spacer()
-                        Button(L.t("Cancel", "Hủy")) { textured.cancel() }
-                            .font(.caption)
-                    }
-                case .failed(let message):
-                    HStack(spacing: 10) {
-                        Image(systemName: "exclamationmark.triangle")
-                            .foregroundStyle(.orange)
-                        Text(L.t("Couldn't download the model (\(message))",
-                                 "Không tải được mô hình (\(message))"))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        Spacer()
-                        Button(L.t("Retry", "Thử lại")) {
-                            textured.open(scanId: cloudId, remote: remote)
-                        }
-                        .font(.caption)
-                    }
-                case .idle:
-                    Button {
-                        textured.open(scanId: cloudId, remote: remote)
-                    } label: {
-                        Label(
-                            L.t("View textured 3D model", "Xem mô hình 3D có texture"),
-                            systemImage: "cube.transparent.fill"
-                        )
-                        .font(.subheadline.weight(.semibold))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 9)
-                    }
-                    .buttonStyle(.bordered)
-                }
-            }
             .padding(.horizontal)
         }
     }

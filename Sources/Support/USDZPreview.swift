@@ -9,7 +9,7 @@ import QuickLook
 /// là camera. QuickLook mở `.usdz` bằng **AR Quick Look**, và vì controller này bị NHÚNG làm VC
 /// con nên thanh công cụ của Apple (Done + nút gạt Object/AR) không vẽ ra ⇒ không có đường thoát
 /// khỏi chế độ AR. Apple không có API công khai nào tắt chế độ đó. Màn texture nay tự vẽ bằng
-/// SceneKit — toàn bộ lời khai + cơ chế ở `TexturedModelView.swift`.
+/// SceneKit — toàn bộ lời khai + cơ chế ở `ModelViewer.swift`.
 ///
 /// ⚠ **GẦN NHƯ CHẮC CHẮN CALL SITE LEGACY DƯỚI ĐÂY CŨNG DÍNH ĐÚNG LỖI ĐÓ**, chỉ là chưa ai còn
 /// bản quét RoomPlan cũ để mở thử. Để nguyên vì đổi một đường KHÔNG KIỂM ĐƯỢC còn tệ hơn: bản cũ

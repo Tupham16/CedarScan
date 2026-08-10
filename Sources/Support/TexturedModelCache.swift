@@ -1,12 +1,12 @@
 import Foundation
 
-/// Tải file USDZ có texture (do MÁY TRẠM bake) về máy để `TexturedModelViewerScreen` mở.
+/// Tải file USDZ có texture (do MÁY TRẠM bake) về máy để `ModelViewerScreen` mở.
 ///
 /// 🔴 Vì sao phải tải về: bộ đọc cảnh chỉ nhận FILE CỤC BỘ — đưa URL https vào là màn xem trắng
 /// trơn, không lỗi, không log. Đuôi phải là `.usdz` để chọn đúng bộ đọc.
 /// ⚠ Câu trên viết cho QuickLook; từ bản 1.9 trình xem là SceneKit (`SCNScene(url:)`) và ràng
 /// buộc "phải là file cục bộ, đuôi `.usdz`" vẫn y nguyên. Vì sao bỏ QuickLook:
-/// `TexturedModelView.swift` (nó mở ra ở chế độ AR, camera bật, không có đường thoát).
+/// `ModelViewer.swift` (nó mở ra ở chế độ AR, camera bật, không có đường thoát).
 ///
 /// 🔴 Cache nằm ở `.cachesDirectory`, ✗ trong thư mục bản quét:
 /// · thư mục bản quét có thể bị xoá TRỌN bất cứ lúc nào — nay là do KHÁCH bấm xoá dự án
@@ -25,10 +25,15 @@ final class TexturedModelCache: ObservableObject {
     }
 
     @Published private(set) var phase: Phase = .idle
-    /// File đã nằm trên đĩa, sẵn sàng mở. Dùng làm `item` của `.fullScreenCover(item:)` ở
-    /// `ScanDetailView` (đổi từ `.sheet` 10/08 — trình xem 3D ăn cú kéo xuống; đọc
-    /// `TexturedModelViewerScreen`). Đóng màn ghi `nil` NGƯỢC vào đây, nên ✗ đổi thành
-    /// `private(set)`: binding cần quyền ghi.
+    /// File đã nằm trên đĩa, sẵn sàng mở.
+    ///
+    /// ⚠ **ĐỔI VAI TỪ BẢN 2.0.** Trước đây nó là `item` của một `.fullScreenCover` riêng, và màn
+    /// đó ghi `nil` ngược vào đây lúc đóng. Nay trình xem là MỘT màn gộp
+    /// (`ModelViewerScreen`) do `ScanDetailView.viewerTarget` trình bày, còn trường này chỉ còn
+    /// là TÍN HIỆU "file đã sẵn sàng" mà màn đó quan sát. Không ai ghi `nil` ngược nữa — cố ý:
+    /// giữ giá trị lại thì lần mở sau dựng cảnh thẳng từ đĩa, khỏi hỏi lại gì.
+    /// (Vẫn để `var` chứ ✗ `private(set)`: đổi là một thay đổi không cần thiết cho một lớp mà
+    /// `§Xem texture` đã dặn đừng đụng lặt vặt.)
     @Published var readyURL: URL?
 
     /// Giữ tối đa bấy nhiêu file trong cache. Mỗi file 30–80MB nên không thể để lớn vô hạn;

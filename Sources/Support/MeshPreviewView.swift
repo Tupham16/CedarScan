@@ -32,7 +32,7 @@ struct MeshPreviewView: View {
     static let backdropColor = UIColor(white: 0.11, alpha: 1)
 
     /// 🔴 **CHIỀU CULL DÙNG CHUNG CỦA CẢ HAI TRÌNH XEM 3D** — lưới xám ở file này và mô hình có
-    /// texture ở `TexturedModelView`. Lập luận vì sao là `.back` nằm nguyên ở `greyMaterial` bên
+    /// texture ở `ModelViewer.swift`. Lập luận vì sao là `.back` nằm nguyên ở `greyMaterial` bên
     /// dưới; nó áp cho cả hai vì hai bên đọc CÙNG một hình học (mesh của app → OBJ giao → máy
     /// trạm bake ra usdz), tức cùng một chiều winding.
     /// ⚠ **CHIỀU NÀY CHƯA ĐƯỢC XÁC NHẬN TRÊN MÁY THẬT.** Nếu nhìn từ ngoài mà KHÔNG xuyên được
@@ -164,7 +164,10 @@ struct MeshPreviewView: View {
         return m
     }()
 
-    private static func makeScene(
+    /// ⚠ INTERNAL, ✗ private: `ModelViewerScreen` (trình xem gộp xám+texture ở
+    /// `ModelViewer.swift`) gọi CHÍNH hàm này cho nhánh xám của nó. Chép một bản thứ hai là đẻ
+    /// ra hai bố cục lệch nhau ngay lần đầu ai đó chỉnh góc mở — đúng thứ repo này đã trả giá.
+    static func makeScene(
         _ decoded: MeshPreviewFile.Decoded
     ) -> (scene: SCNScene, camera: SCNNode) {
         // Zero-copy: both sources point INTO the file bytes at their own offset/stride.
@@ -279,41 +282,12 @@ struct MeshPreviewView: View {
     }
 }
 
-/// Full-screen wrapper used by `ScanDetailView` (placement 2). Presented with
-/// `.fullScreenCover(item:)`, so the only way out is this button — which is the point: a
-/// `.sheet` would treat "drag down to look at the ceiling" as "dismiss me".
-///
-/// ✗ turn this into a `NavigationStack` with a `.toolbar` close button. The toolbar bar-item
-/// host is exactly where the 06/08 crash lived (`UIKitBarItemHost` reading an
-/// `@EnvironmentObject` before the environment bridge is connected). A plain overlaid button
-/// has no bar-item host at all, and this screen needs nothing from the environment.
-struct GreyMeshViewerScreen: View {
-    let url: URL
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        ZStack(alignment: .topLeading) {
-            MeshPreviewView(url: url)
-                .ignoresSafeArea()
-
-            Button {
-                dismiss()
-            } label: {
-                Image(systemName: "xmark")
-                    .font(.headline)
-                    .foregroundStyle(.white)
-                    .frame(width: 38, height: 38)
-                    // Fixed dark chip, ✗ `.ultraThinMaterial`: the backdrop is always dark here
-                    // regardless of the phone's light/dark setting, so a material would render
-                    // near-white in light mode and swallow the white glyph.
-                    .background(Color.black.opacity(0.45), in: Circle())
-            }
-            .padding(.leading, 16)
-            .padding(.top, 12)
-            .accessibilityLabel(L.t("Close", "Đóng"))
-        }
-    }
-}
+// `GreyMeshViewerScreen` ĐÃ XOÁ ở bản 2.0. Nó là bản bọc toàn màn hình CHỈ-XÁM cho
+// `ScanDetailView`, mà màn đó nay dùng **một trình xem gộp** (`ModelViewerScreen` trong
+// `ModelViewer.swift`): một nút "Xem mô hình 3D" + công tắc Texture ở góc. Trình xem gộp với
+// `texturedRemote: nil` LÀ trình xem chỉ-xám, nên dựng lại kiểu cũ là quay về hai màn song sinh.
+// `MeshPreviewView` ở trên thì GIỮ — `ScanPreviewView` (màn ngay sau khi quét) nhúng nó thẳng vào
+// một picker Video/Mô hình 3D, không qua bản bọc nào.
 
 /// Thin `SCNView` host. All interaction is SceneKit's own camera controller — no custom
 /// gesture code to fight with SwiftUI.
