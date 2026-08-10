@@ -30,9 +30,17 @@ enum ColoredOBJExporter {
     /// `extraFiles`: file phụ đóng kèm cạnh model.obj (vd camera-track.json cho minimap) —
     /// copy theo đúng tên file gốc, hỏng không chặn zip. Phần tử là THƯ MỤC cũng được:
     /// `copyItem` copy đệ quy → zip mang nguyên thư mục con (texture-shots/ đi đường này).
+    /// `progress`: đầu thu % cho màn "Đang dựng mô hình 3D…" (xem `ScanSaveProgress`). CHỈ báo
+    /// số — không nhánh nào ở đây đọc nó, và bỏ hết lời gọi đi thì file zip ra y hệt.
+    /// ✗ cho nó giá trị mặc định (bẫy #13): quên truyền là thanh % chết im ở đúng đoạn chờ
+    /// lâu nhất của cả quy trình lưu.
     static func makeOBJZip(
-        fromPLY plyURL: URL, to zipURL: URL, includeGLB: Bool = false, extraFiles: [URL] = []
+        fromPLY plyURL: URL, to zipURL: URL, includeGLB: Bool = false, extraFiles: [URL] = [],
+        progress: @escaping SaveStageReport
     ) throws {
+        // Đọc lại PLY vừa ghi (~100MB, một lượt quét thẳng) — không có mốc nào để báo giữa
+        // chừng nên đây là chặng CÂM, màn hình hiện vòng xoay nhỏ.
+        progress(.readingMesh, 0)
         let mesh = try ColoredMeshPLY.parse(plyURL)
 
         // MARK: - Ghi các file vào thư mục tạm rồi nén
@@ -41,12 +49,19 @@ enum ColoredOBJExporter {
             .appendingPathComponent("CedarScan-3D-\(UUID().uuidString.prefix(6))", isDirectory: true)
         try fm.createDirectory(at: work, withIntermediateDirectories: true)
         defer { try? fm.removeItem(at: work) }
-        try writeOBJ(mesh, to: work.appendingPathComponent("model.obj"))
+        try writeOBJ(mesh, to: work.appendingPathComponent("model.obj"), progress: progress)
         try Data(mtlText.utf8).write(to: work.appendingPathComponent("model.mtl"))
         if includeGLB {
             // GLB hỏng không chặn zip — OBJ vẫn là dữ liệu chính.
+            // (Không báo % riêng: chỉ đường KHÔNG lưu-nhanh mới có GLB, tức đường phao.)
             try? GLBExporter.makeGLB(mesh: mesh, to: work.appendingPathComponent("model.glb"))
         }
+        // 🔴 CHẶNG CÂM CUỐI CÙNG, VÀ LÀ CHỖ YẾU NHẤT CỦA CẢ THANH %: chép `texture-shots/`
+        // (~100MB JPEG) rồi nén bằng `NSFileCoordinator(.forUploading)` — API đó KHÔNG trả
+        // tiến độ và không có callback nào. Màn hình chuyển sang vòng xoay + nhãn "Đang nén…",
+        // thanh đứng yên tại mốc của chặng. ✗ bịa một thanh tự bò ở đây; muốn nó chạy thật
+        // thì phải thay bộ nén, mà thay bộ nén là đổi FILE GIAO.
+        progress(.packaging, 0)
         for extra in extraFiles {
             try? fm.copyItem(at: extra, to: work.appendingPathComponent(extra.lastPathComponent))
         }
@@ -57,7 +72,13 @@ enum ColoredOBJExporter {
     /// Ghi OBJ dạng STREAM (buffer ~1MB, màu theo đỉnh: v x y z r g b).
     /// Bản cũ gom hơn 1 triệu String rồi joined() — đỉnh RAM tạm ~200MB ở 450k đỉnh;
     /// stream giữ đỉnh ~20MB ở mọi mức nét và bỏ được cú khựng joined()+copy.
-    private static func writeOBJ(_ mesh: ColoredMeshPLY.Mesh, to objURL: URL) throws {
+    private static func writeOBJ(
+        _ mesh: ColoredMeshPLY.Mesh, to objURL: URL, progress: @escaping SaveStageReport
+    ) throws {
+        progress(.writingModel, 0)
+        // Chia dải của chặng: dòng `v` ít hơn một nửa số dòng `f` nhưng mỗi dòng đắt hơn hẳn
+        // (6 số thập phân vs 3 số nguyên) → 55/45. ƯỚC LƯỢNG, chưa bấm giờ máy thật.
+        let vertexShare = 0.55
         FileManager.default.createFile(atPath: objURL.path, contents: nil)
         let handle = try FileHandle(forWritingTo: objURL)
         defer { try? handle.close() }
@@ -87,6 +108,10 @@ enum ColoredOBJExporter {
         }
 
         buffer.append(contentsOf: "# CedarScan colored LiDAR mesh\nmtllib model.mtl\no CedarScanMesh\nusemtl vertexcolor\n".utf8)
+        // ~40 nhịp báo cho vòng đỉnh, ~30 cho vòng mặt: ở nhà nguyên căn là mỗi ~60k/~170k
+        // vòng, dưới trần "≤1% hoặc ≤ mỗi 50k vòng" tính theo % của chặng.
+        let vertexReportEvery = max(1, mesh.positions.count / 40)
+        var nextVertexReport = vertexReportEvery
         for k in mesh.positions.indices {
             let p = mesh.positions[k]
             let c = mesh.colors[k]
@@ -101,7 +126,17 @@ enum ColoredOBJExporter {
             line.append(0x0A) // "\n"
             buffer.append(contentsOf: line)
             try flushIfNeeded()
+            if k >= nextVertexReport {
+                nextVertexReport += vertexReportEvery
+                progress(
+                    .writingModel,
+                    vertexShare * Double(k) / Double(mesh.positions.count)
+                )
+            }
         }
+        progress(.writingModel, vertexShare)
+        let faceReportEvery = max(3, (mesh.indices.count / 30) / 3 * 3)
+        var nextFaceReport = faceReportEvery
         var i = 0
         while i < mesh.indices.count {
             // OBJ đánh chỉ số đỉnh từ 1
@@ -114,8 +149,16 @@ enum ColoredOBJExporter {
             buffer.append(contentsOf: line)
             try flushIfNeeded()
             i += 3
+            if i >= nextFaceReport {
+                nextFaceReport += faceReportEvery
+                progress(
+                    .writingModel,
+                    vertexShare + (1 - vertexShare) * Double(i) / Double(mesh.indices.count)
+                )
+            }
         }
         try flushIfNeeded(force: true)
+        progress(.writingModel, 1)
     }
 
     // MARK: - Bộ in số tự viết (thay String(format:) — xem lý do bên dưới)

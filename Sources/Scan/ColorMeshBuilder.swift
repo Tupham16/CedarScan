@@ -505,8 +505,13 @@ final class ColorMeshBuilder {
     /// chứ không phải mảng rỗng — xem `uncoloredGrey`.
     /// Bonus RAM: không cần kho khung màu nên nó chết NGAY (~67MB — trước đợt bỏ picker là 179/358MB)
     /// trước khi cấp phát `Data` của PLY.
+    ///
+    /// `progress`: đầu thu % (xem `ScanSaveProgress`). 🔴 PHẢI là closure `@Sendable` TRẦN, ✗
+    /// một tham chiếu tới builder/`SamplerStore`: closure này bị `queue.async` giữ suốt thời
+    /// gian `buildPLY` chạy, tức bao trọn cửa sổ mà cả mục §Nhả bộ nhớ lúc lưu tồn tại để thu
+    /// hẹp. Giữ hộ một tham chiếu ở đây là dựng lại đúng cái bẫy đã tả ở `SamplerStore`.
     @MainActor
-    func exportColoredPLY(geometryOnly: Bool = false) async -> URL? {
+    func exportColoredPLY(geometryOnly: Bool = false, progress: @escaping SaveStageReport) async -> URL? {
         stop()
         let pieces = self.pieces
         let refine = refineLargeTriangles && !geometryOnly
@@ -534,7 +539,7 @@ final class ColorMeshBuilder {
                 let url = Self.buildPLY(
                     pieces: pieces, store: store,
                     refineLargeTriangles: refine, fillUncoloredVertices: fill,
-                    geometryOnly: geometryOnly
+                    geometryOnly: geometryOnly, progress: progress
                 )
                 continuation.resume(returning: url)
             }
@@ -786,8 +791,16 @@ final class ColorMeshBuilder {
     private static func buildPLY(
         pieces: [UUID: MeshPiece], store: SamplerStore,
         refineLargeTriangles: Bool, fillUncoloredVertices: Bool,
-        geometryOnly: Bool = false
+        geometryOnly: Bool = false, progress: @escaping SaveStageReport
     ) -> URL? {
+        // Mốc con TRONG chặng `.buildingMesh` (thang 0…1 của riêng chặng này). ƯỚC LƯỢNG THEO
+        // CẤU TRÚC, chưa ai bấm giờ trên máy thật — xem bảng `SaveStage.weight`.
+        // Hai đường rất khác nhau: LƯU NHANH bỏ hẳn chia tam giác + bake màu nên gần hết thời
+        // gian nằm ở gộp mảnh và ghi byte; đường cũ thì bake màu nuốt phần lớn.
+        let mergeShare = 0.25
+        let colorShare = geometryOnly ? 0.35 : 0.70
+        let vertexShare = geometryOnly ? 0.80 : 0.88
+        let faceShare = 0.97
         // Gộp lưới thành 1 mảng đỉnh + mặt (dời chỉ số).
         //
         // Duyệt theo THỨ TỰ ĐÃ SẮP của khoá thay vì `pieces.values`: thứ tự Dictionary của
@@ -800,7 +813,14 @@ final class ColorMeshBuilder {
         var vertices: [SIMD3<Float>] = []
         var normals: [SIMD3<Float>] = []
         var faces: [(UInt32, UInt32, UInt32)] = []
-        for key in pieces.keys.sorted(by: { $0.uuidString < $1.uuidString }) {
+        let sortedKeys = pieces.keys.sorted(by: { $0.uuidString < $1.uuidString })
+        // Báo tối đa ~25 nhịp cho cả vòng gộp (mảnh = anchor ARKit, hàng trăm tới hàng nghìn).
+        let mergeReportEvery = max(1, sortedKeys.count / 25)
+        for (n, key) in sortedKeys.enumerated() {
+            // Báo TRƯỚC guard: mảnh biến mất giữa chừng cũng không được làm thủng nhịp báo.
+            if n % mergeReportEvery == 0 {
+                progress(.buildingMesh, mergeShare * Double(n) / Double(sortedKeys.count))
+            }
             guard let piece = pieces[key] else { continue }
             let base = UInt32(vertices.count)
             vertices.append(contentsOf: piece.worldVertices)
@@ -809,6 +829,7 @@ final class ColorMeshBuilder {
                 faces.append((f.0 + base, f.1 + base, f.2 + base))
             }
         }
+        progress(.buildingMesh, mergeShare)
         guard !vertices.isEmpty, !faces.isEmpty else { return nil }
 
         // Chia nhỏ tam giác lớn TRƯỚC vòng bake màu (chỉ chế độ Mesh bật cờ): thêm đỉnh
@@ -816,6 +837,17 @@ final class ColorMeshBuilder {
         // Y NGUYÊN trên danh sách đỉnh mới — occlusion test + bilinear áp cho cả đỉnh chia.
         if refineLargeTriangles {
             subdivideLargeTriangles(vertices: &vertices, normals: &normals, faces: &faces)
+            progress(.buildingMesh, 0.30)
+        }
+
+        // Đầu thu con cho vòng bake màu: nó chỉ biết mình chạy tới đâu (0…1), việc quy về thang
+        // chung nằm ở đây. CHỈ đường KHÔNG lưu-nhanh gọi tới. Khai TRƯỚC khối chú thích dưới để
+        // khối đó dính liền với `let colors` như cũ.
+        // 🔴 Nó sống tới cuối hàm, tức vắt qua chỗ `store.samplers = []` — nên nó KHÔNG ĐƯỢC
+        // capture `store`/`vertices`/bất cứ thứ gì của kho khung màu. Hôm nay nó giữ đúng hai
+        // thứ: `progress` (weak tới hộp số) và một Double.
+        let paintReport: @Sendable (Double) -> Void = { f in
+            progress(.buildingMesh, 0.30 + (colorShare - 0.30) * f)
         }
 
         // Tô màu trong MỘT LỜI GỌI RIÊNG. Đây không phải chuyện chia nhỏ hàm cho đẹp: mọi tham
@@ -832,8 +864,10 @@ final class ColorMeshBuilder {
             : paintColors(
                 vertices: vertices, normals: normals, faces: faces,
                 geos: store.geos, samplers: store.samplers,
-                fillUncoloredVertices: fillUncoloredVertices
+                fillUncoloredVertices: fillUncoloredVertices,
+                report: paintReport
             )
+        progress(.buildingMesh, colorShare)
 
         // 🔴 NHẢ KHO KHUNG MÀU NGAY TẠI ĐÂY — TRƯỚC khi cấp phát `Data` của PLY (~102MB ở 2,5
         // triệu đỉnh). Đây là đỉnh RAM của cả quy trình lưu; kho khung (~67MB) cộng thêm vào
@@ -856,25 +890,51 @@ final class ColorMeshBuilder {
 
         var data = Data(header.utf8)
         data.reserveCapacity(header.count + vertices.count * 15 + faces.count * 13)
+        // Nhịp báo: ~50 lần cho cả vòng đỉnh (2,5 triệu đỉnh ⇒ mỗi 50k bước, đúng mức trần
+        // "≤1% hoặc ≤ mỗi 50k vòng"). Mỗi lần báo là một `Task` nhảy về main — báo theo từng
+        // đỉnh sẽ tốn hơn chính công việc đang đo.
+        let vertexReportEvery = max(1, vertices.count / 50)
+        var nextVertexReport = vertexReportEvery
         for i in vertices.indices {
             var x = vertices[i].x, y = vertices[i].y, z = vertices[i].z
             withUnsafeBytes(of: &x) { data.append(contentsOf: $0) }
             withUnsafeBytes(of: &y) { data.append(contentsOf: $0) }
             withUnsafeBytes(of: &z) { data.append(contentsOf: $0) }
             data.append(colors[i].x); data.append(colors[i].y); data.append(colors[i].z)
+            if i >= nextVertexReport {
+                nextVertexReport += vertexReportEvery
+                progress(
+                    .buildingMesh,
+                    colorShare + (vertexShare - colorShare) * Double(i) / Double(vertices.count)
+                )
+            }
         }
+        progress(.buildingMesh, vertexShare)
+        let faceReportEvery = max(1, faces.count / 30)
+        var nextFaceReport = faceReportEvery
+        var faceIndex = 0
         for f in faces {
             data.append(3)
             var a = f.0, b = f.1, c = f.2
             withUnsafeBytes(of: &a) { data.append(contentsOf: $0) }
             withUnsafeBytes(of: &b) { data.append(contentsOf: $0) }
             withUnsafeBytes(of: &c) { data.append(contentsOf: $0) }
+            faceIndex += 1
+            if faceIndex >= nextFaceReport {
+                nextFaceReport += faceReportEvery
+                progress(
+                    .buildingMesh,
+                    vertexShare + (faceShare - vertexShare) * Double(faceIndex) / Double(faces.count)
+                )
+            }
         }
+        progress(.buildingMesh, faceShare)
 
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("colored-mesh-\(UUID().uuidString.prefix(8)).ply")
         do {
             try data.write(to: url)
+            progress(.buildingMesh, 1)
             return url
         } catch {
             return nil
@@ -1229,11 +1289,16 @@ final class ColorMeshBuilder {
     /// đúng lúc hàm này trả về. Nhờ vậy `buildPLY` dọn `store` ngay sau đó là giải phóng THẬT.
     /// Viết thẳng vào `buildPLY` thì các biến cục bộ sống tới cuối hàm và kho khung màu
     /// nằm lì qua bước cấp phát `Data` của PLY — đúng đỉnh RAM mà cả đợt này muốn hạ.
+    ///
+    /// `report`: 0…1 của RIÊNG hàm này (bao gồm cả 2 lượt vá bên dưới). Gọi từ TRONG
+    /// `concurrentPerform` nên nó phải chịu được lời gọi từ nhiều luồng — `SaveStageReport`
+    /// chỉ xếp một `Task` về main nên an toàn, và bên nhận chỉ lấy giá trị TĂNG.
     private static func paintColors(
         vertices: [SIMD3<Float>], normals: [SIMD3<Float>],
         faces: [(UInt32, UInt32, UInt32)],
         geos: [SamplerGeo], samplers: [KeyframeSampler],
-        fillUncoloredVertices: Bool
+        fillUncoloredVertices: Bool,
+        report: @escaping @Sendable (Double) -> Void
     ) -> [SIMD3<UInt8>] {
         var colors = [SIMD3<UInt8>](repeating: uncoloredGrey, count: vertices.count)
         // Đỉnh không lấy được màu (mọi khung bị bộ lọc chuẩn loại) — để 2 lượt vá cứu sau.
@@ -1262,13 +1327,27 @@ final class ColorMeshBuilder {
                                     uBuf[i] = true // giữ xám 150 tạm — vá bên dưới
                                 }
                             }
+                            // Báo mỗi 8 chunk (~1 lần/130k đỉnh) — vòng lọc này là ~150 triệu
+                            // bước nên đây là chỗ khách ngồi chờ lâu nhất ở đường KHÔNG lưu
+                            // nhanh. Các chunk chạy SONG SONG nên số báo có thể nhảy theo
+                            // chunk chỉ-số-cao vừa xong: lệch tối đa bằng số nhân đang chạy
+                            // (~6/150 chunk ≈ 4%), và bên nhận chỉ lấy giá trị TĂNG nên thanh
+                            // vẫn đơn điệu. ✗ đổi sang bộ đếm dùng chung: một cái khoá trong
+                            // vòng nóng nhất của app để mua thêm 4% độ chính xác là lỗ.
+                            // Trần 0,90: 10% cuối dành cho 2 lượt vá `fillUncolored`.
+                            if chunk % 8 == 0 {
+                                report(0.90 * Double(chunk + 1) / Double(chunkCount))
+                            }
                         }
                     }
                 }
             }
         }
 
+        report(0.90)
         // Cứu đỉnh xám (chỉ chế độ Mesh bật cờ — RoomPlan giữ hành vi cũ: xám 150 như trước)
+        // Hai lượt vá KHÔNG tự báo được (lượt lan màu chạy theo VÒNG lan, không theo đỉnh, và
+        // thường chỉ đụng phần nhỏ của lưới) → thanh đứng yên ở 90% của riêng chặng con này.
         if fillUncoloredVertices {
             fillUncolored(
                 colors: &colors, uncolored: &uncolored,
@@ -1276,6 +1355,7 @@ final class ColorMeshBuilder {
                 geos: geos, samplers: samplers
             )
         }
+        report(1)
         return colors
     }
 
