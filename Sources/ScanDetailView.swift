@@ -235,10 +235,41 @@ struct ScanDetailView: View {
         .sheet(item: $planImageURL) { url in
             ShareSheet(items: [url])
         }
-        // `.sheet(item:)` chứ ✗ `.sheet(isPresented:)`: nội dung đọc một @State set CÙNG NHỊP
-        // với cờ mở → sheet TRẮNG lần đầu (bẫy #7 trong handoff, chỉ lộ khi test tay).
-        .sheet(item: $textured.readyURL) { url in
-            USDZPreview(url: url)
+        // Mô hình CÓ TEXTURE. Giữ `item:` chứ ✗ `isPresented:` (bẫy #7: nội dung đọc một giá
+        // trị set CÙNG NHỊP với cờ mở → màn TRẮNG lần đầu), và đổi `sheet` → `fullScreenCover`
+        // cùng lý do với lưới xám ở dưới: trình xem 3D ăn TOÀN BỘ cú kéo để xoay mô hình.
+        // 🔴 Nội dung là `TexturedModelViewerScreen` chứ ✗ `USDZPreview` trần — QuickLook nhúng
+        // KHÔNG vẽ nút Done nào (nút đó nằm trên `navigationItem` mà đây là VC con), nên trước
+        // bản này màn xem texture không có lối ra NÀO NHÌN THẤY ĐƯỢC. Lý do đầy đủ ở chính
+        // `TexturedModelViewerScreen`.
+        //
+        // ⚠ HAI HỆ QUẢ CỦA sheet→cover, cả hai đã cân nhắc, ✗ "sửa":
+        // (1) cover GỠ view chủ khỏi cây nên `onDisappear` ở trên chạy ⇒ VIDEO TẠM DỪNG khi mở
+        //     trình xem texture (sheet thì không). Đó là điều mình muốn: bộ giải mã H.264 và
+        //     cảnh 3D không nên cùng sống, và cover lưới xám ở dưới vốn đã hành xử y hệt.
+        // (2) lúc đóng, `.task` chạy LẠI. Mọi guard trong đó idempotent nên không mất gì, NHƯNG
+        //     ✗ tưởng nó miễn phí: `loadTexturedURL` chỉ đóng `texturedAsked` khi SERVER trả về
+        //     match. Đường cache (`TexturedModelCache.anyCached`) — máy MẤT MẠNG mà file texture
+        //     đã tải về từ trước — dựng được dòng texture với cờ VẪN MỞ, nên mỗi lượt đóng màn
+        //     tốn thêm MỘT GET `listOrders`. Cùng cỡ với cái giá `loadTexturedURL` đã tự nhận là
+        //     chấp nhận được, ✗ đóng cờ sớm để "tiết kiệm" (chú thích ở hàm đó nói vì sao đóng
+        //     sớm là giết tính năng).
+        //     ⚠ ✗ ghi vào đây rằng "đơn đã giao thì listOrders thôi liệt kê texture" — SAI:
+        //     route `/api/app/v1/orders` dựng `texturedScans` từ `orderScans.filter(texturedUrl)`
+        //     KHÔNG gác theo `delivered`, và chính nó có chú thích cấm thêm cổng đó.
+        //
+        // 🔴 DỰ ĐOÁN TỪ CODE, CHƯA TÁI HIỆN TRÊN MÁY — và ✗ do đổi sheet→cover sinh ra (sheet
+        // va chạm y hệt): một view controller chỉ trình bày ĐƯỢC MỘT thứ. Bấm dòng texture (tải
+        // 29–75MB, vài phút qua 4G) rồi bấm dòng lưới xám để xem trong lúc chờ — đúng lý do
+        // dòng xám nằm TRÊN, xem chú thích ở `greyMeshRow` — thì lúc tải xong `readyURL` được
+        // gán trong khi cover xám đang mở ⇒ lượt trình bày thứ hai nhiều khả năng bị bỏ, mà
+        // `readyURL` vẫn khác nil VÀ vẫn cùng `id` (URL.id = absoluteString) nên bấm lại có thể
+        // KHÔNG kích hoạt gì: nút texture chết tới khi thoát ra vào lại màn. ĐO TRÊN MÁY TRƯỚC.
+        // Nếu đúng, vá là GỘP VỀ MỘT NGUỒN TRÌNH BÀY (một `@State ViewerTarget?` cho cả hai
+        // trình xem) — việc RIÊNG, ✗ nhét vào đợt này: nó viết lại tầng trình bày của MÀN CÓ
+        // NÚT ĐẶT HÀNG.
+        .fullScreenCover(item: $textured.readyURL) { url in
+            TexturedModelViewerScreen(url: url)
         }
         // Lưới xám: `item:` chứ ✗ `isPresented:` (bẫy #7 — nội dung đọc @State set cùng nhịp),
         // và `fullScreenCover` chứ ✗ `sheet` (lý do ở khai báo `greyMeshURL`).

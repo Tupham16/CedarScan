@@ -9,7 +9,7 @@ people do that from the mesh and the walkthrough video.
 **Features**
 - Whole-home LiDAR scanning (ARKit scene reconstruction) producing a single colour-mapped mesh
 - Live coaching while you scan — screen border, haptics and optional spoken prompts for walking
-  too fast, turning too fast, low light, standing too close, phone overheating, tracking lost
+  too fast, turning too fast, low light, standing too close, tracking lost
 - Live mesh overlay so you can see what has and has not been captured
 - Silent walkthrough video recorded alongside the mesh, plus the camera track
 - Scans are grouped under a property (address), so a multi-floor home is ordered as one job
