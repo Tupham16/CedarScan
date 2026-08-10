@@ -20,9 +20,18 @@ import Darwin
 ///  - tracking-state transitions and session interruptions with timestamps,
 ///  - 1Hz process CPU / main-thread CPU / memory-footprint samples.
 ///
-/// One plain-text report per scan is written to Documents/perf-logs/ — the owner
-/// pulls it from the Files app ("On My iPhone" → CedarScan → perf-logs); the app has
-/// no console path on AltStore Release builds, a file is the only way out.
+/// One plain-text report per scan is written to Documents/perf-logs/.
+///
+/// 🔴 THERE IS NO LONGER A WAY TO GET THOSE FILES OFF THE PHONE (2026-08-11, build
+/// 2.2): the owner used to pull them from the Files app ("On My iPhone" → CedarScan →
+/// perf-logs), which only worked because Info.plist carried `UIFileSharingEnabled` +
+/// `LSSupportsOpeningDocumentsInPlace`. Both keys were REMOVED at the owner's request
+/// — they also exposed Documents/Scans/ (the whole working folder) to every customer.
+/// That is why `enabled` below is false: with no retrieval path, a running profiler
+/// only writes files nobody can read. To measure again: re-add BOTH keys in
+/// project.yml, flip `enabled` back to true, ship that build to the OWNER ONLY, and
+/// remove the keys again afterwards. AltStore Release builds have no console, so a
+/// file plus those two keys is still the only way out.
 ///
 /// INVARIANTS (do not break):
 ///  - Observation only. NO behavior change to any scanning code path: each hook is a
@@ -32,13 +41,16 @@ import Darwin
 ///    main-thread CADisplayLinks; the ARSession delegate and all observers are main
 ///    queue). There are NO locks — do not add call sites on other threads.
 ///  - `enabled` is the master switch: when false every hook is a two-instruction
-///    early-out. Flip it to false once the measurement campaign ends instead of
-///    ripping the hooks out — the next perf question will need them again.
+///    early-out. The measurement campaign ENDED 2026-08-10, so the flag is now false —
+///    ✗ rip the hooks out, the next perf question will need them again (same rule as
+///    `RootView.autoPurgeAfterDelivery`).
 final class ScanPerfProfiler {
 
     /// Master switch for the whole profiler. Compile-time constant so the optimizer
     /// can fold the disabled path to nothing.
-    static let enabled = true
+    /// OFF since 2026-08-11 (build 2.2) — campaign over AND the log-retrieval path is
+    /// gone with the two Info.plist file-sharing keys; see the type doc above.
+    static let enabled = false
 
     /// Identity of a hooked display-link loop. rawValue indexes the accumulator
     /// arrays — keep it dense from 0.
