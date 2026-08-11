@@ -3,10 +3,40 @@ import SwiftUI
 
 /// Trang một dự án (căn nhà): danh sách bản quét các tầng, quét thêm, đặt hàng cả căn.
 struct ProjectView: View {
-    @EnvironmentObject private var store: ScanStore
+    /// 🔴🔴 **TRUYỀN VÀO, ✗ `@EnvironmentObject`. ĐÂY LÀ BẢN VÁ CỦA VỤ VĂNG APP (11/08) —
+    /// ✗ ĐỔI NGƯỢC LẠI, KỂ CẢ "CHO GỌN".**
+    ///
+    /// Đo bằng dSYM trên HAI `.ips` (bản 2.0 và 2.3, UUID khớp): app chết ở `store.project(with:)`
+    /// trong computed property `project` bên dưới — khung `ProjectView.project.getter + 852` —
+    /// tới qua `body` → `content` → closure `Group` → `scans` → `project` → `store`.
+    /// Vì sao chết: `UIKitBarItemHost.initializeSize()` đo bar item GIỮA CÚ PUSH → kéo chạy `body`
+    /// của màn này trong một ViewGraph mà cầu environment CHƯA nối; `DynamicBody.updateValue()`
+    /// cài LẠI property wrapper theo host hiện tại (✗ dùng giá trị đã capture) nên
+    /// `@EnvironmentObject` không tra ra object → `EnvironmentObject.error()` → SIGTRAP.
+    ///
+    /// 🔴 **`@ObservedObject` KHÔNG THỂ TRAP:** giá trị của nó là một tham chiếu LƯU THẲNG trong
+    /// struct view — không tra environment, không có nhánh lỗi nào để mà rơi vào. Cùng lý lẽ đã
+    /// đúng với `@State` (xem `ScanDetailView.ShareSnapshot`): đọc trong host chưa nối chỉ trả
+    /// giá trị hiện có. Việc QUAN SÁT thay đổi không mất gì — `@ObservedObject` vẫn đăng ký
+    /// `objectWillChange` y như `@EnvironmentObject`.
+    ///
+    /// ⚠ Màn này có **BỐN** cửa đọc `store` trên đường render đầu (`scans` · `bottomButtons` ×2 ·
+    /// `.onChange(of: project == nil)`) — liệt đủ ở khối 🔴🔴 tại `project`. Vá kiểu bịt từng cửa
+    /// là sai hướng; đây là vá TẬN GỐC, cắt cả bốn cùng lúc.
+    /// Chuỗi cấp store: `CedarScanApp` (@StateObject) → `RootView` → `HomeView` → màn này.
+    ///
+    /// ⚠ `.environmentObject(...)` ở `CedarScanApp` VẪN CÒN và vẫn chảy xuống cây view. Các sheet
+    /// /cover của màn này (`OrderSheet`, `SupplementSheet`, `AccountGateSheet`, `MeshScanFlowView`)
+    /// vẫn đọc `@EnvironmentObject` như cũ và AN TOÀN — chúng chỉ được dựng khi khách đã bấm, lúc
+    /// màn đã gắn xong từ lâu. ✗ đổi chúng theo.
+    /// Chi tiết đo + cách đo lại: SESSION-HANDOFF §CRASH ĐANG MỞ.
+    @ObservedObject var store: ScanStore
     /// Cần cho CỔNG CHẶN ĐẶT HÀNG ở cuối file. Màn này từng không đọc `AccountStore` một dòng
     /// nào — xem giải thích ở nút "Đặt làm mặt bằng".
-    @EnvironmentObject private var account: AccountStore
+    /// ⚠ `account` KHÔNG phải một trong bốn cửa (mọi chỗ đọc nó đều nằm trong action closure /
+    /// `onDismiss`, tức chỉ chạy lúc khách bấm). Truyền vào cùng `store` vì lý do khác: để màn
+    /// này KHÔNG CÒN `@EnvironmentObject` nào — còn một cái là còn đường cho lỗi quay lại.
+    @ObservedObject var account: AccountStore
     @Environment(\.dismiss) private var dismiss
     let projectId: UUID
     /// Tên dự án CHỤP LÚC ĐẨY MÀN — dữ liệu THƯỜNG, cố ý KHÔNG tra từ `store`.
@@ -17,15 +47,15 @@ struct ProjectView: View {
     /// `ViewBodyAccessor.updateBody`, tất cả nằm trong `UIKitBarItemHost.initializeSize()` lúc
     /// iOS cấu hình NÚT BACK giữa cú push. Cùng HỌ với vụ 06/08 (`48dc791`): thân view chạy
     /// trong host chưa nối environment thì đọc `@EnvironmentObject` là chết.
-    /// 🔴 NHƯNG CHƯA XÁC ĐỊNH ĐƯỢC DÒNG NÀO. Suy luận "tại `.navigationTitle(project?.name)`"
-    /// đã bị soi đối kháng bẻ: `.navigationTitle(_:)` nhận STRING nên biểu thức được tính trong
-    /// THÂN VIEW này, không phải trong host của bar item. Mà hai thân bar item của app đều sạch.
-    /// Còn một mắt xích chưa ai nhìn thấy — ✗ ghi vào đâu rằng vụ này đã vá xong.
-    /// ⇒ Giữ thay đổi này vì hai lý do TỰ THÂN: bớt một lần chạm environment ở chỗ sát thanh
-    /// điều hướng (không thể hại), và vá một lỗi CÓ THẬT — dự án bị dọn mất thì tiêu đề cũ hiện
-    /// chuỗi RỖNG.
-    /// 🔴 CÁCH BIẾT CHẮC (đã dựng ở bản 1.5): CI nay tải lên cả dSYM. Lần văng sau, đối chiếu 4
-    /// `imageOffset` trong `.ips` với dSYM là ra ĐÚNG dòng. ✗ đoán thêm vòng nào nữa.
+    /// ✅ 11/08 CHIỀU — ĐÃ ĐO BẰNG dSYM (log bản 2.0 + 2.3, UUID khớp). **DÒNG GÂY VĂNG KHÔNG PHẢI
+    /// TIÊU ĐỀ, mà là `project` ở dòng ~100 dưới đây** (`store.project(with:)`), qua đường
+    /// `body` → `content` → closure `Group` → `scans` (inline) → `project` → `store`.
+    /// ⇒ **Thay đổi này VÔ CAN với vụ văng.** Nó vẫn ĐÚNG và GIỮ NGUYÊN, nhưng chỉ vì hai lý do
+    /// TỰ THÂN: bớt một lần chạm environment ở chỗ sát thanh điều hướng, và vá một lỗi CÓ THẬT —
+    /// dự án bị dọn mất thì tiêu đề cũ hiện chuỗi RỖNG. ✗ ghi ở đâu rằng nó chữa crash.
+    /// 🔴 Suy luận "tại `.navigationTitle`" nay CHẾT BẰNG ĐO (trước mới chết bằng lý luận:
+    /// `.navigationTitle(_:)` nhận STRING nên tính trong THÂN VIEW này). Lý luận đó ĐÚNG.
+    /// 🔴 CÁCH ĐO LẠI, ✗ cần máy Mac: `tools/ips-symbolicate/` + `dsym-<app_version>/`.
     /// 🔴 LUẬT VẪN ĐÚNG và vẫn nên theo: thứ nuôi thanh điều hướng — tiêu đề, item `.toolbar`,
     /// nhãn nút Back màn sau thừa hưởng — nên là dữ liệu THƯỜNG (`let`/`@State`). Đọc `@State`
     /// ở host chưa nối thì AN TOÀN (chỉ trả giá trị hiện có) — lý do ở `ScanDetailView.ShareSnapshot`.
@@ -97,7 +127,32 @@ struct ProjectView: View {
     /// Tiêu đề màn — CHỈ đọc `let` + `@State`, không chạm `store`. Xem `projectName`.
     private var displayTitle: String { renamedTitle ?? projectName }
 
+    /// 🔴🔴 **DÒNG NÀY TỪNG LÀM VĂNG APP — ĐO BẰNG dSYM 11/08. ĐÃ VÁ cùng ngày** bằng cách đổi
+    /// `store` sang `@ObservedObject` truyền vào (khối 🔴🔴 ở khai báo `store`). Giữ ghi chú này
+    /// vì nó là thứ giải thích VÌ SAO khai báo đó không được đổi ngược.
+    ///
+    /// Khi còn `@EnvironmentObject`: chữ `store` ở dòng dưới (cột 41) chính là chỗ
+    /// `EnvironmentObject.error()` bắn ra — khung 3 của CẢ HAI `.ips` (bản 2.0 và 2.3),
+    /// `ProjectView.project.getter + 852`. `UIKitBarItemHost.initializeSize()` đo bar item giữa
+    /// cú push → kéo chạy `body` của MÀN NÀY trong ViewGraph mà cầu environment CHƯA nối → trap.
+    ///
+    /// ⚠🔴 **VÌ SAO PHẢI VÁ TẬN GỐC CHỨ ✗ BỊT TỪNG CHỖ: màn này có BỐN cửa**, dòng dưới chỉ là
+    /// cửa nổ TRƯỚC (vì `Group` được dựng sớm nhất). Bịt nó là văng ở cửa 2, rồi cửa 3. Cả bốn
+    /// đều nằm trên đường render ĐẦU TIÊN, không cần khách bấm gì:
+    ///  1. `content` → `Group` (`scans.isEmpty`) → `scans` → `project`   ← cửa đã nổ
+    ///  2. `content` → `.safeAreaInset` → `bottomButtons` (`orderableScans`) → `scans` → `project`
+    ///  3. `content` → `.safeAreaInset` → `bottomButtons` (`projectOrderNumber`) → `store`
+    ///  4. `body` → `.onChange(of: project == nil)` — ĐỐI SỐ, ✗ closure ⇒ tính mỗi lượt dựng body
+    /// (✗ ghi số dòng ở đây: danh sách này đã lạc hậu một lần vì chính chú thích thêm vào phía
+    /// trên đẩy số dòng đi. Tên thì không trôi.)
+    /// ⚠ Chưa kiểm: nội dung `.alert` (`scans.count`) và `.confirmationDialog` (`lowQualityNames`)
+    /// — CÓ VẺ lười, nhưng chưa ai chứng minh. Nay vô hại vì `store` không còn là env; ai đưa
+    /// `@EnvironmentObject` trở lại thì phải kiểm hai chỗ đó TRƯỚC.
+    /// ⚠ `ScanDetailView` có SÁU cửa cùng loại, cũng đã vá cùng lượt. Chi tiết:
+    /// SESSION-HANDOFF §CRASH ĐANG MỞ.
     private var project: ScanProject? { store.project(with: projectId) }
+    /// 🔴 Cửa THỨ NHẤT tới `project` ở trên: hàm này bị INLINE vào closure `Group` của `content`,
+    /// nên nó không có khung riêng trong crash log (log chỉ thấy 4 khung cho 5 chặng).
     private var scans: [ScanRecord] { project.map { store.scans(in: $0) } ?? [] }
     private var orderableScans: [ScanRecord] { scans.filter { $0.cloudOrderNumber == nil } }
     /// Dự án ĐÃ có đơn ⇒ mọi bản quét sau chỉ còn đường GỬI BỔ SUNG, ✗ đặt đơn thứ hai.
@@ -127,6 +182,12 @@ struct ProjectView: View {
             // luôn phiên quét đang chạy. `ScanStore.beginBusy()` đã chặn dọn suốt phiên quét nên
             // ca này gần như không xảy ra, nhưng đây là lớp thứ hai — pop nhầm lúc đang quét là
             // mất trắng 10–30 phút đi bộ, đắt hơn nhiều so với việc nán lại một màn rỗng.
+            // 🔴 CỬA SỐ 4 CỦA VỤ VĂNG (đo 11/08) — nay AN TOÀN vì `store` đã là `@ObservedObject`.
+            // Giữ ghi chú vì nó dễ bị hiểu nhầm là vô hại: `project == nil` là ĐỐI SỐ của
+            // `.onChange`, ✗ closure, nên nó được tính MỖI lượt dựng `body`. Bảng dòng của
+            // `body.getter` xác nhận đây là hàng NGAY SAU lời gọi `content`.
+            // ⇒ Ai đưa `@EnvironmentObject` trở lại màn này thì dòng này văng lại NGAY, kể cả khi
+            // đã "vá" cửa `scans`. Danh sách đủ 4 cửa ở khối 🔴🔴 tại khai báo `project`.
             .onChange(of: project == nil) { _, gone in
                 if gone && !isMeshScanning { leaveDeadProject() }
             }
@@ -172,6 +233,7 @@ struct ProjectView: View {
                     Section {
                         ForEach(scans) { record in
                             ScanRow(
+                                store: store,
                                 record: record,
                                 onRename: {
                                     renameText = record.name

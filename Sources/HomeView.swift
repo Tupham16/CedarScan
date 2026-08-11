@@ -4,7 +4,24 @@ import SwiftUI
 struct HomeView: View {
     /// Tín hiệu từ tab SCAN (RootView): mỗi lần TĂNG = một yêu cầu mở màn quét mới. Xem `.onChange`.
     let scanRequest: Int
-    @EnvironmentObject private var store: ScanStore
+    /// 🔴 TRUYỀN VÀO TỪ `RootView`, ✗ `@EnvironmentObject` — LÝ DO KHÁC hai màn PUSH, đọc kỹ.
+    /// Bản thân HomeView chưa bao giờ văng: nó là GỐC của `NavigationStack` (không bị push) và
+    /// tiêu đề là chuỗi CHẾT. Đổi ở đây là để ba closure `navigationDestination` bên dưới dựng
+    /// `ProjectView`/`ScanDetailView` bằng một THAM CHIẾU THƯỜNG, thay vì phải đọc
+    /// `@EnvironmentObject` ngay trong nhịp đẩy màn. Giữ nguyên `@EnvironmentObject` ở đây thì
+    /// bản vá phải dựa vào lập luận *"closure đã capture wrapper từ lúc environment còn nối nên
+    /// không sao"* — có lẽ đúng, nhưng ĐÚNG LOẠI lập luận đã sai ba lần ở vụ này. ✗ đổi ngược.
+    /// Xem khối 🔴🔴 ở `ProjectView.store`.
+    @ObservedObject var store: ScanStore
+    /// CHỈ để CHUYỂN TIẾP xuống hai màn PUSH — HomeView không tự đọc `account` dòng nào.
+    ///
+    /// 🔴 `let`, ✗ `@ObservedObject` — CỐ Ý, đừng "sửa cho giống `store`". HomeView TRƯỚC GIỜ
+    /// không hề khai `AccountStore`, tức không quan sát nó. Khai `@ObservedObject` ở đây là THÊM
+    /// một phụ thuộc chưa từng có: mỗi lần `AccountStore` đổi (đăng nhập, `refresh()` lúc vào
+    /// foreground, đổi cờ xác minh) sẽ dựng lại body của Home — một hồi quy hiệu năng do CHÍNH
+    /// bản vá crash đẻ ra. `let` giữ đúng hành vi cũ, và hai màn PUSH nhận nó vẫn quan sát bình
+    /// thường vì `@ObservedObject` tự đăng ký lấy.
+    let account: AccountStore
     @State private var isMeshScanning = false
     /// Bấm SCAN trên máy không có LiDAR → alert giải thích (thay cho nút xám cũ ở đáy Home).
     @State private var showScanUnsupported = false
@@ -281,8 +298,12 @@ struct HomeView: View {
                 Text(DeleteProjectPrompt.message(scanCount: store.scans(in: project).count))
             }
             // Chạm một dòng bản quét: chỉ XEM lại, không mời đặt hàng.
+            // 🔴 `store`/`account` TRUYỀN TAY xuống, ✗ để màn đích tự tra environment. Ba closure
+            // này chạy trong nhịp ĐẨY MÀN — đúng nhịp mà `UIKitBarItemHost` đo bar item và cầu
+            // environment chưa nối. Cả hai thứ truyền vào đây đều là `@ObservedObject` của
+            // HomeView, tức tham chiếu thường, không có gì để trap. Xem `ProjectView.store`.
             .navigationDestination(for: ScanRecord.self) { record in
-                ScanDetailView(record: record, autoOpenOrder: false)
+                ScanDetailView(record: record, autoOpenOrder: false, store: store, account: account)
             }
             // Bấm "Đặt hàng ngay" ở màn preview: vào thẳng BƯỚC ĐẶT HÀNG (mục 3b, chủ app chốt
             // 10/08 "Form trước"). Hai destination cùng dựng `ScanDetailView`, khác nhau đúng
@@ -291,7 +312,7 @@ struct HomeView: View {
             // 🔴 `ProjectView` KHÔNG khai destination nào: nó nằm trong CHÍNH stack này (nhận
             // `$path`) nên cả hai đường đẩy của nó đều rơi vào hai closure ở đây.
             .navigationDestination(for: ScanOrderIntent.self) { intent in
-                ScanDetailView(record: intent.record, autoOpenOrder: true)
+                ScanDetailView(record: intent.record, autoOpenOrder: true, store: store, account: account)
             }
             .navigationDestination(for: ScanProject.self) { project in
                 // Truyền `path` xuống: ProjectView nằm TRONG stack này (nó không có
@@ -299,10 +320,16 @@ struct HomeView: View {
                 // chính đường dẫn ở đây.
                 // `projectName` truyền từ ĐÂY để tiêu đề của màn được đẩy chỉ đọc dữ liệu
                 // THƯỜNG (`let`/`@State`), không tra `store`.
-                // ⚠ GIA CỐ + vá lỗi tiêu đề RỖNG, ✗ phải bản vá đã chứng minh của vụ văng
-                // 10/08 — nguyên nhân vụ đó CHƯA xác định được. Khối đầy đủ (kèm vì sao suy
-                // luận "tại tiêu đề" bị bẻ) ở khai báo `ProjectView.projectName`.
-                ProjectView(projectId: project.id, projectName: project.name, path: $path)
+                // ⚠ GIA CỐ + vá lỗi tiêu đề RỖNG, ✗ phải bản vá của vụ văng — đo 11/08 cho thấy
+                // đường văng KHÔNG chạm tiêu đề. Bản vá thật là `store`/`account` truyền tay ngay
+                // dưới. Khối đầy đủ ở khai báo `ProjectView.projectName` và `ProjectView.store`.
+                ProjectView(
+                    store: store,
+                    account: account,
+                    projectId: project.id,
+                    projectName: project.name,
+                    path: $path
+                )
             }
         }
     }
@@ -420,6 +447,7 @@ struct HomeView: View {
                         : L.t("Not in a property", "Chưa vào dự án")) {
                     ForEach(visibleLooseScans) { record in
                         ScanRow(
+                            store: store,
                             record: record,
                             onRename: {
                                 renameText = record.name
@@ -553,7 +581,12 @@ struct HomeView: View {
 /// Một dòng bản quét (dùng chung ở danh sách chính và trang dự án):
 /// bấm mở chi tiết, vuốt xoá/đổi tên, nhấn giữ để chuyển vào dự án.
 struct ScanRow: View {
-    @EnvironmentObject private var store: ScanStore
+    /// 🔴 TRUYỀN VÀO, ✗ `@EnvironmentObject` — xem khối 🔴🔴 ở `ProjectView.store`.
+    /// Dòng này được `ProjectView` (MÀN PUSH) dựng bên trong `List`/`ForEach`, tức nó nằm trên
+    /// đúng cây view mà bar-item host có thể kéo chạy khi environment chưa nối. Rẻ hơn nhiều so
+    /// với việc phải chứng minh "ForEach trong List là lười nên không sao" — mà chứng minh kiểu
+    /// đó chính là thứ đã sai ba lần ở vụ này.
+    @ObservedObject var store: ScanStore
     let record: ScanRecord
     let onRename: () -> Void
 

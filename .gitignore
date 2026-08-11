@@ -12,3 +12,9 @@ Sources/Info.plist
 CedarScan.ipa
 SESSION-HANDOFF.md
 scratch_*
+
+# dSYM tải từ CI artifact để đọc crash log (xem tools/ips-symbolicate/) — nặng, và tải lại được.
+dsym-*/
+# Rác Python khi chạy tools/ — `git add tools/` một lần đã nuốt cả .pyc vào index.
+__pycache__/
+*.pyc

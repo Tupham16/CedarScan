@@ -28,7 +28,13 @@ struct RootView: View {
 
     var body: some View {
         TabView(selection: $tab) {
-            HomeView(scanRequest: scanRequest)
+            // 🔴 `store`/`account` TRUYỀN TAY xuống HomeView (rồi HomeView truyền tiếp cho hai màn
+            // PUSH), ✗ để chúng tự tra environment. Đây là bản vá vụ văng app 11/08 — lý do đầy đủ
+            // ở khối 🔴🔴 tại `ProjectView.store`.
+            // ⚠ Đọc `@EnvironmentObject` Ở ĐÂY thì AN TOÀN: `RootView` là gốc cây view, không bao
+            // giờ bị push, environment của nó luôn nối. `.environmentObject(...)` ở trên GIỮ
+            // NGUYÊN — mọi màn còn lại (OrdersView, AccountView, các sheet…) vẫn dùng nó.
+            HomeView(scanRequest: scanRequest, store: store, account: account)
                 .tabItem {
                     Label(L.t("Home", "Home"), systemImage: "house")
                 }

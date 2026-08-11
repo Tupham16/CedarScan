@@ -55,8 +55,28 @@ struct ScanDetailView: View {
     /// truyền mà vẫn compile xanh, và tính năng chết IM LẶNG. Hiện có đúng hai call site, cả hai
     /// trong `HomeView` (hai `navigationDestination`).
     let autoOpenOrder: Bool
-    @EnvironmentObject private var store: ScanStore
-    @EnvironmentObject private var account: AccountStore
+    /// 🔴🔴 **TRUYỀN VÀO, ✗ `@EnvironmentObject`. BẢN VÁ VỤ VĂNG APP (11/08) — ✗ ĐỔI NGƯỢC LẠI.**
+    ///
+    /// Màn chị em `ProjectView` đã ĐO ĐƯỢC bằng dSYM: `UIKitBarItemHost.initializeSize()` đo bar
+    /// item giữa cú push → kéo chạy `body` của màn PUSH trong ViewGraph mà cầu environment CHƯA
+    /// nối → mọi `@EnvironmentObject` trong thân view là SIGTRAP. Lý lẽ đầy đủ + vì sao
+    /// `@ObservedObject` không thể trap: khối 🔴🔴 ở `ProjectView.store`.
+    ///
+    /// ⚠ Màn NÀY chưa có `.ips` nào chỉ vào, nhưng nó đứng trên CÙNG đường đi (cùng hai
+    /// `navigationDestination`, cùng `NavigationStack`) và vụ 06/08 (`48dc791`, E7FBB13A) đã văng
+    /// ở ĐÚNG `UIKitBarItemHost.initializeSize()` của chính nó. Soi code ra **SÁU** cửa đọc env
+    /// trên đường render đầu — liệt đủ ở khối 🔴🔴 tại `.navigationTitle` bên dưới. Vá tận gốc
+    /// cắt cả sáu cùng lúc.
+    ///
+    /// ⚠ `.environmentObject(...)` ở `CedarScanApp` VẪN CÒN: `OrderSheet` (cuối file này),
+    /// `AccountGateSheet`, `SupplementSheet`, `ModelViewerScreen` vẫn đọc `@EnvironmentObject`
+    /// như cũ và AN TOÀN — chúng chỉ dựng khi khách đã bấm. ✗ đổi chúng theo.
+    @ObservedObject var store: ScanStore
+    /// Truyền vào cùng lý do với `store` — xem ngay trên. `account` được đọc trong `serviceCard`
+    /// (`isSignedIn` / `needsVerification`), tức CÓ nằm trên đường render đầu — nó là cửa số 5.
+    /// ⚠ Khác `ProjectView.account` (ở màn đó mọi chỗ đọc `account` đều trong action closure nên
+    /// KHÔNG phải cửa). Đừng chép lý do qua lại giữa hai màn.
+    @ObservedObject var account: AccountStore
     @Environment(\.dismiss) private var dismiss
     @StateObject private var uploader = ScanUploader()
 
@@ -181,7 +201,10 @@ struct ScanDetailView: View {
             // `record` (dữ liệu ĐẨY VÀO) chứ ✗ `current`: LOẠI bản quét cố định từ lúc lưu
             // (`captureType` không nơi nào ghi lại), nên đọc bản chụp không thể cũ — mà nó bỏ
             // được một lần chạm `@EnvironmentObject` khỏi thứ ĐẦU TIÊN thân view này tính.
-            // Xem khối 🔴 ở `.navigationTitle` bên dưới để biết vì sao đáng làm.
+            // ⚠ 11/08: **GIA CỐ NÀY MUA ĐƯỢC ĐÚNG SỐ KHÔNG.** Điều kiện rẽ nhánh nay sạch thật,
+            // nhưng NỘI DUNG của cả ba nhánh đọc `folder`/`store` ngay dòng sau (`videoArea` →
+            // `videoURL`, `legacyTab` → `usdzURL`). Cùng kiểu nhầm với `.navigationTitle`: vá
+            // cái vỏ, ruột vẫn đọc env. Danh sách đủ 6 cửa ở khối 🔴🔴 tại `.navigationTitle`.
             if record.isVideoOnly {
                 videoTab
             } else if record.isMeshOnly {
@@ -198,14 +221,30 @@ struct ScanDetailView: View {
         // trong `UIKitBarItemHost.initializeSize()` lúc iOS cấu hình NÚT BACK giữa cú push —
         // cùng HỌ với vụ 06/08 (`48dc791`): thân view chạy trong host chưa nối environment thì
         // đọc `@EnvironmentObject` là chết.
-        // 🔴 NHƯNG CHƯA AI CHỈ ĐƯỢC ĐÍCH DANH DÒNG NÀO. Soi đối kháng bắt được lỗ hổng trong
-        // suy luận "tại tiêu đề": `.navigationTitle(_:)` nhận STRING, tức biểu thức được tính
-        // trong THÂN VIEW MÀN NÀY chứ không phải trong host của bar item — nên đổi nó chưa chắc
-        // đụng tới chỗ trap. Mà hai thân bar item của app đều đã sạch (`shareButton` chỉ đọc
-        // `ShareSnapshot`; Menu của ProjectView chỉ có Image/Label). Nghĩa là còn một mắt xích
-        // chưa ai nhìn thấy.
-        // ⇒ Đổi dòng này CHỈ VÌ MỘT lý do tự thân, ✗ vì đã chứng minh: bỏ bớt một lần chạm
-        // environment ở chỗ sát thanh điều hướng — không thể hại.
+        // ✅ 11/08 CHIỀU — ĐÃ ĐO BẰNG dSYM. **KHÔNG PHẢI TIÊU ĐỀ.** Trên `ProjectView` (màn có
+        // log) dòng chết là `store.project(with:)` trong computed property `project`, tới qua
+        // `body` → `content` → closure `Group` → `scans`. Suy luận đối kháng bên trên ĐÚNG:
+        // `.navigationTitle(_:)` nhận STRING nên tính trong thân view, không phải chỗ trap.
+        // 🔴 "MẮT XÍCH CHƯA AI NHÌN THẤY" ĐÃ THẤY: thứ chạy trong host chưa nối environment là
+        // **CẢ `body` của màn PUSH**, ✗ riêng thanh điều hướng.
+        // ⇒ Đổi dòng này VÔ CAN với crash. Giữ vì lý do tự thân (bớt một lần chạm environment),
+        // ✗ ghi ở đâu rằng nó chữa crash.
+        // 🔴🔴 **MÀN NÀY CÓ SÁU CỬA CÙNG LOẠI TRONG `body` — ĐÃ VÁ 11/08** bằng cách đổi
+        // `store`/`account` sang `@ObservedObject` truyền vào (khối 🔴🔴 ở khai báo `store`).
+        // Giữ danh sách vì nó là thứ chứng minh vì sao KHÔNG được vá lẻ, và là checklist cho ai
+        // định đưa `@EnvironmentObject` trở lại:
+        //  1. `meshTab` → `videoArea` → `videoURL` → `folder` → `store.folderURL`  ← chắc chắn
+        //     nhất: `player` chỉ được gán trong `.task` nên lượt render ĐẦU luôn rẽ vào đây;
+        //  2. `meshTab` → `meshInfoFooter` → `meshFooterText` → `objURL`/`plyURL` → `folder`;
+        //  3. `videoTab` → `videoArea` → `videoURL` → `folder`;
+        //  4. `legacyTab` → `usdzURL` → `store.usdzURL` (và `legacyPlanTab` → `planURL`);
+        //  5. `.safeAreaInset` → `serviceCard` → `current` (store) + `account` + `supplementOrderNumber`;
+        //  6. `.onChange(of: stillExists)` → `store.records` (bản sao y hệt `ProjectView`).
+        // ⚠ Sáu cửa này là SOI CODE, ✗ đo: chưa `.ips` nào chỉ vào màn này. Nhưng vụ 06/08 chứng
+        // minh cơ chế CHẠM TỚI ĐÂY, và nó được push bởi CÙNG `navigationDestination` với
+        // `ProjectView` — màn đã có log. ✗ chờ thêm log mới chịu vá.
+        // 🔴 `ScanRow` (HomeView.swift) cũng đã đổi sang `store` truyền tay cùng lượt: nó do
+        // `ProjectView` dựng trong `List`/`ForEach`, tức cũng nằm trên cây view của màn PUSH.
         // ⚠ Ở MÀN NÀY nó KHÔNG đổi hành vi một li nào: `current` (xem trên) đã có `?? record`,
         // nên bản quét bị dọn mất thì tiêu đề vẫn hiện đúng tên cũ, chưa bao giờ rỗng. Lỗi tiêu
         // đề RỖNG là chuyện của `ProjectView` (chỗ cũ ở đó là `project?.name ?? ""`) — ✗ chép
