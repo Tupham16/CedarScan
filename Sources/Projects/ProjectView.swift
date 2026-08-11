@@ -33,10 +33,10 @@ struct ProjectView: View {
     /// của màn này (`OrderSheet`, `SupplementSheet`, `AccountGateSheet`) vẫn đọc
     /// `@EnvironmentObject` như cũ và AN TOÀN — chúng chỉ được dựng khi khách đã bấm, lúc màn đã
     /// gắn xong từ lâu. ✗ đổi chúng theo.
-    /// 🔴 NGOẠI LỆ từ 2.11: `MeshScanFlowView` KHÔNG còn trong danh sách đó — cover quét nay
-    /// present bằng UIKit (`ScanCoverPresenter`), RỜI cây SwiftUI, environment không tự chảy tới;
-    /// store của nó đến từ `.environmentObject(store)` bơm tay ở chỗ present. ✗ coi cú bơm đó là
-    /// thừa mà gỡ.
+    /// ⚠ `MeshScanFlowView` từ 2.13 lại nằm TRONG cây view (lớp phủ `ScanCover` gắn ở
+    /// `CedarScanApp`) nên nó cũng an toàn như các sheet trên — nhưng cú `.environmentObject(store)`
+    /// bơm tay ở chỗ bật cover thì GIỮ (rẻ, và nó bơm đúng `store` màn này đang cầm). Đời
+    /// 2.11/2.12 present bằng UIKit thì cú bơm đó là BẮT BUỘC vì cover rời hẳn cây SwiftUI.
     /// Chi tiết đo + cách đo lại: SESSION-HANDOFF §CRASH ĐANG MỞ.
     @ObservedObject var store: ScanStore
     /// Cần cho CỔNG CHẶN ĐẶT HÀNG ở cuối file. Màn này từng không đọc `AccountStore` một dòng
@@ -131,9 +131,23 @@ struct ProjectView: View {
     /// `store.renameProject` chỉ có một call site, trong `.alert` bên dưới). nil = chưa đổi.
     /// 🔴 Phải là `@State`, ✗ đọc lại `store`: xem chú thích ở `projectName`.
     @State private var renamedTitle: String?
-    /// 🔴 BẢN ĐO TẠM 2.10 — quan sát số lượt `repair()` đã chạy để nhãn vàng tự vẽ lại.
-    /// GỠ CÙNG `safeAreaProbe`. Có giá trị mặc định nên KHÔNG đổi memberwise init.
-    @ObservedObject private var repairStats = SafeAreaRepairStats.shared
+    /// Lớp phủ cover quét đang che màn hình hay không — CHỈ dùng để khoá item `.toolbar` của màn
+    /// này (xem `.disabled(...)` ở menu "…"). `@ObservedObject` trên một tham chiếu THƯỜNG, ✗
+    /// environment ⇒ không có nhánh lỗi nào để văng, cùng lý lẽ đã viết ở `store`.
+    /// 🔴 Gác theo `blocksInput` chứ ✗ `isMeshScanning`: cái sau lật false NGAY ở nhịp đầu của
+    /// `ScanCover.hide`, trong khi cover còn nằm trên màn hình thêm 0,3s nữa — đúng quãng nguy
+    /// hiểm nhất (ngón tay khách vừa bấm xong một nút). `blocksInput` bao trọn CẢ HAI lượt trượt.
+    ///
+    /// ⚠ **GIÁ ĐÃ CÂN NHẮC, ✗ "tối ưu" mà không đọc:** `@ObservedObject` đăng ký
+    /// `objectWillChange` của CẢ đối tượng, nên body màn này dựng lại theo cả `content` — kể cả cú
+    /// publish trong `finish()`, tức **ngay trước nhịp `path.append` của `afterScanCoverClosed()`**,
+    /// đúng cửa sổ thời gian của vụ văng 06/08. AN TOÀN vì bản vá 11/08 đã cắt sạch
+    /// `@EnvironmentObject` khỏi màn này: cả bốn cửa đọc `store`/`project` nay chỉ đọc tham chiếu
+    /// thường, không có nhánh lỗi nào để rơi vào. Ai đưa `@EnvironmentObject` trở lại thì lượt
+    /// dựng thừa này thành một khẩu súng đã lên đạn. Muốn dọn hẳn: tách `blocksInput` ra một
+    /// `ObservableObject` bé riêng để màn này thôi nghe `content` (~5 dòng) — chưa làm vì nó không
+    /// phải lỗi, và bản 2.13 đã đủ đông thứ mới. (Review đối kháng vòng 5.)
+    @ObservedObject private var scanCover = ScanCoverModel.shared
 
     /// Tiêu đề màn — CHỈ đọc `let` + `@State`, không chạm `store`. Xem `projectName`.
     private var displayTitle: String { renamedTitle ?? projectName }
@@ -192,14 +206,6 @@ struct ProjectView: View {
             // `geo` = lề mà chính view này nhìn thấy (đã trừ `.safeAreaInset` của màn) — kèm theo
             // để biết chênh lệch nằm ở tầng cửa sổ hay tầng SwiftUI.
             .overlay(alignment: .topLeading) { safeAreaProbe }
-            // 🔴 Phát bổ sung của `SafeAreaRepair` (2.9): đặt lịch sửa lề sau khi màn này xuất
-            // hiện. Nhắm giả thuyết "lỗi tái nhiễm LÚC PUSH" — crash 11/08 nổ trong bộ máy bar
-            // item GIỮA cú push, nên riêng phát ở onDismiss của cover có thể luôn tới sớm quá.
-            // ⚠ `nudge()` CHỈ ĐẶT LỊCH (chạy sau 0,6s, lúc transition đã xong) — ✗ sửa thành gọi
-            // thẳng `pass/repair` tại đây "cho nhanh": bắn đồng bộ trong onAppear là ép layout
-            // toàn cửa sổ GIỮA hoạt ảnh push, đúng án review vòng 2 đã bắt (BLOCKER).
-            // Vô hình + idempotent + tự gộp; chạy cả ở lần push lành cũng không sao.
-            .onAppear { SafeAreaRepair.nudge() }
             // Dự án biến mất trong lúc màn này đang mở → thoát ra.
             // ⚠ NGUỒN GÂY RA ĐÃ ĐỔI Ở BẢN 1.8, GUARD THÌ KHÔNG. Trước đây thủ phạm DUY NHẤT là
             // việc dọn-sau-khi-giao chạy ngầm (nay đã tắt — `RootView.autoPurgeAfterDelivery`).
@@ -213,10 +219,10 @@ struct ProjectView: View {
             // trắng, danh sách rỗng, mà nút "Quét căn nhà này" vẫn đó và trỏ vào một projectId
             // không còn tồn tại. Xảy ra thật khi app quay lại foreground lúc khách đang ở đây.
             // KHÔNG dismiss khi đang quét. Lý do ĐỔI ở 2.11 nhưng guard thì GIỮ: đời
-            // `.fullScreenCover` thì view này sở hữu cover, pop là tháo phiên quét; nay cover
-            // present bằng UIKit từ VC trên cùng nên pop KHÔNG tháo cover nữa — nhưng pop là gỡ
-            // mất cái `.onChange(of: isMeshScanning)` đang cầm đường ĐÓNG cover: khách bấm xong
-            // phiên quét thì binding lật mà không ai gọi `ScanCoverPresenter.dismiss`, cover kẹt.
+            // `.fullScreenCover` thì view này sở hữu cover, pop là tháo phiên quét; từ 2.13 cover
+            // là lớp phủ gắn ở `CedarScanApp` nên pop KHÔNG tháo cover nữa — nhưng pop là gỡ mất
+            // cái `.onChange(of: isMeshScanning)` đang cầm đường ĐÓNG cover: khách bấm xong phiên
+            // quét thì binding lật mà không ai gọi `ScanCover.hide`, cover kẹt VĨNH VIỄN.
             // `ScanStore.beginBusy()` đã chặn dọn suốt phiên nên ca này gần như không xảy ra —
             // đây là lớp thứ hai; pop nhầm lúc đang quét vẫn đắt hơn nán lại một màn rỗng.
             // 🔴 CỬA SỐ 4 CỦA VỤ VĂNG (đo 11/08) — nay AN TOÀN vì `store` đã là `@ObservedObject`.
@@ -225,6 +231,22 @@ struct ProjectView: View {
             // `body.getter` xác nhận đây là hàng NGAY SAU lời gọi `content`.
             // ⇒ Ai đưa `@EnvironmentObject` trở lại màn này thì dòng này văng lại NGAY, kể cả khi
             // đã "vá" cửa `scans`. Danh sách đủ 4 cửa ở khối 🔴🔴 tại khai báo `project`.
+            // 🟡 **BA CHỐT `isMeshScanning` DƯỚI ĐÂY (2 ở đây + guard trong `leaveDeadProject`)
+            // CÓ ĐÚNG CÁI ĐIỂM MÙ ĐÃ VÁ Ở MENU "…" — CỐ Ý CHƯA ĐỔI, ĐỌC HẾT TRƯỚC KHI ĐỤNG.**
+            // Điểm mù: lối vào qua đĩa SCAN của thanh tab mở cover TỪ HomeView, nên `isMeshScanning`
+            // của MÀN NÀY false suốt buổi trong khi cover vẫn đang che ⇒ nếu `project` biến mất lúc
+            // đó thì mấy chốt này pop màn ⇒ mất cái `.onChange` cầm đường ĐÓNG cover ⇒ cover kẹt.
+            // ✅ **KHÔNG với tới được ở bản 2.13** — đã soi MỌI chỗ ghi `store.projects`: chỉ
+            // `deleteProjectAndScans` và `purgeDelivered` nil hoá được một dự án đang mở, mà cả hai
+            // đều bị chặn khi cover đang che (`deleteProjectAndScans`: gác ở CẢ HAI lối bấm — menu
+            // "…" ngay dưới + nút giỏ rác ở Home nằm trong cây bị `.allowsHitTesting(false)`;
+            // `purgeDelivered`: `guard !isBusy` + cờ `autoPurgeAfterDelivery = false`).
+            // 🔴 **BẬT LẠI `autoPurgeAfterDelivery` LÀ PHẢI ĐỔI BA CHỐT NÀY TRƯỚC** sang
+            // `scanCover.blocksInput`. VÀ ĐỔI CẢ BA CÙNG LÚC: sửa mỗi cái guard trong
+            // `leaveDeadProject` là chuỗi CHẾT ĐÓI — `.onChange(of: isMeshScanning)` bắn ở nhịp
+            // ĐẦU của `hide` (lúc `blocksInput` còn true) nên guard chặn, mà không ai quan sát
+            // `blocksInput` tụt xuống để thử lại. Đổi luôn nó thành `.onChange(of:
+            // scanCover.blocksInput)` thì mới có đủ hai vế. (Review đối kháng vòng 5.)
             .onChange(of: project == nil) { _, gone in
                 if gone && !isMeshScanning { leaveDeadProject() }
             }
@@ -234,20 +256,21 @@ struct ProjectView: View {
             }
     }
 
-    /// 🔴🔴 **BẢN ĐO TẠM CỦA 2.6 (ba tầng ở 2.9; 2.10 thành NÚT BẤM + đếm lượt sửa) — GỠ CÙNG
-    /// `.overlay` ở `body` VÀ `repairStats` VÀ `forceRepairNow`. ✗ giữ lại "cho lần sau".**
+    /// 🔴🔴 **NHÃN ĐO TẠM (2.6, ba tầng từ 2.9) — GỠ CÙNG `.overlay` ở `body` NGAY KHI ĐÓNG VỤ
+    /// "lề đông cứng". ✗ để lẫn vào bản giao khách, ✗ giữ lại "cho lần sau".**
+    /// Nó còn sống ở 2.13 vì đây là cách chủ app NGHIỆM THU bản vá lớp phủ: đọc được
+    /// `geo t91 b34` (thay vì `geo t0 b0`) sau khi mở-rồi-đóng màn quét là thắng.
     /// Đọc BA nguồn vì chúng có thể lệch nhau, và chính chỗ lệch mới là câu trả lời:
     ///  · `win` = `safeAreaInsets` của CỬA SỔ, hỏi thẳng UIKit ⇒ sự thật gốc, không qua SwiftUI.
     ///  · `root` = `safeAreaInsets` UIKit của view root VC ⇒ tầng GIỮA.
     ///  · `geo` = lề mà view này nhìn thấy qua `GeometryProxy` ⇒ tầng SwiftUI.
-    /// 2.10 đổi hai điều, cả hai vì vòng 2.9 để lộ lỗ đo:
-    ///  · nhãn tụt xuống 180pt — bản cũ nằm ở y=0, đúng chỗ header đè lên LÚC LỖI nên chủ app
-    ///    không đọc được số đúng lúc cần nhất;
-    ///  · nhãn là NÚT: chạm = `forceRepairNow()` (bỏ lịch + cổng) + hiện `fix n` = số lượt
-    ///    `repair()` đã THẬT SỰ chạy. Đang lỗi mà chạm nhãn → màn tự sửa ⇒ sửa-từ-ngoài SỐNG,
-    ///    lỗi ở lịch/cổng; chạm mà trơ ⇒ 3 phát trượt thật ⇒ mới đáng đổi cách trình bày cover.
-    /// `GeometryReader` đặt trong `.overlay` nên KHÔNG đụng vào bố cục đang đo; vùng GR ngoài
-    /// nhãn không có nội dung nên cú chạm xuyên qua bình thường — chỉ đúng miếng nhãn nuốt chạm.
+    /// Nhãn nằm ở 180pt chứ ✗ y=0: bản đầu đặt ở y=0, đúng chỗ header đè lên LÚC LỖI nên chủ app
+    /// không đọc được số đúng lúc cần nhất (lỗ đo của vòng 2.9).
+    /// 🔴 2.13 GỠ vế NÚT BẤM (`fix n` + chạm = `forceRepairNow`): toàn bộ `SafeAreaRepair` đã xoá
+    /// — nó được ĐO là trơ (`fix 9` mà vẫn lỗi, bắn tay bỏ mọi cổng cũng trơ). Nay chỉ còn nhãn
+    /// đọc số. ✗ dựng lại cái nút đó.
+    /// `GeometryReader` đặt trong `.overlay` nên KHÔNG đụng vào bố cục đang đo, và nhãn nay không
+    /// nhận chạm nữa nên mọi cú chạm xuyên qua bình thường.
     @ViewBuilder
     private var safeAreaProbe: some View {
         GeometryReader { geo in
@@ -256,22 +279,17 @@ struct ProjectView: View {
                 .compactMap { $0 as? UIWindowScene }.first
             let win = scene?.keyWindow?.safeAreaInsets ?? .zero
             let root = scene?.keyWindow?.rootViewController?.view.safeAreaInsets ?? .zero
-            Button {
-                SafeAreaRepair.forceRepairNow()
-            } label: {
-                Text(
-                    "fix\(repairStats.repairCount)"
-                    + " · win t\(Int(win.top)) b\(Int(win.bottom))"
-                    + " · root t\(Int(root.top)) b\(Int(root.bottom))"
-                    + " · geo t\(Int(geo.safeAreaInsets.top)) b\(Int(geo.safeAreaInsets.bottom))"
-                )
-                .font(.system(size: 11, weight: .bold, design: .monospaced))
-                .padding(.horizontal, 4)
-                .padding(.vertical, 2)
-                .background(.yellow)
-                .foregroundStyle(.black)
-            }
-            .buttonStyle(.plain)
+            Text(
+                "win t\(Int(win.top)) b\(Int(win.bottom))"
+                + " · root t\(Int(root.top)) b\(Int(root.bottom))"
+                + " · geo t\(Int(geo.safeAreaInsets.top)) b\(Int(geo.safeAreaInsets.bottom))"
+            )
+            .font(.system(size: 11, weight: .bold, design: .monospaced))
+            .padding(.horizontal, 4)
+            .padding(.vertical, 2)
+            .background(.yellow)
+            .foregroundStyle(.black)
+            .allowsHitTesting(false)
             .padding(.top, 180)
         }
     }
@@ -344,10 +362,10 @@ struct ProjectView: View {
         // trả giá nhiều lần.
         //
         // 🔴 **LỊCH SỬ 11/08 — dòng dưới từng bị GỠ ở bản 2.7 làm nghi can của lỗi đè chữ, và đã
-        // được MINH OAN BẰNG ĐO: 2.7 không có nó vẫn lỗi y nguyên.** Khai lại từ 2.8. Kết quả đo
-        // 2.6→2.10 (`win t47 b34 · root t47 b34 · geo t0 b0`, mọi cú sửa-từ-ngoài đều trơ) chỉ
-        // vào cú THÁO-GẮN cây view của `.fullScreenCover` — **vá thật là `ScanCoverPresenter`
-        // (2.11): cover quét present `.overFullScreen`, không tháo cây nữa.**
+        // được MINH OAN BẰNG ĐO: 2.7 không có nó vẫn lỗi y nguyên.** Khai lại từ 2.8. Vá thật của
+        // lỗi đè chữ là **lớp phủ `ScanCover` (2.13)** — cover quét thôi được TRÌNH BÀY, nó nằm
+        // luôn trong cây view (nghi phạm "tháo-gắn cây" đã chết ở 2.11, "present lên cửa sổ gốc"
+        // chết ở 2.12; xem `ScanCover.swift`).
         // ⇒ Câu dặn cũ "gỡ modifier này là lỗi (3a) quay lại" SỐNG LẠI nguyên hiệu lực.
         .toolbar(.hidden, for: .tabBar)
         .toolbar {
@@ -371,6 +389,28 @@ struct ProjectView: View {
                 } label: {
                     Image(systemName: "ellipsis.circle")
                 }
+                // 🔴 ✗ GỠ. Lớp phủ cover quét (2.13) che kín màn hình bằng HÌNH VẼ, nhưng SwiftUI
+                // ĐẨY item `.toolbar` ra `UINavigationBar` của UIKit — ngoài tầm với của
+                // `.allowsHitTesting` mà lớp phủ dùng để chặn cây bên dưới. Không có dòng này thì
+                // suốt lúc cover trượt lên (và cả lúc phủ kín, nếu chạm mù) khách vẫn mở được menu
+                // này và bấm "Xóa dự án" GIỮA BUỔI QUÉT — `deleteProjectAndScans` CỐ Ý không gác
+                // `isBusy` (và nó trỏ NGƯỢC về đây: chốt chặn nằm ở dòng này + `.isModal` của lớp
+                // phủ, ✗ ở trong store) ⇒ xoá file bản quét khỏi máy, rồi `dismiss()` pop luôn màn
+                // này, mà pop là gỡ mất cái `.onChange(of: isMeshScanning)` đang cầm đường ĐÓNG
+                // cover ⇒ **cover kẹt vĩnh viễn, chỉ còn cách tắt app.** Review đối kháng vòng 3.
+                // 🔴 **GÁC THEO `scanCover.blocksInput`, ✗ `isMeshScanning` — bản nháp vòng 3 gác
+                // nhầm và review vòng 4 bắt.** `isMeshScanning` là cờ của RIÊNG màn này, mà lối vào
+                // phổ biến nhất lại KHÔNG đi qua nó: đĩa SCAN của `CedarTabBar` vẽ đè cả màn PUSH
+                // (đó là lý do màn này phải tự chừa `reservedHeight`), bấm nó là `RootView` bật về
+                // Home rồi HOMEVIEW mở cover — `path` sống sót nên `ProjectView` VẪN là màn trên
+                // cùng, thanh điều hướng của nó vẫn nằm sau lớp phủ, mà `isMeshScanning` ở đây thì
+                // false suốt buổi ⇒ menu mở toang. `blocksInput` là cờ của CHÍNH lớp phủ nên đúng
+                // cho mọi lối vào, và nó bao trọn cả 0,3s trượt xuống.
+                // ⚠ Gác ở ĐÂY chứ ✗ `.disabled` cả cây bên dưới: cái đó lật `isEnabled` cho MỌI
+                // nút phía sau, cả màn xám đi trong 0,35s trước mắt khách (review vòng 2).
+                // ⚠ `ScanDetailView` CỐ Ý không gác theo: toolbar của nó chỉ có nút Chia sẻ —
+                // không phá dữ liệu, không pop màn. Lệch là có chủ đích, ✗ "sửa cho giống".
+                .disabled(scanCover.blocksInput)
             }
         }
         .safeAreaInset(edge: .bottom) {
@@ -435,14 +475,14 @@ struct ProjectView: View {
         }) {
             ScanGuideView { startAfterGuide = true }
         }
-        // 🔴🔴 COVER QUÉT PRESENT BẰNG UIKIT `.overFullScreen` TỪ 2.11 — cùng khuôn, cùng lý do,
+        // 🔴🔴 COVER QUÉT LÀ **LỚP PHỦ SwiftUI** TỪ 2.13 (`ScanCover`) — cùng khuôn, cùng lý do,
         // cùng lời giải thích "vì sao onChange ở đây KHÔNG phạm lệnh cấm 06/08" với HomeView
         // (đọc chú thích dài ở đó). Hai màn phải giữ khuôn GIỐNG NHAU.
         // (Cái `.onChange(of: isMeshScanning)` còn lại ở `body` — leaveDeadProject — là việc
-        // KHÁC và vẫn đúng chỗ: nó không present gì, đã tự hoãn nhịp.)
+        // KHÁC và vẫn đúng chỗ: nó không bật cover, đã tự hoãn nhịp.)
         .onChange(of: isMeshScanning) { _, presenting in
             if presenting {
-                ScanCoverPresenter.present(
+                ScanCover.show(
                     MeshScanFlowView(
                         quality: MeshQuality.storageDefault,
                         onOrderNow: { record in pendingOrderRecord = record },
@@ -467,13 +507,12 @@ struct ProjectView: View {
                             return nil
                         }
                     }
-                    // 🔴 BẮT BUỘC — rời cây SwiftUI, environment không tự chảy. Xem HomeView.
-                    .environmentObject(store),
-                    // Present thất bại → trả binding về false. Xem HomeView + ScanCoverPresenter.
-                    onFailure: { isMeshScanning = false }
+                    // ⚠ GIỮ, dù từ 2.13 không còn bắt buộc (lớp phủ nằm trong cây view nên
+                    // environment tự chảy tới). Xem chú thích đầy đủ ở HomeView.
+                    .environmentObject(store)
                 )
             } else {
-                ScanCoverPresenter.dismiss {
+                ScanCover.hide {
                     afterScanCoverClosed()
                 }
             }
@@ -655,12 +694,11 @@ struct ProjectView: View {
         isMeshScanning = true
     }
 
-    /// 🔴 Thân `onDismiss` cũ của cover (06/08), chuyển nguyên vẹn sang khuôn 2.11 — chạy từ
-    /// `completion` của `ScanCoverPresenter.dismiss`, SAU KHI cover đóng HẲN. Cùng khuôn + cùng
-    /// chú thích đầy đủ với `HomeView.afterScanCoverClosed` — hai màn phải giữ GIỐNG NHAU.
+    /// 🔴 Thân `onDismiss` cũ của cover (06/08), chuyển nguyên vẹn qua khuôn 2.11 rồi 2.13 — chạy
+    /// từ `completion` của `ScanCover.hide`, SAU KHI cover đóng HẲN. Cùng khuôn + cùng chú thích
+    /// đầy đủ với `HomeView.afterScanCoverClosed` — hai màn phải giữ GIỐNG NHAU.
     /// Thứ tự ưu tiên GIỮ NGUYÊN: lỗi lưu > quét thêm > chạm trần > đặt hàng.
     private func afterScanCoverClosed() {
-        SafeAreaRepair.nudge()
         if let message = pendingSaveError {
             pendingSaveError = nil
             meshCapFollowUp = false

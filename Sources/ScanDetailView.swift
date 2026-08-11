@@ -278,8 +278,8 @@ struct ScanDetailView: View {
         // 🔴 **LỊCH SỬ 11/08:** dòng dưới bị GỠ ở 2.7 làm nghi can lỗi đè chữ → MINH OAN BẰNG ĐO
         // (2.7 không có nó vẫn lỗi) → KHAI LẠI từ 2.8, cùng lượt với `ProjectView` (hai màn PUSH
         // phải khai GIỐNG NHAU — lệch là đẻ cặp màn song sinh trôi khỏi nhau). Vá thật của lỗi đè
-        // chữ ở `SafeAreaRepair.nudge()`. Và nay đã HIỂU vì sao mục 3a từng "vá được" bằng dòng
-        // này mà 11/08 vẫn tái phát ở đường khác: gốc là lề cả cây về 0 sau khi cover tháo —
+        // chữ là **lớp phủ `ScanCover` (2.13)**. Và nay đã HIỂU vì sao mục 3a từng "vá được" bằng
+        // dòng này mà 11/08 vẫn tái phát ở đường khác: gốc là lề cả cây về 0 sau khi màn quét mở —
         // dòng này chưa bao giờ là thuốc, chỉ trùng lịch trình lành bệnh.
         .toolbar(.hidden, for: .tabBar)
         .toolbar {
@@ -298,10 +298,9 @@ struct ScanDetailView: View {
             serviceCard
                 .padding(.bottom, CedarTabBar.reservedHeight)
         }
-        // 🔴 Phát bổ sung của `SafeAreaRepair` (2.9) — cùng lý do + cùng cảnh báo "chỉ đặt lịch,
-        // ✗ bắn đồng bộ" với `ProjectView.onAppear` (đọc chú thích ở đó); hai màn PUSH phải khai
-        // GIỐNG NHAU.
-        .onAppear { SafeAreaRepair.nudge() }
+        // (`SafeAreaRepair.nudge()` ở đây ĐÃ XOÁ cùng cả file `SafeAreaRepair.swift` ở 2.13 — đo
+        // được là TRƠ, xem `ScanCover.swift`. Hai màn PUSH vẫn phải khai GIỐNG NHAU: `ProjectView`
+        // cũng không còn dòng này.)
         // Bản quét biến mất trong lúc màn này đang mở → thoát ra, đừng để khách ngồi trước một
         // bản quét mà mọi file đã biến mất. (Nguồn gây ra đã đổi ở 1.8 — xem `stillExists`.)
         //
@@ -381,9 +380,18 @@ struct ScanDetailView: View {
         //     ⚠ ✗ ghi vào đây rằng "đơn đã giao thì listOrders thôi liệt kê texture" — SAI:
         //     route `/api/app/v1/orders` dựng `texturedScans` từ `orderScans.filter(texturedUrl)`
         //     KHÔNG gác theo `delivered`, và chính nó có chú thích cấm thêm cổng đó.
-        // `onDismiss: SafeAreaRepair.nudge` — trình xem 3D cũng là fullScreenCover (ruột nó cũng
-        // `.ignoresSafeArea()`), tức cùng cơ chế làm lề cả cây về 0 khi tháo. Xem `SafeAreaRepair`.
-        .fullScreenCover(item: $viewerTarget, onDismiss: { SafeAreaRepair.nudge() }) { target in
+        // 🔴🔴 **DÒNG NÀY LÀ `.fullScreenCover` CUỐI CÙNG CÒN SÓT, VÀ NÓ ĐANG MANG BỆNH.**
+        // Mở trình xem 3D = trình bày một màn toàn màn hình từ cửa sổ gốc = đúng cái đã làm vùng
+        // an toàn của cây SwiftUI đông cứng ở 0 suốt 6 bản IPA (số đo + danh sách hướng đã chết:
+        // `ScanCover.swift`). Đường QUÉT đã chuyển sang lớp phủ ở 2.13; đường này CỐ Ý chưa đổi —
+        // một cơ chế mỗi vòng thử, chờ chủ app nghiệm thu đường quét trước.
+        // 🔴 KHI ĐỔI: ✗ chỉ thay `.fullScreenCover` bằng `ScanCover.show`. Cover đang GỠ màn này
+        // khỏi cây nên `.onDisappear` ở trên chạy và VIDEO TỰ TẠM DỪNG — cố ý (hệ quả (1) ghi ở
+        // khối trên: bộ giải mã H.264 và cảnh 3D không nên cùng sống). Lớp phủ KHÔNG gỡ cây ⇒
+        // phải thêm đường tạm dừng video TƯỜNG MINH trước, không thì video chạy nền dưới mô hình
+        // 3D. Và `ModelViewerScreen` phải đổi `@Environment(\.dismiss)` sang closure bơm vào,
+        // cùng khuôn `MeshScanFlowView.dismiss`.
+        .fullScreenCover(item: $viewerTarget) { target in
             ModelViewerScreen(
                 greyURL: target.greyURL,
                 texturedRemote: target.texturedRemote,

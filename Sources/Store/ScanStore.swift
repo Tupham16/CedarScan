@@ -14,8 +14,8 @@ final class ScanStore: ObservableObject {
     ///
     /// Vì sao phải bao CẢ PHIÊN QUÉT chứ không chỉ lúc lưu — lý lẽ ĐỔI ở 2.11, phạm vi GIỮ:
     /// đời `.fullScreenCover` (trước 2.11) thì ProjectView sở hữu cover, dọn xoá dự án → nó
-    /// dismiss → cover bị tháo theo → mất trắng 10–30 phút. Nay cover present bằng UIKit
-    /// (`ScanCoverPresenter`) từ VC trên cùng nên pop ProjectView KHÔNG tháo cover nữa — nhưng
+    /// dismiss → cover bị tháo theo → mất trắng 10–30 phút. Từ 2.13 cover là LỚP PHỦ gắn ở
+    /// `CedarScanApp` (`ScanCover`) nên pop ProjectView KHÔNG tháo cover nữa — nhưng
     /// khoá vẫn phải bao cả phiên: dọn giữa buổi là `saveMeshScan` ghi vào dự án đã xoá, và pop
     /// ProjectView là gỡ mất `.onChange` đang cầm đường ĐÓNG cover của phiên đó (cover kẹt).
     /// Cờ chỉ-khi-lưu không cứu được vì suốt lúc đi bộ thì chưa lưu gì cả.
@@ -119,12 +119,18 @@ final class ScanStore: ObservableObject {
     /// ý: hành vi đảo ngược hoàn toàn, đổi tên biến mọi call site bị bỏ sót thành lỗi CI thay vì
     /// một cú xoá dữ liệu im lặng.
     ///
-    /// 🔴 KHÔNG gác `isBusy` — đây là chỗ dễ "thêm cho chắc" nhất và nó SAI. `isBusy` bật khi
-    /// phiên quét đang mở hoặc đang lưu, mà cả hai lúc đó cover quét (`ScanCoverPresenter`,
-    /// từ 2.11; đời trước là fullScreenCover) đang che kín màn hình
-    /// nên không ngón tay nào chạm được nút xoá. Gác vào chỉ được một thứ: một cái nút thỉnh
-    /// thoảng không làm gì mà không báo gì. (`purgeDelivered` thì PHẢI gác — nó chạy TỰ ĐỘNG,
-    /// không có ngón tay nào.)
+    /// 🔴 KHÔNG gác `isBusy` — đây là chỗ dễ "thêm cho chắc" nhất và nó SAI: gác vào chỉ được một
+    /// thứ, là một cái nút thỉnh thoảng không làm gì mà không báo gì. (`purgeDelivered` thì PHẢI
+    /// gác — nó chạy TỰ ĐỘNG, không có ngón tay nào.)
+    /// ⚠ **LÝ LẼ CŨ ĐÃ HẾT ĐÚNG, ĐỌC KỸ TRƯỚC KHI DỰA VÀO NÓ.** Đời trước ghi "cover quét che kín
+    /// màn hình nên không ngón tay nào chạm được nút xoá". Từ 2.13 cover là LỚP PHỦ SwiftUI
+    /// (`ScanCover`), mà lớp phủ chỉ chặn được cú chạm TRONG cây SwiftUI: item `.toolbar` bị
+    /// SwiftUI đẩy ra `UINavigationBar` của UIKit thì vẫn bấm được, và VoiceOver thì chưa bao giờ
+    /// bị hình vẽ chặn. Nay CHẶN TẠI CHỖ, ✗ tại đây: menu "…" của `ProjectView` khai
+    /// `.disabled(scanCover.blocksInput)` (cờ của CHÍNH lớp phủ — ✗ cờ `isMeshScanning` của một
+    /// màn, vì lối vào qua đĩa SCAN mở cover TỪ HomeView trong khi ProjectView vẫn là màn trên
+    /// cùng), và lớp phủ khai `.accessibilityAddTraits(.isModal)`.
+    /// Ai gỡ một trong hai chốt đó thì hàm này lại xoá được file giữa buổi quét.
     ///
     /// - Returns: số bản quét đã xoá được thật khỏi đĩa.
     @discardableResult

@@ -118,11 +118,12 @@ struct HomeView: View {
                 placement: .navigationBarDrawer(displayMode: .always),
                 prompt: L.t("Search homes and scans", "Tìm dự án, bản quét")
             )
-            // 🔴 Phát `SafeAreaRepair` cho CHÍNH MÀN HOME (2.9): Home cũng dính lỗi lề (ô tìm
-            // kiếm đè danh sách — chủ app báo 11/08), và onAppear của nó bắn lại mỗi lần pop-back
-            // từ màn push — lưới an toàn cho ca chuỗi hẹn từng chết đói ở lượt trước (vd cover AR
-            // "Quét thêm" mở lâu hơn 5 lượt hẹn). `nudge()` chỉ đặt lịch + tự gộp — xem SafeAreaRepair.
-            .onAppear { SafeAreaRepair.nudge() }
+            // (`SafeAreaRepair` — ba phát "sửa-từ-ngoài" bắn từ onAppear của màn này — ĐÃ XOÁ HẲN
+            // ở 2.13. Nó được ĐO là TRƠ: lúc đang lỗi, `fix 9` cho biết nó đã chạy 9 lượt và cú
+            // bắn tay bỏ mọi cổng cũng không sửa được gì. Xoá cùng lượt với bản vá lớp phủ vì cổng
+            // an toàn của nó — "đang có presentation full-screen thì đừng sửa" — nay không bao giờ
+            // đúng nữa (cover hết là presentation), tức nó sẽ co cửa sổ 0,5pt GIỮA BUỔI QUÉT.
+            // Lịch sử đầy đủ ở `ScanCover.swift`. ✗ dựng lại.)
             // TOOLBAR ĐÃ GỠ HẲN (2026-07-23, chủ app chốt):
             //  • nút **?** "Cách quét" → chuyển vào tab **Learn** ở thanh dưới.
             //  • nút **folder** "Dự án mới" → thừa: từ khi màn địa chỉ là bắt buộc, MỌI bản quét
@@ -166,25 +167,25 @@ struct HomeView: View {
                     pendingScanStart = true
                 }
             }
-            // 🔴🔴 COVER QUÉT PRESENT BẰNG UIKIT `.overFullScreen` TỪ 2.11 (`ScanCoverPresenter`)
-            // — ✗ quay lại `.fullScreenCover`: kiểu `.fullScreen` THÁO cây view bên dưới khỏi
-            // window và trên iOS 26 cú tháo-gắn đó làm vùng an toàn phía SwiftUI đông cứng ở 0
-            // (lỗi đè chữ sau khi quét — đo 2.6→2.10, mọi cách sửa-từ-ngoài đều trơ). Lý do đầy
-            // đủ + số đo ở đầu `ScanCoverPresenter.swift`.
+            // 🔴🔴 COVER QUÉT LÀ **LỚP PHỦ SwiftUI** TỪ 2.13 (`ScanCover`, gắn ở `CedarScanApp`)
+            // — ✗ quay lại BẤT KỲ kiểu trình bày nào: `.fullScreenCover` (2.6→2.10),
+            // `.overFullScreen` bằng UIKit (2.11), CỬA SỔ RIÊNG (2.12) — cả ba đều đã ra IPA và
+            // đều để lại đúng lỗi "lề SwiftUI đông cứng ở 0 sau khi mở màn quét". Danh sách 7
+            // hướng đã chết bằng đo + số đo: `ScanCover.swift`.
             //
             // ⚠ ĐÂY LÀ `.onChange(of: isMeshScanning)` — thứ mà chú thích cũ (06/08) CẤM. Lệnh
             // cấm đó vẫn ĐÚNG cho ca nó cấm, và khối này KHÔNG rơi vào ca đó:
             //  · Cái 06/08 cấm là chạy VIỆC HẬU-QUÉT (push/alert) NGAY LÚC binding lật false —
             //    tức giữa hoạt ảnh đóng cover. Ở đây nhánh `false` CHỈ gọi
-            //    `ScanCoverPresenter.dismiss(completion:)`; mọi việc hậu-quét nằm trong
-            //    `completion`, chạy SAU KHI hoạt ảnh đóng xong — đúng vai `onDismiss` cũ.
+            //    `ScanCover.hide(completion:)`; mọi việc hậu-quét nằm trong `completion`, chạy SAU
+            //    KHI hoạt ảnh đóng xong — đúng vai `onDismiss` cũ.
             //  · Bẫy "Quét thêm set true trong cùng nhịp lật false bị SwiftUI gộp thành KHÔNG
-            //    ĐỔI" cũng không còn: `afterScanCoverClosed()` chạy từ completion của UIKit (một
-            //    nhịp runloop khác hẳn), nên cú set true là một thay đổi mới, onChange bắn lại
-            //    bình thường và cover được present lại.
+            //    ĐỔI" cũng không còn: `afterScanCoverClosed()` chạy từ một lịch hẹn (nhịp runloop
+            //    khác hẳn), nên cú set true là một thay đổi mới, onChange bắn lại bình thường và
+            //    cover được bật lại.
             .onChange(of: isMeshScanning) { _, presenting in
                 if presenting {
-                    ScanCoverPresenter.present(
+                    ScanCover.show(
                         MeshScanFlowView(
                             quality: MeshQuality.storageDefault,
                             onOrderNow: { record in pendingOrderRecord = record },
@@ -211,16 +212,15 @@ struct HomeView: View {
                                 return nil
                             }
                         }
-                        // 🔴 BẮT BUỘC: present bằng UIKit là RỜI CÂY SwiftUI, environment không
-                        // tự chảy sang. MeshScanFlowView khai `@EnvironmentObject store` — thiếu
-                        // dòng này là trap ngay khi cover mở.
-                        .environmentObject(store),
-                        // Present thất bại (hiếm) → trả binding về false, nút quét bấm lại được.
-                        // Thiếu là binding kẹt true, nút quét chết im lặng — xem ScanCoverPresenter.
-                        onFailure: { isMeshScanning = false }
+                        // ⚠ GIỮ, dù từ 2.13 nó không còn BẮT BUỘC: lớp phủ nằm trong cây view của
+                        // `CedarScanApp` nên `store` đã tự chảy tới (đời 2.11/2.12 present bằng
+                        // UIKit thì rời cây, thiếu dòng này là `EnvironmentObject.error()` ngay
+                        // khi cover mở). Giữ lại vì nó bơm ĐÚNG cái `store` mà màn này đang cầm —
+                        // một dòng bảo hiểm rẻ cho lượt ai đó dời chỗ gắn lớp phủ.
+                        .environmentObject(store)
                     )
                 } else {
-                    ScanCoverPresenter.dismiss {
+                    ScanCover.hide {
                         afterScanCoverClosed()
                     }
                 }
@@ -243,8 +243,8 @@ struct HomeView: View {
                 ))
             }
             // Tab SCAN (RootView) yêu cầu mở màn quét mới — thay cho nút "Quét không gian mới" cũ ở
-            // đáy Home. Máy quét (cover qua `ScanCoverPresenter` + các cờ pending) vẫn nằm
-            // nguyên trong HomeView.
+            // đáy Home. Máy quét (cover qua `ScanCover` + các cờ pending) vẫn nằm nguyên trong
+            // HomeView.
             .onChange(of: scanRequest) { _, _ in
                 beginNewScan()
             }
@@ -332,17 +332,14 @@ struct HomeView: View {
     }
 
     /// 🔴 MỌI việc hậu-quét (alert lỗi lưu, mở lại phiên quét, alert chạm trần, đẩy sang trang
-    /// đặt hàng) nằm Ở ĐÂY — chạy từ `completion` của `ScanCoverPresenter.dismiss`, tức SAU KHI
-    /// cover đã đóng HẲN. Đây chính là thân `onDismiss` cũ của `.fullScreenCover` (06/08), chuyển
-    /// nguyên vẹn sang khuôn 2.11; luật cũ giữ nguyên: chạy mấy việc này NGAY LÚC binding lật
-    /// false (giữa hoạt ảnh đóng) là văng app — chủ app đã trả giá 06/08.
+    /// đặt hàng) nằm Ở ĐÂY — chạy từ `completion` của `ScanCover.hide`, tức SAU KHI cover đã đóng
+    /// HẲN. Đây chính là thân `onDismiss` cũ của `.fullScreenCover` (06/08), chuyển nguyên vẹn qua
+    /// khuôn 2.11 rồi 2.13; luật cũ giữ nguyên: chạy mấy việc này NGAY LÚC binding lật false (giữa
+    /// hoạt ảnh đóng) là văng app — chủ app đã trả giá 06/08.
     /// Thứ tự ưu tiên GIỮ NGUYÊN: lỗi lưu > quét thêm > chạm trần > đặt hàng.
     /// Nhánh "quét thêm" set `isMeshScanning = true` từ đây là AN TOÀN với khuôn onChange mới —
     /// completion chạy ở nhịp runloop khác hẳn cú lật false, xem chú thích tại `.onChange`.
     private func afterScanCoverClosed() {
-        // Đặt lịch sửa lề (SafeAreaRepair — đường quét nay không tháo cây nên gần như thừa,
-        // giữ làm lưới; trình xem 3D vẫn là fullScreenCover và vẫn cần nó).
-        SafeAreaRepair.nudge()
         if let message = pendingSaveError {
             pendingSaveError = nil
             meshCapFollowUp = false

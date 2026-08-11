@@ -8,6 +8,17 @@ struct CedarScanApp: App {
     var body: some Scene {
         WindowGroup {
             RootView()
+                // 🔴🔴 LỚP PHỦ COVER QUÉT (bản 2.13) — ✗ DỜI XUỐNG THẤP HƠN, ✗ GẮN THÊM CHỖ NÀO
+                // NỮA. Đây là bản vá của lỗi "lề SwiftUI đông cứng sau khi mở màn quét": màn quét
+                // KHÔNG còn được trình bày (không cover, không view controller, không cửa sổ
+                // riêng — cả ba đã thử và đều lỗi) mà được vẽ như một nhánh ZStack ngay trên
+                // `RootView`. Lý do đầy đủ + số đo + danh sách 7 hướng đã chết: `ScanCover.swift`.
+                //
+                // ⚠ Phải nằm TRƯỚC `.environmentObject(...)`: cover là view SwiftUI bình thường
+                // trong cây này nên nó thừa hưởng environment như mọi màn khác (đây chính là thứ
+                // khuôn present-bằng-UIKit ở 2.11/2.12 phải bơm tay và quên là trap). Đảo thứ tự
+                // hai dòng đó là cover mất `store`/`account`.
+                .scanCoverLayer()
                 .environmentObject(store)
                 .environmentObject(account)
         }
