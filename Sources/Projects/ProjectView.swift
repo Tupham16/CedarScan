@@ -308,7 +308,25 @@ struct ProjectView: View {
         // vì nó là màn PUSH thứ hai và cũng tự chừa `CedarTabBar.reservedHeight` bên dưới: để
         // hai màn khai khác nhau là tự đẻ ra một cặp màn song sinh lệch nhau, thứ repo này đã
         // trả giá nhiều lần.
-        .toolbar(.hidden, for: .tabBar)
+        //
+        // 🔴🔴 **GỠ 11/08 (bản 2.7) — ỨNG VIÊN SỐ 1 CỦA LỖI ĐÈ CHỮ SAU KHI QUÉT.**
+        // ⚠ **VIỆC NÀY TRÁI MỘT CÂU DẶN CŨ TRONG HANDOFF** (*"Ai gỡ modifier đó ra 'cho gọn' là
+        // lỗi quay lại"*) — gỡ CÓ CHỦ ĐÍCH, ✗ phải dọn cho gọn. Lý do đảo chiều:
+        // · Đo bản 2.6 cho thấy lúc bị lỗi, `safeAreaInsets` CỬA SỔ vẫn ĐÚNG (t47 b34) nhưng MÀN
+        //   HÌNH thấy 0 ở cả trên lẫn dưới (số học nút đáy: 0+94=94, đĩa Scan choán 54…126 ⇒ đè
+        //   32pt cuối, khớp ảnh chủ app). Tức lề bị TRIỆT ở tầng màn, ✗ tầng cửa sổ.
+        // · Modifier này là thứ DUY NHẤT trong màn đụng vào bộ máy thanh/vùng-an-toàn, và lỗi nổ
+        //   đúng lúc `BarAppearanceBridge` chạy lại sau khi cover quét đóng (chính
+        //   `updateNavigationVisibilities` → `setNavigationBarHidden:` trong crash stack 11/08).
+        // · Câu dặn cũ dựa vào giả định "rẻ, KHÔNG THỂ HẠI" — mà §STATE cũng tự ghi là **cơ chế
+        //   CHƯA AI HIỂU** (*"TRIỆU CHỨNG HẾT, ✗ ĐÃ HIỂU"*). Giả định đó nay có bằng chứng phản.
+        // · Thanh tab GỐC đã bị ẩn ở TỪNG tab trong `RootView` rồi, nên khai lại ở đây đóng góp 0
+        //   trong đường lành — bỏ đi không mất gì đang chạy.
+        // 🔴 **NẾU BẢN 2.7 VẪN LỖI: KHAI LẠI DÒNG NÀY** (nó vô hại ở đường lành) rồi đọc nửa sau
+        // nhãn vàng (`geo`) để đi tiếp — ứng viên kế là `.safeAreaInset` LỒNG nhau (§OPEN).
+        // 🔴 **NẾU 2.7 HẾT LỖI mà thanh tab thật hiện lên ở màn push:** đó là cái giá đã lường,
+        // vá đúng = khai `.toolbar(.hidden, for: .tabBar)` ở NavigationStack của Home (một chỗ,
+        // ngoài đường bar-item host của màn push), ✗ khai lại ở đây.
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {

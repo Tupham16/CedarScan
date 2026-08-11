@@ -275,7 +275,12 @@ struct ScanDetailView: View {
         // đúng bằng ĐƯỜNG HỎNG, nên cộng thêm vùng an toàn đáy của CỬA SỔ vào `.padding(.bottom,)`
         // ở `.safeAreaInset` bên dưới CHỈ khi cờ đó bật là hết triệu chứng. ⚠ Đó là CHE chứ ✗
         // chữa: làm thì phải ghi vào handoff và ✗ đóng mục 3a.
-        .toolbar(.hidden, for: .tabBar)
+        // 🔴🔴 **GỠ 11/08 (bản 2.7) CÙNG LƯỢT VỚI `ProjectView` — lý do đầy đủ ghi ở đó, ĐỌC NÓ.**
+        // Hai màn PUSH phải khai GIỐNG NHAU: để lệch là tự đẻ một cặp màn song sinh trôi khỏi
+        // nhau, thứ repo này đã trả giá nhiều lần. Nên nếu khai lại thì khai lại CẢ HAI.
+        // ⚠ Khối chú thích mục 3a phía trên (số học 30pt/inset 0) VẪN ĐÚNG phần MÔ TẢ — nhưng câu
+        // "modifier này vá được mục 3a" thì nay đáng nghi: chính lỗi 11/08 là mục 3a quay lại ở
+        // đường KHÁC, tức nó chưa bao giờ chữa gốc.
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 // 🔴 CHỈ dữ liệu thường (ShareSnapshot) — đọc chú thích tại struct đó trước
