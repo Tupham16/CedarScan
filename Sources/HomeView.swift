@@ -118,6 +118,11 @@ struct HomeView: View {
                 placement: .navigationBarDrawer(displayMode: .always),
                 prompt: L.t("Search homes and scans", "Tìm dự án, bản quét")
             )
+            // 🔴 Phát `SafeAreaRepair` cho CHÍNH MÀN HOME (2.9): Home cũng dính lỗi lề (ô tìm
+            // kiếm đè danh sách — chủ app báo 11/08), và onAppear của nó bắn lại mỗi lần pop-back
+            // từ màn push — lưới an toàn cho ca chuỗi hẹn từng chết đói ở lượt trước (vd cover AR
+            // "Quét thêm" mở lâu hơn 5 lượt hẹn). `nudge()` chỉ đặt lịch + tự gộp — xem SafeAreaRepair.
+            .onAppear { SafeAreaRepair.nudge() }
             // TOOLBAR ĐÃ GỠ HẲN (2026-07-23, chủ app chốt):
             //  • nút **?** "Cách quét" → chuyển vào tab **Learn** ở thanh dưới.
             //  • nút **folder** "Dự án mới" → thừa: từ khi màn địa chỉ là bắt buộc, MỌI bản quét
@@ -176,9 +181,10 @@ struct HomeView: View {
                 // KHÔNG ĐỔI — cover không bao giờ được tháo và dựng lại.
                 // Thứ tự ưu tiên GIỮ NGUYÊN của bản cũ: lỗi lưu > quét thêm > chạm trần > đặt hàng.
                 onDismiss: {
-                    // 🔴 DÒNG ĐẦU TIÊN, TRƯỚC MỌI NHÁNH — kể cả trước `goToPendingOrder()` (nó
-                    // push màn mới ngay trong onDismiss, phải push vào cây đã sửa lề). Xem
-                    // `SafeAreaRepair` để biết vì sao cover tháo xong là lề của cả cây về 0.
+                    // 🔴 Đặt lịch sửa lề — cover tháo xong là lề cả cây có thể về 0, xem
+                    // `SafeAreaRepair`. Từ v2 `nudge()` CHỈ ĐẶT LỊCH (0,6s sau, lúc yên) nên vị
+                    // trí dòng này không còn ý nghĩa "sửa trước khi push" như v1 — giữ ở đầu cho
+                    // dễ thấy, và vì nhánh nào của onDismiss cũng cần nó.
                     SafeAreaRepair.nudge()
                     if let message = pendingSaveError {
                         pendingSaveError = nil

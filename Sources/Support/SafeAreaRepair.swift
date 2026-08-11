@@ -1,59 +1,152 @@
 import UIKit
 
-/// 🔴 VÁ LỖI "LỀ VỀ 0 SAU KHI ĐÓNG COVER QUÉT" (11/08, bản 2.8) — ép UIKit PHÁT LẠI vùng an toàn
-/// xuống cả cây view sau khi một `.fullScreenCover` tháo xong.
+/// 🔴 VÁ LỖI "LỀ VỀ 0 SAU KHI ĐÓNG COVER QUÉT" — ép UIKit + SwiftUI đọc lại vùng an toàn.
 ///
-/// **Lỗi (chủ app báo, 2.4→2.7 đều bị):** quét xong một dự án → mọi màn sau đó mất lề — header đè
-/// lên danh sách, nút đáy bị đĩa Scan đè. Thoát app vào lại là hết.
+/// **Lỗi (chủ app, 2.4→2.8 đều bị):** quét xong → mọi màn mất lề (header đè danh sách, nút đáy bị
+/// đĩa Scan đè). Thoát app vào lại là hết.
 ///
-/// **Số đo (bản 2.6/2.7, nhãn vàng `safeAreaProbe`) — nền tảng của cách vá này, ✗ đoán:**
-/// lúc đang lỗi, `safeAreaInsets` của CỬA SỔ vẫn ĐÚNG (`win t47 b34` trên iPhone 12 Pro) nhưng
-/// `GeometryProxy` của màn push đọc ra `geo t0 b0`. Tức tầng UIKit-cửa-sổ lành, tầng SwiftUI nhận
-/// 0 — chỗ đứt nằm ở khâu TRUYỀN lề từ cửa sổ vào hosting view, bị đóng băng khi hosting view bị
-/// THÁO RỒI GẮN LẠI vào window quanh vòng đời của fullScreenCover (kiểu present fullScreen gỡ hẳn
-/// view bên dưới khỏi hierarchy; đường `didMoveToWindow` này chính là đường trong crash stack vụ
-/// văng 11/08 — cùng cửa sổ thời gian, khác nạn nhân).
+/// **Số đo (nhãn vàng `safeAreaProbe`, iPhone 12 Pro):**
+///  · đang lỗi (2.7): `win t47 b34 · geo t0 b0` — cửa sổ UIKit ĐÚNG, cây SwiftUI nhận 0;
+///  · lành (2.8 sau khi thoát app): `win t47 b34 · geo t91 b34` (91 = 47 tai thỏ + 44 thanh
+///    điều hướng) — mốc chuẩn để đối chiếu.
 ///
-/// **Đã loại trừ bằng đo trước khi tới đây (✗ đào lại):** hỏng tầng cửa sổ (win vẫn đúng) ·
-/// `.toolbar(.hidden, for: .tabBar)` (bản 2.7 gỡ cả hai màn, vẫn lỗi y nguyên) · hồi quy 2.4 /
-/// đổi toolchain / `Group` đổi nhánh ở Home (chi tiết: SESSION-HANDOFF §LỖI ĐÈ CHỮ).
+/// **Lịch sử các phát đã bắn — ✗ bắn lại phát cũ:**
+///  · 2.7: gỡ `.toolbar(.hidden, for:.tabBar)` → vẫn lỗi → minh oan, đã khai lại.
+///  · 2.8 (v1): toggle `additionalSafeAreaInsets` root VC, ĐỒNG BỘ ngay trong onDismiss → **vẫn
+///    lỗi.** Kết luận: tín hiệu đổi-lề phát từ root nhưng cây dưới không nhận — chỗ đông cứng
+///    SÂU HƠN root / phía SwiftUI / hoặc tái nhiễm SAU onDismiss (crash 11/08 nổ trong bộ máy
+///    bar item GIỮA cú push — tái nhiễm lúc push là giả thuyết sống).
 ///
-/// **Cơ chế vá:** đổi `additionalSafeAreaInsets` của root view controller đi 0,5pt trong ĐÚNG MỘT
-/// nhịp runloop rồi trả về 0. Mỗi lần ĐỔI, UIKit bắt buộc chạy lại `safeAreaInsetsDidChange` +
-/// phát lề xuống toàn cây — kể cả những view đang giữ giá trị cũ đông cứng. 0,5pt trong một nhịp
-/// là dưới ngưỡng mắt thấy.
+/// **v2 (bản 2.9): một lượt sửa = BA phát, mỗi phát nhắm một giả thuyết còn sống:**
+///  1. co CỬA SỔ 0,5pt rồi trả lại trong CÙNG nhịp (đổi hình học gốc → UIKit tính lại lề từ cửa
+///     sổ xuống, phá cache MỌI tầng; không render giữa chừng nên mắt không thấy);
+///  2. toggle `additionalSafeAreaInsets` (giữ từ v1, rẻ);
+///  3. `poke` — gọi `safeAreaInsetsDidChange()` (method công khai của UIView, mặc định no-op)
+///     đệ quy TOÀN cây: điểm móc để hosting view của SwiftUI đọc lại lề — nhắm ca "UIKit đúng,
+///     SwiftUI ôm giá trị cũ". ⚠ Tiền đề "_UIHostingView nghe callback này" là giả thuyết chưa
+///     kiểm chứng — nếu sau này có crash log dừng ở khung `safeAreaInsetsDidChange` thì gỡ phát
+///     này TRƯỚC TIÊN.
 ///
-/// ⚠ ĐÂY LÀ SỬA-SAU-KHI-HỎNG, ✗ phải chữa gốc (gốc nằm trong UIKit/SwiftUI của iOS 26, ngoài tầm
-/// với của app). Vì thế nó phải được gọi ở `onDismiss` của MỌI `.fullScreenCover` trong app —
-/// hiện có ba: cover quét ở `HomeView` + `ProjectView`, trình xem 3D ở `ScanDetailView`. Thêm
-/// cover mới thì gọi thêm; quên là lỗi quay lại đúng ở đường mới đó.
+/// **🔴 LỊCH BẮN — ✗ BAO GIỜ chạy đồng bộ tại chỗ gọi. Review đối kháng 11/08 (vòng 2) bắt được
+/// bản nháp bắn thẳng trong `onAppear`, tức co cửa sổ + ép layout GIỮA hoạt ảnh push — đúng cửa
+/// sổ thời gian đã văng app hai lần (06/08, 11/08), lặp mỗi cú push. Thiết kế chốt:**
+///  · `nudge()` chỉ ĐẶT LỊCH: chạy sau **0,6s**; các cú dồn dập (onDismiss + onAppear + pop-back)
+///    được GỘP — một lịch chờ là đủ;
+///  · tới giờ, TỪNG scene phải qua HAI cổng, trượt cổng nào cũng **hẹn lại (≤5 lần × 0,6s)**:
+///    (a) **không transition nào đang chạy** — kiểm `transitionCoordinator` đệ quy toàn cây VC.
+///        ✗ bỏ cổng này với lý lẽ "0,6s là hoạt ảnh xong rồi": vuốt-back tương tác kéo dài theo
+///        NGÓN TAY, không theo đồng hồ — mà onAppear của màn được lộ ra bắn NGAY LÚC BẮT ĐẦU
+///        vuốt, nên "vuốt chậm >0,6s" là phát sửa rơi đúng giữa transition, có hệ thống chứ
+///        không phải trùng hợp (review vòng 3 bắt);
+///    (b) **không có presentation kiểu FULL-SCREEN** — cover đang mở nghĩa là cây cần sửa BỊ
+///        THÁO khỏi window: sửa vừa vô ích vừa chèn layout toàn cửa sổ vào giữa vòng render AR
+///        của một buổi quét thật. Cover đóng thì `onDismiss` của chính nó re-arm, nên chuỗi chết
+///        ở đây không sao.
+///        🔴 CHỈ chặn fullScreen/overFullScreen, ✗ chặn mọi `presentedViewController`: sheet đặt
+///        hàng và alert KHÔNG tháo cây bên dưới — sửa dưới chân chúng an toàn và BẮT BUỘC, vì
+///        đường "Đặt hàng ngay" tự mở form trước cả mốc 0,6s; chặn cả sheet là chuỗi hẹn chết
+///        đói và màn mục-3a không bao giờ được sửa (review vòng 3, cả hai reviewer cùng bắt).
+///  Giá chấp nhận: sau khi cover đóng, màn có thể lệch ~0,6s rồi mới được sửa — đổi lấy việc
+///  không bao giờ ép layout giữa transition.
+///
+/// ⚠ Đa phát = khi hết lỗi sẽ KHÔNG biết phát nào ăn — chấp nhận có chủ đích: mỗi vòng thử tốn
+/// của chủ app một buổi quét thật. Muốn truy sau thì tắt dần từng phát, có nhãn vàng đối chiếu.
+/// ⚠ SỬA-SAU-KHI-HỎNG, ✗ chữa gốc (gốc trong UIKit/SwiftUI iOS 26). Chỗ gọi hiện tại: `onDismiss`
+/// của CẢ BA fullScreenCover (cover quét HomeView + ProjectView, trình xem 3D ScanDetailView) +
+/// `onAppear` của Home và hai màn PUSH. Thêm cover mới thì gọi thêm, quên là lỗi quay lại.
 enum SafeAreaRepair {
-    /// Gọi từ `onDismiss` của một `.fullScreenCover`, TRƯỚC mọi việc hậu-đóng khác (đặc biệt là
-    /// trước `path.append` — đường "Đặt hàng ngay" push màn mới ngay trong `onDismiss`, mà lề
-    /// phải được sửa TRƯỚC khi màn mới chốt bố cục; mục 3a chính là hậu quả của việc push vào
-    /// một cây đang cầm lề 0).
+    /// Đang có một lịch sửa chờ chạy — cờ GỘP các cú nudge dồn dập. Chỉ đọc/ghi trên main queue
+    /// (nudge là @MainActor, mọi closure đều asyncAfter lên main) nên không cần khoá.
+    private static var pending = false
+
+    /// Gọi thoải mái từ `onDismiss`/`onAppear` — vô hình, idempotent, tự gộp, tự hoãn tới lúc yên.
     @MainActor
     static func nudge() {
-        // TỪNG scene một root, ✗ `windows.first` toàn app: app khai `TARGETED_DEVICE_FAMILY
-        // "1,2"`, mà trên iPad Split View mỗi UIWindowScene giữ key window RIÊNG — lấy "cái đầu
-        // tiên" là có thể sửa nhầm cửa sổ lành và bỏ sót đúng cửa sổ vừa đóng cover (review đối
-        // kháng 11/08 bắt được). Trên iPhone một cửa sổ, vòng lặp này = đúng một phần tử.
-        let roots = UIApplication.shared.connectedScenes
-            .compactMap { $0 as? UIWindowScene }
-            .compactMap { ($0.keyWindow ?? $0.windows.first)?.rootViewController }
-        guard !roots.isEmpty else { return }
-        // Đổi → ép phát lại NGAY trong nhịp này (layoutIfNeeded để cú push theo sau — nếu có —
-        // thấy lề đã sửa), rồi trả về 0 ở nhịp KẾ TIẾP (một cú đổi nữa, một lần phát lại nữa).
-        for root in roots {
-            root.additionalSafeAreaInsets = UIEdgeInsets(top: 0.5, left: 0, bottom: 0.5, right: 0)
+        schedule(retries: 5)
+    }
+
+    private static func schedule(retries: Int) {
+        guard !pending else { return }
+        pending = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+            pending = false
+            run(retries: retries)
+        }
+    }
+
+    /// ✗ khai `@MainActor` cho các hàm dưới: chúng bị gọi từ closure GCD (nonisolated). Khuôn
+    /// "closure GCD gọi thẳng UIKit" đã compile xanh ở bản 2.8 — khai isolation tường minh là tự
+    /// mời lỗi compile mà máy Windows này không tự kiểm được.
+    private static func run(retries: Int) {
+        var blocked = false
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        for scene in scenes {
+            guard let window = scene.keyWindow ?? scene.windows.first,
+                  let root = window.rootViewController else { continue }
+            // Cổng (a): transition đang chạy Ở BẤT KỲ TẦNG NÀO (push/pop kể cả vuốt-back tương
+            // tác, present/dismiss đang bay) → chưa phải lúc, hẹn lại.
+            guard !inTransition(root) else {
+                blocked = true
+                continue
+            }
+            // Cổng (b): cover FULL-SCREEN đang mở → cây cần sửa đang bị tháo khỏi window, sửa vô
+            // ích; onDismiss của chính cover sẽ re-arm. Sheet/alert thì KHÔNG chặn — xem đầu file.
+            if let presented = root.presentedViewController,
+               presented.modalPresentationStyle == .fullScreen
+                   || presented.modalPresentationStyle == .overFullScreen {
+                blocked = true
+                continue
+            }
+            repair(window: window, root: root)
+        }
+        if blocked && retries > 0 {
+            schedule(retries: retries - 1)
+        }
+    }
+
+    /// Có transition nào đang chạy trong cây VC không — đi qua `children` (chứa cả
+    /// UINavigationController mà NavigationStack dựng ngầm) lẫn chuỗi `presentedViewController`.
+    /// `transitionCoordinator` khác nil đúng bằng "hoạt ảnh chuyển màn đang bay", kể cả vuốt-back
+    /// đang giữ ngón tay.
+    private static func inTransition(_ vc: UIViewController) -> Bool {
+        if vc.transitionCoordinator != nil { return true }
+        if vc.children.contains(where: inTransition) { return true }
+        if let presented = vc.presentedViewController, inTransition(presented) { return true }
+        return false
+    }
+
+    /// Ba phát, chạy lúc scene YÊN (không present, không transition nào do mình biết).
+    private static func repair(window: UIWindow, root: UIViewController) {
+        // (1) Đổi hình học CỬA SỔ — nguồn gốc của mọi lề — rồi trả lại trong cùng nhịp.
+        // Hai lần layoutIfNeeded = hai lượt tính lề trọn vẹn từ gốc; không frame dở dang nào
+        // được render (render chỉ xảy ra lúc commit cuối nhịp). Cú co/trả đồng bộ trên main nên
+        // không gì chen được vào giữa để làm frame trả về bị cũ.
+        let frame = window.frame
+        window.frame = CGRect(
+            x: frame.origin.x, y: frame.origin.y,
+            width: frame.width, height: frame.height - 0.5
+        )
+        window.layoutIfNeeded()
+        window.frame = frame
+        window.layoutIfNeeded()
+        // (2) Toggle lề cộng thêm ở root VC (v1) — trả về 0 ở nhịp kế. Nhịp giữa có thể được
+        // render với lề +0,5pt đúng MỘT khung hình — v1 đã giao và chủ app không nhận ra.
+        root.additionalSafeAreaInsets = UIEdgeInsets(top: 0.5, left: 0, bottom: 0.5, right: 0)
+        root.view.setNeedsLayout()
+        root.view.layoutIfNeeded()
+        // (3) Bắt TỪNG view đọc lại lề.
+        poke(window)
+        DispatchQueue.main.async {
+            root.additionalSafeAreaInsets = .zero
             root.view.setNeedsLayout()
             root.view.layoutIfNeeded()
+            poke(window)
         }
-        DispatchQueue.main.async {
-            for root in roots {
-                root.additionalSafeAreaInsets = .zero
-                root.view.setNeedsLayout()
-            }
-        }
+    }
+
+    private static func poke(_ view: UIView) {
+        view.safeAreaInsetsDidChange()
+        // `subviews` trả về MẢNG CHỤP nên duyệt an toàn kể cả khi cây đổi trong lúc poke.
+        for sub in view.subviews { poke(sub) }
     }
 }

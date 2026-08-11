@@ -185,6 +185,14 @@ struct ProjectView: View {
             // `geo` = lề mà chính view này nhìn thấy (đã trừ `.safeAreaInset` của màn) — kèm theo
             // để biết chênh lệch nằm ở tầng cửa sổ hay tầng SwiftUI.
             .overlay(alignment: .topLeading) { safeAreaProbe }
+            // 🔴 Phát bổ sung của `SafeAreaRepair` (2.9): đặt lịch sửa lề sau khi màn này xuất
+            // hiện. Nhắm giả thuyết "lỗi tái nhiễm LÚC PUSH" — crash 11/08 nổ trong bộ máy bar
+            // item GIỮA cú push, nên riêng phát ở onDismiss của cover có thể luôn tới sớm quá.
+            // ⚠ `nudge()` CHỈ ĐẶT LỊCH (chạy sau 0,6s, lúc transition đã xong) — ✗ sửa thành gọi
+            // thẳng `pass/repair` tại đây "cho nhanh": bắn đồng bộ trong onAppear là ép layout
+            // toàn cửa sổ GIỮA hoạt ảnh push, đúng án review vòng 2 đã bắt (BLOCKER).
+            // Vô hình + idempotent + tự gộp; chạy cả ở lần push lành cũng không sao.
+            .onAppear { SafeAreaRepair.nudge() }
             // Dự án biến mất trong lúc màn này đang mở → thoát ra.
             // ⚠ NGUỒN GÂY RA ĐÃ ĐỔI Ở BẢN 1.8, GUARD THÌ KHÔNG. Trước đây thủ phạm DUY NHẤT là
             // việc dọn-sau-khi-giao chạy ngầm (nay đã tắt — `RootView.autoPurgeAfterDelivery`).
@@ -216,21 +224,33 @@ struct ProjectView: View {
             }
     }
 
-    /// 🔴🔴 **BẢN ĐO TẠM CỦA 2.6 — GỠ CÙNG `.overlay` ở `body`. ✗ giữ lại "cho lần sau".**
-    /// Đọc HAI nguồn vì chúng có thể lệch nhau, và chính chỗ lệch mới là câu trả lời:
+    /// 🔴🔴 **BẢN ĐO TẠM CỦA 2.6 (nâng lên BA tầng ở 2.9) — GỠ CÙNG `.overlay` ở `body`.
+    /// ✗ giữ lại "cho lần sau".**
+    /// Đọc BA nguồn vì chúng có thể lệch nhau, và chính chỗ lệch mới là câu trả lời:
     ///  · `win` = `safeAreaInsets` của CỬA SỔ, hỏi thẳng UIKit ⇒ sự thật gốc, không qua SwiftUI.
-    ///  · `geo` = lề mà view này nhìn thấy qua `GeometryProxy`.
+    ///  · `root` = `safeAreaInsets` UIKit của view root VC ⇒ tầng GIỮA (bảng phân xử ở thân hàm).
+    ///  · `geo` = lề mà view này nhìn thấy qua `GeometryProxy` ⇒ tầng SwiftUI.
     /// `GeometryReader` đặt trong `.overlay` nên KHÔNG đụng vào bố cục đang đo (overlay không
     /// tham gia định cỡ view cha) — nếu đặt thẳng trong `body` là tự làm sai phép đo.
     /// `allowsHitTesting(false)` để nhãn không nuốt cú chạm của dòng bản quét bên dưới.
     @ViewBuilder
     private var safeAreaProbe: some View {
         GeometryReader { geo in
-            let win = (UIApplication.shared.connectedScenes
-                .compactMap { $0 as? UIWindowScene }
-                .first?.keyWindow?.safeAreaInsets) ?? .zero
+            // 2.9: thêm tầng `root` (safeAreaInsets UIKit của view root VC). Ba tầng phân xử
+            // được chỗ đông cứng nếu 2.9 vẫn lỗi:
+            //  · `root` = 0  ⇒ UIKit đông cứng NGAY DƯỚI cửa sổ (cả ba phát v2 đều trượt —
+            //    chuyện khác hẳn, phải nghĩ lại);
+            //  · `root` đúng (≈47/34) mà `geo` = 0 ⇒ UIKit LÀNH, SwiftUI ôm giá trị cũ bất chấp
+            //    cả `poke` ⇒ hết đường sửa-từ-ngoài, bước kế là ĐỔI CÁCH TRÌNH BÀY cover
+            //    (thay fullScreenCover để view bên dưới không bị tháo-gắn-lại).
+            // Mốc lành đã ghi nhận (chủ app, 2.8): `win t47 b34 · geo t91 b34` (91 = 47 + 44 bar).
+            let scene = UIApplication.shared.connectedScenes
+                .compactMap { $0 as? UIWindowScene }.first
+            let win = scene?.keyWindow?.safeAreaInsets ?? .zero
+            let root = scene?.keyWindow?.rootViewController?.view.safeAreaInsets ?? .zero
             Text(
                 "win t\(Int(win.top)) b\(Int(win.bottom))"
+                + " · root t\(Int(root.top)) b\(Int(root.bottom))"
                 + " · geo t\(Int(geo.safeAreaInsets.top)) b\(Int(geo.safeAreaInsets.bottom))"
             )
             .font(.system(size: 11, weight: .bold, design: .monospaced))
@@ -409,7 +429,7 @@ struct ProjectView: View {
             // cùng chỗ trong HomeView. Thứ tự ưu tiên GIỮ NGUYÊN: lỗi lưu > quét thêm > chạm
             // trần > đặt hàng.
             onDismiss: {
-                // 🔴 DÒNG ĐẦU TIÊN, TRƯỚC MỌI NHÁNH — cùng lý do với HomeView, xem `SafeAreaRepair`.
+                // 🔴 Đặt lịch sửa lề — cùng lý do + cùng ghi chú v2 với HomeView, xem `SafeAreaRepair`.
                 SafeAreaRepair.nudge()
                 if let message = pendingSaveError {
                     pendingSaveError = nil

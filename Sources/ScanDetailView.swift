@@ -298,6 +298,10 @@ struct ScanDetailView: View {
             serviceCard
                 .padding(.bottom, CedarTabBar.reservedHeight)
         }
+        // 🔴 Phát bổ sung của `SafeAreaRepair` (2.9) — cùng lý do + cùng cảnh báo "chỉ đặt lịch,
+        // ✗ bắn đồng bộ" với `ProjectView.onAppear` (đọc chú thích ở đó); hai màn PUSH phải khai
+        // GIỐNG NHAU.
+        .onAppear { SafeAreaRepair.nudge() }
         // Bản quét biến mất trong lúc màn này đang mở → thoát ra, đừng để khách ngồi trước một
         // bản quét mà mọi file đã biến mất. (Nguồn gây ra đã đổi ở 1.8 — xem `stillExists`.)
         //
