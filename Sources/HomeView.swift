@@ -176,6 +176,10 @@ struct HomeView: View {
                 // KHÔNG ĐỔI — cover không bao giờ được tháo và dựng lại.
                 // Thứ tự ưu tiên GIỮ NGUYÊN của bản cũ: lỗi lưu > quét thêm > chạm trần > đặt hàng.
                 onDismiss: {
+                    // 🔴 DÒNG ĐẦU TIÊN, TRƯỚC MỌI NHÁNH — kể cả trước `goToPendingOrder()` (nó
+                    // push màn mới ngay trong onDismiss, phải push vào cây đã sửa lề). Xem
+                    // `SafeAreaRepair` để biết vì sao cover tháo xong là lề của cả cây về 0.
+                    SafeAreaRepair.nudge()
                     if let message = pendingSaveError {
                         pendingSaveError = nil
                         meshCapFollowUp = false

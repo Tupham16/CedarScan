@@ -275,12 +275,13 @@ struct ScanDetailView: View {
         // đúng bằng ĐƯỜNG HỎNG, nên cộng thêm vùng an toàn đáy của CỬA SỔ vào `.padding(.bottom,)`
         // ở `.safeAreaInset` bên dưới CHỈ khi cờ đó bật là hết triệu chứng. ⚠ Đó là CHE chứ ✗
         // chữa: làm thì phải ghi vào handoff và ✗ đóng mục 3a.
-        // 🔴🔴 **GỠ 11/08 (bản 2.7) CÙNG LƯỢT VỚI `ProjectView` — lý do đầy đủ ghi ở đó, ĐỌC NÓ.**
-        // Hai màn PUSH phải khai GIỐNG NHAU: để lệch là tự đẻ một cặp màn song sinh trôi khỏi
-        // nhau, thứ repo này đã trả giá nhiều lần. Nên nếu khai lại thì khai lại CẢ HAI.
-        // ⚠ Khối chú thích mục 3a phía trên (số học 30pt/inset 0) VẪN ĐÚNG phần MÔ TẢ — nhưng câu
-        // "modifier này vá được mục 3a" thì nay đáng nghi: chính lỗi 11/08 là mục 3a quay lại ở
-        // đường KHÁC, tức nó chưa bao giờ chữa gốc.
+        // 🔴 **LỊCH SỬ 11/08:** dòng dưới bị GỠ ở 2.7 làm nghi can lỗi đè chữ → MINH OAN BẰNG ĐO
+        // (2.7 không có nó vẫn lỗi) → KHAI LẠI từ 2.8, cùng lượt với `ProjectView` (hai màn PUSH
+        // phải khai GIỐNG NHAU — lệch là đẻ cặp màn song sinh trôi khỏi nhau). Vá thật của lỗi đè
+        // chữ ở `SafeAreaRepair.nudge()`. Và nay đã HIỂU vì sao mục 3a từng "vá được" bằng dòng
+        // này mà 11/08 vẫn tái phát ở đường khác: gốc là lề cả cây về 0 sau khi cover tháo —
+        // dòng này chưa bao giờ là thuốc, chỉ trùng lịch trình lành bệnh.
+        .toolbar(.hidden, for: .tabBar)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 // 🔴 CHỈ dữ liệu thường (ShareSnapshot) — đọc chú thích tại struct đó trước
@@ -376,7 +377,9 @@ struct ScanDetailView: View {
         //     ⚠ ✗ ghi vào đây rằng "đơn đã giao thì listOrders thôi liệt kê texture" — SAI:
         //     route `/api/app/v1/orders` dựng `texturedScans` từ `orderScans.filter(texturedUrl)`
         //     KHÔNG gác theo `delivered`, và chính nó có chú thích cấm thêm cổng đó.
-        .fullScreenCover(item: $viewerTarget) { target in
+        // `onDismiss: SafeAreaRepair.nudge` — trình xem 3D cũng là fullScreenCover (ruột nó cũng
+        // `.ignoresSafeArea()`), tức cùng cơ chế làm lề cả cây về 0 khi tháo. Xem `SafeAreaRepair`.
+        .fullScreenCover(item: $viewerTarget, onDismiss: { SafeAreaRepair.nudge() }) { target in
             ModelViewerScreen(
                 greyURL: target.greyURL,
                 texturedRemote: target.texturedRemote,
