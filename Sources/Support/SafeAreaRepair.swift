@@ -52,11 +52,16 @@ import Combine
 ///  Giá chấp nhận: sau khi cover đóng, màn có thể lệch ~0,6s rồi mới được sửa — đổi lấy việc
 ///  không bao giờ ép layout giữa transition.
 ///
-/// ⚠ Đa phát = khi hết lỗi sẽ KHÔNG biết phát nào ăn — chấp nhận có chủ đích: mỗi vòng thử tốn
-/// của chủ app một buổi quét thật. Muốn truy sau thì tắt dần từng phát, có nhãn vàng đối chiếu.
-/// ⚠ SỬA-SAU-KHI-HỎNG, ✗ chữa gốc (gốc trong UIKit/SwiftUI iOS 26). Chỗ gọi hiện tại: `onDismiss`
-/// của CẢ BA fullScreenCover (cover quét HomeView + ProjectView, trình xem 3D ScanDetailView) +
-/// `onAppear` của Home và hai màn PUSH. Thêm cover mới thì gọi thêm, quên là lỗi quay lại.
+/// 💀 **KẾT CỤC (2.10): SỬA-TỪ-NGOÀI THẤT BẠI TOÀN TẬP — đo được, ✗ thử thêm biến thể nào nữa.**
+/// Lúc đang lỗi: `fix 9` (repair đã chạy 9 lần, cổng không kẹt) · `root t47 b34` (UIKit lành tới
+/// view gốc) · `geo t0 b0` · chạm nút bắn tay (`forceRepairNow`, bỏ mọi cổng) cũng TRƠ. Chỗ đông
+/// cứng nằm BÊN TRONG SwiftUI. **Vá gốc là `ScanCoverPresenter` (2.11)**: cover quét bỏ
+/// `.fullScreenCover`, present `.overFullScreen` để cây bên dưới không bao giờ bị tháo.
+/// File này GIỮ LẠI làm lưới cho `.fullScreenCover` CÒN SÓT: trình xem 3D ở `ScanDetailView`
+/// (chưa đổi khuôn — đổi xong thì cân nhắc gỡ cả file). Biết trước: với chỗ đã đông cứng thì nó
+/// KHÔNG cứu được (bằng chứng trên) — nó chỉ còn giá trị "nếu may thì đỡ", không phải thuốc.
+/// Chỗ gọi hiện tại: `afterScanCoverClosed()` của HomeView + ProjectView (completion đóng cover
+/// quét), `onDismiss` của viewer 3D, `onAppear` của Home và hai màn PUSH.
 /// 🔴 BẢN ĐO TẠM (2.10) — đếm số lượt `repair()` ĐÃ THẬT SỰ chạy, cho nhãn vàng hiện.
 /// Sinh ra vì một lỗ trong phép thử 2.9: không có bằng chứng nào cho thấy repair CÓ chạy trong ca
 /// lỗi — nếu cổng `inTransition` kẹt luôn-true thì cả 3 phát chưa từng nổ, và "v2 thất bại" là

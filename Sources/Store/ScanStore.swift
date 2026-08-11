@@ -12,11 +12,13 @@ final class ScanStore: ObservableObject {
     /// ĐẾM chứ không dùng Bool: hai việc chồng nhau (đang lưu bản này thì mở phiên quét bản
     /// khác) thì lần kết thúc trước sẽ tắt khoá của lần sau.
     ///
-    /// Vì sao phải bao CẢ PHIÊN QUÉT chứ không chỉ lúc lưu: `ProjectView` là view SỞ HỮU
-    /// `fullScreenCover` quét. Nếu dọn xoá hết bản quét của dự án trong lúc khách đang đi bộ
-    /// quét, `ProjectView` bị dismiss → cover bị tháo theo → phiên quét chết giữa chừng,
-    /// closure lưu KHÔNG BAO GIỜ chạy, mất trắng 10–30 phút đi bộ. Cờ chỉ-khi-lưu không cứu
-    /// được vì suốt lúc đi bộ thì chưa lưu gì cả.
+    /// Vì sao phải bao CẢ PHIÊN QUÉT chứ không chỉ lúc lưu — lý lẽ ĐỔI ở 2.11, phạm vi GIỮ:
+    /// đời `.fullScreenCover` (trước 2.11) thì ProjectView sở hữu cover, dọn xoá dự án → nó
+    /// dismiss → cover bị tháo theo → mất trắng 10–30 phút. Nay cover present bằng UIKit
+    /// (`ScanCoverPresenter`) từ VC trên cùng nên pop ProjectView KHÔNG tháo cover nữa — nhưng
+    /// khoá vẫn phải bao cả phiên: dọn giữa buổi là `saveMeshScan` ghi vào dự án đã xoá, và pop
+    /// ProjectView là gỡ mất `.onChange` đang cầm đường ĐÓNG cover của phiên đó (cover kẹt).
+    /// Cờ chỉ-khi-lưu không cứu được vì suốt lúc đi bộ thì chưa lưu gì cả.
     private var busyCount = 0
     private var busySince: Date?
 
@@ -118,7 +120,8 @@ final class ScanStore: ObservableObject {
     /// một cú xoá dữ liệu im lặng.
     ///
     /// 🔴 KHÔNG gác `isBusy` — đây là chỗ dễ "thêm cho chắc" nhất và nó SAI. `isBusy` bật khi
-    /// phiên quét đang mở hoặc đang lưu, mà cả hai lúc đó `fullScreenCover` đang che kín màn hình
+    /// phiên quét đang mở hoặc đang lưu, mà cả hai lúc đó cover quét (`ScanCoverPresenter`,
+    /// từ 2.11; đời trước là fullScreenCover) đang che kín màn hình
     /// nên không ngón tay nào chạm được nút xoá. Gác vào chỉ được một thứ: một cái nút thỉnh
     /// thoảng không làm gì mà không báo gì. (`purgeDelivered` thì PHẢI gác — nó chạy TỰ ĐỘNG,
     /// không có ngón tay nào.)

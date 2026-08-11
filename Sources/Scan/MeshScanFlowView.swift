@@ -34,7 +34,13 @@ struct MeshScanResult {
 /// tầng — đi cầu thang thoải mái — và "Dừng & Lưu" BẤT KỲ lúc nào (không cần RoomPlan
 /// "present" phòng như luồng cũ). Sản phẩm: mesh màu + video, KHÔNG có floorplan.
 struct MeshScanFlowView: View {
-    @Environment(\.dismiss) private var dismiss
+    /// 🔴 Closure ĐÓNG COVER, bơm vào từ call site — thay cho `@Environment(\.dismiss)` từ bản
+    /// 2.11: cover nay được present bằng UIKit (`ScanCoverPresenter`, `.overFullScreen` — vá lỗi
+    /// "lề về 0 sau khi quét") nên dismiss action của SwiftUI không còn nối với presentation.
+    /// Call site truyền `{ isMeshScanning = false }`; binding lật là `onChange` bên đó tự gọi
+    /// `ScanCoverPresenter.dismiss`. Tên giữ nguyên `dismiss` để 8 chỗ gọi trong file không đổi.
+    /// CỐ Ý KHÔNG có giá trị mặc định (bẫy #13): quên truyền là cover KHÔNG BAO GIỜ ĐÓNG ĐƯỢC.
+    let dismiss: () -> Void
     @EnvironmentObject private var store: ScanStore
     @StateObject private var controller: MeshScanController
 
@@ -63,8 +69,11 @@ struct MeshScanFlowView: View {
     /// lặng lẽ đúng ở bước chốt đơn. Bắt buộc truyền thì lỗi nổ ngay lúc build.
     let onOrderNow: (ScanRecord) -> Void
     /// Khách bấm "Quét thêm khu vực còn thiếu" ở màn preview. Call-site ghi nhớ ý định rồi mở
-    /// lại phiên quét TỪ `onDismiss` của cover — xem giải thích ở đó, đặt cờ trong `onChange`
-    /// là cover không bao giờ được dựng lại.
+    /// lại phiên quét từ `afterScanCoverClosed()` — chạy trong completion của
+    /// `ScanCoverPresenter.dismiss`, tức SAU khi cover đã đóng hẳn (vai `onDismiss` cũ). Từ 2.11
+    /// cú set-true đó nằm ở một nhịp runloop khác hẳn cú lật false nên `onChange` ở call site bắn
+    /// lại bình thường — cái bẫy cũ "set true cùng nhịp lật false bị SwiftUI gộp thành KHÔNG ĐỔI"
+    /// chỉ áp cho đời `.fullScreenCover`, ✗ đem nó ra bác khuôn hiện tại.
     let onScanMore: () -> Void
 
     @State private var showNaming = false
@@ -93,6 +102,9 @@ struct MeshScanFlowView: View {
         quality: MeshQuality,
         onOrderNow: @escaping (ScanRecord) -> Void,
         onScanMore: @escaping () -> Void,
+        // `dismiss` từ 2.11 — xem chú thích ở thuộc tính. Đặt TRƯỚC `onFinish` để onFinish vẫn là
+        // trailing closure ở hai call site (đổi chỗ là dính đúng bẫy forward-scan SE-0286 ở trên).
+        dismiss: @escaping () -> Void,
         // Hai chữ `@escaping` ở đây khác vai: cái ĐẦU nói bản thân `onFinish` sống lâu hơn init;
         // cái trong ngoặc nói THAM SỐ THỨ HAI của nó cũng escaping — xem chú thích ở thuộc tính.
         onFinish: @escaping (MeshScanResult, @escaping SaveStageReport) async -> ScanRecord?
@@ -101,6 +113,7 @@ struct MeshScanFlowView: View {
         _saveProgress = StateObject(wrappedValue: ScanSaveProgress())
         self.onOrderNow = onOrderNow
         self.onScanMore = onScanMore
+        self.dismiss = dismiss
         self.onFinish = onFinish
     }
 
@@ -185,10 +198,12 @@ struct MeshScanFlowView: View {
             }
         }
         .onAppear {
-            // Khoá việc dọn-sau-khi-giao suốt phiên quét. Không khoá thì: dọn chạy lúc app quay
-            // lại foreground (cuộc gọi, kéo Notification Center) → xoá hết bản quét của dự án →
-            // dự án bị xoá → ProjectView (view SỞ HỮU cover này) tự dismiss → cover bị tháo theo
-            // → phiên quét chết giữa chừng, onFinish KHÔNG BAO GIỜ chạy, mất trắng 10–30 phút.
+            // Khoá việc dọn-sau-khi-giao suốt phiên quét. Chuỗi tai nạn nếu không khoá (đời
+            // `.fullScreenCover`, trước 2.11): dọn chạy lúc app quay lại foreground → xoá dự án
+            // → ProjectView tự dismiss → cover bị tháo theo → mất trắng 10–30 phút. Từ 2.11 cover
+            // present bằng UIKit từ VC trên cùng nên pop ProjectView KHÔNG tháo cover nữa — nhưng
+            // khoá VẪN BẮT BUỘC: dọn giữa buổi là `saveMeshScan` ghi vào dự án đã xoá, và pop
+            // ProjectView là gỡ mất cái `.onChange` đang cầm đường ĐÓNG cover của phiên này.
             store.beginBusy()
             guard controller.isSupported else {
                 showUnsupported = true

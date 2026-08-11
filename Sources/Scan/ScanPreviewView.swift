@@ -8,7 +8,8 @@ import AVKit
 /// khách còn đứng trong căn nhà vừa quét. Xem lại video ngay lúc này mà phát hiện thiếu phòng
 /// thì quét bù mất vài phút; phát hiện ở nhà thì phải quay lại một chuyến.
 ///
-/// KHÔNG có nút thoát nào khác ngoài ba nút này (fullScreenCover không vuốt đóng được) — cố ý:
+/// KHÔNG có nút thoát nào khác ngoài ba nút này (cover quét — `.overFullScreen` từ 2.11, đời
+/// trước là fullScreenCover — đều không vuốt đóng được) — cố ý:
 /// ba lối đi đã phủ hết mọi ý định, và cả ba đều an toàn vì BẢN QUÉT ĐÃ LƯU XONG trước khi màn
 /// này xuất hiện. Không đường nào ở đây làm mất dữ liệu.
 struct ScanPreviewView: View {
