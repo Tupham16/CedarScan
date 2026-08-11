@@ -127,6 +127,9 @@ struct ProjectView: View {
     /// `store.renameProject` chỉ có một call site, trong `.alert` bên dưới). nil = chưa đổi.
     /// 🔴 Phải là `@State`, ✗ đọc lại `store`: xem chú thích ở `projectName`.
     @State private var renamedTitle: String?
+    /// 🔴 BẢN ĐO TẠM 2.10 — quan sát số lượt `repair()` đã chạy để nhãn vàng tự vẽ lại.
+    /// GỠ CÙNG `safeAreaProbe`. Có giá trị mặc định nên KHÔNG đổi memberwise init.
+    @ObservedObject private var repairStats = SafeAreaRepairStats.shared
 
     /// Tiêu đề màn — CHỈ đọc `let` + `@State`, không chạm `store`. Xem `projectName`.
     private var displayTitle: String { renamedTitle ?? projectName }
@@ -224,42 +227,46 @@ struct ProjectView: View {
             }
     }
 
-    /// 🔴🔴 **BẢN ĐO TẠM CỦA 2.6 (nâng lên BA tầng ở 2.9) — GỠ CÙNG `.overlay` ở `body`.
-    /// ✗ giữ lại "cho lần sau".**
+    /// 🔴🔴 **BẢN ĐO TẠM CỦA 2.6 (ba tầng ở 2.9; 2.10 thành NÚT BẤM + đếm lượt sửa) — GỠ CÙNG
+    /// `.overlay` ở `body` VÀ `repairStats` VÀ `forceRepairNow`. ✗ giữ lại "cho lần sau".**
     /// Đọc BA nguồn vì chúng có thể lệch nhau, và chính chỗ lệch mới là câu trả lời:
     ///  · `win` = `safeAreaInsets` của CỬA SỔ, hỏi thẳng UIKit ⇒ sự thật gốc, không qua SwiftUI.
-    ///  · `root` = `safeAreaInsets` UIKit của view root VC ⇒ tầng GIỮA (bảng phân xử ở thân hàm).
+    ///  · `root` = `safeAreaInsets` UIKit của view root VC ⇒ tầng GIỮA.
     ///  · `geo` = lề mà view này nhìn thấy qua `GeometryProxy` ⇒ tầng SwiftUI.
-    /// `GeometryReader` đặt trong `.overlay` nên KHÔNG đụng vào bố cục đang đo (overlay không
-    /// tham gia định cỡ view cha) — nếu đặt thẳng trong `body` là tự làm sai phép đo.
-    /// `allowsHitTesting(false)` để nhãn không nuốt cú chạm của dòng bản quét bên dưới.
+    /// 2.10 đổi hai điều, cả hai vì vòng 2.9 để lộ lỗ đo:
+    ///  · nhãn tụt xuống 180pt — bản cũ nằm ở y=0, đúng chỗ header đè lên LÚC LỖI nên chủ app
+    ///    không đọc được số đúng lúc cần nhất;
+    ///  · nhãn là NÚT: chạm = `forceRepairNow()` (bỏ lịch + cổng) + hiện `fix n` = số lượt
+    ///    `repair()` đã THẬT SỰ chạy. Đang lỗi mà chạm nhãn → màn tự sửa ⇒ sửa-từ-ngoài SỐNG,
+    ///    lỗi ở lịch/cổng; chạm mà trơ ⇒ 3 phát trượt thật ⇒ mới đáng đổi cách trình bày cover.
+    /// `GeometryReader` đặt trong `.overlay` nên KHÔNG đụng vào bố cục đang đo; vùng GR ngoài
+    /// nhãn không có nội dung nên cú chạm xuyên qua bình thường — chỉ đúng miếng nhãn nuốt chạm.
     @ViewBuilder
     private var safeAreaProbe: some View {
         GeometryReader { geo in
-            // 2.9: thêm tầng `root` (safeAreaInsets UIKit của view root VC). Ba tầng phân xử
-            // được chỗ đông cứng nếu 2.9 vẫn lỗi:
-            //  · `root` = 0  ⇒ UIKit đông cứng NGAY DƯỚI cửa sổ (cả ba phát v2 đều trượt —
-            //    chuyện khác hẳn, phải nghĩ lại);
-            //  · `root` đúng (≈47/34) mà `geo` = 0 ⇒ UIKit LÀNH, SwiftUI ôm giá trị cũ bất chấp
-            //    cả `poke` ⇒ hết đường sửa-từ-ngoài, bước kế là ĐỔI CÁCH TRÌNH BÀY cover
-            //    (thay fullScreenCover để view bên dưới không bị tháo-gắn-lại).
-            // Mốc lành đã ghi nhận (chủ app, 2.8): `win t47 b34 · geo t91 b34` (91 = 47 + 44 bar).
+            // Mốc lành (chủ app, 2.9): `win t47 b34 · root t47 b34 · geo t91 b34` (91 = 47 + 44).
             let scene = UIApplication.shared.connectedScenes
                 .compactMap { $0 as? UIWindowScene }.first
             let win = scene?.keyWindow?.safeAreaInsets ?? .zero
             let root = scene?.keyWindow?.rootViewController?.view.safeAreaInsets ?? .zero
-            Text(
-                "win t\(Int(win.top)) b\(Int(win.bottom))"
-                + " · root t\(Int(root.top)) b\(Int(root.bottom))"
-                + " · geo t\(Int(geo.safeAreaInsets.top)) b\(Int(geo.safeAreaInsets.bottom))"
-            )
-            .font(.system(size: 11, weight: .bold, design: .monospaced))
-            .padding(.horizontal, 4)
-            .padding(.vertical, 2)
-            .background(.yellow)
-            .foregroundStyle(.black)
+            Button {
+                SafeAreaRepair.forceRepairNow()
+            } label: {
+                Text(
+                    "fix\(repairStats.repairCount)"
+                    + " · win t\(Int(win.top)) b\(Int(win.bottom))"
+                    + " · root t\(Int(root.top)) b\(Int(root.bottom))"
+                    + " · geo t\(Int(geo.safeAreaInsets.top)) b\(Int(geo.safeAreaInsets.bottom))"
+                )
+                .font(.system(size: 11, weight: .bold, design: .monospaced))
+                .padding(.horizontal, 4)
+                .padding(.vertical, 2)
+                .background(.yellow)
+                .foregroundStyle(.black)
+            }
+            .buttonStyle(.plain)
+            .padding(.top, 180)
         }
-        .allowsHitTesting(false)
     }
 
     /// Thoát khỏi một dự án đã bị dọn mất — HOÃN MỘT NHỊP, không `dismiss()` ngay tại chỗ.

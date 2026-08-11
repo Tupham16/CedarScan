@@ -1,4 +1,7 @@
 import UIKit
+// Combine cho `ObservableObject`/`@Published` của `SafeAreaRepairStats` (bản đo 2.10) — UIKit
+// KHÔNG re-export Combine, thiếu dòng này là CI chết "cannot find type 'ObservableObject'".
+import Combine
 
 /// 🔴 VÁ LỖI "LỀ VỀ 0 SAU KHI ĐÓNG COVER QUÉT" — ép UIKit + SwiftUI đọc lại vùng an toàn.
 ///
@@ -54,10 +57,36 @@ import UIKit
 /// ⚠ SỬA-SAU-KHI-HỎNG, ✗ chữa gốc (gốc trong UIKit/SwiftUI iOS 26). Chỗ gọi hiện tại: `onDismiss`
 /// của CẢ BA fullScreenCover (cover quét HomeView + ProjectView, trình xem 3D ScanDetailView) +
 /// `onAppear` của Home và hai màn PUSH. Thêm cover mới thì gọi thêm, quên là lỗi quay lại.
+/// 🔴 BẢN ĐO TẠM (2.10) — đếm số lượt `repair()` ĐÃ THẬT SỰ chạy, cho nhãn vàng hiện.
+/// Sinh ra vì một lỗ trong phép thử 2.9: không có bằng chứng nào cho thấy repair CÓ chạy trong ca
+/// lỗi — nếu cổng `inTransition` kẹt luôn-true thì cả 3 phát chưa từng nổ, và "v2 thất bại" là
+/// kết luận rút từ thí nghiệm chưa chạy. GỠ CÙNG nhãn vàng khi đóng vụ.
+final class SafeAreaRepairStats: ObservableObject {
+    static let shared = SafeAreaRepairStats()
+    /// Tăng ở cuối mỗi `repair()` (luôn trên main). Nhãn vàng quan sát để tự vẽ lại.
+    @Published var repairCount = 0
+}
+
 enum SafeAreaRepair {
     /// Đang có một lịch sửa chờ chạy — cờ GỘP các cú nudge dồn dập. Chỉ đọc/ghi trên main queue
     /// (nudge là @MainActor, mọi closure đều asyncAfter lên main) nên không cần khoá.
     private static var pending = false
+
+    /// 🔴 BẢN ĐO TẠM (2.10): chạy repair NGAY LẬP TỨC, BỎ QUA lịch 0,6s + CẢ HAI cổng. CHỈ được
+    /// gọi từ cú CHẠM của chủ app lên nhãn vàng — lúc đó chắc chắn không có transition nào đang
+    /// bay (ngón tay đang bận chạm nhãn) nên bỏ cổng là an toàn. Đây là thí nghiệm quyết định:
+    /// đang lỗi mà chạm nhãn → màn tự sửa = sửa-từ-ngoài SỐNG (lỗi nằm ở lịch/cổng, vá rẻ);
+    /// chạm mà vẫn lỗi = 3 phát đều trượt THẬT → mới đáng đi nước đổi cách trình bày cover.
+    /// GỠ cùng nhãn vàng khi đóng vụ.
+    @MainActor
+    static func forceRepairNow() {
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        for scene in scenes {
+            guard let window = scene.keyWindow ?? scene.windows.first,
+                  let root = window.rootViewController else { continue }
+            repair(window: window, root: root)
+        }
+    }
 
     /// Gọi thoải mái từ `onDismiss`/`onAppear` — vô hình, idempotent, tự gộp, tự hoãn tới lúc yên.
     @MainActor
@@ -142,6 +171,9 @@ enum SafeAreaRepair {
             root.view.layoutIfNeeded()
             poke(window)
         }
+        // Bản đo 2.10: ghi nhận lượt chạy — luôn trên main (lịch asyncAfter main / forceRepairNow
+        // @MainActor) nên gán thẳng.
+        SafeAreaRepairStats.shared.repairCount += 1
     }
 
     private static func poke(_ view: UIView) {
