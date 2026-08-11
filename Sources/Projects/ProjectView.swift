@@ -1,5 +1,9 @@
 import ARKit
 import SwiftUI
+// 🔴 TẠM, GỠ CÙNG `safeAreaProbe` của bản 2.6: `UIApplication`/`UIWindowScene` để đọc
+// `safeAreaInsets` của CỬA SỔ. Khai tường minh chứ ✗ trông chờ ARKit kéo UIKit vào hộ — lỗi kiểu
+// đó chỉ lộ sau 10 phút CI (tiền lệ ghi ở `ScanDetailView`).
+import UIKit
 
 /// Trang một dự án (căn nhà): danh sách bản quét các tầng, quét thêm, đặt hàng cả căn.
 struct ProjectView: View {
@@ -166,6 +170,21 @@ struct ProjectView: View {
 
     var body: some View {
         content
+            // 🔴🔴 **BẢN ĐO TẠM — GỠ NGAY SAU KHI ĐỌC ĐƯỢC SỐ. ✗ ĐỂ LẪN VÀO BẢN GIAO KHÁCH.**
+            // Cùng luật với `ScanPerfProfiler`/hai khoá Files app: mọi thứ CHỈ-ĐỂ-ĐO phải ra khỏi
+            // app ngay khi xong. Bản 2.6 sinh ra chỉ để đọc một con số.
+            //
+            // Việc nó đo: lỗi "header đè lên bản quét + nút Đặt làm mặt bằng bị đĩa Scan đè" chỉ
+            // xảy ra SAU KHI QUÉT, thoát app vào lại là hết. Hai cơ chế đều khớp triệu chứng và
+            // đòi hai cách vá NGƯỢC nhau, phân biệt được bằng đúng con số này:
+            //  · `win` = 0 ⇒ vùng an toàn của CỬA SỔ bị bỏ về 0 thật ⇒ rò từ `.ignoresSafeArea()`
+            //    của cover quét ⇒ vá = đưa việc present cover ra ngoài `.safeAreaInset`.
+            //  · `win` VẪN ĐÚNG (t≈47–59, b≈34) mà chữ vẫn đè ⇒ lề không hỏng, chỉ là `List`
+            //    không được GẮN với thanh điều hướng ⇒ thủ phạm là `.toolbar(.hidden, for:.tabBar)`
+            //    / `BarAppearanceBridge`, và hoisting cover là công cốc.
+            // `geo` = lề mà chính view này nhìn thấy (đã trừ `.safeAreaInset` của màn) — kèm theo
+            // để biết chênh lệch nằm ở tầng cửa sổ hay tầng SwiftUI.
+            .overlay(alignment: .topLeading) { safeAreaProbe }
             // Dự án biến mất trong lúc màn này đang mở → thoát ra.
             // ⚠ NGUỒN GÂY RA ĐÃ ĐỔI Ở BẢN 1.8, GUARD THÌ KHÔNG. Trước đây thủ phạm DUY NHẤT là
             // việc dọn-sau-khi-giao chạy ngầm (nay đã tắt — `RootView.autoPurgeAfterDelivery`).
@@ -195,6 +214,32 @@ struct ProjectView: View {
             .onChange(of: isMeshScanning) { _, presented in
                 if !presented && project == nil { leaveDeadProject() }
             }
+    }
+
+    /// 🔴🔴 **BẢN ĐO TẠM CỦA 2.6 — GỠ CÙNG `.overlay` ở `body`. ✗ giữ lại "cho lần sau".**
+    /// Đọc HAI nguồn vì chúng có thể lệch nhau, và chính chỗ lệch mới là câu trả lời:
+    ///  · `win` = `safeAreaInsets` của CỬA SỔ, hỏi thẳng UIKit ⇒ sự thật gốc, không qua SwiftUI.
+    ///  · `geo` = lề mà view này nhìn thấy qua `GeometryProxy`.
+    /// `GeometryReader` đặt trong `.overlay` nên KHÔNG đụng vào bố cục đang đo (overlay không
+    /// tham gia định cỡ view cha) — nếu đặt thẳng trong `body` là tự làm sai phép đo.
+    /// `allowsHitTesting(false)` để nhãn không nuốt cú chạm của dòng bản quét bên dưới.
+    @ViewBuilder
+    private var safeAreaProbe: some View {
+        GeometryReader { geo in
+            let win = (UIApplication.shared.connectedScenes
+                .compactMap { $0 as? UIWindowScene }
+                .first?.keyWindow?.safeAreaInsets) ?? .zero
+            Text(
+                "win t\(Int(win.top)) b\(Int(win.bottom))"
+                + " · geo t\(Int(geo.safeAreaInsets.top)) b\(Int(geo.safeAreaInsets.bottom))"
+            )
+            .font(.system(size: 11, weight: .bold, design: .monospaced))
+            .padding(.horizontal, 4)
+            .padding(.vertical, 2)
+            .background(.yellow)
+            .foregroundStyle(.black)
+        }
+        .allowsHitTesting(false)
     }
 
     /// Thoát khỏi một dự án đã bị dọn mất — HOÃN MỘT NHỊP, không `dismiss()` ngay tại chỗ.
