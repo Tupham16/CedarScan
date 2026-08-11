@@ -15,15 +15,19 @@ final class ScanUploader: ObservableObject {
 
     @Published var phase: Phase = .idle
 
+    /// 🔴 Ba loại của RoomPlan/video đã BỎ 11/08 (bản 2.5): `usdz`/`model.usdz`,
+    /// `plan`/`floorplan.png`, `rooms`/`rooms.json`. Luồng mesh KHÔNG BAO GIỜ sinh ba file đó, mà
+    /// `present` bên dưới đã lọc theo `fileExists` — nên bỏ chúng khỏi danh sách là **no-op với
+    /// mọi bản quét đang tạo được**, ✗ đổi hợp đồng app↔server (server vẫn nhận `kinds` bất kỳ).
+    /// ⚠ Bản quét CŨ trên máy có `model.usdz`/`floorplan.png` thì nay ba file đó KHÔNG được gửi
+    /// lên nữa. Chấp nhận có chủ đích: đội vẽ đọc mesh trong `objzip`, và chủ app là người duy
+    /// nhất còn giữ bản quét đời RoomPlan.
     static let fileKinds: [(kind: String, fileName: String)] = [
-        ("usdz", "model.usdz"),
         ("obj", "model.obj"),
         ("mtl", "model.mtl"),
         ("mesh", "colored-mesh.ply"),
-        ("objzip", "model-colored.zip"),   // mô hình màu OBJ+MTL đã nén (chế độ Mesh + RoomPlan)
+        ("objzip", "model-colored.zip"),   // mô hình màu OBJ+MTL đã nén
         ("video", "scan-video.mp4"),
-        ("plan", "floorplan.png"),
-        ("rooms", "rooms.json"),
     ]
 
     /// Trả về cloudScanId khi thành công, nil khi thất bại (phase = .failed).
@@ -32,11 +36,11 @@ final class ScanUploader: ObservableObject {
         let fm = FileManager.default
 
         let present = Self.fileKinds.filter { fm.fileExists(atPath: folder.appendingPathComponent($0.fileName).path) }
-        // Quét RoomPlan cần mô hình 3D; quét VIDEO chỉ cần video; quét MESH có thể chỉ có
-        // model-colored.zip (objzip) hoặc PLY phao (video recorder fail lặng lẽ vẫn upload được).
+        // Bản quét mesh có thể chỉ có model-colored.zip (objzip) hoặc PLY phao (video recorder
+        // fail lặng lẽ vẫn upload được) — nên chấp nhận bất kỳ cái nào trong bốn.
+        // (Vế `$0.kind == "usdz"` bỏ cùng RoomPlan 11/08.)
         guard present.contains(where: {
-            $0.kind == "usdz" || $0.kind == "obj" || $0.kind == "video"
-                || $0.kind == "mesh" || $0.kind == "objzip"
+            $0.kind == "obj" || $0.kind == "video" || $0.kind == "mesh" || $0.kind == "objzip"
         }) else {
             phase = .failed(L.t("No scan files found for this scan.", "Không tìm thấy file của bản quét này."))
             return nil
@@ -55,7 +59,11 @@ final class ScanUploader: ObservableObject {
                 roomCount: record.roomCount,
                 areaSqm: record.areaSqm ?? 0,
                 kinds: present.map(\.kind),
-                captureType: record.captureType ?? "lidar",
+                // 🔴 CẮM CỨNG "mesh", ✗ đọc `ScanRecord` nữa: trường `captureType` đã xoá khỏi
+                // model 11/08 cùng RoomPlan (lý do đầy đủ ở cuối `ScanRecord.swift`). Đây là
+                // trường của HỢP ĐỒNG app↔server nên VẪN PHẢI GỬI — bỏ nó là đổi hợp đồng, phải
+                // đi đường "SERVER TRƯỚC". Mọi bản quét app tạo ra từ 2026-07-20 đều là "mesh".
+                captureType: "mesh",
                 quality: quality
             )
             let slotByKind = Dictionary(uniqueKeysWithValues: created.uploads.map { ($0.kind, $0) })

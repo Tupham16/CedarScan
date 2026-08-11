@@ -665,15 +665,14 @@ struct ScanRow: View {
         return parts.joined(separator: " · ")
     }
 
-    /// Bản mesh/video không có roomCount ý nghĩa — hiện loại thay vì "0 phòng".
+    /// Bản quét mesh không có `roomCount` ý nghĩa (luôn 0) — hiện LOẠI thay vì "0 phòng".
     /// (Nhãn mức nét đã bỏ 2026-07-31 cùng picker: chỉ còn MỘT mức nên nó chỉ là chữ thừa.)
+    ///
+    /// 🔴 Hằng số, ✗ còn rẽ nhánh theo `captureType` — trường đó xoá 11/08 cùng RoomPlan. Hai
+    /// nhánh cũ ("Video khảo sát" và "N phòng" của RoomPlan) không còn bản quét nào rơi vào:
+    /// đường TẠO của chúng chết từ 2026-07-19/20. Bản quét CŨ trên máy nay cũng hiện "Mesh 3D" —
+    /// hơi sai với chúng, nhưng chủ app là người duy nhất còn giữ và đã chốt bóc sạch RoomPlan.
     private var typePart: String {
-        if record.isMeshOnly {
-            return L.t("3D mesh", "Mesh 3D")
-        }
-        if record.isVideoOnly {
-            return L.t("Video walkthrough", "Video khảo sát")
-        }
-        return L.t("\(record.roomCount) room(s)", "\(record.roomCount) phòng")
+        L.t("3D mesh", "Mesh 3D")
     }
 }

@@ -1,11 +1,9 @@
 import SwiftUI
 import AVKit
 import UniformTypeIdentifiers // UTType — suy ra MIME + giới hạn loại file cho .fileImporter
-// UIKit tường minh cho `UIImage`. SwiftUI/AVKit vẫn kéo UIKit vào (`UIApplication` ở
-// MeshScanFlowView chỉ với SwiftUI+ARKit là tiền lệ đang build xanh), nhưng file này vừa mất
-// `import RoomPlan` — dựa vào một import gián tiếp mà mình không kiểm soát là thứ chỉ phát hiện
-// được sau 10 phút CI.
-import UIKit
+// (`import UIKit` GỠ 11/08 cùng RoomPlan: lý do duy nhất của nó là `UIImage` cho ảnh mặt bằng
+// `floorplan.png`, và grep toàn file nay ra 0 ký hiệu UIKit. Cần lại thì khai lại TƯỜNG MINH,
+// ✗ trông chờ SwiftUI/AVKit kéo hộ — đó là thứ chỉ lộ sau 10 phút CI.)
 
 /// Ý ĐỊNH "Đặt hàng ngay" — một giá trị điều hướng RIÊNG, cố ý KHÔNG dùng lại `ScanRecord`.
 ///
@@ -80,7 +78,8 @@ struct ScanDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var uploader = ScanUploader()
 
-    @State private var mode = 0
+    // (`@State private var mode` GỠ 11/08 — nó là lựa chọn của `Picker` "Mô hình 3D | Mặt bằng 2D"
+    // trong `legacyTab`, màn đã bóc cùng RoomPlan.)
     /// 🔴 DỮ LIỆU THƯỜNG cho nút Share trên thanh điều hướng — CHỤP trong `.task` (nơi
     /// environment còn nguyên vẹn), closure `.toolbar` CHỈ được đọc struct này.
     ///
@@ -98,21 +97,15 @@ struct ScanDetailView: View {
     /// · ✗ đưa computed property nào đụng store/account vào closure toolbar.
     /// · @State đọc trong host chưa nối chỉ trả giá trị hiện có (không trap) → snapshot nằm
     ///   ở @State; trước khi `.task` chạy nó rỗng → nút Share hiện trễ một nhịp, chấp nhận.
+    /// 🔴 Còn ĐÚNG MỘT trường sau khi bóc RoomPlan 11/08. Bảy trường cũ (`videoOnlyURL`,
+    /// `isLegacy`, `legacyUSDZ/GLB/OBJZip/PLY/PlanPNG`) phục vụ hai loại bản quét mà đường TẠO
+    /// đã chết từ 2026-07-19/20 — nay đường XEM cũng bóc nốt.
+    /// ✗ gộp struct này vào `[URL]` trần: cái tên nói rõ đây là DỮ LIỆU ĐÃ CHỤP cho thanh điều
+    /// hướng, và đó là thứ giữ cho người sau khỏi đưa `store` trở lại closure toolbar.
     private struct ShareSnapshot {
-        var videoOnlyURL: URL?
         var meshBundle: [URL] = []
-        var isLegacy = false
-        var legacyUSDZ: URL?
-        var legacyGLB: URL?
-        var legacyOBJZip: URL?
-        var legacyPLY: URL?
-        var legacyPlanPNG: URL?
     }
     @State private var shareSnapshot = ShareSnapshot()
-    @State private var planImageURL: URL?
-    /// Ảnh mặt bằng của bản quét RoomPlan CŨ, đọc từ floorplan.png trên đĩa. Nạp MỘT LẦN vào
-    /// state chứ không gọi trong body: body dựng lại nhiều lần mỗi giây suốt lúc upload.
-    @State private var legacyPlanImage: UIImage?
     /// Trình phát video, dựng MỘT LẦN trong `.task`.
     ///
     /// Trước đây là `VideoPlayer(player: AVPlayer(url: videoURL))` viết thẳng trong body → mỗi
@@ -182,11 +175,12 @@ struct ScanDetailView: View {
         store.records.contains { $0.id == record.id }
     }
 
+    // (`usdzURL` → `model.usdz` và `planURL` → `floorplan.png` XOÁ 11/08 cùng RoomPlan: luồng
+    // mesh không sinh hai file đó bao giờ. ✗ nhầm `model.usdz` với usdz CÓ TEXTURE do máy trạm
+    // bake — cái đó đi đường `TexturedModelCache`, đang dùng, không liên quan.)
     private var folder: URL { store.folderURL(for: record) }
-    private var usdzURL: URL { store.usdzURL(for: record) }
     private var videoURL: URL { folder.appendingPathComponent("scan-video.mp4") }
     private var objURL: URL { folder.appendingPathComponent("model.obj") }
-    private var planURL: URL { folder.appendingPathComponent("floorplan.png") }
     private var plyURL: URL { folder.appendingPathComponent("colored-mesh.ply") }
     private var coloredZipURL: URL { folder.appendingPathComponent("model-colored.zip") }
     private var coloredGLBURL: URL { folder.appendingPathComponent("model-colored.glb") }
@@ -198,20 +192,14 @@ struct ScanDetailView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // `record` (dữ liệu ĐẨY VÀO) chứ ✗ `current`: LOẠI bản quét cố định từ lúc lưu
-            // (`captureType` không nơi nào ghi lại), nên đọc bản chụp không thể cũ — mà nó bỏ
-            // được một lần chạm `@EnvironmentObject` khỏi thứ ĐẦU TIÊN thân view này tính.
-            // ⚠ 11/08: **GIA CỐ NÀY MUA ĐƯỢC ĐÚNG SỐ KHÔNG.** Điều kiện rẽ nhánh nay sạch thật,
-            // nhưng NỘI DUNG của cả ba nhánh đọc `folder`/`store` ngay dòng sau (`videoArea` →
-            // `videoURL`, `legacyTab` → `usdzURL`). Cùng kiểu nhầm với `.navigationTitle`: vá
-            // cái vỏ, ruột vẫn đọc env. Danh sách đủ 6 cửa ở khối 🔴🔴 tại `.navigationTitle`.
-            if record.isVideoOnly {
-                videoTab
-            } else if record.isMeshOnly {
-                meshTab
-            } else {
-                legacyTab
-            }
+            // 🔴 MỘT LOẠI BẢN QUÉT DUY NHẤT kể từ 11/08. Trước đây ở đây rẽ ba nhánh theo
+            // `record.captureType`: `videoTab` (quay video khảo sát) · `meshTab` · `legacyTab`
+            // (RoomPlan: USDZ + ảnh mặt bằng). Hai nhánh ngoài đã bóc cùng RoomPlan — đường TẠO
+            // của chúng chết từ 2026-07-19/20, không bản quét mới nào rơi vào được.
+            // ⚠ Bản quét CŨ trên máy chủ app nay cũng đi đường này: có video thì xem được video,
+            // không có `model-colored.zip`/`mesh-preview.bin` thì `meshInfoFooter` nói thẳng
+            // "chưa thu được mô hình 3D". Không màn nào trắng trơn.
+            meshTab
         }
         // `record.name` (dữ liệu ĐẨY VÀO, một `let`), ✗ `current.name` (đọc `store`).
         //
@@ -334,21 +322,18 @@ struct ScanDetailView: View {
             // lại bản zip 40–200MB mỗi lượt quay lại. Các dòng `fileExists` bên dưới rẻ + idempotent
             // nên để nguyên.
             //
-            // TỰ MỞ FORM ĐẶT HÀNG (mục 3b) — đặt TRƯỚC mọi thứ trong `.task` vì hai nhánh
-            // `return` bên dưới thoát sớm theo LOẠI bản quét, mà lời mời đặt hàng thì không phụ
-            // thuộc loại (bản video-only cũng đặt được — `serviceCard` không hề lọc theo loại).
+            // TỰ MỞ FORM ĐẶT HÀNG (mục 3b) — GIỮ Ở DÒNG ĐẦU.
+            // ⚠ Lý do CŨ ("vì hai nhánh `return` bên dưới thoát sớm theo LOẠI bản quét") đã hết
+            // hiệu lực 11/08: bóc RoomPlan xong thì `.task` chạy tuột một mạch, không còn
+            // `return` nào. Nhưng vị trí này vẫn ĐÚNG và ✗ nên dời xuống — `loadTexturedURL()` ở
+            // cuối có gọi mạng (`listOrders`), để lời mời đặt hàng sau nó là bắt khách chờ mạng
+            // xong mới thấy form.
             autoOpenOrderIfNeeded()
-            // Dựng player trước mọi nhánh vì bản quét video-only cũng cần, nhưng CHỈ cho hai loại
-            // thật sự có khu video: bản quét cũ đời RoomPlan đi vào `legacyTab` (3D + mặt bằng),
-            // không có chỗ nào phát video nên cấp phát AVPlayer ở đó là thừa.
             // KHÔNG tự phát — màn này là nơi xem lại theo ý khách, khác màn preview sau khi quét.
-            if player == nil, current.isMeshOnly || current.isVideoOnly,
-               FileManager.default.fileExists(atPath: videoURL.path) {
+            // (Điều kiện `current.isMeshOnly || current.isVideoOnly` bỏ 11/08 cùng RoomPlan: mọi
+            // bản quét nay đều có khu video, nên chỉ còn gác "file có tồn tại không".)
+            if player == nil, FileManager.default.fileExists(atPath: videoURL.path) {
                 player = AVPlayer(url: videoURL)
-            }
-            guard !current.isVideoOnly else {
-                shareSnapshot = makeShareSnapshot() // video-only cũng có nút Share
-                return
             }
             coloredGLBExists = FileManager.default.fileExists(atPath: coloredGLBURL.path)
             coloredZipExists = FileManager.default.fileExists(atPath: coloredZipURL.path)
@@ -358,20 +343,7 @@ struct ScanDetailView: View {
             }
             // Chụp SAU khi các cờ file + meshShareURL đã chốt — snapshot đọc chúng.
             shareSnapshot = makeShareSnapshot()
-            if current.isMeshOnly {
-                await loadTexturedURL()
-                return
-            }
-            // Bản quét RoomPlan cũ: nạp sẵn ảnh mặt bằng đã render từ hồi còn RoomPlan.
-            // Gọi thẳng trên main, KHÔNG cần Task.detached: `UIImage(contentsOfFile:)` chỉ đọc
-            // header rồi giải mã LƯỜI lúc vẽ (UIKit tự làm việc đó ngoài main), nên nó rẻ.
-            // Đẩy sang detached chỉ đổi lấy một câu hỏi Sendable về UIImage mà không được gì.
-            if legacyPlanImage == nil {
-                legacyPlanImage = UIImage(contentsOfFile: planURL.path)
-            }
-        }
-        .sheet(item: $planImageURL) { url in
-            ShareSheet(items: [url])
+            await loadTexturedURL()
         }
         // 🔴 **CỬA TRÌNH BÀY DUY NHẤT CỦA TRÌNH XEM 3D (bản 2.0). ✗ THÊM CÁI THỨ HAI.**
         // Đời trước màn này chồng HAI `.fullScreenCover` — một cho lưới xám, một cho texture —
@@ -724,54 +696,12 @@ struct ScanDetailView: View {
 
     // MARK: - Bản quét RoomPlan CŨ (chỉ còn xem lại)
 
-    /// Bản quét đời RoomPlan (`captureType` nil hoặc "lidar"). App KHÔNG tạo được loại này nữa
-    /// từ 2026-07-20 — màn này tồn tại CHỈ để khách còn mở/chia sẻ/đặt hàng bản đã có trên máy.
-    ///
-    /// Giữ nguyên hai tab quen thuộc thay vì rút gọn theo file đang có: bố cục đổi theo dữ liệu
-    /// là thứ khách đọc thành "app mất tính năng". Tab nào thiếu file thì nói thẳng ra.
-    /// Mặt bằng 2D giờ là ẢNH ĐÃ RENDER SẴN (floorplan.png ghi lúc quét) chứ không vẽ lại bằng
-    /// Canvas: dữ liệu để vẽ nằm trong rooms.json và cần `CapturedRoom` của RoomPlan để đọc.
-    /// Vì thế nút "Nắn thẳng" cũng biến mất — nắn thẳng là phép tính trên hình học RoomPlan.
-    private var legacyTab: some View {
-        VStack(spacing: 0) {
-            Picker(L.t("View mode", "Chế độ xem"), selection: $mode) {
-                Text(L.t("3D Model", "Mô hình 3D")).tag(0)
-                Text(L.t("Floor Plan", "Mặt bằng 2D")).tag(1)
-            }
-            .pickerStyle(.segmented)
-            .padding()
-
-            if mode == 0 {
-                if FileManager.default.fileExists(atPath: usdzURL.path) {
-                    USDZPreview(url: usdzURL)
-                } else {
-                    unavailableView(L.t("3D model file not found", "Không tìm thấy file mô hình 3D"))
-                }
-            } else {
-                legacyPlanTab
-            }
-        }
-    }
-
-    @ViewBuilder
-    private var legacyPlanTab: some View {
-        if let image = legacyPlanImage {
-            ZoomableView {
-                Image(uiImage: image)
-                    .resizable()
-                    .scaledToFit()
-            }
-        } else if FileManager.default.fileExists(atPath: planURL.path) {
-            unavailableView(L.t("Loading…", "Đang tải…"))
-        } else {
-            // Nói luôn rằng dữ liệu không mất: rooms.json vẫn nằm trong thư mục và vẫn được
-            // `ScanUploader` gửi lên (kind "rooms"). Thiếu câu này khách đọc thành "app làm mất dữ liệu".
-            unavailableView(L.t(
-                "No saved floor plan image. Your scan data is still sent to our drafting team when you order.",
-                "Không có ảnh mặt bằng đã lưu. Dữ liệu bản quét vẫn được gửi tới đội vẽ khi bạn đặt hàng."
-            ))
-        }
-    }
+    // 🔴 `legacyTab` + `legacyPlanTab` ĐÃ XOÁ 11/08 cùng RoomPlan (chủ app chốt). Chúng là màn
+    // xem bản quét đời RoomPlan: Picker "Mô hình 3D | Mặt bằng 2D", `USDZPreview(model.usdz)` và
+    // ảnh `floorplan.png` render sẵn. App không tạo được loại bản quét đó từ 2026-07-20.
+    // ⚠ Xoá `legacyTab` cũng đóng luôn mục §OPEN "legacyTab mở model.usdz bằng QuickLook ⇒ gần
+    // như chắc chắn mở ra ở CHẾ ĐỘ AR với camera bật" — lỗi chủ app từng báo. Nay không còn
+    // đường nào trong app gọi `USDZPreview` nữa và file đó đã xoá.
 
     /// Bản quét MESH 3D: video walkthrough + hướng dẫn chia sẻ mô hình màu.
     /// (Không có floorplan/USDZ của app — mesh là sản phẩm chính, gửi ra ngoài bằng nút Share.
@@ -917,33 +847,16 @@ struct ScanDetailView: View {
         L.t("3D mesh scan", "Bản quét Mesh 3D")
     }
 
-    /// Bản quét video: xem lại video + lưu ý độ chính xác.
-    private var videoTab: some View {
-        VStack(spacing: 10) {
-            videoArea(missing: L.t("Video file not found", "Không tìm thấy file video"))
-            Label(
-                L.t(
-                    "Video walkthrough — measurements will be less accurate than a LiDAR scan.",
-                    "Bản quay video — số đo sẽ kém chính xác hơn quét LiDAR."
-                ),
-                systemImage: "exclamationmark.triangle.fill"
-            )
-            .font(.caption)
-            .foregroundStyle(.orange)
-            .padding(.horizontal)
-            .padding(.bottom, 6)
-        }
-    }
+    // 🔴 `videoTab` ĐÃ XOÁ 11/08. Nó là màn của bản quét CHỈ VIDEO (khảo sát không LiDAR) —
+    // luồng tạo đã gỡ 2026-07-19 khi chủ app chốt "yêu cầu máy phải có lidar". Khu video của nó
+    // (`videoArea`) vẫn còn và nay dùng chung trong `meshTab`.
 
     /// Nút Share ở toolbar — CHỮ "Share", không phải icon (chủ app chốt 2026-07-28).
     ///
-    /// Bản quét MESH + bản quét VIDEO: bấm là mở THẲNG bảng chia sẻ iOS với trọn bộ file
-    /// (mô hình + video cùng lúc) — không còn menu con bắt chọn định dạng. File mô hình chọn
-    /// tự động theo thứ tự tốt→phao, xem `bestMeshModelURL`.
-    ///
-    /// Bản quét RoomPlan CŨ giữ menu: USDZ / GLB / OBJ / PLY / ảnh mặt bằng là những SẢN PHẨM
-    /// KHÁC NHAU (mô hình 3D vs bản vẽ mặt bằng) — gom hết vào một cú share là ép khách gửi cả
-    /// thứ họ không định gửi.
+    /// Bấm là mở THẲNG bảng chia sẻ iOS với trọn bộ file (mô hình + video cùng lúc) — không có
+    /// menu con bắt chọn định dạng. File mô hình chọn tự động theo thứ tự tốt→phao, xem
+    /// `bestMeshModelURL`.
+    /// (Nhánh Menu của bản quét RoomPlan CŨ — USDZ/GLB/OBJ/PLY/ảnh mặt bằng — xoá 11/08.)
     ///
     /// Không có gì để chia sẻ (file mất sạch) → KHÔNG hiện nút, thay vì mở một bảng chia sẻ
     /// rỗng không làm gì.
@@ -955,18 +868,8 @@ struct ScanDetailView: View {
     /// gắn xong từ lâu.)
     @ViewBuilder
     private func shareButton(_ s: ShareSnapshot) -> some View {
-        if let video = s.videoOnlyURL {
-            ShareLink(item: video) {
-                Text(L.t("Share", "Share"))
-            }
-        } else if !s.meshBundle.isEmpty {
+        if !s.meshBundle.isEmpty {
             ShareLink(items: s.meshBundle) {
-                Text(L.t("Share", "Share"))
-            }
-        } else if s.isLegacy {
-            Menu {
-                legacyShareItems(s)
-            } label: {
                 Text(L.t("Share", "Share"))
             }
         }
@@ -976,22 +879,10 @@ struct ScanDetailView: View {
     /// view) — nó đọc `current` (store) + hệ file; gọi từ closure toolbar là đúng cái chết cũ.
     /// Gọi SAU khi `coloredGLBExists`/`coloredZipExists`/`meshShareURL` đã chốt.
     private func makeShareSnapshot() -> ShareSnapshot {
-        var s = ShareSnapshot()
-        if current.isVideoOnly {
-            if FileManager.default.fileExists(atPath: videoURL.path) {
-                s.videoOnlyURL = videoURL
-            }
-        } else if current.isMeshOnly {
-            s.meshBundle = meshShareBundle
-        } else {
-            s.isLegacy = true
-            if FileManager.default.fileExists(atPath: usdzURL.path) { s.legacyUSDZ = usdzURL }
-            if coloredGLBExists { s.legacyGLB = coloredGLBURL }
-            if coloredZipExists { s.legacyOBJZip = meshShareURL ?? coloredZipURL }
-            if FileManager.default.fileExists(atPath: plyURL.path) { s.legacyPLY = plyURL }
-            if FileManager.default.fileExists(atPath: planURL.path) { s.legacyPlanPNG = planURL }
-        }
-        return s
+        // Một loại bản quét ⇒ một nhánh. (Ba nhánh cũ theo `captureType` xoá 11/08 cùng RoomPlan.)
+        // `meshShareBundle` tự lọc theo file CÓ TRÊN ĐĨA, nên bản quét cũ thiếu mô hình chỉ ra
+        // video, và mất sạch file thì gói rỗng ⇒ `shareButton` không hiện nút. Đúng hành vi cũ.
+        ShareSnapshot(meshBundle: meshShareBundle)
     }
 
     /// Trọn gói chia sẻ của bản quét mesh: mô hình tốt nhất + video (thứ nào còn trên đĩa).
@@ -1028,52 +919,12 @@ struct ScanDetailView: View {
         return nil
     }
 
-    /// Menu chia sẻ cho bản quét RoomPlan CŨ — đọc TỪ SNAPSHOT (đã chụp trong `.task`), cùng
-    /// luật với `shareButton`: hàm này cũng chạy trong host của thanh điều hướng.
-    ///
-    /// MỌI mục đều gác file-tồn-tại (nay = field snapshot khác nil), kể cả USDZ — trước đây
-    /// `ShareLink(item: usdzURL)` đứng vô điều kiện vì luồng RoomPlan luôn ghi model.usdz. Nay
-    /// không còn luồng nào ghi nó, nên bản quét thiếu file sẽ mở ra bảng chia sẻ rỗng — khách
-    /// bấm Chia sẻ, được một hộp thoại không làm gì, và không hiểu vì sao.
-    @ViewBuilder
-    private func legacyShareItems(_ s: ShareSnapshot) -> some View {
-        if let usdz = s.legacyUSDZ {
-            ShareLink(item: usdz) {
-                Label(L.t("Share 3D model (USDZ)", "Chia sẻ mô hình 3D (USDZ)"), systemImage: "cube")
-            }
-        }
-        // Mô hình LiDAR CÓ MÀU.
-        // GLB: Blender/most viewers ra màu ngay (khuyến nghị). OBJ: hợp MeshLab/CloudCompare.
-        if let glb = s.legacyGLB {
-            ShareLink(item: glb) {
-                Label(L.t("Share colored 3D (GLB)", "Chia sẻ mô hình màu (GLB)"), systemImage: "cube.fill")
-            }
-        }
-        if let objZip = s.legacyOBJZip {
-            ShareLink(item: objZip) {
-                Label(L.t("Share colored 3D (OBJ)", "Chia sẻ mô hình màu (OBJ)"), systemImage: "square.stack.3d.up")
-            }
-        }
-        // PLY thô: bản quét cũ nào lỡ hỏng CẢ zip lẫn GLB lúc lưu (cả hai dựng bằng `try?`) thì
-        // đây là lối chia sẻ mô hình màu DUY NHẤT còn lại. Trước đây màn này tự dựng bù zip/GLB
-        // khi mở nên ca đó "tự lành"; nay không dựng nữa, thiếu mục này là mô hình 3D kẹt trong
-        // máy vĩnh viễn.
-        if let ply = s.legacyPLY {
-            ShareLink(item: ply) {
-                Label(L.t("Share raw mesh (PLY)", "Chia sẻ mesh thô (PLY)"), systemImage: "square.3.layers.3d")
-            }
-        }
-        // OBJ (RoomPlan) + video là NGUYÊN LIỆU NỘI BỘ (gửi về đội xử lý qua đơn hàng), không cho khách chia sẻ.
-        // (Action closure đụng @State là ĐƯỢC — chỉ chạy lúc CHẠM, thanh đã gắn xong từ lâu.)
-        if let plan = s.legacyPlanPNG {
-            Button {
-                planImageURL = plan
-            } label: {
-                Label(L.t("Share floor plan (PNG)", "Chia sẻ ảnh mặt bằng (PNG)"), systemImage: "photo")
-            }
-        }
-    }
-
+    // 🔴 `legacyShareItems` ĐÃ XOÁ 11/08 cùng RoomPlan — menu con chọn USDZ/GLB/OBJ/PLY/ảnh mặt
+    // bằng cho bản quét đời cũ. Bản quét cũ nay chia sẻ qua CÙNG đường với bản mới
+    // (`meshShareBundle`: mô hình tốt nhất theo thứ tự zip→OBJ→GLB→PLY, kèm video) — tức GLB và
+    // PLY của chúng vẫn gửi ra được, chỉ mất quyền CHỌN định dạng. Hai thứ mất hẳn là
+    // `model.usdz` và `floorplan.png`, đúng phần RoomPlan.
+    //
     // `meshShareItems` (menu con chọn OBJ/GLB/PLY/video cho bản mesh) ĐÃ GỠ 2026-07-28 —
     // thay bằng `shareControl` + `meshShareBundle`: một nút Share, một cú, đủ bộ file.
 
@@ -1251,15 +1102,10 @@ struct OrderSheet: View {
         )
     }
 
-    /// Đơn có chứa bản quét CHỈ VIDEO (không LiDAR) → nhắc độ chính xác.
-    private var selectionHasVideoScan: Bool {
-        record.isVideoOnly || otherScans.contains { extraFloors.contains($0.id) && $0.isVideoOnly }
-    }
-
-    /// Đơn có bản quét MESH 3D → báo đội vẽ sẽ dựng mặt bằng từ mesh thô + video.
-    private var selectionHasMeshScan: Bool {
-        record.isMeshOnly || otherScans.contains { extraFloors.contains($0.id) && $0.isMeshOnly }
-    }
+    // 🔴 `selectionHasVideoScan` + `selectionHasMeshScan` ĐÃ XOÁ 11/08 cùng RoomPlan. Cả hai rẽ
+    // theo `ScanRecord.captureType`, trường đã bỏ: nay mọi bản quét đều là mesh nên cái thứ nhất
+    // LUÔN false (dòng cảnh báo của nó xoá luôn) và cái thứ hai LUÔN true (dòng của nó nay vô
+    // điều kiện). Xem chỗ dùng ở `Section` phía dưới.
 
     private var isFreePromo: Bool {
         (catalog?.freeOrdersRemaining ?? 0) > 0
@@ -1751,28 +1597,19 @@ struct OrderSheet: View {
                             .foregroundStyle(.secondary)
                     }
                 }
-                if selectionHasVideoScan {
-                    Label(
-                        L.t(
-                            "This order includes video-only scans — measurements will be LESS accurate than LiDAR scans.",
-                            "Đơn này có bản quay video — số đo sẽ KÉM chính xác hơn quét LiDAR."
-                        ),
-                        systemImage: "exclamationmark.triangle.fill"
-                    )
-                    .font(.footnote)
-                    .foregroundStyle(.orange)
-                }
-                if selectionHasMeshScan {
-                    Label(
-                        L.t(
-                            "This order includes 3D mesh scans — the floor plan is drawn from the raw mesh + video.",
-                            "Đơn này có bản quét Mesh 3D — mặt bằng sẽ được vẽ từ mesh thô + video."
-                        ),
-                        systemImage: "cube.transparent"
-                    )
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                }
+                // Cảnh báo "đơn có bản quay video, số đo kém chính xác hơn" ĐÃ XOÁ 11/08 cùng
+                // RoomPlan: không còn bản quét video-only nào tạo ra được từ 2026-07-19.
+                // Dòng dưới nay VÔ ĐIỀU KIỆN (trước gác `selectionHasMeshScan`) — mọi bản quét
+                // đều là mesh, nên điều kiện đó luôn đúng.
+                Label(
+                    L.t(
+                        "This order includes 3D mesh scans — the floor plan is drawn from the raw mesh + video.",
+                        "Đơn này có bản quét Mesh 3D — mặt bằng sẽ được vẽ từ mesh thô + video."
+                    ),
+                    systemImage: "cube.transparent"
+                )
+                .font(.footnote)
+                .foregroundStyle(.secondary)
                 if let errorMessage {
                     Text(errorMessage)
                         .font(.footnote)
@@ -2055,25 +1892,6 @@ extension URL: Identifiable {
     public var id: String { absoluteString }
 }
 
-/// Cho phép phóng to / kéo mặt bằng bằng hai ngón tay.
-struct ZoomableView<Content: View>: View {
-    @ViewBuilder let content: Content
-    @State private var zoom: CGFloat = 1
-    @State private var lastZoom: CGFloat = 1
-
-    var body: some View {
-        content
-            .scaleEffect(zoom)
-            .gesture(
-                MagnificationGesture()
-                    .onChanged { value in
-                        zoom = min(max(lastZoom * value, 1), 6)
-                    }
-                    .onEnded { _ in
-                        lastZoom = zoom
-                    }
-            )
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .clipped()
-    }
-}
+// 🔴 `ZoomableView` ĐÃ XOÁ 11/08 — nó CHỈ dùng để phóng to ảnh mặt bằng `floorplan.png` của bản
+// quét RoomPlan (`legacyPlanTab`), nên bóc RoomPlan là nó thành code chết. Trình xem mô hình 3D
+// KHÔNG dùng nó (`ModelViewer` tự xử lý cử chỉ trong SceneKit).

@@ -192,14 +192,13 @@ final class ScanStore: ObservableObject {
         rootURL.appendingPathComponent(record.id.uuidString, isDirectory: true)
     }
 
-    /// Mô hình USDZ — CHỈ bản quét RoomPlan CŨ mới có. Luồng mesh không sinh USDZ bao giờ.
-    /// Giữ lại để `ScanDetailView` còn mở được bản cũ trên máy khách (xem chú thích ở
-    /// `delete(_:)` bên dưới); người gọi PHẢI tự `fileExists` trước khi dùng.
-    func usdzURL(for record: ScanRecord) -> URL {
-        folderURL(for: record).appendingPathComponent("model.usdz")
-    }
+    // 🔴 `usdzURL(for:)` ĐÃ XOÁ 11/08 cùng RoomPlan. Nó trỏ tới `model.usdz`, thứ CHỈ bản quét
+    // RoomPlan đời cũ mới có — luồng mesh không sinh USDZ bao giờ.
+    // ⚠ ✗ NHẦM VỚI USDZ CÓ TEXTURE: mô hình texture do MÁY TRẠM bake cũng là `.usdz` nhưng đi
+    // đường hoàn toàn khác (`TexturedModelCache` tải từ R2 về `.cachesDirectory`, `ModelViewer`
+    // dựng bằng SceneKit). Cái đó ĐANG DÙNG và không liên quan gì tới hàm vừa xoá.
 
-    /// Lưu bản quét CHẾ ĐỘ MESH 3D (không RoomPlan): model.obj màu (+mtl) + video —
+    /// Lưu bản quét mesh 3D: model.obj màu (+mtl) + video —
     /// PLY chỉ là file trung gian, chuyển sang OBJ xong là xóa (lỗi chuyển thì giữ làm phao).
     /// videoURL/meshURL đều có thể nil (recorder/builder có thể fail lặng lẽ) — nhưng cả hai
     /// cùng nil thì throw: không ghi record rỗng (upload về sau sẽ từ chối nó).
@@ -270,7 +269,8 @@ final class ScanStore: ObservableObject {
             roomCount: 0,
             areaSqm: nil,
             projectId: projectId,
-            captureType: "mesh",
+            // (`captureType: "mesh"` bỏ 11/08 — trường đã xoá khỏi model cùng RoomPlan. Server
+            // vẫn nhận nó, cắm cứng ở `ScanUploader`.)
             // Không có mesh (chỉ cứu được video) thì để nil — trường này nói "bản quét mesh
             // này quét ở cấu hình nào", vô nghĩa với bản chỉ có video.
             // (Không màn nào HIỆN nó nữa từ 2026-07-31; giữ ghi vào meta.json để truy vết.)
@@ -428,10 +428,18 @@ final class ScanStore: ObservableObject {
 
     // `saveVideoScan` ĐÃ XOÁ 2026-07-19 cùng luồng quay video khảo sát (chủ app chốt "yêu cầu
     // máy phải có lidar"). `save(rooms:)` + `loadRooms` ĐÃ XOÁ 2026-07-20 cùng RoomPlan.
-    // KHÔNG xoá theo, và đây là điểm dễ sai nhất của cả hai lần gỡ: `ScanRecord.captureType`
-    // (nil/"lidar"/"video") + `isVideoOnly` + `usdzURL` + các nhánh xem bản cũ trong
-    // ScanDetailView + toàn bộ `fileKinds` của ScanUploader. Người dùng đang có bản quét CŨ
-    // trên máy, phải xem/chia sẻ/đặt hàng/xoá được. **Gỡ đường TẠO khác hẳn gỡ đường XEM.**
+    //
+    // ✅ **11/08 (bản 2.5): ĐƯỜNG XEM CŨNG ĐÃ BÓC NỐT** — chủ app chốt *"cái gì của RoomPlan thì
+    // xóa hết đi… chỉ có tôi xài thôi"*. Đã xoá: `ScanRecord.captureType`/`isVideoOnly`/
+    // `isMeshOnly` · `usdzURL` · `USDZPreview.swift` · `legacyTab`/`legacyPlanTab`/`videoTab` +
+    // các trường legacy của `ShareSnapshot` trong ScanDetailView · ba `fileKinds` usdz/plan/rooms.
+    //
+    // ⚠ **CHÚ THÍCH CŨ Ở ĐÂY TỪNG DẶN "KHÔNG xoá theo" — nay đã hết hiệu lực, ✗ khôi phục nó.**
+    // Lý lẽ cũ ("người dùng đang có bản quét CŨ trên máy, phải xem/chia sẻ/đặt hàng/xoá được")
+    // đúng khi app còn định phát hành; nay app chỉ chạy trên máy chủ app. Bản quét cũ VẪN đọc
+    // được (Codable bỏ qua khoá thừa), vẫn xoá/đổi tên/đặt hàng được — chỉ mất màn xem RIÊNG của
+    // chúng. File trên đĩa không bị đụng.
+    // 🔴 Bài học vẫn đúng và vẫn nên nhớ khi gỡ thứ khác: **gỡ đường TẠO khác hẳn gỡ đường XEM.**
 
     func delete(_ record: ScanRecord) {
         try? fileManager.removeItem(at: folderURL(for: record))
