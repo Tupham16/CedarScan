@@ -1,149 +1,136 @@
 import SwiftUI
 import UIKit
 
-/// 🔴 TRÌNH BÀY COVER QUÉT BẰNG UIKIT `.overFullScreen` — BẢN VÁ GỐC CỦA LỖI "LỀ VỀ 0 SAU KHI
-/// QUÉT" (bản 2.11). Thay cho `.fullScreenCover` ở HomeView + ProjectView.
+/// 🔴 TRÌNH BÀY COVER QUÉT TRÊN MỘT **CỬA SỔ RIÊNG** — BẢN VÁ GỐC CỦA LỖI "LỀ VỀ 0 SAU KHI QUÉT"
+/// (bản 2.12). ✗ present view controller lên cửa sổ gốc dưới BẤT KỲ hình thức nào.
 ///
-/// **Vì sao phải bỏ `.fullScreenCover` — chuỗi số đo 2.6→2.10, ✗ đào lại:**
-/// `.fullScreenCover` present kiểu `.fullScreen`, tức UIKit **THÁO HẲN view bên dưới khỏi
-/// window** trong lúc cover mở rồi gắn lại khi đóng. Trên iOS 26, cú tháo-gắn đó làm bộ máy vùng
-/// an toàn phía SwiftUI đông cứng ở 0: đo bằng nhãn vàng (2.10, lúc đang lỗi) —
-/// `win t47 b34 · root t47 b34 · geo t0 b0` — tức UIKit lành TỚI TẬN VIEW GỐC mà cây SwiftUI vẫn
-/// nhận 0. Mọi cú sửa từ ngoài đều trơ, kể cả bắn tay bỏ qua mọi cổng (`fix 9` + "chạm trơ"):
-/// co cửa sổ + ép layout toàn cây · toggle `additionalSafeAreaInsets` · `poke`
-/// `safeAreaInsetsDidChange()` từng view. Chỗ kẹt nằm BÊN TRONG SwiftUI — không đường ngoài nào
-/// với tới. Cách chữa duy nhất còn lại: **đừng bao giờ tháo cây** — `.overFullScreen` giữ nguyên
-/// view bên dưới suốt vòng đời cover, cơ chế gây bệnh không còn tồn tại.
+/// **Chuỗi số đo dẫn tới đây — ✗ đào lại, ✗ thử lại các hướng đã chết:**
+///  · `.fullScreenCover` (kiểu `.fullScreen`, THÁO cây view) → lề SwiftUI kẹt 0. (2.6→2.10)
+///  · `.overFullScreen` (KHÔNG tháo cây) → **VẪN kẹt 0.** Chủ app xác nhận trên 2.11, và bằng
+///    phép thử "mở màn quét → Hủy NGAY, không quét gì → ra Home → kích dự án": vẫn lỗi. ⇒ loại
+///    hẳn nghi phạm RAM/ARKit/mesh, và loại luôn "tại cover THÁO cây".
+///  · Mọi cú sửa-từ-ngoài (co cửa sổ, toggle `additionalSafeAreaInsets`, `poke` toàn cây, bắn
+///    tay bỏ mọi cổng) đều TRƠ: lúc lỗi `root t47 b34` (UIKit lành tới view gốc) mà `geo t0 b0`.
+///  ⇒ **Kết luận đo được:** present MỘT view controller toàn màn TỪ CỬA SỔ GỐC — kiểu gì cũng
+///  vậy — làm iOS 26 đông cứng bộ máy vùng an toàn của cây SwiftUI trong cửa sổ đó, tới khi dựng
+///  lại cả cửa sổ (đúng thứ "thoát app vào lại" làm) mới khỏi.
 ///
-/// **Giữ nguyên được gì so với `.fullScreenCover`:** vẫn là VC presentation THẬT — hoạt ảnh
-/// slide-up y hệt (`coverVertical`), `onAppear`/`onDisappear` của nội dung vẫn bắn qua vòng đời
-/// VC (quan trọng: `.onDisappear` của MeshScanFlowView cầm `controller.cancel()` +
-/// `store.endBusy()` — lưới an toàn chống mất buổi quét), alert/sheet BÊN TRONG cover vẫn present
-/// bình thường. Khác đúng một điều: view bên dưới không bị tháo (tốn thêm ít RAM giữ cây Home
-/// sống sau cover — chấp nhận, cây đó nhẹ).
+/// **Vì sao cửa sổ riêng chữa được:** cover nay là `rootViewController` của một `UIWindow` KHÁC,
+/// windowLevel cao hơn. Cửa sổ GỐC (chứa `RootView` SwiftUI) KHÔNG BAO GIỜ trở thành "màn đang
+/// present" — không có view controller nào được present lên nó — nên iOS không đụng tới vùng an
+/// toàn của nó. Cây SwiftUI + `@State` + `NavigationPath` của cửa sổ gốc còn nguyên vẹn (đây còn
+/// là điểm CỘNG cho đường "Đặt hàng ngay": `path.append` sau khi cover đóng vẫn chạy trên đúng
+/// stack cũ). Cửa sổ riêng cũng tự phủ luôn `CedarTabBar` — khỏi lo thanh tab đè.
 ///
-/// **Cái mất:** `@Environment(\.dismiss)` bên trong nội dung không còn nối với presentation của
-/// SwiftUI ⇒ `MeshScanFlowView` nhận closure `dismiss` BƠM VÀO từ call site (lật binding
-/// `isMeshScanning = false`; call site nghe `onChange` rồi gọi `dismiss(completion:)` ở đây).
+/// **Giữ được:** vòng đời `onAppear`/`onDisappear` của nội dung vẫn bắn (window hiện → view
+/// controller appear); alert bên trong cover (LiDAR/camera-denied) present từ rootVC của cửa sổ
+/// riêng, đóng cover là hạ luôn cả window nên alert đi theo — không kẹt. Hoạt ảnh trượt lên vẫn
+/// có (animate transform của rootView).
 ///
-/// ⚠ **`.fullScreenCover` CỦA TRÌNH XEM 3D (`ScanDetailView.viewerTarget`) CHƯA ĐỔI THEO** — nó
-/// vẫn tháo-gắn cây và VẪN GÂY ĐÔNG CỨNG y hệt khi khách mở mô hình 3D. Đổi một cơ chế mỗi vòng
-/// thử: chứng minh đường quét xong đã, viewer là vòng sau. Ghi ở SESSION-HANDOFF §LỖI ĐÈ CHỮ.
+/// **Cái phải tự lo (vì rời khỏi SwiftUI):** environment KHÔNG tự chảy sang cửa sổ khác — call
+/// site PHẢI `.environmentObject(store)` cho nội dung (quên là `EnvironmentObject.error()` ngay).
+///
+/// ⚠ Trình xem 3D (`ScanDetailView.viewerTarget`) VẪN là `.fullScreenCover` — CỐ Ý chưa đổi.
+/// Mở mô hình 3D vẫn có thể gây đông cứng y hệt; đường quét xác nhận xong thì đưa nó qua đây.
+///
+/// 🟡 **MỘT ẨN SỐ ĐÃ BIẾT, CỐ Ý CHƯA VÁ — ✗ "vá cho chắc" mà không đọc hết đoạn này.**
+/// `window.isHidden = true` KHÔNG được UIKit bảo đảm sẽ bắn `viewDidDisappear` cho root VC của
+/// cửa sổ (khác `dismiss(animated:)` của khuôn cũ — cái đó bắn chắc). Nếu nó không bắn thì
+/// `.onDisappear` của `MeshScanFlowView` không chạy ⇒ mất `store.endBusy()` + `controller.cancel()`.
+/// Vì sao vẫn ship mà không vá:
+///  · **Hậu quả THẬT hôm nay = 0.** `endBusy` chỉ để mở khoá `purgeDeliveredScans`, mà việc dọn
+///    tự động đã **TẮT HẲN** từ 1.8 (`RootView.autoPurgeAfterDelivery = false`) ⇒ `isBusy` hiện
+///    không gác thứ gì đang chạy. Và `ScanStore` còn van thời gian `busyStaleAfter = 3600` tự nhả.
+///  · `controller.cancel()` ở đó là LƯỚI, không phải đường chính: nút Hủy gọi `cancel()` tường
+///    minh trước khi đóng; đường Lưu thì `stopAndExport` đã pause phiên; hai đường alert
+///    (LiDAR-không-hỗ-trợ / camera-bị-từ-chối) thì phiên AR CHƯA HỀ start nên không có gì để nhả
+///    (kể cả `isIdleTimerDisabled` — nó chỉ bật trong `controller.start()`).
+///  · Vá mò thì ĐẺ LỖI: thêm `endBusy()` tường minh vào `dismiss()` mà `onDisappear` VẪN bắn là
+///    trừ HAI LẦN cho một phiên → `busyCount` âm → hỏng khoá của phiên quét CHỒNG (bẫy đếm-không-
+///    dùng-Bool ghi ở `ScanStore.busyCount`).
+/// 🔴 **CÁCH TRẢ NỢ ĐÚNG (khi nào cần):** dời `beginBusy`/`endBusy` RA KHỎI `onAppear`/`onDisappear`
+/// của `MeshScanFlowView`, đặt vào `present()`/`dismiss()` ở đây — vòng đời cửa sổ là ĐÚNG cái
+/// khoá muốn bao, và ở đây thì chạy CHẮC CHẮN đúng một lần. Phải dời CẢ HAI cùng lúc, ✗ chỉ thêm.
+/// Chỉ làm khi cờ `autoPurgeAfterDelivery` được bật lại, hoặc khi đo thấy khoá thật sự kẹt.
 enum ScanCoverPresenter {
-    /// Hosting VC của cover đang mở (nil = không có). Chỉ đụng trên main.
-    private static var hosting: UIViewController?
-    /// Một lượt present đang chờ retry (transition đang bay) — chống double-present khi
-    /// `present()` bị gọi lại trong lúc lượt trước còn treo.
-    private static var presentScheduled = false
-    /// Số THẾ HỆ present/dismiss — tăng ở mỗi `present()`/`dismiss()`. Lượt retry đang treo mang
-    /// số cũ thì tự bỏ. Chống ca review bắt được: dismiss chen vào giữa chuỗi retry → retry nổ
-    /// muộn present ra một cover MỒ CÔI mà closure `dismiss` của nó ghi false-đè-false (binding
-    /// không đổi, onChange không bắn) — cover không bao giờ đóng được.
-    private static var generation = 0
+    /// Cửa sổ đang giữ cover (nil = không có). Chỉ đụng trên main.
+    private static var coverWindow: UIWindow?
+    /// Cửa sổ key TRƯỚC khi cover chiếm — trả lại lúc đóng (để bàn phím/thao tác về đúng cửa sổ
+    /// gốc). Tự động thường cũng xong, nhưng trả tay là chắc.
+    ///
+    /// ⚠ `strong` là CỐ Ý và vô hại: nó giữ cửa sổ GỐC, thứ app sở hữu suốt vòng đời — ✗ đổi sang
+    /// `weak` "cho sạch", `makeKey()` trên nil là mất bàn phím ở cửa sổ gốc sau khi đóng cover.
+    private static var previousKeyWindow: UIWindow?
 
-    /// Present nội dung cover. Idempotent: đang mở / đang chờ mở thì bỏ qua.
+    // (Biến `generation` của bản 2.11 ĐÃ XOÁ ở 2.12. Nó chống retry-present mồ côi của khuôn
+    // present-lên-VC cũ; khuôn cửa-sổ-riêng dựng cửa sổ ĐỒNG BỘ ngay trong `present()`, không có
+    // lượt treo nào để mà mồ côi ⇒ biến đó thành CODE CHẾT và chú thích của nó thành LỜI KHAI SAI
+    // ("nó chống cửa sổ mồ côi" — không, nó chẳng được đọc ở đâu). Review đối kháng 12/08 bắt.
+    // ✗ khai lại nếu không đồng thời VIẾT chỗ ĐỌC nó.)
+
+    /// Mở cover. Idempotent: đang có cover thì bỏ qua.
     ///
-    /// 🔴 Call site PHẢI tự `.environmentObject(...)` những gì nội dung cần — present bằng UIKit
-    /// là RỜI CÂY SwiftUI, environment KHÔNG tự chảy sang. Quên `store` là
-    /// `EnvironmentObject.error()` ngay khi cover mở (đúng họ crash 11/08 — lần này trap NGAY,
-    /// không phải "thỉnh thoảng", nên bắt được ở lần quét đầu tiên).
-    ///
-    /// 🔴 `onFailure` BẮT BUỘC (bẫy #13, không mặc định): chạy khi present THẤT BẠI (không có
-    /// cửa sổ / UIKit từ chối) — call site phải lật `isMeshScanning = false` trong đó. Thiếu nó
-    /// thì binding kẹt true mà không có cover: mọi lối vào quét từ đó ghi true-đè-true, onChange
-    /// không bao giờ bắn lại, nút quét CHẾT IM LẶNG tới khi mở lại app (review 11/08, cả ba lens
-    /// cùng bắt). `.fullScreenCover` cũ tự đối chiếu binding↔presentation hộ; khuôn UIKit thì
-    /// mình phải tự làm.
+    /// 🔴 `onFailure` BẮT BUỘC (bẫy #13): chạy khi KHÔNG mở được (không tìm ra scene đang hiện) —
+    /// call site phải lật `isMeshScanning = false` trong đó, nếu không binding kẹt true và nút
+    /// quét chết im lặng tới khi mở lại app (mọi lối vào chỉ ghi true-đè-true).
     @MainActor
     static func present<Content: View>(_ content: Content, onFailure: @escaping () -> Void) {
-        // Hosting cũ đã bị tháo ngoài ý muốn (presenting VC chết…) → coi như không còn.
-        if let existing = hosting, existing.presentingViewController == nil {
-            hosting = nil
-        }
-        guard hosting == nil, !presentScheduled else { return }
-        presentScheduled = true
-        generation += 1
-        attemptPresent(content, retries: 3, gen: generation, onFailure: onFailure)
-    }
-
-    /// Đóng cover rồi chạy `completion` SAU KHI hoạt ảnh đóng xong — tương đương `onDismiss` của
-    /// `.fullScreenCover` (mọi việc hậu-quét của call site nằm trong completion này, đúng luật
-    /// "mọi việc hậu-quét nằm ở onDismiss" đã trả giá 06/08).
-    /// Không có cover nào đang mở thì vẫn gọi `completion` — binding đã lật, việc hậu-quét vẫn
-    /// phải chạy.
-    @MainActor
-    static func dismiss(completion: @escaping () -> Void) {
-        generation += 1          // huỷ mọi retry present đang treo
-        presentScheduled = false
-        guard let vc = hosting else {
-            completion()
-            return
-        }
-        hosting = nil
-        if let presenter = vc.presentingViewController {
-            // 🔴 Dismiss QUA PRESENTER, ✗ `vc.dismiss(...)`. Hợp đồng UIKit: gọi dismiss trên VC
-            // đang CÓ presentedViewController là đóng ĐỨA CON, không phải chính nó — mà cover này
-            // có alert con thật (LiDAR/camera-denied trong MeshScanFlowView), và nút của chính
-            // alert đó là thứ lật binding, tức lúc dismiss chạy thì alert còn đang tháo dở.
-            // `vc.dismiss` khi ấy đóng nhầm xác alert và COVER KẸT VĨNH VIỄN (binding đã false,
-            // không đường nào bắn lại; onDisappear không chạy = idle timer kẹt + endBusy mất).
-            // Dismiss từ presenter nuốt cả VC lẫn mọi thứ nó đang present trong MỘT transition,
-            // completion vẫn chạy đúng một lần. (Review 11/08, lens lifecycle — MAJOR.)
-            presenter.dismiss(animated: true, completion: completion)
-        } else {
-            completion()
-        }
-    }
-
-    /// Thử present; presenter đang bận transition thì đợi 0,25s thử lại (≤3 lần). Luồng vào cover
-    /// vốn đã đi qua "present từ onDismiss của sheet" nên gần như không bao giờ phải retry — đây
-    /// là lưới an toàn, không phải đường thường.
-    private static func attemptPresent<Content: View>(
-        _ content: Content, retries: Int, gen: Int, onFailure: @escaping () -> Void
-    ) {
-        // Thế hệ đã đổi (dismiss chen vào lúc đang chờ retry) → bỏ lượt, KHÔNG gọi onFailure:
-        // binding đã được phía dismiss lo, present ra lúc này mới là tạo cover mồ côi.
-        guard gen == generation else {
-            presentScheduled = false
-            return
-        }
-        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
-        guard let scene = scenes.first(where: { $0.activationState == .foregroundActive })
-                ?? scenes.first,
-              let window = scene.keyWindow ?? scene.windows.first,
-              let root = window.rootViewController else {
-            // Không có cửa sổ (app đang nền?) — thất bại, trả binding về false qua onFailure.
-            presentScheduled = false
+        guard coverWindow == nil else { return }
+        guard let scene = activeScene() else {
             onFailure()
             return
         }
-        var top = root
-        while let presented = top.presentedViewController { top = presented }
-        if top.transitionCoordinator != nil, retries > 0 {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
-                attemptPresent(content, retries: retries - 1, gen: gen, onFailure: onFailure)
-            }
+        let window = UIWindow(windowScene: scene)
+        // Trên thanh nội dung + thanh tab, DƯỚI cửa sổ alert của hệ thống.
+        window.windowLevel = .normal + 1
+        let host = UIHostingController(rootView: content)
+        // Cover phải ĐỤC: nội dung camera tự vẽ nền, nhưng vùng ngoài safe area (tai thỏ) phải
+        // che cửa sổ gốc — nếu không sẽ thấy Home lấp ló khi cover trượt lên.
+        host.view.backgroundColor = .systemBackground
+        window.rootViewController = host
+        previousKeyWindow = scene.keyWindow
+        window.makeKeyAndVisible()
+        coverWindow = window
+
+        // Trượt lên (thay cho hoạt ảnh present mặc định của VC — cửa sổ không tự có).
+        // 🔴 `layoutIfNeeded()` TRƯỚC khi đo: `bounds` của cửa sổ vừa dựng có thể còn .zero cho
+        // tới lượt layout đầu, và `h = 0` biến cú trượt thành KHÔNG LÀM GÌ (cover hiện thẳng, mất
+        // hoạt ảnh — trông như app giật). Phao `scene.screen.bounds.height` cho ca layout vẫn
+        // chưa xong. (Review đối kháng 12/08.)
+        window.layoutIfNeeded()
+        let h = window.bounds.height > 0 ? window.bounds.height : scene.screen.bounds.height
+        host.view.transform = CGAffineTransform(translationX: 0, y: h)
+        UIView.animate(withDuration: 0.35, delay: 0, options: .curveEaseOut) {
+            host.view.transform = .identity
+        }
+    }
+
+    /// Đóng cover rồi chạy `completion` SAU KHI trượt xong — vai `onDismiss` của cover cũ (mọi
+    /// việc hậu-quét của call site nằm trong `completion`, đúng luật 06/08). Không có cover thì
+    /// vẫn gọi `completion` (binding đã lật, việc hậu-quét vẫn phải chạy).
+    @MainActor
+    static func dismiss(completion: @escaping () -> Void) {
+        guard let window = coverWindow else {
+            completion()
             return
         }
-        let vc = UIHostingController(rootView: content)
-        // 🔴 `.overFullScreen`, ✗ `.fullScreen` — TOÀN BỘ lý do tồn tại của file này nằm ở một
-        // dòng này. Đổi về `.fullScreen` là lỗi đè chữ quay lại nguyên vẹn.
-        vc.modalPresentationStyle = .overFullScreen
-        // `.overFullScreen` giữ cây bên dưới trong hierarchy ⇒ VoiceOver có thể vuốt THOÁT ra
-        // sau cover (bấm được cả dòng dự án/tab bar giữa buổi quét). Repo đã trả giá 2 lần vì VO
-        // lọt focus ở đúng luồng này — một dòng chặn cả họ lỗi:
-        vc.view.accessibilityViewIsModal = true
-        top.present(vc, animated: true)
-        hosting = vc
-        presentScheduled = false
-        // Kiểm present có ĂN THẬT không: UIKit từ chối ("Attempt to present while...") là từ chối
-        // IM LẶNG — `presentingViewController` vẫn nil ở nhịp sau. Không kiểm là binding kẹt true.
-        DispatchQueue.main.async {
-            guard gen == generation else { return } // dismiss đã chen vào, phía đó lo rồi
-            if vc.presentingViewController == nil {
-                hosting = nil
-                onFailure()
-            }
+        let h = window.bounds.height > 0 ? window.bounds.height : window.screen.bounds.height
+        UIView.animate(withDuration: 0.3, delay: 0, options: .curveEaseIn) {
+            window.rootViewController?.view.transform = CGAffineTransform(translationX: 0, y: h)
+        } completion: { _ in
+            window.isHidden = true
+            // Trả key về cửa sổ gốc rồi mới buông tham chiếu (window giải phóng khi hết closure).
+            previousKeyWindow?.makeKey()
+            previousKeyWindow = nil
+            coverWindow = nil            // nil ở ĐÂY (✗ sớm hơn): giữ idempotent suốt lúc trượt;
+                                         // nhánh "Quét thêm" set true trong `completion` sau dòng
+                                         // này nên present kế thấy nil và mở lại được.
+            completion()
         }
+    }
+
+    private static func activeScene() -> UIWindowScene? {
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        return scenes.first(where: { $0.activationState == .foregroundActive }) ?? scenes.first
     }
 }
