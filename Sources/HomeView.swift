@@ -80,7 +80,12 @@ struct HomeView: View {
     /// (RoomPlan đã bị gỡ hẳn 2026-07-20 nên `RoomCaptureSession.isSupported` cũng không còn.)
     /// Cùng phép thử với `MeshScanController.isSupported`.
     private var isSupported: Bool {
-        ARWorldTrackingConfiguration.supportsSceneReconstruction(.mesh)
+        // 🔴 BỘ ĐO TẠM (gỡ cùng `SafeAreaHarness.swift`). Harness PHẢI đi ĐÚNG đường của chủ app:
+        // đĩa SCAN → cú nảy tab ở `RootView.onChange(of: tab)` → màn địa chỉ. Simulator không có
+        // LiDAR nên nhánh thật rẽ sang alert "Cần LiDAR" và đường đo đứt đúng chỗ cần đo.
+        // Nới CHỈ khi cờ harness bật ⇒ app của khách không đổi: không có launch argument thì
+        // `isEnabled` = false và biểu thức này y hệt bản cũ.
+        ARWorldTrackingConfiguration.supportsSceneReconstruction(.mesh) || SafeAreaHarness.isEnabled
     }
 
     var body: some View {

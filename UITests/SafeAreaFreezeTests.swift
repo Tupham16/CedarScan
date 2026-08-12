@@ -47,18 +47,96 @@ final class SafeAreaFreezeTests: XCTestCase {
         }
     }
 
+    // MARK: - Vòng 2: CÚ NẢY TAB (nghi can sinh ra từ chính kết quả vòng 1)
+
+    /// 🔴 **ĐƯỜNG ĐI THẬT CỦA CHỦ APP, ✗ phải nút thường.** Vòng 1 cho thấy mở `ScanAddressView`
+    /// bằng một nút thường thì KHÔNG gây bệnh — trong khi trên máy thật, mở đúng màn đó qua ĐĨA
+    /// SCAN thì gây. Khác biệt duy nhất giữa hai đường là **cú nảy tab**: đĩa SCAN đặt
+    /// `selection = .scan`, rồi `RootView.onChange(of: tab)` bật NGƯỢC về `.home` và tăng
+    /// `scanRequest` trong CÙNG một nhịp — tab `.scan` chỉ là một `Color.clear` giả, app nhảy vào
+    /// rồi nhảy ra ngay. Cú đó chạy trên chính cái `TabView` bị ẩn thanh gốc + gắn `CedarTabBar`
+    /// bằng `.safeAreaInset`, tức nó đụng thẳng vào bộ máy vùng an toàn ở tầng gốc.
+    /// So sánh test này với `testAddressSheetFreezesSafeArea` là tách được cú nảy khỏi cái sheet.
+    func testScanTabPathFreezesSafeArea() {
+        runProbe(
+            variant: "ĐĨA SCAN → cú nảy tab → màn địa chỉ",
+            openSheet: { app in
+                let scan = app.buttons["Scan a new space"].firstMatch
+                XCTAssertTrue(scan.waitForExistence(timeout: 30), "không thấy đĩa SCAN")
+                scan.tap()
+            },
+            sheetMarker: { app in app.navigationBars["Before scanning"].firstMatch }
+        )
+    }
+
+    /// ĐỐI CHỨNG cho cú nảy: một cú đổi tab THƯỜNG (Home → Đơn hàng → Home), không sheet nào.
+    /// Lỗi ⇒ mọi cú đổi tab đều gây bệnh, tức nghi can là `TabView` + `.safeAreaInset` nói chung
+    /// chứ ✗ riêng cú nảy. Lành ⇒ chỉ cú NHẢY-VÀO-RỒI-RA của tab giả mới độc.
+    func testPlainTabSwitchFreezesSafeArea() {
+        let app = XCUIApplication()
+        app.launchArguments = ["-safeAreaHarness"]
+        app.launch()
+
+        let before = readProbeByOpeningProject(app, phase: "TRƯỚC")
+        assertBaselineIsHealthy(before)
+
+        let orders = app.buttons["Orders"].firstMatch
+        XCTAssertTrue(orders.waitForExistence(timeout: 30), "không thấy tab Đơn hàng")
+        orders.tap()
+        let home = app.buttons["Home"].firstMatch
+        XCTAssertTrue(home.waitForExistence(timeout: 30), "không thấy tab Home")
+        home.tap()
+
+        let after = readProbeByOpeningProject(app, phase: "SAU")
+        report(variant: "đổi tab thường (Home→Đơn hàng→Home)", before: before, after: after)
+    }
+
     // MARK: - Khung đo dùng chung
 
+    /// Biến thể mở sheet bằng một NÚT THƯỜNG trong bảng harness.
     private func runProbe(
         buttonID: String,
         variant: String,
         sheetMarker: @escaping (XCUIApplication) -> XCUIElement
+    ) {
+        runProbe(
+            variant: variant,
+            openSheet: { app in
+                let button = app.buttons[buttonID].firstMatch
+                XCTAssertTrue(button.waitForExistence(timeout: 30), "không thấy nút harness \(buttonID)")
+                button.tap()
+            },
+            sheetMarker: sheetMarker
+        )
+    }
+
+    /// Khung chung: đo → mở gì đó → đóng → đo lại. `openSheet` là chỗ DUY NHẤT các biến thể khác
+    /// nhau, nên mọi thứ còn lại (mốc lành, cách đọc nhãn, cách đóng) là hằng số giữa các phép đo.
+    private func runProbe(
+        variant: String,
+        openSheet: (XCUIApplication) -> Void,
+        sheetMarker: (XCUIApplication) -> XCUIElement
     ) {
         let app = XCUIApplication()
         app.launchArguments = ["-safeAreaHarness"]
         app.launch()
 
         let before = readProbeByOpeningProject(app, phase: "TRƯỚC")
+        assertBaselineIsHealthy(before)
+
+        openSheet(app)
+        XCTAssertTrue(
+            sheetMarker(app).waitForExistence(timeout: 30),
+            "[\(variant)] sheet không mở (không thấy dấu nhận biết bên trong nó)"
+        )
+        dismissSheetBySwipe(app, variant: variant)
+
+        let after = readProbeByOpeningProject(app, phase: "SAU")
+        report(variant: variant, before: before, after: after)
+    }
+
+    /// 🔴 Mốc lành phải KHÁC 0 thì mọi số sau mới có nghĩa — xem chú thích đầu file.
+    private func assertBaselineIsHealthy(_ before: String) {
         XCTAssertFalse(
             before.contains("geo t0 b0"),
             """
@@ -67,20 +145,18 @@ final class SafeAreaFreezeTests: XCTestCase {
             Nhiều khả năng chọn nhầm máy (không tai thỏ) trong workflow. ✗ đọc kết quả run này.
             """
         )
+    }
 
-        openAndDismissSheet(app, buttonID: buttonID, sheetMarker: sheetMarker)
-
-        let after = readProbeByOpeningProject(app, phase: "SAU")
+    /// ✗ `XCTAssert` cho vế "tái hiện được": ở đây KHÔNG có chiều nào là "sai" — cả hai đều là
+    /// thông tin. Chỉ ĐO và IN; việc phán xử để người đọc log.
+    private func report(variant: String, before: String, after: String) {
         let reproduced = after.contains("geo t0 b0")
-
-        // ✗ `XCTAssert` cho vế "tái hiện được": ở đây KHÔNG có chiều nào là "sai" — cả hai đều là
-        // thông tin. Test chỉ ĐO và IN; việc phán xử để người đọc log.
         print("""
 
         ================ HARNESS KẾT QUẢ [\(variant)] ================
-        trước khi mở sheet : \(before)
-        sau khi đóng sheet : \(after)
-        TÁI HIỆN ĐƯỢC      : \(reproduced ? "CÓ — lề về 0" : "KHÔNG — lề giữ nguyên")
+        trước : \(before)
+        sau   : \(after)
+        TÁI HIỆN ĐƯỢC : \(reproduced ? "CÓ — lề về 0" : "KHÔNG — lề giữ nguyên")
         =============================================================
 
         """)
@@ -128,25 +204,11 @@ final class SafeAreaFreezeTests: XCTestCase {
         return app.staticTexts.matching(predicate).firstMatch
     }
 
-    private func openAndDismissSheet(
-        _ app: XCUIApplication,
-        buttonID: String,
-        sheetMarker: (XCUIApplication) -> XCUIElement
-    ) {
-        let button = app.buttons[buttonID].firstMatch
-        XCTAssertTrue(button.waitForExistence(timeout: 30), "không thấy nút harness \(buttonID)")
-        button.tap()
-
-        // Chờ một phần tử BÊN TRONG sheet, ✗ ngủ theo đồng hồ.
-        XCTAssertTrue(
-            sheetMarker(app).waitForExistence(timeout: 30),
-            "sheet \(buttonID) không mở (không thấy dấu nhận biết bên trong nó)"
-        )
-
-        // Đóng bằng CỬ CHỈ VUỐT XUỐNG — đúng thao tác chủ app làm lúc đo được lỗi, và là đường
-        // duy nhất dùng chung được cho cả ba biến thể (sheet rỗng không có nút Đóng nào).
-        // Bắt đầu từ SÁT MÉP TRÊN của sheet (vùng "tay nắm"), ✗ từ giữa màn: giữa màn của
-        // `ScanAddressView` là ô nhập, kéo ở đó thành thao tác chọn chữ chứ không đóng sheet.
+    /// Đóng bằng CỬ CHỈ VUỐT XUỐNG — đúng thao tác chủ app làm lúc đo được lỗi, và là đường duy
+    /// nhất dùng chung được cho mọi biến thể (sheet rỗng không có nút Đóng nào).
+    /// Bắt đầu từ SÁT MÉP TRÊN của sheet (vùng "tay nắm"), ✗ từ giữa màn: giữa màn của
+    /// `ScanAddressView` là ô nhập, kéo ở đó thành thao tác chọn chữ chứ không đóng sheet.
+    private func dismissSheetBySwipe(_ app: XCUIApplication, variant: String) {
         let top = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.10))
         let bottom = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.95))
         top.press(forDuration: 0.15, thenDragTo: bottom)
@@ -154,7 +216,7 @@ final class SafeAreaFreezeTests: XCTestCase {
         // Chờ Home trở lại thay vì ngủ.
         XCTAssertTrue(
             projectRow(app).waitForExistence(timeout: 30),
-            "sheet \(buttonID) không đóng được bằng vuốt xuống"
+            "[\(variant)] sheet không đóng được bằng vuốt xuống"
         )
     }
 }
