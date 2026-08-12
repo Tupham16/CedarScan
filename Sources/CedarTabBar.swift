@@ -7,12 +7,34 @@ import UIKit // UIColor.systemBackground cho vòng "khoét lỗ" quanh nút SCAN
 /// nhô lên khỏi thanh, cũng không cho đổ bóng màu. Chủ app muốn nút SCAN nằm GIỮA, to hơn và nổi
 /// bật — đó là khuôn "center action button" quen thuộc (Instagram/TikTok), bắt buộc phải tự vẽ.
 ///
-/// 🔴 Thanh này CHỈ đổi `selection`. Mọi cơ chế cũ giữ NGUYÊN: bấm SCAN vẫn chỉ là chọn
-/// `RootTab.scan`, rồi `RootView.onChange(of: tab)` bật về Home và tăng `scanRequest`. Đừng
-/// "rút gọn" thành gọi thẳng hàm quét ở đây — máy quét nằm trong `HomeView` và đường đi hiện tại
-/// là đường đã được ghi trong handoff.
+/// 🔴🔴 **NÚT SCAN GỌI `onScan()`, TUYỆT ĐỐI ✗ ĐẶT `selection = .scan`. ĐÂY LÀ BẢN VÁ CỦA LỖI
+/// "LỀ SwiftUI ĐÔNG CỨNG" — 9 BẢN IPA MỚI TÌM RA. ✗ ĐỔI NGƯỢC LẠI DÙ VÌ LÝ DO GÌ.**
+///
+/// Chú thích cũ ở đúng chỗ này dặn ngược lại — nguyên văn: *"Thanh này CHỈ đổi `selection`… Đừng
+/// rút gọn thành gọi thẳng hàm quét ở đây"*. **Chính lời dặn đó là con bug.** Giữ lại đoạn này để
+/// ai định "khôi phục cho đúng khuôn cũ" thì đọc được vì sao không được.
+///
+/// **Cơ chế cũ (SAI):** bấm SCAN → `selection = .scan` → `RootView.onChange(of: tab)` bật NGƯỢC
+/// về `.home` + tăng `scanRequest`, tất cả trong CÙNG một nhịp; `.scan` chỉ là một tab
+/// `Color.clear` giả. Cú **nhảy-vào-rồi-ra** đó, trên một `TabView` bị ẩn thanh gốc và gắn thanh
+/// tự vẽ bằng `.safeAreaInset`, làm SwiftUI **bỏ hẳn vùng an toàn của cả cây** — vĩnh viễn, tới
+/// khi tắt app. Triệu chứng: header đè danh sách, nút đáy bị đĩa Scan đè, ở MỌI màn sau đó.
+///
+/// **Đo được, ✗ suy luận** (harness CI `31559667222`, iPhone 17 Pro / iOS 26.5 — cùng một cái
+/// sheet, chỉ khác đường mở):
+///  · mở màn địa chỉ bằng NÚT THƯỜNG → `geo t116 b34` (lành);
+///  · đổi tab THƯỜNG (Home→Đơn hàng→Home) → lành;
+///  · sheet rỗng / sheet có `NavigationStack`+`.toolbar` → lành;
+///  · **mở CHÍNH màn đó qua ĐĨA SCAN → `geo t0 b0`.**
+/// ⇒ Thủ phạm là cú nảy tab, ✗ phải sheet, ✗ phải màn quét, ✗ phải `.safeAreaInset` trong sheet.
+/// 8 bản trước (2.6→2.14) vá ở phía SAU thủ phạm nên bản nào cũng trượt.
+///
+/// 🔴 `onScan` KHÔNG có giá trị mặc định — quên truyền là lỗi biên dịch, ✗ phải một cái nút chết
+/// im lặng (bẫy #13).
 struct CedarTabBar: View {
     @Binding var selection: RootTab
+    /// Bấm đĩa SCAN. `RootView` nối vào `requestScan()` — đọc khối 🔴🔴 ở trên trước khi đụng.
+    let onScan: () -> Void
 
     /// Phần THANH nhìn thấy (nền mờ + divider), đo từ mép trên vùng an toàn dưới:
     /// hàng nút 58 + 8pt thở phía trên icon (cao hơn đời trước 4pt để dải trong suốt bên
@@ -149,7 +171,8 @@ struct CedarTabBar: View {
     /// trong phần thanh nên không bị đĩa đè (nguyên nhân #2 cũng không quay lại).
     private var scanItem: some View {
         Button {
-            selection = .scan
+            // 🔴 ✗ ĐỔI THÀNH `selection = .scan`. Đó là con bug — đọc khối 🔴🔴 đầu file.
+            onScan()
         } label: {
             VStack(spacing: 2) {
                 scanCircle

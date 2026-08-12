@@ -91,19 +91,11 @@ struct RootView: View {
         // `.tabItem` vẫn khai đủ nhãn/icon: nếu một bản iOS nào đó không ẩn được thanh gốc thì app
         // vẫn dùng được (hai thanh, xấu nhưng không kẹt), thay vì còn một dải nút trắng trơn.
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            CedarTabBar(selection: $tab)
+            CedarTabBar(selection: $tab, onScan: requestScan)
                 // Bàn phím KHÔNG được đẩy thanh tab lên. Nội dung safeAreaInset mặc định né bàn
                 // phím, nên ô tìm kiếm ở Home/Đơn hàng sẽ làm thanh tab trôi lên nằm đè kết quả.
                 // Thanh gốc của iOS nằm im dưới bàn phím — giữ đúng hành vi đó.
                 .ignoresSafeArea(.keyboard, edges: .bottom)
-        }
-        // Tab SCAN không "ở lại": bật về Home (để màn quét mở TRÊN HomeView — đằng sau sheet là danh
-        // sách bản quét, không phải nền trống), rồi báo HomeView mở màn quét mới. Cùng cơ chế "center
-        // action tab" phổ biến; toàn bộ máy quét (bẫy đã ghi ở handoff) vẫn nằm nguyên trong HomeView.
-        .onChange(of: tab) { _, newTab in
-            guard newTab == .scan else { return }
-            tab = .home
-            scanRequest += 1
         }
         .task(id: account.isSignedIn) {
             await purgeDeliveredScans()
@@ -116,6 +108,29 @@ struct RootView: View {
             guard phase == .active else { return }
             Task { await purgeDeliveredScans() }
         }
+    }
+
+    /// 🔴🔴 **ĐĨA SCAN GỌI THẲNG VÀO ĐÂY. ✗ BAO GIỜ ĐẶT `tab = .scan` NỮA — ĐÓ LÀ CON BUG.**
+    ///
+    /// Bản cũ làm thế này: đĩa SCAN đặt `selection = .scan`, rồi một `.onChange(of: tab)` ở đây
+    /// bật NGƯỢC về `.home` và tăng `scanRequest` — tất cả trong CÙNG một nhịp, với `.scan` chỉ là
+    /// một tab `Color.clear` giả. Cú **nhảy-vào-rồi-ra** đó làm SwiftUI bỏ hẳn vùng an toàn của cả
+    /// cây view, vĩnh viễn tới khi tắt app (`geo t0 b0` trong khi UIKit vẫn `t47 b34`).
+    /// **Chín bản IPA mới tìm ra**, và nó giải thích vì sao 8 bản trước bản nào cũng trượt: chúng
+    /// vá màn quét / cover / `.safeAreaInset` — tất cả đều nằm PHÍA SAU thủ phạm.
+    /// Số đo + ma trận đối chứng: khối 🔴🔴 đầu `CedarTabBar.swift` và §LỖI ĐÈ CHỮ.
+    ///
+    /// Nay: không đụng vào `tab` trừ khi đang ở tab khác (lúc đó là một cú đổi tab THƯỜNG, đã đo
+    /// là vô hại), rồi báo `HomeView` bằng `scanRequest`. Máy quét vẫn nằm nguyên trong `HomeView`
+    /// — phần đó của khuôn cũ KHÔNG đổi.
+    ///
+    /// ⚠ `RootTab.scan` + tab `Color.clear` mang `.tag(RootTab.scan)` vẫn còn, nhưng nay **KHÔNG
+    /// AI CHỌN NÓ NỮA**. Giữ vì `.tabItem` của nó là phần của lưới an toàn "iOS nào không ẩn được
+    /// thanh gốc thì app vẫn dùng được". 🔴 Ai nối lại một đường chọn `.scan` là dựng lại đúng
+    /// con bug này.
+    private func requestScan() {
+        if tab != .home { tab = .home }
+        scanRequest += 1
     }
 
     /// Dọn IM LẶNG bản quét thuộc đơn đã giao.

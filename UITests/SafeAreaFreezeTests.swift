@@ -69,6 +69,25 @@ final class SafeAreaFreezeTests: XCTestCase {
         )
     }
 
+    /// 🔴 Bấm đĩa SCAN **TỪ MỘT TAB KHÁC**. Đường này chỉ tồn tại SAU bản vá: `requestScan()` có
+    /// thêm nhánh `if tab != .home { tab = .home }`, tức một cú đổi tab THẬT rồi mới mở sheet —
+    /// khuôn cũ không có nhánh đó (nó luôn đi qua tab `.scan` giả). Phải đo riêng, không thì bản
+    /// vá tự đẻ ra một đường chưa ai thử: đổi tab + mở sheet trong cùng một nhịp.
+    func testScanTabPathFromAnotherTabFreezesSafeArea() {
+        runProbe(
+            variant: "TỪ TAB KHÁC → đĩa SCAN → màn địa chỉ",
+            openSheet: { app in
+                let orders = app.buttons["Orders"].firstMatch
+                XCTAssertTrue(orders.waitForExistence(timeout: 30), "không thấy tab Đơn hàng")
+                orders.tap()
+                let scan = app.buttons["Scan a new space"].firstMatch
+                XCTAssertTrue(scan.waitForExistence(timeout: 30), "không thấy đĩa SCAN")
+                scan.tap()
+            },
+            sheetMarker: { app in app.navigationBars["Before scanning"].firstMatch }
+        )
+    }
+
     /// ĐỐI CHỨNG cho cú nảy: một cú đổi tab THƯỜNG (Home → Đơn hàng → Home), không sheet nào.
     /// Lỗi ⇒ mọi cú đổi tab đều gây bệnh, tức nghi can là `TabView` + `.safeAreaInset` nói chung
     /// chứ ✗ riêng cú nảy. Lành ⇒ chỉ cú NHẢY-VÀO-RỒI-RA của tab giả mới độc.
