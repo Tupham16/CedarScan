@@ -34,6 +34,13 @@ enum SafeAreaHarness {
     @MainActor
     static func seedIfNeeded(_ store: ScanStore) {
         guard isEnabled else { return }
+
+        // 🔴 ĐÁNH DẤU ĐÃ XEM HƯỚNG DẪN. Simulator trong CI luôn là máy SẠCH, nên `seenKey` false
+        // và `beginNewScan()` mở màn HƯỚNG DẪN trước chứ không phải màn địa chỉ — harness vòng 2
+        // chết đúng ở đây (run 31559105505). Máy chủ app thì đã qua bước đó từ lâu, nên bỏ qua
+        // guide mới là mô phỏng ĐÚNG máy thật; để nguyên là đo một đường đi mà ông không hề đi.
+        UserDefaults.standard.set(true, forKey: ScanGuideView.seenKey)
+
         guard !store.projects.contains(where: { $0.name == seedProjectName }) else { return }
         _ = store.createProject(name: seedProjectName)
     }
