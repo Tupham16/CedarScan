@@ -1,0 +1,84 @@
+# 🔴🔴 BỘ TÁI HIỆN LỖI "LỀ SwiftUI ĐÔNG CỨNG" TRÊN SIMULATOR iOS 26 — GỠ KHI ĐÓNG VỤ.
+#
+# Vì sao có: vụ này đã tốn 8 bản IPA (2.6→2.14), mỗi bản một lượt chủ app sideload rồi thử tay,
+# cả 8 đều trượt. Tiền đề mới (12/08) khiến CI làm được việc này: bệnh KHÔNG cần LiDAR/ARKit —
+# chỉ mở rồi đóng một sheet là đủ. Chi tiết ở `Sources/Support/SafeAreaHarness.swift`.
+#
+# Chạy TAY (workflow_dispatch). ✗ gắn vào push: nó tốn ~10 phút runner và không gác được hồi quy
+# nào cho tới khi chứng minh được là nó tái hiện được bệnh.
+#
+# 🔴 CÁCH ĐỌC KẾT QUẢ: tìm khối "HARNESS KẾT QUẢ" trong log của bước `xcodebuild test`. Mỗi biến
+# thể in ra hai số (trước/sau) và một dòng "TÁI HIỆN ĐƯỢC". Test CỐ Ý không fail khi tái hiện
+# được — cả hai chiều đều là thông tin.
+name: UI test - safe area freeze
+
+on:
+  workflow_dispatch:
+
+jobs:
+  probe:
+    # macos-26 = Xcode 26.6 + runtime iOS 26.2/26.4/26.5 (đo bằng `diag.yml`, run 31511944279).
+    # macos-15 KHÔNG có iOS 26 nên vô dụng cho vụ này.
+    runs-on: macos-26
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      # Chọn máy theo RUNTIME + tên, ✗ ghi cứng một chuỗi `-destination`: tên máy trong Xcode 26
+      # đổi theo đời (iPhone 16/17…), ghi cứng là run chết vì "device not found" chứ không phải vì
+      # bệnh. Ưu tiên máy có "Pro" trong tên (chắc chắn có tai thỏ / Dynamic Island — cần lề trên
+      # KHÁC 0 thì mốc lành mới có nghĩa).
+      - name: Pick an iOS 26.5 iPhone simulator
+        id: sim
+        run: |
+          set -euo pipefail
+          xcrun simctl list devices available
+          UDID=$(xcrun simctl list devices available -j | python3 -c "
+          import json, sys
+          data = json.load(sys.stdin)['devices']
+          candidates = []
+          for runtime, devices in data.items():
+              if 'iOS-26-5' not in runtime:
+                  continue
+              for d in devices:
+                  if d.get('isAvailable') and 'iPhone' in d['name']:
+                      candidates.append(d)
+          if not candidates:
+              sys.exit('KHONG co simulator iPhone nao voi runtime iOS 26.5')
+          candidates.sort(key=lambda d: (0 if 'Pro' in d['name'] else 1, d['name']))
+          print(candidates[0]['udid'] + ' ' + candidates[0]['name'])
+          ")
+          echo "Da chon: $UDID"
+          echo "udid=${UDID%% *}" >> "$GITHUB_OUTPUT"
+
+      - name: Run harness
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -project CedarScan.xcodeproj \
+            -scheme CedarScan \
+            -destination "id=${{ steps.sim.outputs.udid }}" \
+            -only-testing:CedarScanUITests \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            | tee xcodebuild-test.log
+
+      - name: Tom tat ket qua
+        if: always()
+        run: |
+          echo "===== HARNESS ====="
+          grep -A 6 "HARNESS KẾT QUẢ" xcodebuild-test.log || echo "(khong tim thay khoi ket qua)"
+
+      - name: Upload log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: uitest-log
+          path: xcodebuild-test.log

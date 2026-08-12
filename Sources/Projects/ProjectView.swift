@@ -291,6 +291,8 @@ struct ProjectView: View {
             .foregroundStyle(.black)
             .allowsHitTesting(false)
             .padding(.top, 180)
+            // XCUITest của harness đọc nhãn này để lấy số — xem `SafeAreaHarness`. Gỡ cùng nhãn.
+            .accessibilityIdentifier("SAFE_AREA_PROBE")
         }
     }
 

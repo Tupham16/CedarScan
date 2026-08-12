@@ -12,7 +12,11 @@ targets:
     platform: iOS
     deploymentTarget: "17.0"
     scheme:
-      testTargets: []
+      # 🔴 BỘ ĐO TẠM (gỡ cùng `SafeAreaHarness.swift` + thư mục `UITests/`). Trước đây là `[]`.
+      # ⚠ Khai ở đây KHÔNG đụng tới bản giao khách: workflow `Build CedarScan IPA` chạy
+      # `xcodebuild archive`, mà archive chỉ dựng target ứng dụng — target test không vào IPA.
+      testTargets:
+        - CedarScanUITests
     sources:
       - Sources
       - Assets.xcassets
@@ -35,7 +39,7 @@ targets:
         # tiếng, cùng hiện "1.0" → chủ app test trúng bản cũ mà không ai biết, báo "lỗi vẫn
         # nguyên" oan. AltStore (My Apps) và Cài đặt iOS đều hiện số này — nó là cách DUY NHẤT
         # xác minh từ xa máy ông đang chạy bản nào. Ghi số giao kèm vào SESSION-HANDOFF §STATE.
-        MARKETING_VERSION: "2.14"
+        MARKETING_VERSION: "2.15"
     info:
       path: Sources/Info.plist
       properties:
@@ -84,3 +88,20 @@ targets:
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
         ITSAppUsesNonExemptEncryption: false
+
+  # 🔴🔴 BỘ ĐO TẠM — GỠ CẢ TARGET NÀY khi đóng vụ "lề đông cứng", cùng với
+  # `Sources/Support/SafeAreaHarness.swift`, thư mục `UITests/`, `.github/workflows/uitest.yml`
+  # và mục `testTargets` ở trên. Lý do tồn tại + cách đọc kết quả: `SafeAreaHarness.swift`.
+  CedarScanUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - UITests
+    dependencies:
+      - target: CedarScan
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.cedar247.cedarscan.uitests
+        TEST_TARGET_NAME: CedarScan
+        GENERATE_INFOPLIST_FILE: YES
