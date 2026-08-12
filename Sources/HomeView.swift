@@ -80,12 +80,7 @@ struct HomeView: View {
     /// (RoomPlan đã bị gỡ hẳn 2026-07-20 nên `RoomCaptureSession.isSupported` cũng không còn.)
     /// Cùng phép thử với `MeshScanController.isSupported`.
     private var isSupported: Bool {
-        // 🔴 BỘ ĐO TẠM (gỡ cùng `SafeAreaHarness.swift`). Harness PHẢI đi ĐÚNG đường của chủ app:
-        // đĩa SCAN → cú nảy tab ở `RootView.onChange(of: tab)` → màn địa chỉ. Simulator không có
-        // LiDAR nên nhánh thật rẽ sang alert "Cần LiDAR" và đường đo đứt đúng chỗ cần đo.
-        // Nới CHỈ khi cờ harness bật ⇒ app của khách không đổi: không có launch argument thì
-        // `isEnabled` = false và biểu thức này y hệt bản cũ.
-        ARWorldTrackingConfiguration.supportsSceneReconstruction(.mesh) || SafeAreaHarness.isEnabled
+        ARWorldTrackingConfiguration.supportsSceneReconstruction(.mesh)
     }
 
     var body: some View {
@@ -123,14 +118,6 @@ struct HomeView: View {
                 placement: .navigationBarDrawer(displayMode: .always),
                 prompt: L.t("Search homes and scans", "Tìm dự án, bản quét")
             )
-            // 🔴 BỘ ĐO TẠM (gỡ cùng `SafeAreaHarness.swift`). No-op khi không có launch argument.
-            // Dựng sẵn một dự án để XCUITest có đường vào `ProjectView` — nơi có nhãn đo — vì
-            // trên simulator không tạo dự án bằng đường thật được (không có LiDAR).
-            // 🔴 `await` BẮT BUỘC: closure của `.task` là `@Sendable`, KHÔNG thừa hưởng isolation,
-            // mà `seedIfNeeded` là `@MainActor` (nó đụng `ScanStore`, vốn `@MainActor`). Thiếu chữ
-            // này là lỗi biên dịch — mà máy Windows không compile được để bắt. Cùng khuôn với
-            // `RootView.task { await purgeDeliveredScans() }`.
-            .task { await SafeAreaHarness.seedIfNeeded(store) }
             // (`SafeAreaRepair` — ba phát "sửa-từ-ngoài" bắn từ onAppear của màn này — ĐÃ XOÁ HẲN
             // ở 2.13. Nó được ĐO là TRƠ: lúc đang lỗi, `fix 9` cho biết nó đã chạy 9 lượt và cú
             // bắn tay bỏ mọi cổng cũng không sửa được gì. Xoá cùng lượt với bản vá lớp phủ vì cổng
@@ -467,13 +454,6 @@ struct HomeView: View {
 
     private var mainList: some View {
         List {
-            // 🔴 BỘ ĐO TẠM, GỠ CÙNG `SafeAreaHarness.swift`. Không truyền launch argument
-            // `-safeAreaHarness` thì `isEnabled` = false và nhánh này không tồn tại — app của
-            // khách không đổi gì. Lý do nó phải nằm ĐÚNG ở đây (trong cây gốc thật) ghi ở
-            // `SafeAreaHarness`.
-            if SafeAreaHarness.isEnabled {
-                SafeAreaHarnessPanel()
-            }
             // Tìm không ra thì PHẢI nói ra. Không có dòng này, danh sách rỗng trơn trông y hệt
             // "máy chưa có bản quét nào" — người dùng tưởng dữ liệu bay mất.
             if !searchText.isEmpty && visibleProjects.isEmpty && visibleLooseScans.isEmpty {

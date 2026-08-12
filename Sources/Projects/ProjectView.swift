@@ -1,9 +1,5 @@
 import ARKit
 import SwiftUI
-// 🔴 TẠM, GỠ CÙNG `safeAreaProbe` của bản 2.6: `UIApplication`/`UIWindowScene` để đọc
-// `safeAreaInsets` của CỬA SỔ. Khai tường minh chứ ✗ trông chờ ARKit kéo UIKit vào hộ — lỗi kiểu
-// đó chỉ lộ sau 10 phút CI (tiền lệ ghi ở `ScanDetailView`).
-import UIKit
 
 /// Trang một dự án (căn nhà): danh sách bản quét các tầng, quét thêm, đặt hàng cả căn.
 struct ProjectView: View {
@@ -191,21 +187,8 @@ struct ProjectView: View {
 
     var body: some View {
         content
-            // 🔴🔴 **BẢN ĐO TẠM — GỠ NGAY SAU KHI ĐỌC ĐƯỢC SỐ. ✗ ĐỂ LẪN VÀO BẢN GIAO KHÁCH.**
-            // Cùng luật với `ScanPerfProfiler`/hai khoá Files app: mọi thứ CHỈ-ĐỂ-ĐO phải ra khỏi
-            // app ngay khi xong. Bản 2.6 sinh ra chỉ để đọc một con số.
-            //
-            // Việc nó đo: lỗi "header đè lên bản quét + nút Đặt làm mặt bằng bị đĩa Scan đè" chỉ
-            // xảy ra SAU KHI QUÉT, thoát app vào lại là hết. Hai cơ chế đều khớp triệu chứng và
-            // đòi hai cách vá NGƯỢC nhau, phân biệt được bằng đúng con số này:
-            //  · `win` = 0 ⇒ vùng an toàn của CỬA SỔ bị bỏ về 0 thật ⇒ rò từ `.ignoresSafeArea()`
-            //    của cover quét ⇒ vá = đưa việc present cover ra ngoài `.safeAreaInset`.
-            //  · `win` VẪN ĐÚNG (t≈47–59, b≈34) mà chữ vẫn đè ⇒ lề không hỏng, chỉ là `List`
-            //    không được GẮN với thanh điều hướng ⇒ thủ phạm là `.toolbar(.hidden, for:.tabBar)`
-            //    / `BarAppearanceBridge`, và hoisting cover là công cốc.
-            // `geo` = lề mà chính view này nhìn thấy (đã trừ `.safeAreaInset` của màn) — kèm theo
-            // để biết chênh lệch nằm ở tầng cửa sổ hay tầng SwiftUI.
-            .overlay(alignment: .topLeading) { safeAreaProbe }
+            // (Nhãn vàng đo vùng an toàn đã GỠ ở 2.19 cùng cả bộ đo — vụ "lề đông cứng" đóng ở
+            // 2.18. Lịch sử + số đo + cách dựng lại bộ đo: §LỖI ĐÈ CHỮ trong SESSION-HANDOFF.)
             // Dự án biến mất trong lúc màn này đang mở → thoát ra.
             // ⚠ NGUỒN GÂY RA ĐÃ ĐỔI Ở BẢN 1.8, GUARD THÌ KHÔNG. Trước đây thủ phạm DUY NHẤT là
             // việc dọn-sau-khi-giao chạy ngầm (nay đã tắt — `RootView.autoPurgeAfterDelivery`).
@@ -254,46 +237,6 @@ struct ProjectView: View {
             .onChange(of: isMeshScanning) { _, presented in
                 if !presented && project == nil { leaveDeadProject() }
             }
-    }
-
-    /// 🔴🔴 **NHÃN ĐO TẠM (2.6, ba tầng từ 2.9) — GỠ CÙNG `.overlay` ở `body` NGAY KHI ĐÓNG VỤ
-    /// "lề đông cứng". ✗ để lẫn vào bản giao khách, ✗ giữ lại "cho lần sau".**
-    /// Nó còn sống ở 2.13 vì đây là cách chủ app NGHIỆM THU bản vá lớp phủ: đọc được
-    /// `geo t91 b34` (thay vì `geo t0 b0`) sau khi mở-rồi-đóng màn quét là thắng.
-    /// Đọc BA nguồn vì chúng có thể lệch nhau, và chính chỗ lệch mới là câu trả lời:
-    ///  · `win` = `safeAreaInsets` của CỬA SỔ, hỏi thẳng UIKit ⇒ sự thật gốc, không qua SwiftUI.
-    ///  · `root` = `safeAreaInsets` UIKit của view root VC ⇒ tầng GIỮA.
-    ///  · `geo` = lề mà view này nhìn thấy qua `GeometryProxy` ⇒ tầng SwiftUI.
-    /// Nhãn nằm ở 180pt chứ ✗ y=0: bản đầu đặt ở y=0, đúng chỗ header đè lên LÚC LỖI nên chủ app
-    /// không đọc được số đúng lúc cần nhất (lỗ đo của vòng 2.9).
-    /// 🔴 2.13 GỠ vế NÚT BẤM (`fix n` + chạm = `forceRepairNow`): toàn bộ `SafeAreaRepair` đã xoá
-    /// — nó được ĐO là trơ (`fix 9` mà vẫn lỗi, bắn tay bỏ mọi cổng cũng trơ). Nay chỉ còn nhãn
-    /// đọc số. ✗ dựng lại cái nút đó.
-    /// `GeometryReader` đặt trong `.overlay` nên KHÔNG đụng vào bố cục đang đo, và nhãn nay không
-    /// nhận chạm nữa nên mọi cú chạm xuyên qua bình thường.
-    @ViewBuilder
-    private var safeAreaProbe: some View {
-        GeometryReader { geo in
-            // Mốc lành (chủ app, 2.9): `win t47 b34 · root t47 b34 · geo t91 b34` (91 = 47 + 44).
-            let scene = UIApplication.shared.connectedScenes
-                .compactMap { $0 as? UIWindowScene }.first
-            let win = scene?.keyWindow?.safeAreaInsets ?? .zero
-            let root = scene?.keyWindow?.rootViewController?.view.safeAreaInsets ?? .zero
-            Text(
-                "win t\(Int(win.top)) b\(Int(win.bottom))"
-                + " · root t\(Int(root.top)) b\(Int(root.bottom))"
-                + " · geo t\(Int(geo.safeAreaInsets.top)) b\(Int(geo.safeAreaInsets.bottom))"
-            )
-            .font(.system(size: 11, weight: .bold, design: .monospaced))
-            .padding(.horizontal, 4)
-            .padding(.vertical, 2)
-            .background(.yellow)
-            .foregroundStyle(.black)
-            .allowsHitTesting(false)
-            .padding(.top, 180)
-            // XCUITest của harness đọc nhãn này để lấy số — xem `SafeAreaHarness`. Gỡ cùng nhãn.
-            .accessibilityIdentifier("SAFE_AREA_PROBE")
-        }
     }
 
     /// Thoát khỏi một dự án đã bị dọn mất — HOÃN MỘT NHỊP, không `dismiss()` ngay tại chỗ.

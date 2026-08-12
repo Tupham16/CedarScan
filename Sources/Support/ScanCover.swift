@@ -1,53 +1,37 @@
 import SwiftUI
 import UIKit // Color(uiColor:) cho nền đục + đo chiều cao CỬA SỔ cho cú trượt (`travel`)
 
-/// 🔴🔴 **COVER QUÉT NAY LÀ MỘT LỚP PHỦ SwiftUI TRONG CHÍNH CÂY VIEW CỦA APP (bản 2.13).**
-/// **✗ TRÌNH BÀY NÓ BẰNG BẤT KỲ CƠ CHẾ NÀO KHÁC — `.fullScreenCover`, `.sheet`, `present` của
-/// UIKit, hay một `UIWindow` riêng. Cả bốn ĐỀU ĐÃ THỬ VÀ ĐỀU LÀM HỎNG LỀ.**
+/// **Cover quét là một LỚP PHỦ SwiftUI trong chính cây view của app** (dựng ở bản 2.13):
+/// `MeshScanFlowView` được vẽ như một nhánh ZStack ngay trên `RootView`, cùng một
+/// `UIHostingController`, cùng một ViewGraph. Không present, không cửa sổ riêng, không tháo-gắn.
 ///
-/// # Bệnh
-/// Mở màn quét rồi đóng (kể cả bấm Hủy NGAY sau 2 giây, KHÔNG quét gì) → mọi màn sau đó mất vùng
-/// an toàn: header đè lên danh sách bản quét, nút đáy bị đĩa Scan của thanh tab đè. Chỉ THOÁT APP
-/// VÀO LẠI mới hết.
+/// 🔴🔴 **FILE NÀY ✗ PHẢI BẢN VÁ CỦA LỖI "LỀ ĐÔNG CỨNG" — ĐỌC KỸ TRƯỚC KHI DỰA VÀO NÓ.**
+/// Nó ra đời như MỘT LẦN THỬ VÁ lỗi đó, và **nó đã KHÔNG vá được** (bản 2.13 vẫn lỗi y nguyên).
+/// Thủ phạm thật nằm ở chỗ khác hẳn và được tìm ra ở **bản 2.18**: **cú NẢY TAB** — đĩa SCAN đặt
+/// `selection = .scan` rồi `RootView` bật ngược về `.home` trong cùng một nhịp, qua một tab
+/// `Color.clear` giả. Số đo + ma trận đối chứng: khối 🔴🔴 đầu `CedarTabBar.swift`.
+/// ⇒ **✗ ghi ở đâu rằng lớp phủ chữa được lỗi lề, và ✗ dùng "để khỏi đông cứng lề" làm lý do giữ
+/// nó.** Lý do giữ là lý do KHÁC, ghi ngay dưới đây.
 ///
-/// # Số đo — nền của mọi quyết định dưới đây (nhãn vàng `ProjectView.safeAreaProbe`, iPhone 12 Pro
-/// / iOS 26.5.2)
-///  · đang LỖI:  `win t47 b34 · root t47 b34 · geo t0 b0`
-///  · lúc LÀNH:  `win t47 b34 · root t47 b34 · geo t91 b34` (91 = 47 tai thỏ + 44 thanh điều hướng)
-/// ⇒ `safeAreaInsets` của CỬA SỔ **và** của view thuộc root view controller đều ĐÚNG trong lúc
-/// lỗi; chỉ `GeometryProxy` phía SwiftUI đọc 0. Chỗ kẹt nằm **BÊN TRONG ViewGraph của SwiftUI**,
-/// và không cú tác động nào từ phía UIKit chạm được vào nó.
+/// # Vì sao VẪN GIỮ lớp phủ (chủ app chốt 12/08, sau khi biết nó không phải bản vá)
+/// Hoàn nguyên về `.fullScreenCover` là thêm một refactor lớn nữa vào vùng bẫy dày nhất repo, để
+/// đổi lấy một khác biệt khách không nhìn thấy. Lớp phủ thì đã qua **5 vòng review đối kháng** và
+/// đã chạy thật qua các bản 2.13/2.14/2.18 không ai báo lỗi. Nên: giữ, và vá riêng hai lỗ đã biết
+/// ở khối 🟡 bên dưới khi nào gặp.
+/// ⚠ Nhưng nó KHÔNG còn "bất khả xâm phạm" như đời trước tưởng: nếu sau này có lý do thật (vd hai
+/// lỗ 🟡 kia thành phiền), hoàn nguyên là một lựa chọn HỢP LỆ — cơ chế trình bày nào cũng được,
+/// vì không cơ chế nào trong số đó là nguyên nhân của lỗi lề.
 ///
-/// # 🔴 DANH SÁCH ĐÃ CHẾT BẰNG ĐO — ✗ THỬ LẠI BẤT KỲ CÁI NÀO (6 bản IPA, mỗi bản một buổi của chủ app)
-///  1. `.toolbar(.hidden, for: .tabBar)` — 2.7 gỡ khỏi cả hai màn PUSH, VẪN lỗi ⇒ minh oan, đã khai lại;
-///  2. `SafeAreaRepair` v1 — toggle `additionalSafeAreaInsets` của root VC (2.8);
-///  3. `SafeAreaRepair` v2 — co cửa sổ 0,5pt + toggle + `safeAreaInsetsDidChange()` đệ quy toàn
-///     cây, theo lịch-lúc-yên (2.9); **và cú BẮN TAY bỏ mọi cổng (2.10, `fix 9`) cũng TRƠ**
-///     ⇒ toàn bộ hướng "sửa-từ-ngoài" chết, file `SafeAreaRepair.swift` đã XOÁ ở 2.13;
-///  4. `.overFullScreen` thay `.fullScreenCover` — KHÔNG tháo cây view bên dưới (2.11) — VẪN lỗi
-///     ⇒ loại nghi phạm "tại cover tháo-gắn cây";
-///  5. **CỬA SỔ RIÊNG** — cover là `rootViewController` của một `UIWindow` khác, cửa sổ gốc không
-///     bao giờ là "màn đang present" (2.12) — VẪN lỗi (hoạt ảnh trượt chạy đúng ⇒ ✗ phải lỗi
-///     triển khai);
-///  6. RAM/ARKit/mesh — loại bằng phép thử "mở màn quét → Hủy NGAY, không quét gì": vẫn lỗi;
-///  7. hồi quy bản 2.4 (đụng 0 dòng layout) · đổi toolchain (cùng Xcode 16.4 / SDK 18.5) ·
-///     `Group { if } else { }` đổi nhánh ở Home (không giải thích được lề DƯỚI).
-///
-/// # Vì sao LỚP PHỦ
-/// Bất biến rút ra từ 6 bản trên: hễ nội dung màn quét được ĐƯA RA NGOÀI cây view của cửa sổ gốc —
-/// bằng cover, bằng view controller, hay bằng cửa sổ khác — là bộ máy vùng an toàn của cây SwiftUI
-/// trong cửa sổ gốc đông cứng. Lớp phủ **không đưa nó ra ngoài**: `MeshScanFlowView` được vẽ như
-/// một nhánh ZStack ngay trên `RootView`, cùng một `UIHostingController`, cùng một ViewGraph.
-/// Không present, không cửa sổ, không tháo-gắn ⇒ **không còn cơ chế nào để iOS đông cứng.**
-/// Khuôn này app ĐÃ dùng thành công bên trong chính cover (`ScanNameOverlay`, `QualityAlertOverlay`).
-///
-/// 🔴 **PHẢN BIỆN MẠNH NHẤT, GHI LẠI ĐỂ ✗ QUÊN (review đối kháng 12/08):** bản 2.12 đã cho thấy
-/// cửa sổ gốc KHÔNG cần bị đụng gì thì lề vẫn đông cứng ⇒ trục "cách trình bày" có thể đã cạn, và
-/// biến số CHƯA AI ĐỘNG TỚI suốt 6 bản là **RUỘT của cover** (view ARKit + `.ignoresSafeArea()`).
-/// Nếu thủ phạm là ruột chứ ✗ cách trình bày thì lớp phủ có thể còn TỆ HƠN (nay ruột đó nằm chung
-/// ViewGraph). **Nếu 2.13 vẫn lỗi thì ✗ vặn tiếp cách trình bày — chẻ đôi RUỘT:** một bản đưa
-/// `ScanCover.show(Color.black)` (không ARKit) và một bản giữ view AR nhưng bỏ `.ignoresSafeArea()`
-/// của nó. Hai bản đó chỉ vào đúng thủ phạm, mà mỗi bản đắt bằng đúng 6 bản đã tiêu.
+/// # Lịch sử — 8 bản IPA vá NHẦM MÀN (2.6→2.14). Giữ để ✗ ai đi lại
+/// Cả tám đều nhắm vào màn quét / cách trình bày cover, trong khi thủ phạm (cú nảy tab) chạy
+/// TRƯỚC tất cả: `.toolbar(.hidden, for:.tabBar)` (2.7, minh oan) · `SafeAreaRepair` v1/v2 +
+/// bắn tay (2.8→2.10, trơ hoàn toàn, file đã xoá) · `.overFullScreen` (2.11) · **cửa sổ riêng**
+/// (2.12) · lớp phủ này (2.13) · bỏ `.safeAreaInset` trong sheet màn địa chỉ (2.14).
+/// 🔴 **Cái làm cả tám trượt là một lỗi ĐỌC, không phải lỗi kỹ thuật:** câu "mở màn quét → Hủy
+/// ngay" bị đọc thành MỘT thao tác, trong khi nó là BA khúc — đĩa SCAN → cú nảy tab → sheet địa
+/// chỉ. Sáu vòng không ai tách ra đo. Harness CI tách được trong một lượt 8 phút.
+/// **Luật rút ra: trước khi vá, tách đường đi ra từng màn và đo từng khúc. Một câu mô tả thao tác
+/// ✗ phải một phép đo.**
 ///
 /// # Cái phải TỰ LO (lớp phủ không có sẵn như presentation)
 ///  · **Nền ĐỤC** — `MeshScanFlowView` để camera tự vẽ nền, mà hai đường alert (LiDAR/camera bị từ
@@ -102,12 +86,12 @@ import UIKit // Color(uiColor:) cho nền đục + đo chiều cao CỬA SỔ ch
 ///    `SWIFT_VERSION: "5.0"` đây KHÔNG phải lỗi; ai nâng lên Swift 6 phải bọc
 ///    `MainActor.assumeIsolated { finish() }` hoặc đưa `finish` ra thành `@MainActor static func`.
 ///
-/// ⚠ **Trình xem 3D (`ScanDetailView.viewerTarget`) VẪN là `.fullScreenCover` — CỐ Ý chưa đổi ở
-/// 2.13** (một cơ chế mỗi vòng thử). Hệ quả biết trước: **mở mô hình 3D vẫn gây đông cứng lề y
-/// hệt — nghiệm thu 2.13 phải chạy trên một lượt mở app KHÔNG đụng vào mô hình 3D.** Đường quét
-/// nghiệm thu xong thì đưa nó qua đây — nhưng ✗ đổi mù: cover đang GỠ `ScanDetailView` khỏi cây
-/// nên `onDisappear` chạy và VIDEO TỰ TẠM DỪNG (cố ý — bộ giải mã H.264 và cảnh 3D không nên cùng
-/// sống). Lớp phủ KHÔNG gỡ cây ⇒ phải thêm đường tạm dừng video tường minh TRƯỚC.
+/// ⚠ **Trình xem 3D (`ScanDetailView.viewerTarget`) vẫn là `.fullScreenCover` — VÀ NAY KHÔNG CÒN
+/// LÝ DO NÀO PHẢI ĐỔI NÓ.** Đời 2.13 để dành đổi sau vì tưởng `.fullScreenCover` gây đông cứng
+/// lề; 2.18 chứng minh không phải (thủ phạm là cú nảy tab). ⇒ **✗ "đưa nó qua khuôn lớp phủ cho
+/// đồng bộ"** — đó là refactor không có lý do, mà nó lại đắt: cover đang GỠ `ScanDetailView` khỏi
+/// cây nên `onDisappear` chạy và VIDEO TỰ TẠM DỪNG (cố ý — bộ giải mã H.264 và cảnh 3D không nên
+/// cùng sống); lớp phủ KHÔNG gỡ cây nên phải tự dựng đường tạm dừng video trước.
 enum ScanCover {
     /// Thời lượng hoạt ảnh trượt lên/xuống — thay hoạt ảnh present mặc định của view controller.
     private static let showDuration = 0.35
