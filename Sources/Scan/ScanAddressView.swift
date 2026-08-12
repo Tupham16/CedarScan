@@ -123,10 +123,52 @@ struct ScanAddressView: View {
 
     var body: some View {
         NavigationStack {
+            // 🔴🔴 **NÚT ĐÁY GHIM BẰNG `VStack`, ✗ BẰNG `.safeAreaInset` — ĐÂY LÀ BẢN VÁ CỦA LỖI
+            // "LỀ SwiftUI ĐÔNG CỨNG SAU KHI BẤM QUÉT" (bản 2.14). ✗ ĐỔI NGƯỢC LẠI.**
+            //
+            // Bệnh: mở màn này rồi ĐÓNG LẠI (kể cả bấm Hủy ngay, KHÔNG vào màn quét) là mọi màn
+            // sau đó mất vùng an toàn — header đè danh sách, nút đáy bị đĩa Scan đè, TẤT CẢ dự án,
+            // chỉ thoát app vào lại mới hết. Số đo lúc lỗi: `win t47 b34 · root t47 b34 · geo t0 b0`
+            // (UIKit LÀNH tới tận view gốc, chỉ cây SwiftUI đọc 0).
+            //
+            // 🔴 **BẢY BẢN IPA (2.6→2.13) ĐÃ MỔ NHẦM MÀN.** Cả bảy đều đi vá MÀN QUÉT — đổi
+            // `.fullScreenCover` → present `.overFullScreen` → cửa sổ UIWindow riêng → lớp phủ
+            // SwiftUI không trình bày gì cả — và cả bốn cơ chế đều VẪN LỖI, vì thủ phạm chưa bao
+            // giờ nằm ở đó. Câu "mở màn quét rồi Hủy ngay" trong mọi mô tả lỗi đã GIẤU màn này vào
+            // bên trong: bấm SCAN là mở SHEET NÀY trước, cover chỉ hiện sau khi bấm "Bắt đầu quét".
+            // Phép thử tách nó ra (12/08): mở sheet này → vuốt đóng → vào dự án ⇒ `geo t0 b0`.
+            // Màn quét không hề chạy. ⇒ Nó ĐỦ để gây bệnh một mình.
+            //
+            // 🔴 **VÌ SAO LÀ `.safeAreaInset`:** trong toàn app chỉ có BỐN chỗ dùng nó — thanh tab
+            // (`CedarScanApp`), nút đáy `ProjectView`, thẻ dịch vụ `ScanDetailView`, và chỗ này.
+            // Ba chỗ đầu nằm trong cây gốc và chính là BA THỨ CHỦ APP THẤY HỎNG; chỗ này là chỗ
+            // DUY NHẤT nằm TRONG MỘT SHEET, tức thứ duy nhất sửa vùng an toàn từ bên trong một
+            // presentation rồi bị tháo đi. Đối chứng: `SupplementSheet`/`AccountGateSheet` cũng là
+            // sheet, cũng `NavigationStack` + `.toolbar`, KHÔNG có `.safeAreaInset` — không gây
+            // bệnh; Share sheet (UIActivityViewController của UIKit) cũng không.
+            //
+            // ⚠ **✗ GỠ `.safeAreaInset` Ở BA CHỖ KIA** — chúng là NẠN NHÂN, không phải thủ phạm,
+            // và chúng đang gánh layout thật (thiếu là thanh tab che mất nút đặt hàng, bẫy đã ghi
+            // ở `CedarTabBar.reservedHeight`).
+            //
+            // Lý do nút phải GHIM (giữ nguyên từ 2026-07-20, ✗ đưa nó trở lại làm section cuối
+            // của Form): trước đây nó là section CUỐI, nằm SAU danh sách căn đã quét — danh sách
+            // đó không giới hạn số dòng nên khách có nhiều căn là nút bị đẩy khỏi màn hình, phải
+            // cuộn xuống đáy mới bấm được. Nút chính của một màn BẮT BUỘC không được phụ thuộc
+            // vào việc người dùng có bao nhiêu dữ liệu cũ.
+            // `VStack` giữ nguyên tính chất đó mà không đụng một byte nào vào vùng an toàn: Form
+            // chiếm phần trên và cuộn riêng, `startBar` chiếm phần dưới, hai bên không chồng nhau
+            // nên cũng không cần chừa chỗ cho nhau. Bàn phím đẩy cả cụm lên — ở màn GÕ ĐỊA CHỈ thì
+            // đó là đúng thứ mình muốn (nút "Bắt đầu quét" không bị bàn phím nuốt), khác hẳn ca
+            // thanh tab ở `RootView` (chỗ đó phải nằm im, lý do ghi tại chỗ).
+            //
             // Tách từng Section thành computed property riêng — CI từng timeout type-check
             // với biểu thức SwiftUI lớn, và Form nhiều section là đúng dạng dễ dính.
-            Form {
-                homeSection
+            VStack(spacing: 0) {
+                Form {
+                    homeSection
+                }
+                startBar
             }
             .navigationTitle(L.t("Before scanning", "Trước khi quét"))
             .navigationBarTitleDisplayMode(.inline)
@@ -134,16 +176,6 @@ struct ScanAddressView: View {
                 ToolbarItem(placement: .topBarLeading) {
                     Button(L.t("Cancel", "Hủy")) { dismiss() }
                 }
-            }
-            // Nút GHIM ĐÁY, không nằm trong Form nữa.
-            //
-            // Trước đây nó là section CUỐI của Form, tức nằm SAU danh sách căn đã quét — mà danh
-            // sách đó không giới hạn số dòng. Khách có nhiều căn là nút bị đẩy khỏi màn hình và
-            // phải cuộn xuống đáy mới bấm được (chủ app báo 2026-07-20). Nút chính của một màn
-            // bắt buộc thì không được phụ thuộc vào việc người dùng có bao nhiêu dữ liệu cũ.
-            // Cùng khuôn với HomeView/ProjectView — cả hai đã ghim nút quét bằng safeAreaInset.
-            .safeAreaInset(edge: .bottom) {
-                startBar
             }
             // Địa chỉ tra được từ GPS đổ vào ô nhập ở ĐÂY, không phải trong `LocationLookup`:
             // `address` thuộc về view này và có `onChange` riêng (xoá căn đang chọn, cập nhật gợi
