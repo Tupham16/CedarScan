@@ -174,7 +174,7 @@ Khi đơn **Đã giao**, bấm **"Tải file thành phẩm"** để tải bản 
 |---|---|
 | **Mặc định, mọi đơn** | **PDF + JPG** |
 | Yêu cầu thêm được | **SVG, PNG** — ghi vào ô *"Ghi chú thêm"* lúc đặt, hoặc nhắn cho Cedar247 |
-| **DWG (file CAD)** | **Dịch vụ thêm, tính tiền riêng** — tick add-on **"CAD file (DWG)"** lúc đặt hàng |
+| **DWG (file CAD)** | **Dịch vụ thêm, tính tiền riêng** — tick add-on **"CAD File"** lúc đặt hàng |
 
 **Chưa ưng?** Bấm **"Yêu cầu sửa"** (chỉ hiện sau khi đã giao), mô tả cần sửa gì. **Sửa lỗi thuộc
 về Cedar247 là miễn phí.**

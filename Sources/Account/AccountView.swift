@@ -38,7 +38,8 @@ struct AccountView: View {
                         } footer: {
                             // 🔴 Câu này TỪNG ghi "(PDF/PNG/DWG)" và sai theo hướng TỐN TIỀN CHỦ APP:
                             // nó gộp DWG vào như thể đã bao gồm, trong khi DWG là ADD-ON TÍNH TIỀN
-                            // riêng (`id: "dwg"`, "CAD file (DWG)" trong catalog server). Khách đọc
+                            // riêng (`id: "dwg"`, nhãn "CAD File" trong catalog server — đổi từ
+                            // "CAD file (DWG)" ngày 13/08). Khách đọc
                             // xong tưởng có sẵn, tới lúc nhận hàng không thấy → hoặc khiếu nại, hoặc
                             // chủ app phải làm không công. Nó cũng bỏ sót JPG (mặc định) và kể PNG
                             // như mặc định (thật ra chỉ có khi khách yêu cầu).
