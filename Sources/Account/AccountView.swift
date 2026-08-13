@@ -86,9 +86,13 @@ struct AccountView: View {
                                 Label(L.t("Delete account", "Xóa tài khoản"), systemImage: "trash")
                             }
                         } footer: {
+                            // 🔴 CÂU NÀY PHẢI KHỚP `LegalView` mục "Deleting your account" VÀ khớp
+                            // `account/delete/route.ts` trên server. Bản cũ ("your account and
+                            // scans") mơ hồ giữa MÁY và SERVER: trên máy `submit()` chỉ gọi API rồi
+                            // đăng xuất, thư mục `Documents/Scans` KHÔNG bị đụng.
                             Text(L.t(
-                                "Permanently deletes your account and scans. This cannot be undone.",
-                                "Xóa vĩnh viễn tài khoản và các bản quét. Không thể hoàn tác."
+                                "Deletes your account and the scans we hold in the cloud. Scans on this iPhone are not affected. This cannot be undone.",
+                                "Xóa tài khoản và các bản quét đang nằm trên máy chủ. Bản quét trong máy này không bị ảnh hưởng. Không thể hoàn tác."
                             ))
                         }
                     }
@@ -141,9 +145,18 @@ struct DeleteAccountView: View {
             Form {
                 Section {
                     Label {
+                        // 🔴 BA CHỖ SAI CỦA BẢN CŨ, SỬA 13/08 — ✗ viết lại kiểu cũ:
+                        // (1) "uploaded files" HỨA QUÁ: prefix `order-files/` KHÔNG có đường xoá
+                        //     nào trong toàn repo server. Chính câu này đã bị review đối kháng bắt
+                        //     23/07 và ĐÃ sửa trong `LegalView`, nhưng màn hình khách THỰC SỰ BẤM
+                        //     thì bị bỏ sót — chỗ tệ nhất để nói sai.
+                        // (2) "Orders already delivered" nói NHẸ ĐI: `deleteAppAccount` không đụng
+                        //     bảng Order, nên MỌI đơn ở lại, giao hay chưa. Khách có đơn đang vẽ dở
+                        //     đọc câu cũ sẽ tưởng đơn biến mất theo tài khoản.
+                        // (3) Không nói rõ bản quét TRONG MÁY không bị đụng (chỉ server bị xoá).
                         Text(L.t(
-                            "This permanently deletes your account, scans and uploaded files. Orders already delivered stay in our records. This CANNOT be undone.",
-                            "Thao tác này xóa vĩnh viễn tài khoản, bản quét và file đã tải lên. Đơn đã giao vẫn lưu trong sổ sách. KHÔNG thể hoàn tác."
+                            "This permanently deletes your account and the scans we hold in the cloud. Your orders stay in our records, and so do the files attached to them. Scans on this iPhone are not affected. This CANNOT be undone.",
+                            "Thao tác này xóa vĩnh viễn tài khoản và các bản quét đang nằm trên máy chủ. Đơn hàng vẫn lưu trong sổ sách, kèm các file đính kèm của đơn. Bản quét trong máy này không bị ảnh hưởng. KHÔNG thể hoàn tác."
                         ))
                         .font(.footnote)
                     } icon: {
