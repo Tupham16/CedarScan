@@ -125,11 +125,19 @@ final class MeshOverlayRenderer: NSObject {
     private static let maskRenderingOrder = -10
     private static let tintRenderingOrder = 10
     /// Độ mờ lớp phủ đỏ. Chủ app chỉnh dần trên máy thật, mỗi lần đều thấy còn nhạt:
-    /// 0.22 → 0.40 → 0.50 → **0.80** (2026-07-29).
-    /// ⚠ Ở 0.80 thì hình camera dưới vùng CHƯA QUÉT chỉ còn ~20% — cố ý, để vùng chưa quét đập
+    /// 0.22 → 0.40 → 0.50 → 0.80 (2026-07-29) → **0.86** (2026-08-13, ông xin "đậm thêm 1 chút").
+    /// ⚠ Ở 0.86 thì hình camera dưới vùng CHƯA QUÉT chỉ còn ~14% — cố ý, để vùng chưa quét đập
     /// vào mắt. Đổi lại người quét khó nhìn chi tiết trong vùng đó để nhắm máy; nếu thấy khó
     /// lia thì hạ lại, đây là hằng số một dòng và không ràng buộc gì khác.
-    private static let tintAlpha: CGFloat = 0.80
+    private static let tintAlpha: CGFloat = 0.86
+    /// Màu tấm phủ. **✗ `UIColor.systemRed`** nữa (2026-08-13, chủ app: "màu đỏ cho nó đậm thêm
+    /// 1 chút nhìn tươi hơn"): systemRed là #FF3B30 — G/B còn ~0.2 nên phủ dày lên hình camera
+    /// ra đỏ GẠCH xỉn chứ không tươi. Hạ G/B gần 0 là tăng ĐỘ BÃO HOÀ (tươi) mà không phải tăng
+    /// thêm độ mờ (thứ ăn nốt hình camera). Hai hằng số này chỉnh độc lập nhau: `tintAlpha` =
+    /// che bao nhiêu, cái này = đỏ tươi cỡ nào.
+    /// ⚠ ✗ đụng `unrecordedMaterial` (lưới ĐỎ "chưa được ghi") theo cho "đồng bộ" — hai vai khác
+    /// hẳn nhau và lưới đỏ phải còn phân biệt được khi nằm cạnh tấm phủ.
+    private static let tintColor = UIColor(red: 1.0, green: 0.04, blue: 0.06, alpha: 1)
     /// Quad đặt cách camera 40m: phải XA HƠN mọi mesh đang nhìn thấy (mesh xa hơn quad thì
     /// nằm sau nó, không khoét được → vùng ĐÃ quét bị phủ đỏ oan), nhưng phải GẦN HƠN mặt
     /// phẳng xa của camera (quá thì bị cắt sạch và tấm phủ biến mất hoàn toàn).
@@ -174,6 +182,13 @@ final class MeshOverlayRenderer: NSObject {
     /// xuống): mask bị gỡ hết về sau nghĩa là quanh đây thật sự không có gì đã quét, lúc đó phủ
     /// đỏ là ĐÚNG. Xem `refreshTintVisibility` và `openCarveGate`.
     private var hasCarvingMask = false
+    /// Mốc tick ĐẦU TIÊN có ARFrame ≈ lúc ARKit trả khung camera đầu. Chỉ dùng cho ÂN HẠN KHỞI
+    /// ĐỘNG ở cuối `updateMeshes` — đọc chú thích dài tại đó.
+    /// 🔴 `releaseAll` CỐ Ý KHÔNG đặt lại mốc này (khác `lastMeshUpdate`): tắt/bật lưới ở phút
+    /// thứ 10 thì máy đã chạy từ lâu, bắt chờ ân hạn lần nữa là giấu tín hiệu đỏ vô cớ.
+    private var firstTickTimestamp: TimeInterval = 0
+    /// Ân hạn khởi động của TẤM PHỦ ĐỎ. Trong quãng này, CHƯA có anchor nào thì tấm phủ IM.
+    private static let warmupGraceSec: TimeInterval = 6
     /// Tập anchor của ĐỢT DỰNG LẠI sau `releaseAll` mà bản dựng chưa về.
     ///
     /// 🔴 VÌ SAO PHẢI ĐẾM CẢ ĐỢT chứ không mở cổng ở mask ĐẦU TIÊN: `releaseAll` xoá sạch nên
@@ -243,7 +258,7 @@ final class MeshOverlayRenderer: NSObject {
         // lõi của cơ chế khoét; không ghi depth để khỏi tự che chính mình ở khung sau.
         let tintPlane = SCNPlane(width: 1, height: 1)
         let tintMaterial = SCNMaterial()
-        tintMaterial.diffuse.contents = UIColor.systemRed.withAlphaComponent(Self.tintAlpha)
+        tintMaterial.diffuse.contents = Self.tintColor.withAlphaComponent(Self.tintAlpha)
         tintMaterial.lightingModel = .constant
         tintMaterial.writesToDepthBuffer = false
         tintPlane.materials = [tintMaterial]
@@ -279,7 +294,7 @@ final class MeshOverlayRenderer: NSObject {
     /// Việc hiện tấm phủ đỏ do BA điều kiện quyết định, không phải một; đi qua
     /// `refreshTintVisibility()` là chỗ DUY NHẤT biết đủ cả ba. Gán thẳng ở đây thì chỉ cần
     /// một lần re-render sau khi `disableMasking()` chạy là tấm phủ sống lại mà không còn gì
-    /// khoét nó → người quét nhìn cả thế giới qua tấm đỏ 40% cho tới hết buổi, tắt/bật lưới
+    /// khoét nó → người quét nhìn cả thế giới qua tấm đỏ 86% cho tới hết buổi, tắt/bật lưới
     /// cũng không cứu được. (Đời trước không lộ vì tắt lưới là tháo hẳn view.)
     ///
     /// Tắt thì DỪNG display link + GIẢI PHÓNG hình học, đúng bằng hành vi cũ — xem `releaseAll`.
@@ -297,7 +312,7 @@ final class MeshOverlayRenderer: NSObject {
 
     /// 🔴 BẤT BIẾN DUY NHẤT QUYẾT ĐỊNH TẤM PHỦ ĐỎ CÓ ĐƯỢC HIỆN KHÔNG.
     /// Tấm phủ chỉ có nghĩa khi CÓ THỨ KHOÉT NÓ. Nếu hiện lúc chưa mask nào mang hình học thì
-    /// nó tô đỏ 40% TOÀN màn hình và bảo người quét rằng cả căn nhà chưa được quét — đúng loại
+    /// nó tô đỏ 86% TOÀN màn hình và bảo người quét rằng cả căn nhà chưa được quét — đúng loại
     /// "tín hiệu sai chủ động" mà file này coi là tệ hơn không có tín hiệu.
     /// Ba ca phải cùng chặn, và trước đây mỗi ca được xử lý một kiểu nên hở:
     ///  • lưới đang tắt (`visible`),
@@ -385,6 +400,7 @@ final class MeshOverlayRenderer: NSObject {
         defer { ScanPerfProfiler.tickEnd(.overlay, perfT0) }
         guard let frame = arSession?.currentFrame else { return }
         lastFrameTimestamp = frame.timestamp
+        if firstTickTimestamp == 0 { firstTickTimestamp = frame.timestamp }
         updateTint(frame)
         updateAnchorPoses(frame)
         if frame.timestamp - lastMeshUpdate >= Self.meshUpdateInterval {
@@ -638,11 +654,37 @@ final class MeshOverlayRenderer: NSObject {
         }
         // ĐÓNG SỔ đợt dựng lại ngay cuối lượt ĐẦU sau `releaseAll`: từ lượt sau, anchor mới
         // sinh trong lúc quét không được nối thêm vào đợt (không thì cổng không bao giờ mở).
-        // Lượt đầu không xếp được bản dựng nào (chưa có anchor) → mở cổng luôn: lúc đó phủ đỏ
-        // khắp nơi là ĐÚNG SỰ THẬT.
         if countingRebuild {
             countingRebuild = false
-            if rebuildBatch.isEmpty { openCarveGate() }
+        }
+        // KHÔNG XẾP ĐƯỢC BẢN DỰNG NÀO (chưa anchor nào tồn tại) — chú thích đời trước gộp ca này
+        // làm một và mở cổng NGAY ("phủ đỏ khắp nơi là ĐÚNG SỰ THẬT"). Đúng về ngữ nghĩa, sai về
+        // trải nghiệm, vì thực tế nó là HAI ca khác hẳn nhau:
+        //  · MỚI BẤM QUÉT: ARKit đang khởi động (camera+LiDAR bật, VIO định vị ~1,6s đo được ở
+        //    §STATE 10/08, rồi mới sinh mảnh mesh đầu) — tổng 2–4s. Mở cổng ở đây là tô ĐỎ KÍN
+        //    2–4 giây đầu của MỌI buổi quét: khách chưa làm gì sai, chưa hụt chỗ nào, mà màn hình
+        //    đã báo động và che 86% hình camera đúng lúc họ cần nhìn để nhắm máy. Chính là thứ
+        //    chủ app báo 13/08 ("bấm quét 4 giây mới hiện lưới"). Trong quãng này tấm phủ IM, và
+        //    `MeshScanFlowView` lấp chỗ trống bằng đếm ngược 3-2-1.
+        //  · PHÒNG THẬT SỰ KHÔNG QUÉT ĐƯỢC GÌ (tối om, toàn kính): quá `warmupGraceSec` mà vẫn
+        //    trắng tay thì đỏ khắp nơi lại ĐÚNG SỰ THẬT — phải nói, ✗ im luôn. Đó là lý do khối
+        //    này chạy MỖI NHỊP chứ không nằm trong `if countingRebuild` (cờ đó chỉ đúng một lượt;
+        //    nhét vào đấy là ca này không bao giờ được xét lại và tấm phủ chết vĩnh viễn).
+        // 🔴 ✗ ĐỔI ĐIỀU KIỆN THÀNH `maskNodes.isEmpty`: mask được tạo RỖNG ở bước 1, TRƯỚC cổng
+        // hình học ở bước 3 — anchor 0 tam giác (đúng trạng thái ARKit lúc khởi động) làm sổ mask
+        // khác rỗng trong khi KHÔNG có gì khoét → đỏ kín y như cũ, mà lần này khó thấy hơn.
+        // Đường mở cổng BÌNH THƯỜNG vẫn là hai chỗ trong completion của bản dựng (batch rút hết /
+        // mask vừa nhận hình học) — cái ở đây chỉ là lưới cuối cho ca không-có-gì-để-dựng.
+        // ⚠ `inFlight.isEmpty` KHÔNG mâu thuẫn với cảnh báo "✗ GÁC BẰNG `inFlight.isEmpty`" ở
+        // `rebuildBatch`: cảnh báo đó nói về đường mở cổng LÚC QUÉT BÌNH THƯỜNG, khi ARKit cập nhật
+        // anchor liên tục nên `inFlight` gần như luôn khác rỗng ⇒ gác kiểu đó là tấm phủ nhấp nháy
+        // cả buổi. Ở ĐÂY khác hẳn: lưới cuối này chỉ chạy sau 6 giây TRẮNG TAY, và cổng MỘT CHIỀU
+        // nên thêm điều kiện chỉ HOÃN được, ✗ tạo được đường bật/tắt. Có bản dựng đang bay nghĩa là
+        // vừa tìm ra bề mặt thật — để completion mở cổng với mặt nạ ĐÃ khoét, thay vì đỏ kín màn
+        // 0,1–1,5s rồi mới thủng đúng chỗ khách vừa quét được.
+        if !hasCarvingMask, rebuildBatch.isEmpty, inFlight.isEmpty, !countingRebuild,
+           frame.timestamp - firstTickTimestamp >= Self.warmupGraceSec {
+            openCarveGate()
         }
         // (Việc dọn anchor vắng mặt đã chạy ở ĐẦU hàm — trước mọi phép cộng sổ, xem chú ở đó.)
         // Anchor cũ phình to có thể đẩy tổng vượt trần → tỉa vùng XA camera nhất
