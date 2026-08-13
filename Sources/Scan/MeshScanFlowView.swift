@@ -95,14 +95,6 @@ struct MeshScanFlowView: View {
     /// trong thân init thì đúng ở mọi phiên bản — và máy này không compile được để thử.
     @StateObject private var saveProgress: ScanSaveProgress
     @AppStorage("showScanMesh") private var showScanMesh = true
-    /// Đếm ngược khởi động (chủ app chốt 13/08). 3→2→1 rồi 0 = đang chớp chữ "Bắt đầu!";
-    /// nil = xong (hoặc chưa bao giờ chạy: máy không hỗ trợ / bị từ chối quyền camera).
-    /// BỐN chỗ ghi: `startCountdown()`, `stopTapped()`, nút "Hủy" ở `topBar`, và `.onDisappear` —
-    /// ba chỗ sau ghi `nil` và CŨNG LÀ CỜ DỪNG của Task đếm ngược (đọc 🔴 tại `.onDisappear`).
-    @State private var countdown: Int?
-    /// Đang GIỮ ở "1" chờ mảnh lưới đầu tiên → số thở (mờ đi sáng lại). Tách khỏi `countdown` vì
-    /// nó không phải một bước đếm, và vì hoạt ảnh lặp vô hạn phải tắt được bằng một phép gán.
-    @State private var countdownHolding = false
 
     /// ⚠ `onOrderNow` VÀ `onScanMore` PHẢI được truyền kèm NHÃN ở call-site. Viết trailing closure mà bỏ nhãn thì
     /// forward-scan (SE-0286) khớp closure đó vào `onOrderNow` chứ không phải `onFinish` → lỗi
@@ -126,10 +118,21 @@ struct MeshScanFlowView: View {
         self.onFinish = onFinish
     }
 
-    /// Một bản quét mesh có thể phủ cả căn → "Whole home" lên đầu.
-    /// "Part 1/2": nhà rất lớn chạm trần → chia thành nhiều bản quét bổ sung.
+    /// Nút bấm sẵn ở màn đặt tên — **chủ app đọc từng chữ 13/08, ✗ tự thêm bớt, ✗ dịch.**
+    /// Đây là tên KHU VỰC của căn nhà (đội vẽ đọc chúng), ✗ còn là "Whole home / Part 1/2"
+    /// kiểu chia gói quét như đời trước.
     private static let nameSuggestions = [
-        "Whole home", "Part 1", "Part 2", "Floor 1", "Floor 2", "Basement",
+        "Main floor", "Basement", "Upper floor", "Shed", "Garage", "Storage",
+    ]
+
+    /// Kho tên hiện lên THEO CHỮ ĐANG GÕ (chủ app 13/08: *"khi gõ hãy hiển thị gợi ý để khách
+    /// không phải gõ toàn bộ"*). Cũng do ông liệt kê từng chữ — **giữ nguyên cả cách viết hoa**
+    /// ("Lower Floor", "Roof floor" lệch nhau là do ông viết vậy). ✗ hiện sẵn danh sách này:
+    /// 17 mục là phình màn hình, chúng chỉ có ích sau khi khách gõ vài chữ.
+    private static let nameTypeAhead = [
+        "Ground floor", "First floor", "Second floor", "Attic", "Lower Floor",
+        "Conservatory", "Sunroom", "Tool Shed", "Detached Garage", "Roof floor",
+        "Carport", "Basement", "Kitchen", "Bedroom", "Patio", "Deck", "Porch",
     ]
 
     var body: some View {
@@ -174,9 +177,6 @@ struct MeshScanFlowView: View {
 
             if !isSaving && !showNaming && savedRecord == nil {
                 QualityAlertOverlay(monitor: controller.qualityMonitor)
-                // Cùng bộ gác với QualityAlertOverlay: bấm "Dừng & Lưu" trong lúc còn đang đếm là
-                // ca có thật (khách đổi ý ngay), và một con số to nằm giữa màn đặt tên thì vô nghĩa.
-                countdownOverlay
             }
 
             // Gác bằng `savedRecord == nil` chứ KHÔNG chỉ dựa vào nền đục của màn preview đè
@@ -229,16 +229,7 @@ struct MeshScanFlowView: View {
             switch AVCaptureDevice.authorizationStatus(for: .video) {
             case .denied, .restricted:
                 showCameraDenied = true
-            case .authorized:
-                controller.startSession()
-                // SAU startSession, ✗ trước: đếm ngược là cái lấp quãng ARKit khởi động, nên đồng
-                // hồ của nó phải chạy cùng lúc với `arSession.run`.
-                startCountdown()
             default:
-                // `.notDetermined` — lần quét ĐẦU TIÊN của máy, đúng một lần trong đời: iOS bật hộp
-                // xin quyền ngay khi `arSession.run`, hộp đó che màn hình và ARKit không trả khung
-                // nào cho tới khi khách bấm Cho phép. Đếm ngược sau lưng nó là đếm cho tường nghe —
-                // hết đếm thì khách vẫn đang đọc hộp quyền. ✗ gộp nhánh này vào `.authorized`.
                 controller.startSession()
             }
         }
@@ -249,14 +240,6 @@ struct MeshScanFlowView: View {
         // kẹt tắt + CADisplayLink giữ builder/recorder sống mãi. cancel() idempotent
         // (isStopped) nên đường Lưu/Hủy bình thường không bị ảnh hưởng.
         .onDisappear {
-            // 🔴 CŨNG LÀ CỜ DỪNG CỦA `startCountdown` — ✗ gỡ. Task đếm ngược sống tới ~8s, dài hơn
-            // mọi lối thoát. ⚠ HAI lối CÓ NÚT BẤM không trông vào dòng này: `stopTapped` và nút
-            // "Hủy" ở `topBar` tự tắt cờ SỚM HƠN, vì `.onDisappear` chỉ bắn ở CUỐI quãng trượt 0,3s
-            // của `ScanCover.hide` — ✗ đọc dòng này thành "hai chỗ kia thừa" rồi gỡ chúng.
-            // Dòng này là lưới cuối cho lối thoát KHÔNG qua hai nút đó: alert "Cần quyền Camera"
-            // bật GIỮA một phiên đã `.authorized` (ARKit báo `cameraUnauthorized` qua `.onChange`
-            // bên trên), cả hai nút của alert chỉ gọi `dismiss()`.
-            countdown = nil
             controller.cancel()
             store.endBusy()
         }
@@ -312,11 +295,6 @@ struct MeshScanFlowView: View {
     private var topBar: some View {
         HStack {
             Button {
-                // ✗ GỠ. `.onDisappear` KHÔNG kịp: `ScanCover.hide` gỡ view bằng hoạt ảnh 0,3s nên
-                // onDisappear chỉ bắn ở CUỐI quãng trượt — trong 0,3s đó Task đếm ngược vẫn chạy và
-                // có thể rung một nhịp lên tay khách khi màn quét đang bay đi. `stopTapped` đã lo
-                // đường Dừng & Lưu; đây là đường còn lại.
-                countdown = nil
                 controller.cancel()
                 dismiss()
             } label: {
@@ -419,11 +397,15 @@ struct MeshScanFlowView: View {
     private var namingOverlay: some View {
         ScanNameOverlay(
             name: $scanName,
+            // Câu này chủ app viết thẳng 13/08, ✗ sửa lại cho "gọn". Vế cũ ("Đây là khu nào? Một
+            // bản quét mesh có thể phủ nhiều tầng.") nói về CÁCH CHIA bản quét — thứ ông vừa bỏ
+            // khỏi danh sách gợi ý; nay câu hỏi đúng một việc: khu vực nào của căn nhà.
             subtitle: L.t(
-                "Which part of the home is this? One mesh scan can cover several floors.",
-                "Đây là khu nào? Một bản quét mesh có thể phủ nhiều tầng."
+                "Which area of the property is this?",
+                "Đây là khu vực nào của property."
             ),
             suggestions: Self.nameSuggestions,
+            typeAheadSuggestions: Self.nameTypeAhead,
             onSave: {
                 showNaming = false
                 saveAndClose()
@@ -483,135 +465,7 @@ struct MeshScanFlowView: View {
         }
     }
 
-    // MARK: - Đếm ngược 3-2-1 lúc khởi động
-
-    /// Trần chờ "mảnh lưới đầu tiên" SAU khi đã đếm hết 3-2-1. Phòng tối om hoặc toàn kính có thể
-    /// KHÔNG BAO GIỜ sinh đỉnh nào — hết trần thì con số MỜ ĐI IM LẶNG (✗ "Bắt đầu!", ✗ rung; xem
-    /// khối 🔴 trong `startCountdown`) và bàn giao cho tấm phủ đỏ.
-    ///
-    /// 🔴 THỨ PHẢI LỚN HƠN LÀ `1,8s + countdownMaxWait` so với LÚC TẤM PHỦ ĐỎ LÊN — ✗ so thẳng hằng
-    /// số này với `MeshOverlayRenderer.warmupGraceSec` (hai cái chạy hai đồng hồ khác nhau, số thật
-    /// tính ngay dưới đây) ⇒ sàn của nó ≈ `warmupGraceSec` − 0,9; nay 5,5, dư 0,4s.
-    /// Bản đầu để 3,5 với ý "hai cái cùng hết hạn" và tính sai: đếm 3-2-1 hết 1,8s nên số tắt ở
-    /// 1,8+3,5 = **5,3s** kể từ `arSession.run`, trong khi tấm phủ đỏ bật ở 6,0s kể từ KHUNG CAMERA
-    /// ĐẦU (muộn hơn `run` 0,2–0,5s) và chỉ được xét mỗi nhịp `meshUpdateInterval` 0,5s ⇒ thực tế
-    /// **6,2–6,9s**. Hở gần một giây màn hình không còn tín hiệu nào, đúng ngay ca không quét được
-    /// gì. Nay 5,5 ⇒ số tắt ở ~7,3s, tức MỜ ĐI SAU khi tấm phủ đã lên: giao ca chồng lấn thay vì hở.
-    /// Trần này CHỈ áp cho đường không có đỉnh nào — buổi quét bình thường thoát vòng chờ ngay lúc
-    /// có đỉnh, nên nới nó không bắt ai chờ thêm một phần nghìn giây.
-    private static let countdownMaxWait: TimeInterval = 5.5
-
-    /// Số đếm ngược nổi giữa hình camera trong lúc ARKit khởi động.
-    ///
-    /// ✗ nền tối, ✗ vòng xoay, ✗ dòng chữ giải thích: khách vẫn phải NHÌN được phòng để nhắm máy,
-    /// và màn quét này chủ app giữ tối giản. Bóng đổ đủ để số nổi trên cả tường trắng.
-    @ViewBuilder
-    private var countdownOverlay: some View {
-        if let countdown {
-            Text(countdown > 0 ? "\(countdown)" : L.t("Go!", "Bắt đầu!"))
-                .font(.system(size: 92, weight: .bold, design: .rounded))
-                .minimumScaleFactor(0.35)
-                .lineLimit(1)
-                .padding(.horizontal, 24)
-                .foregroundStyle(.white)
-                .shadow(color: .black.opacity(0.55), radius: 12, y: 2)
-                // Đổi `id` là SwiftUI coi mỗi con số là một view KHÁC → chạy transition cho từng
-                // nhịp đếm. Không có nó thì chữ chỉ nhảy số, không có hoạt ảnh nào.
-                .id(countdown)
-                .transition(.scale(scale: 0.75).combined(with: .opacity))
-                // SỐ THỞ trong lúc GIỮ ở "1" chờ ARKit. ✗ trang trí: đếm 3-2-1 đều đặn 0,9s một
-                // nhịp rồi ĐỨNG IM 0,5–2s là đọc thành "treo máy" — đúng cái cảm giác bộ đếm sinh
-                // ra để chữa. Thở = còn sống mà chưa xong, không phải thêm chữ hay vòng xoay.
-                .opacity(countdownHolding ? 0.4 : 1)
-                .animation(
-                    countdownHolding
-                        ? .easeInOut(duration: 0.65).repeatForever(autoreverses: true)
-                        : .easeOut(duration: 0.18),
-                    value: countdownHolding
-                )
-                // Nằm giữa màn, ngay trên nút "Dừng & Lưu" và nút "Hủy" — ✗ để nó ăn cú chạm.
-                .allowsHitTesting(false)
-                // VoiceOver đã đọc nút Hủy / Dừng & Lưu; một con số đếm không thêm gì mà cắt ngang.
-                .accessibilityHidden(true)
-        }
-    }
-
-    /// Đếm 3-2-1 phủ lên hình camera trong lúc ARKit khởi động (chủ app chốt 13/08:
-    /// *"nên cho bộ đếm ngược 3 2 1 trước màn hình là đẹp"*).
-    ///
-    /// 🔴 **KHÔNG PHẢI một cái hẹn giờ 3 giây rồi thôi.** ARKit cần 2–4s (camera+LiDAR bật → VIO
-    /// định vị ~1,6s → mảnh mesh đầu tiên) và con số đó KHÔNG cố định: phòng tối, máy nóng, khách
-    /// đứng im đều kéo dài. Đếm hết rồi biến mất khi máy CHƯA sẵn sàng là hứa suông — khách nhìn
-    /// màn hình trống tiếp, tệ hơn không đếm. Nên: đếm xong thì GIỮ Ở "1" tới khi bản quét có đỉnh
-    /// đầu tiên (trần `countdownMaxWait`), rồi mới chớp "Bắt đầu!".
-    ///
-    /// Mốc "sẵn sàng" là `meshVertexCount > 0` = ĐÃ CÓ DỮ LIỆU VÀO BẢN QUÉT, chứ ✗ "tracking đã
-    /// normal" (về normal xong vẫn còn chờ mảnh mesh đầu) và ✗ đếm anchor của ARKit (anchor sinh ra
-    /// rỗng trước, có tam giác sau). Mốc này trễ ~0,2–0,3s so với MẢNH MESH ĐẦU của ARKit (tick
-    /// builder 2–5Hz + nhịp dò 0,12s) — tức xấp xỉ CÙNG LÚC với lưới trắng trên màn, vì lưới cũng
-    /// tự trễ tới 0,5s (`meshUpdateInterval`) rồi còn dựng ở luồng nền. ⚠ Cái nào tới trước là TUỲ
-    /// PHA hai display link, ✗ có bảo đảm thứ tự — đừng viết chú thích hứa thứ tự đó.
-    ///
-    /// `Task { @MainActor in }` chứ ✗ `Task {}` trần: thân hàm đụng `withAnimation`, haptics và
-    /// `@State` — tất cả đều phải trên main, mà `Task {}` trong một hàm không isolation thì chạy ở
-    /// executor NỀN. (Khác `saveAndClose`: ở đó câu `await` đầu tiên tự nhảy về main.)
-    private func startCountdown() {
-        Task { @MainActor in
-            let tick = UIImpactFeedbackGenerator(style: .light)
-            tick.prepare()
-            countdown = 3
-            tick.impactOccurred()
-            for n in [2, 1] {
-                try? await Task.sleep(nanoseconds: 900_000_000)
-                guard countdown != nil else { return } // khách đã bấm Dừng & Lưu giữa chừng
-                withAnimation(.easeOut(duration: 0.18)) { countdown = n }
-                tick.impactOccurred()
-            }
-            // 🔴 GIẤC NGỦ DƯỚI ĐÂY LÀ BẮT BUỘC, ✗ GỠ, ✗ GỘP VÀO VÒNG `while`. Từ `countdown = 1`
-            // (ngay trên) tới `countdown = 0` (dưới) KHÔNG còn câu `await` nào nếu vòng `while` sai
-            // điều kiện ngay lần đo ĐẦU — ca thật: máy ấm, quét lại phòng vừa quét ("Quét thêm")
-            // thì đã có đỉnh trước giây 1,8. Hai phép gán rơi vào CÙNG một lượt main-actor, SwiftUI
-            // chỉ vẽ giá trị cuối ⇒ khách thấy "3, 2, Bắt đầu!" — mất hẳn số 1 — và rung nhẹ dính
-            // vào rung `.success` thành một tiếng ù.
-            // `deadline` chốt TRƯỚC giấc ngủ để trần chờ vẫn tính từ lúc số 1 hiện ra.
-            let deadline = Date().addingTimeInterval(Self.countdownMaxWait)
-            try? await Task.sleep(nanoseconds: 450_000_000)
-            // 🔴 `countdownHolding` BẬT SAU GIẤC NGỦ, ✗ TRƯỚC. Đặt trước thì phép gán rơi vào ĐÚNG
-            // lượt main-actor vừa đổi `countdown` 2→1 (từ `withAnimation` ở trên xuống đây không còn
-            // `await` nào nên SwiftUI không vẽ xen vào giữa được) — mà lượt đó `.id(countdown)` DỰNG
-            // MỚI con số. `.animation(…, value:)` không chạy ở lượt view VỪA XUẤT HIỆN: nó cần một
-            // cú ĐỔI trên danh tính đã có. ⇒ nhịp thở không lên dây, số "1" nằm chết ở `opacity 0.4`:
-            // mờ VÀ bất động, tệ hơn cả không thở, đúng cái "treo máy" nó sinh ra để chữa.
-            // Bật sau giấc ngủ thì gán lên con số ĐÃ VẼ RỒI. Ý cũ giữ nguyên: có đỉnh rồi thì gán
-            // `false`, vòng `while` dưới sai điều kiện ngay từ đầu, không thở nửa nhịp vô duyên.
-            countdownHolding = controller.meshVertexCount == 0
-            while controller.meshVertexCount == 0, Date() < deadline {
-                try? await Task.sleep(nanoseconds: 120_000_000)
-            }
-            countdownHolding = false
-            guard countdown != nil else { return }
-            // 🔴 VÒNG TRÊN THOÁT THEO HAI ĐƯỜNG KHÁC HẲN NHAU — ✗ gộp lại. Có đỉnh = mừng thật.
-            // HẾT TRẦN mà vẫn 0 đỉnh (phòng tối om / toàn kính / phiên bị gián đoạn ngay lúc khởi
-            // động) thì chữ "Bắt đầu!" + rung `.success` là CHÚC MỪNG MỘT BẢN QUÉT RỖNG, rồi ~1 giây
-            // sau tấm phủ đỏ nói ngược lại. Đó đúng là "tín hiệu sai chủ động" mà `MeshOverlayView`
-            // cấm ba lần trong một file, và `.success` là tiếng "được rồi" DUY NHẤT của app này.
-            // Đường hết trần: số chỉ MỜ ĐI, im lặng, nhường lời cho tấm phủ đỏ (`warmupGraceSec`).
-            if controller.meshVertexCount > 0 {
-                withAnimation(.easeOut(duration: 0.18)) { countdown = 0 }
-                // Rung một nhịp ở đúng lúc lưới lên: người quét lúc này đang nhìn CĂN PHÒNG chứ
-                // không nhìn màn hình (cùng lý do với rung "mô hình đã đầy" ở MeshScanController).
-                UINotificationFeedbackGenerator().notificationOccurred(.success)
-                try? await Task.sleep(nanoseconds: 700_000_000)
-                guard countdown != nil else { return }
-            }
-            withAnimation(.easeIn(duration: 0.25)) { countdown = nil }
-        }
-    }
-
     private func stopTapped() {
-        // Bấm Dừng & Lưu là hết vai của đếm ngược, kể cả khi nó còn đang đếm dở: từ đây màn hình
-        // thuộc về hộp xác nhận / màn đặt tên. Cũng là cờ dừng của vòng lặp trong `startCountdown`.
-        countdown = nil
         // Đọc vertexCount TRƯỚC khi export (finishColoredMesh giải phóng builder).
         if controller.meshVertexCount < 5_000 {
             showEmptyMeshConfirm = true
