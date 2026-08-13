@@ -152,6 +152,59 @@
 				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
 			</array>
 		</dict>
+		<!-- 🔴 BA MỤC DƯỚI ĐÂY THÊM 13/08 VÌ CHÍNH VĂN BẢN PHÁP LÝ CỦA APP KHAI CHÚNG, ✗ vì đọc
+		     code. `LegalView` mục "Technical records" viết: *"Our servers KEEP ordinary
+		     operational records — timestamps, request paths, error messages, network address and
+		     approximate file sizes"*. Chữ "keep" = LƯU, mà định nghĩa "thu thập" của Apple chính
+		     là lưu lại lâu hơn mức cần để phục vụ yêu cầu. Bỏ trống ba mục này thì trang chính
+		     sách công khai và bảng App Privacy nói ngược nhau — reviewer chỉ cần đọc trang rồi
+		     đối chiếu bảng là thấy, không cần suy diễn gì.
+		     Ánh xạ từng chữ trong câu đó sang mục của Apple:
+		       timestamps + request paths      → Other Usage Data
+		       error messages                  → Other Diagnostic Data
+		       network address (địa chỉ IP)    → Other Data Types (Apple không có mục riêng cho IP)
+		     ⚠ ĐÂY LÀ CHỖ ĐANG CÓ NGHI VẤN, phiên sau đọc kỹ: soi server không thấy dòng code nào
+		     tự ghi access log (IP chỉ nằm trong bộ nhớ để chặn spam rồi bỏ) ⇒ lời khai này phụ
+		     thuộc HOÀN TOÀN vào mặc định của Railway + Cloudflare. Hai lối ra: (a) giữ như hiện
+		     nay — khai thừa, an toàn với Apple; (b) sửa câu "Technical records" trong `LegalView`
+		     cho khớp thực tế rồi bỏ ba mục này. (b) là việc của CHỦ APP vì đó là câu chữ pháp lý,
+		     và nó kéo theo build lại app + sửa trang web. ✗ tự chọn (b). -->
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeOtherUsageData</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+			</array>
+		</dict>
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeOtherDiagnosticData</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+			</array>
+		</dict>
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeOtherDataTypes</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+			</array>
+		</dict>
 	</array>
 
 	<key>NSPrivacyAccessedAPITypes</key>
