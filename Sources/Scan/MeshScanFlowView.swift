@@ -489,12 +489,14 @@ struct MeshScanFlowView: View {
     /// KHÔNG BAO GIỜ sinh đỉnh nào — hết trần thì con số MỜ ĐI IM LẶNG (✗ "Bắt đầu!", ✗ rung; xem
     /// khối 🔴 trong `startCountdown`) và bàn giao cho tấm phủ đỏ.
     ///
-    /// 🔴 PHẢI LỚN HƠN `MeshOverlayRenderer.warmupGraceSec`, ✗ canh cho BẰNG. Bản đầu để 3,5 với ý
-    /// "hai cái cùng hết hạn" và tính sai: đếm 3-2-1 hết 1,8s nên số tắt ở 1,8+3,5 = **5,3s** kể từ
-    /// `arSession.run`, trong khi tấm phủ đỏ bật ở 6,0s kể từ KHUNG CAMERA ĐẦU (muộn hơn `run`
-    /// 0,2–0,5s) và chỉ được xét mỗi nhịp `meshUpdateInterval` 0,5s ⇒ thực tế **6,2–6,9s**. Hở gần
-    /// một giây màn hình không còn tín hiệu nào, đúng ngay ca không quét được gì. Nay 5,5 ⇒ số tắt ở
-    /// ~7,3s, tức MỜ ĐI SAU khi tấm phủ đã lên: giao ca chồng lấn thay vì hở.
+    /// 🔴 THỨ PHẢI LỚN HƠN LÀ `1,8s + countdownMaxWait` so với LÚC TẤM PHỦ ĐỎ LÊN — ✗ so thẳng hằng
+    /// số này với `MeshOverlayRenderer.warmupGraceSec` (hai cái chạy hai đồng hồ khác nhau, số thật
+    /// tính ngay dưới đây) ⇒ sàn của nó ≈ `warmupGraceSec` − 0,9; nay 5,5, dư 0,4s.
+    /// Bản đầu để 3,5 với ý "hai cái cùng hết hạn" và tính sai: đếm 3-2-1 hết 1,8s nên số tắt ở
+    /// 1,8+3,5 = **5,3s** kể từ `arSession.run`, trong khi tấm phủ đỏ bật ở 6,0s kể từ KHUNG CAMERA
+    /// ĐẦU (muộn hơn `run` 0,2–0,5s) và chỉ được xét mỗi nhịp `meshUpdateInterval` 0,5s ⇒ thực tế
+    /// **6,2–6,9s**. Hở gần một giây màn hình không còn tín hiệu nào, đúng ngay ca không quét được
+    /// gì. Nay 5,5 ⇒ số tắt ở ~7,3s, tức MỜ ĐI SAU khi tấm phủ đã lên: giao ca chồng lấn thay vì hở.
     /// Trần này CHỈ áp cho đường không có đỉnh nào — buổi quét bình thường thoát vòng chờ ngay lúc
     /// có đỉnh, nên nới nó không bắt ai chờ thêm một phần nghìn giây.
     private static let countdownMaxWait: TimeInterval = 5.5
@@ -571,11 +573,18 @@ struct MeshScanFlowView: View {
             // thì đã có đỉnh trước giây 1,8. Hai phép gán rơi vào CÙNG một lượt main-actor, SwiftUI
             // chỉ vẽ giá trị cuối ⇒ khách thấy "3, 2, Bắt đầu!" — mất hẳn số 1 — và rung nhẹ dính
             // vào rung `.success` thành một tiếng ù.
-            // `countdownHolding` đo NGAY LÚC NÀY: đã có đỉnh thì không phải chờ ai, thở nửa nhịp là
-            // thừa. `deadline` chốt TRƯỚC giấc ngủ để trần chờ vẫn tính từ lúc số 1 hiện ra.
-            countdownHolding = controller.meshVertexCount == 0
+            // `deadline` chốt TRƯỚC giấc ngủ để trần chờ vẫn tính từ lúc số 1 hiện ra.
             let deadline = Date().addingTimeInterval(Self.countdownMaxWait)
             try? await Task.sleep(nanoseconds: 450_000_000)
+            // 🔴 `countdownHolding` BẬT SAU GIẤC NGỦ, ✗ TRƯỚC. Đặt trước thì phép gán rơi vào ĐÚNG
+            // lượt main-actor vừa đổi `countdown` 2→1 (từ `withAnimation` ở trên xuống đây không còn
+            // `await` nào nên SwiftUI không vẽ xen vào giữa được) — mà lượt đó `.id(countdown)` DỰNG
+            // MỚI con số. `.animation(…, value:)` không chạy ở lượt view VỪA XUẤT HIỆN: nó cần một
+            // cú ĐỔI trên danh tính đã có. ⇒ nhịp thở không lên dây, số "1" nằm chết ở `opacity 0.4`:
+            // mờ VÀ bất động, tệ hơn cả không thở, đúng cái "treo máy" nó sinh ra để chữa.
+            // Bật sau giấc ngủ thì gán lên con số ĐÃ VẼ RỒI. Ý cũ giữ nguyên: có đỉnh rồi thì gán
+            // `false`, vòng `while` dưới sai điều kiện ngay từ đầu, không thở nửa nhịp vô duyên.
+            countdownHolding = controller.meshVertexCount == 0
             while controller.meshVertexCount == 0, Date() < deadline {
                 try? await Task.sleep(nanoseconds: 120_000_000)
             }
