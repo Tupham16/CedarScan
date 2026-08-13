@@ -15,11 +15,28 @@
      thiếu file này CI vẫn xanh y hệt, chỉ App Store Connect mới kêu.
 
   2. KHAI SAI THEO CHIỀU "THỪA" CŨNG LÀ SAI. Đáng chú ý nhất: app KHÔNG khai Location, dù có xin
-     quyền vị trí. Vì `AddressLookup` đổi toạ độ ra ĐỊA CHỈ ngay trên máy (CLGeocoder) rồi chỉ
-     gửi CHỮ địa chỉ lên server — không dòng nào gửi lat/long đi. Thứ thu thật là "Physical
-     Address", đã khai bên dưới. Khai thêm Location là tự rước câu hỏi của reviewer về một thứ
-     app không làm. (Đổi ý: nếu sau này có ai gửi toạ độ lên server thì PHẢI thêm mục Location
-     vào đây VÀ vào bảng App Privacy trên App Store Connect — hai chỗ phải khớp nhau.)
+     quyền vị trí.
+     🔴 NHƯNG LÝ DO PHẢI GHI CHO ĐÚNG — bản đầu của khối này (13/08, sáng) ghi "`AddressLookup`
+     đổi toạ độ ra ĐỊA CHỈ ngay trên máy", VÀ ĐÓ LÀ SAI, bắt được ngay chiều cùng ngày:
+     `CLGeocoder` (AddressLookup.swift:33) và `MKLocalSearchCompleter` (:243-261) ĐỀU LÀ DỊCH VỤ
+     MẠNG CỦA APPLE — chú thích của chính file đó còn ghi "mỗi lần đổi `queryFragment` là một
+     lượt gọi mạng". Toạ độ CÓ rời khỏi máy: chúng đi tới APPLE. Và văn bản pháp lý của chính
+     app nói đúng chuyện này ("your coordinates are sent to Apple" — `LegalView`, mục "Address
+     look-up uses Apple"), nên để file này nói ngược lại là hai văn bản của cùng một app đá nhau.
+     VẬY VÌ SAO VẪN KHÔNG KHAI Location? Vì "thu thập" theo định nghĩa của Apple là gửi dữ liệu
+     rời máy theo cách cho CHÍNH MÌNH (hoặc đối tác của mình) đọc được LÂU HƠN mức cần để phục vụ
+     một yêu cầu tức thời. Geocoding là yêu cầu tức thời, trả kết quả xong là hết, và **Cedar247
+     không bao giờ nhận được toạ độ** — thứ đi lên server của Cedar247 chỉ là CHỮ địa chỉ. Thứ
+     thu thật vì vậy là "Physical Address", đã khai bên dưới.
+     🔴 Ngày nào có ai gửi lat/long lên server của Cedar247 thì PHẢI thêm mục Location vào đây VÀ
+     vào bảng App Privacy trên App Store Connect — hai chỗ phải khớp nhau.
+
+  2b. FILE NÀY SHIP NGUYÊN SI VÀO IPA — KỂ CẢ KHỐI CHÚ THÍCH NÀY. Đã đo trên ruột IPA 2.20:
+     `Payload/CedarScan.app/PrivacyInfo.xcprivacy` vẫn là XML, 8162 byte, TRÙNG KHÍT bản trên
+     đĩa (Xcode KHÔNG nén nó thành binary plist như cách nó làm với Info.plist). Hai hệ quả:
+     (a) sửa một chữ ở đây là đổi byte của bản giao ⇒ theo luật nhà thì phải tăng
+     `MARKETING_VERSION`; (b) mọi câu viết ở đây đều đi tới Apple — đừng viết gì không dám để
+     người ngoài đọc, và nhất là đừng để một câu SAI nằm trong chính file khai báo quyền riêng tư.
 
   3. THÊM SDK BÊN THỨ BA = PHẢI QUAY LẠI ĐÂY. Hôm nay app KHÔNG có SDK nào (project.yml không
      có khối `packages:`), nên không phải gom privacy manifest của ai cả. Ngày nào thêm thư viện
