@@ -20,7 +20,16 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.cedar247.cedarscan
         PRODUCT_NAME: CedarScan
-        TARGETED_DEVICE_FAMILY: "1,2"
+        # 🔴 CHỈ iPHONE ("1"). ĐỔI 2026-08-13 (từ "1,2") theo quyết định của chủ app trong đợt
+        # đưa app lên App Store. Khai thêm iPad ("2") kéo theo BA nghĩa vụ mà không ai muốn trả:
+        #   (1) App Store BẮT NỘP bộ ảnh chụp màn hình iPad riêng (13") — không nộp thì không
+        #       submit được, và ảnh phải chụp trên máy thật;
+        #   (2) reviewer được quyền test trên iPad, mà app này portrait-only + cần LiDAR nên chỉ
+        #       iPad Pro 2020 trở lên mới chạy — CHƯA AI TỪNG MỞ APP TRÊN MỘT CÁI iPAD NÀO;
+        #   (3) khách iPad thường tải về rồi thấy nút quét bị khoá (ProjectView.unsupportedNote).
+        # Khai "1" KHÔNG chặn iPad chạy bản iPhone — nó chỉ thôi hứa hẹn iPad là thiết bị được
+        # hỗ trợ. Muốn bán cho iPad thật thì đổi lại "1,2" KÈM bộ ảnh iPad + một lượt test thật.
+        TARGETED_DEVICE_FAMILY: "1"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         # Màu nhấn "cobalt" của app (chủ app chốt 2026-07-23) thay cho xanh dương MẶC ĐỊNH của
         # hệ thống — màu cũ nhạt quá. Định nghĩa ở Assets.xcassets/AccentColor.colorset, có HAI
@@ -30,12 +39,19 @@ targets:
         # catalog mà `Color.accentColor`/`.tint`/nút trong alert vẫn dùng xanh hệ thống — sai
         # kiểu IM LẶNG, CI vẫn xanh, chỉ lộ khi sideload.
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        # SỐ BUILD (CFBundleVersion). Khác MARKETING_VERSION: khách không nhìn thấy nó, nhưng
+        # 🔴 App Store Connect TỪ CHỐI bản nộp trùng số build của một bản đã nộp trước đó — dù
+        # MARKETING_VERSION có tăng. Nộp bản thứ hai với số này vẫn "1" = bị đá ngay lúc upload.
+        # Vì vậy `.github/workflows/release.yml` ĐÈ giá trị này bằng số thứ tự lượt chạy CI
+        # (`CURRENT_PROJECT_VERSION=$GITHUB_RUN_NUMBER` trên dòng lệnh xcodebuild) — số đó tăng
+        # đơn điệu, không bao giờ lặp, không ai phải nhớ. Giá trị "1" ở đây chỉ là mức nền cho
+        # build AltStore (build.yml) và cho ai generate project bằng tay.
         CURRENT_PROJECT_VERSION: "1"
         # 🔴 TĂNG SỐ NÀY MỖI LẦN GIAO IPA CHO CHỦ APP. 06/08 có ba bản IPA ra cách nhau ~1
         # tiếng, cùng hiện "1.0" → chủ app test trúng bản cũ mà không ai biết, báo "lỗi vẫn
         # nguyên" oan. AltStore (My Apps) và Cài đặt iOS đều hiện số này — nó là cách DUY NHẤT
         # xác minh từ xa máy ông đang chạy bản nào. Ghi số giao kèm vào SESSION-HANDOFF §STATE.
-        MARKETING_VERSION: "2.19"
+        MARKETING_VERSION: "2.20"
     info:
       path: Sources/Info.plist
       properties:
@@ -43,16 +59,29 @@ targets:
         # là nó ghi CỨNG "1.0" vào Info.plist, MARKETING_VERSION ở settings bị bỏ qua im lặng
         # (đã dính 06/08 — IPA build xong vẫn 1.0). Trỏ về biến để chỉ một nguồn sự thật.
         CFBundleShortVersionString: $(MARKETING_VERSION)
+        # 🔴 CÙNG MỘT CÁI BẪY, VẾ THỨ HAI — thêm 2026-08-13. XcodeGen thấy khối `info:` khai tay
+        # là nó tự điền NỐT các khoá bắt buộc còn thiếu bằng MẶC ĐỊNH CỦA NÓ, và mặc định của
+        # CFBundleVersion là "1" ghi CỨNG — y hệt vụ CFBundleShortVersionString "1.0" đã trả giá
+        # 06/08. Hậu quả khác nhau ở chỗ: hồi đó lộ ra ngay (chủ app nhìn thấy "1.0" trong
+        # AltStore), còn cái này IM LẶNG cho tới lúc upload bản thứ hai lên App Store Connect và
+        # ăn lỗi "build number đã tồn tại". Trỏ về biến để `release.yml` đè được từ dòng lệnh.
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         CFBundleDisplayName: CedarScan
-        NSCameraUsageDescription: CedarScan cần dùng camera và cảm biến LiDAR để quét không gian 3D.
+        # TIẾNG ANH từ 2026-08-13 (trước là tiếng Việt), CÂU CHỮ DO CHÍNH CHỦ APP CHỌN trong đợt
+        # đưa app lên App Store — ✗ tự sửa lại, hỏi ông. Lý do đổi: reviewer của Apple đọc chuỗi
+        # này bằng tiếng Anh, purpose string họ không đọc được là dạng dễ ăn từ chối 5.1.1; và
+        # khách thật của Cedar247 là khách nước ngoài (app chỉ hiện tiếng Việt khi MÁY đặt tiếng
+        # Việt). Câu nói ĐỦ HAI VẾ có chủ đích: dùng camera+LiDAR để làm gì (quét phòng) VÀ để
+        # tạo ra cái gì (mô hình 3D dựng mặt bằng) — Apple đòi vế thứ hai.
+        NSCameraUsageDescription: CedarScan uses the camera and LiDAR sensor to scan the rooms of your property and build the 3D model your floor plan is drawn from.
         # Chỉ dùng cho nút "Dùng vị trí hiện tại" ở màn nhập địa chỉ trước khi quét: lấy toạ độ
         # MỘT LẦN rồi đổi ra địa chỉ. Không theo dõi nền (không khai NSLocationAlwaysAnd...).
         # Từ chối quyền này KHÔNG chặn gì — khách gõ địa chỉ bằng tay là quét bình thường.
         # TIẾNG ANH, không phải tiếng Việt: khách thật của Cedar247 là khách nước ngoài (app chỉ
         # hiện tiếng Việt khi MÁY đặt tiếng Việt), và App Store review đọc chuỗi này bằng tiếng
         # Anh — purpose string không đọc được là dạng dễ ăn 5.1.1.
-        # ⚠ NSCameraUsageDescription ở trên vẫn đang là tiếng Việt (có từ trước đợt này). Nên đổi
-        # nốt, nhưng để chủ app quyết vì nó không nằm trong phạm vi đợt này.
+        # ✅ NSCameraUsageDescription ở trên ĐÃ đổi sang tiếng Anh 2026-08-13 (chủ app duyệt câu
+        # chữ). Hai purpose string nay cùng ngôn ngữ — ✗ để lệch lại.
         NSLocationWhenInUseUsageDescription: CedarScan uses your location only to fill in the address of the property you are about to scan. You can always type the address by hand instead.
         # NSMicrophoneUsageDescription đã BỎ 2026-07-19 cùng luồng quay video khảo sát: chỗ duy
         # nhất dùng micro là VideoScanFlowView (đã xoá). ScanVideoRecorder của mesh mode chỉ dựng

@@ -1,0 +1,177 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  PRIVACY MANIFEST (Apple BẮT BUỘC từ 2024 — thiếu nó là bị chặn ngay ở khâu upload).
+  Thêm 2026-08-13, đợt đưa app lên App Store.
+
+  🔴 BA ĐIỀU PHẢI BIẾT TRƯỚC KHI ĐỤNG FILE NÀY:
+
+  1. FILE NÀY PHẢI NẰM Ở GỐC BUNDLE (`CedarScan.app/PrivacyInfo.xcprivacy`), không phải trong
+     thư mục con. Nó ngồi ở `Sources/` chỉ vì XcodeGen lấy nguyên thư mục đó; đuôi `.xcprivacy`
+     không phải mã nguồn nên Xcode xếp nó vào Copy Bundle Resources, mà phase đó LÀM PHẲNG
+     đường dẫn → rơi đúng gốc bundle. Cách kiểm DUY NHẤT đáng tin là mở ruột IPA:
+       python -c "import zipfile; print([n for n in zipfile.ZipFile('CedarScan.ipa').namelist() if 'xcprivacy' in n])"
+     Phải ra đúng `Payload/CedarScan.app/PrivacyInfo.xcprivacy`. ✗ tin "CI xanh nghĩa là có" —
+     thiếu file này CI vẫn xanh y hệt, chỉ App Store Connect mới kêu.
+
+  2. KHAI SAI THEO CHIỀU "THỪA" CŨNG LÀ SAI. Đáng chú ý nhất: app KHÔNG khai Location, dù có xin
+     quyền vị trí. Vì `AddressLookup` đổi toạ độ ra ĐỊA CHỈ ngay trên máy (CLGeocoder) rồi chỉ
+     gửi CHỮ địa chỉ lên server — không dòng nào gửi lat/long đi. Thứ thu thật là "Physical
+     Address", đã khai bên dưới. Khai thêm Location là tự rước câu hỏi của reviewer về một thứ
+     app không làm. (Đổi ý: nếu sau này có ai gửi toạ độ lên server thì PHẢI thêm mục Location
+     vào đây VÀ vào bảng App Privacy trên App Store Connect — hai chỗ phải khớp nhau.)
+
+  3. THÊM SDK BÊN THỨ BA = PHẢI QUAY LẠI ĐÂY. Hôm nay app KHÔNG có SDK nào (project.yml không
+     có khối `packages:`), nên không phải gom privacy manifest của ai cả. Ngày nào thêm thư viện
+     (đo đạc, crash report, quảng cáo…) thì nó mang nghĩa vụ riêng của nó.
+
+  KHỐI `NSPrivacyAccessedAPITypes` = các API Apple đòi khai LÝ DO. Đã soi cả `Sources/`, đúng ba
+  loại; mỗi loại ghi kèm chỗ gọi thật để phiên sau kiểm lại được bằng grep, ✗ phải tin lời file
+  này. Thêm API mới thuộc nhóm bị đòi lý do (dung lượng đĩa, thời gian tạo file, active keyboard,
+  bàn phím tuỳ chỉnh…) mà quên khai ở đây = App Store Connect trả về email cảnh báo, rồi chặn.
+-->
+<plist version="1.0">
+<dict>
+	<!-- Không theo dõi, không quảng cáo, không chia sẻ dữ liệu cho bên thứ ba nào. -->
+	<key>NSPrivacyTracking</key>
+	<false/>
+	<key>NSPrivacyTrackingDomains</key>
+	<array/>
+
+	<key>NSPrivacyCollectedDataTypes</key>
+	<array>
+		<!-- Email + tên: tài khoản khách (APIClient.register/login). "Linked" = gắn với danh
+		     tính vì khách có tài khoản thật trên app.cedar247.com. -->
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeEmailAddress</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+			</array>
+		</dict>
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeName</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+			</array>
+		</dict>
+		<!-- Địa chỉ căn nhà cần vẽ mặt bằng: khách gõ tay ở màn địa chỉ HOẶC bấm "Dùng vị trí
+		     hiện tại" rồi app đổi toạ độ ra địa chỉ NGAY TRÊN MÁY. Đây là lý do app không khai
+		     Location — xem chú thích số 2 ở đầu file. -->
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypePhysicalAddress</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+			</array>
+		</dict>
+		<!-- `DeviceID.current` gửi kèm lúc đăng ký (APIClient.register) — dùng cho hạn mức suất
+		     quét miễn phí, không dùng cho quảng cáo/theo dõi. -->
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeDeviceID</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+			</array>
+		</dict>
+		<!-- Video buổi quét + ảnh texture (texture-shots) + ảnh phòng khách tự chọn ở Tour. -->
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypePhotosorVideos</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+			</array>
+		</dict>
+		<!-- Mesh 3D của căn nhà, tên dự án, ghi chú trong đơn, file khách đính kèm (logo, bản
+		     vẽ cũ). Apple không có mục riêng cho mô hình 3D nên nó thuộc "Other User Content". -->
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeOtherUserContent</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+			</array>
+		</dict>
+		<!-- Đơn hàng đã đặt (gói dịch vụ, add-on, trạng thái thanh toán) hiện ở tab Đơn hàng. -->
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypePurchaseHistory</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+			</array>
+		</dict>
+	</array>
+
+	<key>NSPrivacyAccessedAPITypes</key>
+	<array>
+		<!-- UserDefaults — AccountStore (thông tin khách), ScanQualityConfig (cấu hình server
+		     đẩy về), ScanGuideView.seenKey, cờ haptics/voice của coach.
+		     CA92.1 = chỉ đọc/ghi dữ liệu của CHÍNH app này, không chia sẻ ra ngoài. -->
+		<dict>
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryUserDefaults</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<string>CA92.1</string>
+			</array>
+		</dict>
+		<!-- Thời gian sửa file — `TexturedModelCache` đọc `.contentModificationDateKey` để giữ
+		     3 file cache mới nhất trong `.cachesDirectory`.
+		     C617.1 = file nằm TRONG container của app. Đúng: cache của chính app. -->
+		<dict>
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryFileTimestamp</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<string>C617.1</string>
+			</array>
+		</dict>
+		<!-- `ProcessInfo.processInfo.systemUptime` — ColorMeshBuilder dùng làm mốc chống CHÙM
+		     cảnh báo (và ScanPerfProfiler khi bật). Đo QUÃNG thời gian giữa hai sự kiện trong
+		     app, không gửi đi đâu. 35F9.1 = đúng lý do đó. -->
+		<dict>
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategorySystemBootTime</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<string>35F9.1</string>
+			</array>
+		</dict>
+	</array>
+</dict>
+</plist>

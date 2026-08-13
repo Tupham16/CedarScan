@@ -1,0 +1,219 @@
+name: Release to App Store Connect
+
+# 🔴 WORKFLOW NÀY KHÁC HẲN `build.yml` — ĐỌC TRƯỚC KHI ĐỤNG.
+#
+# `build.yml`  = bản KHÔNG KÝ SỐ cho AltStore (sideload). Chạy mỗi lần push main. ✗ ĐỤNG VÀO NÓ.
+# `release.yml`= bản CÓ KÝ SỐ nộp lên App Store. Chỉ chạy KHI BẤM TAY (workflow_dispatch).
+#
+# Vì sao không gộp làm một: đường AltStore đang lành và là cách DUY NHẤT chủ app nhận bản thử
+# trong lúc chờ Apple duyệt tài khoản. Gộp = mỗi lần ký hỏng là mất luôn đường giao bản.
+# Vì sao không chạy theo push: mỗi lượt push main sẽ đẩy một bản lên App Store Connect, đốt số
+# build và làm bẩn danh sách bản nộp. Nộp Store là việc CÓ CHỦ ĐÍCH, phải bấm tay.
+#
+# ⚠ TÌNH TRẠNG 2026-08-13: FILE NÀY CHƯA TỪNG CHẠY MỘT LẦN NÀO — chủ app chưa có tài khoản Apple
+# Developer nên chưa có secret nào để chạy thử. ✗ ghi ở đâu là "đường nộp Store đã xong": mới chỉ
+# là ĐƯỜNG ĐÃ DỰNG, chưa có phép đo nào. Lần chạy đầu tiên để nguyên `upload` TẮT (mặc định) —
+# xem khâu ký số có qua không đã, rồi lần sau mới tick để nộp thật.
+#
+# 🔴 BỐN SECRET PHẢI CÓ (Settings → Secrets and variables → Actions của repo).
+#    CHỦ APP TỰ DÁN — ✗ gửi khoá cho ai qua chat/email:
+#      ASC_KEY_ID        — Key ID của App Store Connect API key (10 ký tự)
+#      ASC_ISSUER_ID     — Issuer ID (dạng UUID, cùng trang tạo key)
+#      ASC_KEY_P8_BASE64 — nội dung file AuthKey_XXXX.p8 mã hoá base64, MỘT DÒNG
+#                          (macOS/Linux: `base64 -i AuthKey_XXXX.p8 | tr -d '\n'`
+#                           Windows PowerShell:
+#                           [Convert]::ToBase64String([IO.File]::ReadAllBytes("AuthKey_XXXX.p8")))
+#      APPLE_TEAM_ID     — Team ID (10 ký tự, trang Membership của Apple Developer)
+#    Lý do để Team ID trong secret chứ không ghi thẳng project.yml: repo này PUBLIC.
+#
+# 🔴 HAI THỨ APPLE ĐÒI CÓ TRƯỚC, CI KHÔNG TỰ LÀM HỘ ĐƯỢC:
+#    1. App record trong App Store Connect với bundle id `com.cedar247.cedarscan` (tạo tay).
+#    2. API key phải có quyền **App Manager** trở lên, nếu không `-allowProvisioningUpdates`
+#       không tạo nổi chứng chỉ/provisioning profile và bước archive chết ở khâu ký.
+
+on:
+  workflow_dispatch:
+    inputs:
+      upload:
+        description: "Đẩy bản lên App Store Connect (không tick = chỉ build + ký + kiểm ruột IPA)"
+        type: boolean
+        # 🔴 MẶC ĐỊNH TẮT, CÓ CHỦ ĐÍCH. Đẩy lên App Store Connect là việc KHÔNG GỠ LẠI ĐƯỢC: số
+        # build đó bị tiêu vĩnh viễn (Apple không cho nộp lại cùng số), bản nộp hiện ra trong tài
+        # khoản thật của chủ app. Một cú bấm "Run workflow" nhầm mà mặc định bật là đã nộp bài.
+        # Ai muốn nộp thì phải TỰ TICK — bấm nhầm chỉ mất mấy phút CI.
+        default: false
+
+jobs:
+  release:
+    runs-on: macos-15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Fail SỚM và nói rõ thiếu cái gì. Không có bước này thì thiếu secret sẽ lộ ra dưới dạng
+      # lỗi ký số khó đọc ở phút thứ 5 của build.
+      - name: Kiểm secret
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8_BASE64: ${{ secrets.ASC_KEY_P8_BASE64 }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          missing=""
+          [ -n "$ASC_KEY_ID" ] || missing="$missing ASC_KEY_ID"
+          [ -n "$ASC_ISSUER_ID" ] || missing="$missing ASC_ISSUER_ID"
+          [ -n "$ASC_KEY_P8_BASE64" ] || missing="$missing ASC_KEY_P8_BASE64"
+          [ -n "$APPLE_TEAM_ID" ] || missing="$missing APPLE_TEAM_ID"
+          if [ -n "$missing" ]; then
+            echo "::error::Thieu secret:$missing — xem khoi chu thich dau file release.yml"
+            exit 1
+          fi
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      # altool tìm khoá ở `~/private_keys/AuthKey_<KEYID>.p8`; xcodebuild thì cần đường dẫn
+      # TUYỆT ĐỐI. Ghi một chỗ, dùng cho cả hai. File nằm trên runner dùng-một-lần rồi biến mất
+      # cùng máy ảo.
+      - name: Nạp App Store Connect API key
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_KEY_P8_BASE64: ${{ secrets.ASC_KEY_P8_BASE64 }}
+        run: |
+          mkdir -p "$HOME/private_keys"
+          printf '%s' "$ASC_KEY_P8_BASE64" | base64 --decode > "$HOME/private_keys/AuthKey_${ASC_KEY_ID}.p8"
+          chmod 600 "$HOME/private_keys/AuthKey_${ASC_KEY_ID}.p8"
+
+      # 🔴 `CURRENT_PROJECT_VERSION=${{ github.run_number }}` LÀ BẮT BUỘC, KHÔNG PHẢI TRANG TRÍ.
+      # project.yml để số build = "1"; App Store Connect TỪ CHỐI bản nộp có số build trùng bản
+      # trước, kể cả khi MARKETING_VERSION đã tăng. Số lượt chạy CI tăng đơn điệu nên không bao
+      # giờ lặp. (Info.plist trỏ CFBundleVersion về biến này — xem chú thích trong project.yml.)
+      - name: Archive (ký số)
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          xcodebuild \
+            -project CedarScan.xcodeproj \
+            -scheme CedarScan \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath build/CedarScan.xcarchive \
+            archive \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$HOME/private_keys/AuthKey_${ASC_KEY_ID}.p8" \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+            CODE_SIGN_STYLE=Automatic \
+            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
+            CURRENT_PROJECT_VERSION=${{ github.run_number }}
+
+      - name: Export IPA
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          # `destination: export` (✗ `upload`) = ghi IPA ra đĩa để KIỂM RUỘT trước khi đẩy đi.
+          # Luật nhà: không giao/nộp bản nào chưa mở ruột xem. Đẩy đi là bước riêng bên dưới.
+          cat > ExportOptions.plist <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key>
+            <string>app-store-connect</string>
+            <key>destination</key>
+            <string>export</string>
+            <key>teamID</key>
+            <string>${APPLE_TEAM_ID}</string>
+            <key>signingStyle</key>
+            <string>automatic</string>
+            <key>uploadSymbols</key>
+            <true/>
+            <!-- 🔴 PHẢI false. Để true (mặc định của Xcode với method app-store-connect) là cho
+                 Xcode TỰ ĐẶT LẠI số phiên bản/số build lúc export: nó hỏi App Store Connect bản
+                 mới nhất rồi tự tăng. Như vậy số build không còn là số lượt chạy CI nữa, và
+                 bước "Kiểm ruột IPA" bên dưới đo một đằng, thứ nộp lên một nẻo — đúng họ với
+                 mọi cái bẫy IM LẶNG mà repo này đã trả giá. Ta tự quản số build. -->
+            <key>manageAppVersionAndBuildNumber</key>
+            <false/>
+          </dict>
+          </plist>
+          PLIST
+          xcodebuild -exportArchive \
+            -archivePath build/CedarScan.xcarchive \
+            -exportOptionsPlist ExportOptions.plist \
+            -exportPath build/export \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$HOME/private_keys/AuthKey_${ASC_KEY_ID}.p8" \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID"
+
+      # 🔴 GIỮ ARTIFACT Ở TRƯỚC BƯỚC KIỂM, ✗ đảo lại cho "hợp logic". Kiểm mà rớt là đúng lúc
+      # cần cầm cái IPA đó nhất để soi xem hỏng ở đâu; để sau bước kiểm thì lần chạy hỏng KHÔNG
+      # để lại gì, phải build lại — mà build lại là số build khác ⇒ dSYM khác UUID ⇒ mất đường
+      # đọc crash log của đúng bản vừa hỏng.
+      - name: Upload IPA (artifact)
+        uses: actions/upload-artifact@v4
+        with:
+          name: CedarScan-ipa-signed
+          path: build/export/*.ipa
+
+      - name: Upload dSYM (artifact)
+        uses: actions/upload-artifact@v4
+        with:
+          name: CedarScan-dsym-release
+          path: build/CedarScan.xcarchive/dSYMs
+
+      # Kiểm bằng MÁY, ✗ bằng mắt. Ba thứ đã từng hỏng IM LẶNG trong lịch sử repo này:
+      # số phiên bản bị XcodeGen ghi cứng, số build trùng, và file rơi sai chỗ trong bundle.
+      - name: Kiểm ruột IPA
+        run: |
+          IPA=$(ls build/export/*.ipa | head -1)
+          echo "IPA: $IPA"
+          python3 - "$IPA" <<'PY'
+          import sys, zipfile, plistlib
+          z = zipfile.ZipFile(sys.argv[1])
+          names = z.namelist()
+          app = next(n for n in names if n.endswith(".app/Info.plist"))
+          info = plistlib.loads(z.read(app))
+          print("CFBundleShortVersionString:", info.get("CFBundleShortVersionString"))
+          print("CFBundleVersion          :", info.get("CFBundleVersion"))
+          print("Bundle id                :", info.get("CFBundleIdentifier"))
+          print("Camera purpose           :", info.get("NSCameraUsageDescription"))
+          print("Device family            :", info.get("UIDeviceFamily"))
+          fail = []
+          if info.get("CFBundleShortVersionString") in (None, "1.0"):
+              fail.append("CFBundleShortVersionString sai (XcodeGen ghi cung 1.0?)")
+          if str(info.get("CFBundleVersion")) == "1":
+              fail.append("CFBundleVersion van la 1 — App Store Connect se tu choi ban nop thu hai")
+          priv = [n for n in names if n.endswith(".app/PrivacyInfo.xcprivacy")]
+          print("PrivacyInfo.xcprivacy    :", priv or "KHONG CO")
+          if not priv:
+              fail.append("Thieu PrivacyInfo.xcprivacy o goc bundle")
+          if fail:
+              for f in fail:
+                  print("::error::" + f)
+              sys.exit(1)
+          PY
+
+      # Bước DUY NHẤT chạm tới tài khoản Apple của chủ app. Bỏ tick `upload` lúc bấm chạy thì
+      # workflow dừng ở trên: có IPA đã ký để soi, không có gì được nộp đi.
+      - name: Đẩy lên App Store Connect
+        if: ${{ inputs.upload }}
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          IPA=$(ls build/export/*.ipa | head -1)
+          xcrun altool --upload-app \
+            -t ios \
+            -f "$IPA" \
+            --apiKey "$ASC_KEY_ID" \
+            --apiIssuer "$ASC_ISSUER_ID"
+          echo "Da day len App Store Connect. Apple xu ly ban nop mat 5-30 phut truoc khi no hien ra o TestFlight."
