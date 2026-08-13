@@ -1091,25 +1091,15 @@ struct OrderSheet: View {
     ///
     /// Tách thành computed property thay vì viết ternary lồng trong ViewBuilder: đó là đúng dạng
     /// biểu thức mà CI này từng chết vì "Swift type-check timeout".
+    ///
+    /// 🔴 CHỈ DÙNG KHI `otherScans` KHÔNG RỖNG — chỗ gọi đã gác. Nhánh cũ cho ca "chỉ có một bản
+    /// quét" in câu *"Bạn có thể quét liền một mạch các tầng…"*; **chủ app chốt XOÁ 2026-08-13**.
+    /// Lời khuyên đó vẫn ĐÚNG (mỗi lần Dừng & Lưu là một hệ toạ độ MỚI, hai bản quét riêng không
+    /// tự khớp), nhưng nó nằm sai chỗ: khách đọc nó TRONG FORM ĐẶT HÀNG, tức đã quét xong rồi —
+    /// không sửa được gì cho đơn đang đặt, chỉ làm dài thêm màn chốt tiền. Chỗ dạy việc đó là
+    /// `ScanGuideView` mục "Nhiều tầng — quét liền một mạch" (hiện TRƯỚC khi quét) và HUONG-DAN.md
+    /// — ✗ chép lại vào đây.
     private var floorsFooterText: String {
-        if otherScans.isEmpty {
-            // 🔴 Câu này TỪNG dạy ngược hẳn hướng dẫn trong app: "Quét từng tầng riêng (đặt tên
-            // Floor 1, Floor 2…)". Đó là tàn dư đời RoomPlan — hồi đó quét từng phòng rồi framework
-            // tự ghép nên "quét riêng rồi gộp" mới đúng. Với mesh thì MỖI lần Dừng & Lưu là một hệ
-            // toạ độ MỚI, hai bản quét riêng KHÔNG tự khớp, đội vẽ phải ghép tay và chỉ ghép được
-            // nếu có phần chồng lấn — xem `ScanGuideView` mục "Nhiều tầng — quét liền một mạch".
-            //
-            // Khách đọc dòng này TRONG FORM ĐẶT HÀNG, tức sau khi đã quét xong, nên lời khuyên sai
-            // ở đây chỉ kịp làm hỏng lần quét SAU. Nó cũng đã lừa được người viết HUONG-DAN.md
-            // 2026-07-20: bản đầu chép nguyên cái sai này vào tài liệu cho khách.
-            //
-            // Giữ vế "gộp vào một đơn" — đó là phần ĐÚNG và có lợi (một đơn tính giá cả căn).
-            // Câu chữ do chủ app chốt 2026-07-20: mời chứ không ra lệnh, vì việc đã lỡ rồi.
-            return L.t(
-                "You can scan every floor in one continuous pass — no need for a separate scan per floor. If a large home needs several scans, you can order them together here.",
-                "Bạn có thể quét liền một mạch các tầng trong một lần, không cần tách riêng từng bản quét cho mỗi tầng. Nếu nhà lớn phải chia thành nhiều bản quét, bạn gộp chúng vào một đơn ngay tại đây."
-            )
-        }
         let base = L.t(
             "Select the other floors of the same home to order everything together.",
             "Chọn các tầng khác của cùng căn nhà để đặt chung một đơn."
@@ -1434,20 +1424,24 @@ struct OrderSheet: View {
             } header: {
                 Text(L.t("Floors in this order", "Các tầng trong đơn này"))
             } footer: {
-                if !otherScans.isEmpty && extraFloors.isEmpty {
-                    // Nhắc NỔI BẬT: gộp tầng = 1 giá cho cả căn — đừng đặt lẻ từng tầng!
-                    Label {
-                        Text(L.t(
-                            "TIP: One order covers the WHOLE home — select the other floors above instead of ordering them separately!",
-                            "MẸO: MỘT đơn tính giá cho CẢ căn nhà — hãy chọn thêm các tầng ở trên thay vì đặt lẻ từng tầng!"
-                        ))
-                        .font(.footnote.weight(.semibold))
-                    } icon: {
-                        Text("💡")
+                // CHỈ NÓI KHI CÓ VIỆC PHẢI LÀM: không có bản quét nào khác để gộp thì mục này không
+                // có footer nào cả (chủ app chốt 2026-08-13 — xem `floorsFooterText`).
+                if !otherScans.isEmpty {
+                    if extraFloors.isEmpty {
+                        // Nhắc NỔI BẬT: gộp tầng = 1 giá cho cả căn — đừng đặt lẻ từng tầng!
+                        Label {
+                            Text(L.t(
+                                "TIP: One order covers the WHOLE home — select the other floors above instead of ordering them separately!",
+                                "MẸO: MỘT đơn tính giá cho CẢ căn nhà — hãy chọn thêm các tầng ở trên thay vì đặt lẻ từng tầng!"
+                            ))
+                            .font(.footnote.weight(.semibold))
+                        } icon: {
+                            Text("💡")
+                        }
+                        .foregroundStyle(.tint)
+                    } else {
+                        Text(floorsFooterText)
                     }
-                    .foregroundStyle(.tint)
-                } else {
-                    Text(floorsFooterText)
                 }
             }
 
@@ -1524,7 +1518,12 @@ struct OrderSheet: View {
                         Text(lang).tag(lang)
                     }
                 }
-                TextField(L.t("Floor naming style (optional)", "Kiểu đặt tên tầng (không bắt buộc)"), text: $floorNaming)
+                // 🔴 CHỮ "(không bắt buộc)"/"(optional)" ĐÃ BỎ Ở CẢ 4 Ô CỦA FORM NÀY (kiểu đặt tên
+                // tầng · ghi chú · đính kèm file · mã giảm giá) — chủ app chốt 2026-08-13. Trong
+                // form này KHÔNG có ô nào bắt buộc cả (nút Đặt hàng chỉ đòi chọn ít nhất một gói),
+                // nên dán nhãn "không bắt buộc" lên từng ô là lặp lại một điều đúng với tất cả.
+                // ✗ thêm lại cho riêng một ô: lúc đó ba ô còn lại trông như thể BẮT BUỘC.
+                TextField(L.t("Floor naming style", "Kiểu đặt tên tầng"), text: $floorNaming)
             } header: {
                 Text(L.t("Preferences (saved for next time)", "Tùy chọn (lưu cho lần sau)"))
             }
@@ -1533,7 +1532,7 @@ struct OrderSheet: View {
             // tên tầng làm mặc định (orderDefaults), KHÔNG lưu `notes` — để chung header cũ là hứa sai.
             Section {
                 TextField(
-                    L.t("Anything we should know? (optional)", "Ghi chú thêm (không bắt buộc)"),
+                    L.t("Anything we should know?", "Ghi chú thêm"),
                     text: $notes,
                     axis: .vertical
                 )
@@ -1584,17 +1583,21 @@ struct OrderSheet: View {
                     Text(fileUploadError).font(.footnote).foregroundStyle(.red)
                 }
             } header: {
-                Text(L.t("Attachments (optional)", "Đính kèm file (không bắt buộc)"))
+                Text(L.t("Attachments", "Đính kèm file"))
             } footer: {
-                Text(orderFiles.count >= Self.maxOrderFiles
-                     ? L.t("Maximum \(Self.maxOrderFiles) files per order.",
-                           "Tối đa \(Self.maxOrderFiles) file mỗi đơn.")
-                     : L.t("Add a logo or any extra files for our team — images or PDF.",
-                           "Gửi thêm logo hoặc file cho đội vẽ nếu cần — ảnh hoặc PDF."))
+                // Câu mời "Gửi thêm logo hoặc file cho đội vẽ nếu cần — ảnh hoặc PDF." ĐÃ XOÁ
+                // 2026-08-13 (chủ app): nút ngay trên đã ghi "Thêm file (logo, PDF…)", nói lại
+                // lần nữa là hai dòng cho một việc.
+                // 🔴 CẢNH BÁO TRẦN THÌ GIỮ — nó là thứ DUY NHẤT giải thích vì sao nút thêm file
+                // bỗng xám khi đủ 10 file. Bỏ nốt nó là nút chết không lý do (xem `.disabled`).
+                if orderFiles.count >= Self.maxOrderFiles {
+                    Text(L.t("Maximum \(Self.maxOrderFiles) files per order.",
+                             "Tối đa \(Self.maxOrderFiles) file mỗi đơn."))
+                }
             }
 
             Section {
-                TextField(L.t("Coupon code (optional)", "Mã giảm giá (không bắt buộc)"), text: $couponCode)
+                TextField(L.t("Coupon code", "Mã giảm giá"), text: $couponCode)
                     .textInputAutocapitalization(.characters)
                     .autocorrectionDisabled()
             } footer: {
@@ -1619,17 +1622,12 @@ struct OrderSheet: View {
                 }
                 // Cảnh báo "đơn có bản quay video, số đo kém chính xác hơn" ĐÃ XOÁ 11/08 cùng
                 // RoomPlan: không còn bản quét video-only nào tạo ra được từ 2026-07-19.
-                // Dòng dưới nay VÔ ĐIỀU KIỆN (trước gác `selectionHasMeshScan`) — mọi bản quét
-                // đều là mesh, nên điều kiện đó luôn đúng.
-                Label(
-                    L.t(
-                        "This order includes 3D mesh scans — the floor plan is drawn from the raw mesh + video.",
-                        "Đơn này có bản quét Mesh 3D — mặt bằng sẽ được vẽ từ mesh thô + video."
-                    ),
-                    systemImage: "cube.transparent"
-                )
-                .font(.footnote)
-                .foregroundStyle(.secondary)
+                //
+                // 🔴 DÒNG "Đơn này có bản quét Mesh 3D — mặt bằng sẽ được vẽ từ mesh thô + video."
+                // XOÁ NỐT 2026-08-13 (chủ app). Nó từng có nghĩa khi app còn HAI kiểu quét và
+                // khách cần biết mình đang đặt bằng kiểu nào; từ 11/08 mọi bản quét đều là mesh
+                // nên nó in ra vô điều kiện cho MỌI đơn — một câu luôn đúng thì không nói với ai
+                // điều gì, mà lại ngồi ngay trên nút trả tiền. ✗ thêm lại.
                 if let errorMessage {
                     Text(errorMessage)
                         .font(.footnote)
@@ -1656,18 +1654,19 @@ struct OrderSheet: View {
                 .listRowInsets(EdgeInsets())
                 .disabled(isBusy || selectedPackages.isEmpty || uploadingFile)
             } footer: {
-                // Tách theo `isFreePromo`: câu "sẽ có link thanh toán" hiện VÔ ĐIỀU KIỆN sẽ mâu thuẫn
-                // với banner "Đơn này MIỄN PHÍ" + nút "MIỄN PHÍ 🎁" ngay trên (đơn free server không
-                // gửi link nào). Đường free là mặc định (24/27 đơn prod) nên đây là ca chính.
+                // Nhánh KHÔNG-free ("Sau khi đặt sẽ có link thanh toán bảo mật (Stripe/PayPal)")
+                // ĐÃ XOÁ 2026-08-13 (chủ app). Việc "trả tiền ở bước sau" vẫn được nói ở màn
+                // THÀNH CÔNG ngay sau khi bấm (`successView`: nút "Thanh toán ngay" + câu "đội ngũ
+                // bắt đầu sau khi nhận thanh toán") và ở tab Đơn hàng — tức khách vẫn không bị bất
+                // ngờ, chỉ là không đọc nó hai lần.
+                //
+                // Câu cho đơn MIỄN PHÍ thì GIỮ: nó không mô tả quy trình chung mà nói đúng một
+                // điều riêng của đơn này — "không phải trả gì cả". Bỏ nốt là khách vừa thấy nút
+                // "MIỄN PHÍ 🎁" vừa không có gì xác nhận.
                 if isFreePromo {
                     Text(L.t(
                         "Free order — no payment needed. Our team starts right after you place it.",
                         "Đơn miễn phí — không cần thanh toán, đội ngũ bắt đầu ngay sau khi đặt."
-                    ))
-                } else {
-                    Text(L.t(
-                        "You will get a secure payment link (Stripe/PayPal) after placing the order.",
-                        "Sau khi đặt sẽ có link thanh toán bảo mật (Stripe/PayPal)."
                     ))
                 }
             }

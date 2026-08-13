@@ -501,7 +501,10 @@ struct RevisionSheet: View {
                 Text(fileUploadError).font(.footnote).foregroundStyle(.red)
             }
         } header: {
-            Text(L.t("Attachments (optional)", "Đính kèm file (không bắt buộc)"))
+            // "(không bắt buộc)" bỏ theo mục cùng tên ở form đặt hàng (`ScanDetailView`, 13/08):
+            // hai mục này cố ý CÙNG KHUÔN, để lệch chữ là hai màn nói hai kiểu về cùng một việc.
+            // Ở đây cũng đúng nghĩa — nút Gửi chỉ đòi có LỜI NHẮN, file thì không.
+            Text(L.t("Attachments", "Đính kèm file"))
         } footer: {
             Text(files.count >= Self.maxFiles
                  ? L.t("Maximum \(Self.maxFiles) files per request.",

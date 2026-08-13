@@ -1,4 +1,6 @@
+import CoreLocation // CLLocationCoordinate2D — toạ độ ghim lên bản đồ xác nhận
 import Foundation
+import MapKit // Map/Marker — bản đồ xác nhận vị trí ở đầu màn
 import SwiftUI
 import UIKit // UIApplication.openSettingsURLString — đưa khách sang Cài đặt khi quyền vị trí bị tắt
 
@@ -35,6 +37,8 @@ struct ScanAddressView: View {
     /// "Dùng vị trí hiện tại" + gợi ý địa chỉ khi gõ. Cả hai là ĐƯỜNG TẮT — xem `AddressLookup.swift`.
     @StateObject private var locator = LocationLookup()
     @StateObject private var completer = AddressCompleter()
+    /// Chữ trong ô → toạ độ cho bản đồ ở đầu màn. Chỉ để NHÌN, không đi kèm đơn hàng.
+    @StateObject private var geocoder = AddressGeocoder()
     /// Con trỏ đang nằm trong ô địa chỉ. Là CÔNG TẮC DUY NHẤT của danh sách gợi ý: đang gõ thì
     /// hiện, chạm một gợi ý (view tự bỏ focus) hoặc điền bằng nút vị trí thì tắt. Không cần cờ
     /// "vừa chọn xong" — cờ đó là thứ luôn kẹt sai ở lần dùng thứ hai.
@@ -164,14 +168,29 @@ struct ScanAddressView: View {
             //
             // Tách từng Section thành computed property riêng — CI từng timeout type-check
             // với biểu thức SwiftUI lớn, và Form nhiều section là đúng dạng dễ dính.
+            //
+            // THỨ TỰ TỪ 2026-08-13 (chủ app chốt): **BẢN ĐỒ TRÊN, cụm nhập + nút ở DƯỚI.** Bản đồ
+            // là thứ khách liếc một cái là biết đúng nhà hay chưa, nên nó ăn phần trên màn hình;
+            // ô nhập và nút nằm trong tầm ngón cái. Bản đồ đứng NGOÀI `Form` — nhét nó vào một
+            // hàng của Form là nó cuộn đi mất đúng lúc danh sách gợi ý dài ra.
             VStack(spacing: 0) {
+                AddressMapView(coordinate: geocoder.coordinate, state: geocoder.state)
+                    // Thu nhỏ khi bàn phím lên. Cả cụm này bị bàn phím đẩy lên (VStack, cố ý —
+                    // xem khối 🔴 ở trên), nên bản đồ cao cố định là bản đồ bị đẩy khuất một nửa
+                    // VÀ bóp phần Form còn lại xuống còn hai dòng: gợi ý địa chỉ + danh sách căn
+                    // đã quét không còn chỗ hiện, đúng lúc khách đang gõ và cần chúng nhất.
+                    .frame(height: addressFocused ? 130 : 230)
+                    .animation(.easeInOut(duration: 0.25), value: addressFocused)
                 Form {
                     homeSection
                 }
                 startBar
             }
-            .navigationTitle(L.t("Before scanning", "Trước khi quét"))
-            .navigationBarTitleDisplayMode(.inline)
+            // Tiêu đề "Trước khi quét" đổi thành TÊN THỨ MÀN NÀY HỎI (chủ app chốt 2026-08-13) và
+            // để cỡ LỚN cho dễ nhận. Nhãn "Địa chỉ căn nhà" của section đã bỏ theo — hai chữ y hệt
+            // nhau cách nhau 30pt là một dòng thừa, mà màn này vốn chỉ hỏi đúng một thứ.
+            .navigationTitle(L.t("Property address", "Địa chỉ căn nhà"))
+            .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button(L.t("Cancel", "Hủy")) { dismiss() }
@@ -205,6 +224,12 @@ struct ScanAddressView: View {
                 addressWhenLocating = nil
                 suppressCompleter = true
                 addressFocused = false
+                // GHIM TRƯỚC, gán chữ SAU. `geocoder.pin` nhớ luôn chuỗi vừa ghim, nên `onChange`
+                // của `address` ngay dưới đây thấy đúng chuỗi đó và không bắn thêm lượt tra nào —
+                // giữ nguyên toạ độ GPS THẬT thay vì thay bằng kết quả tra ngược lại từ chữ.
+                if let coordinate = locator.lastCoordinate {
+                    geocoder.pin(coordinate, for: newValue)
+                }
                 address = newValue
                 completer.clear()
             }
@@ -212,14 +237,18 @@ struct ScanAddressView: View {
     }
 
     /// Thứ tự các dòng trong mục này KHÔNG tuỳ tiện (chủ app chốt 2026-07-23):
-    /// ô nhập → nút "Dùng vị trí hiện tại" → nút "Tìm địa chỉ" → trạng thái định vị →
+    /// ô nhập → nút "Dùng vị trí hiện tại" → trạng thái định vị →
     /// **căn đã quét trùng tên** → gợi ý địa chỉ MapKit → dòng "đang thêm vào căn X".
     ///
-    /// 🔴 HAI NÚT ĐỨNG SÁT NHAU VÀ NGAY DƯỚI Ô NHẬP, MỌI THỨ ĐỘNG NẰM DƯỚI CHÚNG. Đây là lý do:
-    /// trạng thái định vị, danh sách căn trùng và gợi ý MapKit đều là những dòng XUẤT HIỆN/BIẾN
-    /// MẤT theo lúc. Nếu chen bất kỳ dòng nào trong số đó vào giữa hoặc lên trên hai nút thì hai
-    /// nút sẽ NHẢY xuống ngay lúc người dùng đang nhắm ngón tay vào chúng — cùng lớp lỗi với bẫy
-    /// #2 ở handoff ("dòng vừa chạm nhảy đi → người dùng tưởng chạm hụt").
+    /// 🔴 NÚT ĐỨNG NGAY DƯỚI Ô NHẬP, MỌI THỨ ĐỘNG NẰM DƯỚI NÓ. Đây là lý do: trạng thái định vị,
+    /// danh sách căn trùng và gợi ý MapKit đều là những dòng XUẤT HIỆN/BIẾN MẤT theo lúc. Nếu chen
+    /// bất kỳ dòng nào trong số đó vào giữa hoặc lên trên nút thì nút sẽ NHẢY xuống ngay lúc người
+    /// dùng đang nhắm ngón tay vào nó — cùng lớp lỗi với bẫy #2 ở handoff ("dòng vừa chạm nhảy đi
+    /// → người dùng tưởng chạm hụt").
+    ///
+    /// 🔴 NÚT "TÌM ĐỊA CHỈ" (kính lúp) ĐÃ BỎ 2026-08-13 — chủ app: *"khi điền địa chỉ nó đã tự tìm
+    /// rồi, nút hơi thừa"*. Đúng: nút đó không tìm gì cả, nó chỉ đưa con trỏ vào chính ô nhập nằm
+    /// ngay phía trên nó, còn việc tra gợi ý do `onChange` của ô làm từ ký tự thứ ba. ✗ thêm lại.
     ///
     /// Căn đã quét đứng TRƯỚC gợi ý MapKit: khi cả hai cùng hiện thì "dùng lại căn đã có" là câu
     /// trả lời đúng, còn tạo thêm một căn thứ hai cùng địa chỉ là lỗi phải đi dọn bằng tay sau đó.
@@ -243,6 +272,11 @@ struct ScanAddressView: View {
             // vào `address` nữa nên không sinh vòng lặp.
             .onChange(of: address) { _, newValue in
                 pickedProjectId = nil
+                // Bản đồ đi theo chữ trong ô, kể cả khi chữ do app tự điền. `AddressGeocoder` tự
+                // debounce + tự bỏ qua khi chuỗi trùng cái đang ghim, nên gọi vô điều kiện ở đây
+                // là an toàn — ✗ nhét thêm điều kiện, chỗ này đã có `suppressCompleter` là một cờ
+                // đủ để nhầm rồi.
+                geocoder.update(address: newValue)
                 if suppressCompleter {
                     suppressCompleter = false
                     completer.clear()
@@ -251,21 +285,25 @@ struct ScanAddressView: View {
                 }
             }
             useLocationButton
-            searchAddressButton
             locationStatusRow
             matchingRows
             suggestionRows
             pickedRow
-        } header: {
-            Text(L.t("Property address", "Địa chỉ căn nhà"))
         } footer: {
             // Footer render SAU mọi dòng của section, nên KHÔNG dùng nó để chỉ đường ("chạm dòng
-            // bên dưới" sẽ trỏ ngược lên trên). Giữ đúng một câu chung, không đổi theo tình huống
-            // — việc cảnh báo trùng tên đã chuyển lên chữ trên NÚT, chỗ người dùng thật sự đọc.
-            Text(L.t(
-                "Required — the drafting team needs to know which home the drawing is for.",
-                "Bắt buộc — đội vẽ cần biết bản vẽ này của căn nào."
-            ))
+            // bên dưới" sẽ trỏ ngược lên trên).
+            //
+            // Câu chữ do chủ app chốt 2026-08-13, thay câu cũ "Bắt buộc — đội vẽ cần biết bản vẽ
+            // này của căn nào.". CHỈ HIỆN KHI CHƯA CÓ ĐỊA CHỈ: từ 13/08 nó là chỗ DUY NHẤT còn
+            // giải thích vì sao nút "Bắt đầu quét" đang xám (dòng nhắc trong `startBar` đã bỏ
+            // theo yêu cầu chủ app), mà điền xong rồi thì một câu "vui lòng điền địa chỉ" nằm lại
+            // dưới ô đã có chữ chỉ làm khách tưởng mình điền sai.
+            if !hasHome {
+                Text(L.t(
+                    "Please enter the address to continue.",
+                    "Vui lòng điền địa chỉ để tiếp tục."
+                ))
+            }
         }
     }
 
@@ -297,25 +335,13 @@ struct ScanAddressView: View {
         .buttonStyle(.borderedProminent)
         .buttonBorderShape(.capsule)
         .disabled(locator.state == .working)
-        .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 4, trailing: 16))
+        // `bottom: 8`, không phải 4: số 4 cũ là để nút này dính sát nút "Tìm địa chỉ" ngay dưới
+        // thành một cặp. Nút đó đã xoá 13/08, giữ 4 thì nút nằm dí vào dòng gợi ý đầu tiên.
+        .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
     }
 
-    /// Đường tắt 2: tự gõ. KHÔNG mở màn nào cả — nó đưa con trỏ lên chính ô nhập ngay phía TRÊN
-    /// và bật danh sách gợi ý. Làm thành một màn riêng thì khách gõ xong lại phải quay về đây;
-    /// làm thành một chế độ ẩn/hiện thì ô nhập biến mất trước mắt người đang định gõ.
-    private var searchAddressButton: some View {
-        Button {
-            addressFocused = true
-        } label: {
-            Label(L.t("Search address", "Tìm địa chỉ"), systemImage: "magnifyingglass")
-                .font(.subheadline.weight(.semibold))
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 9)
-        }
-        .buttonStyle(.bordered)
-        .buttonBorderShape(.capsule)
-        .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 8, trailing: 16))
-    }
+    // 🔴 `searchAddressButton` (nút kính lúp "Tìm địa chỉ") ĐÃ XOÁ 2026-08-13 — lý do ghi ở
+    // `homeSection`. Nó chỉ `addressFocused = true`, tức làm đúng việc mà chạm vào ô nhập đã làm.
 
     /// Dòng trạng thái của nút vị trí. CHỈ hiện khi có chuyện đang xảy ra — không chiếm chỗ lúc bình thường.
     @ViewBuilder
@@ -459,21 +485,15 @@ struct ScanAddressView: View {
 
     /// Thanh nút ghim đáy màn — LUÔN nhìn thấy, không phụ thuộc danh sách dài bao nhiêu.
     ///
-    /// Lý do nút xám nằm NGAY TRONG thanh, không trông vào footer của section: từ khi ghim đáy,
-    /// nút hiện ngay lúc mở màn, còn footer "Bắt buộc — đội vẽ cần biết…" render SAU mọi dòng gợi
-    /// ý nên với khách đã có vài căn thì nó nằm dưới đáy màn. Nút xám mà không nói vì sao là lỗi
-    /// UX tệ nhất — cùng khuôn nút-xám-kèm-lý-do của `ProjectView.unsupportedNote`.
+    /// 🔴 DÒNG NHẮC "Điền địa chỉ trước — đội vẽ cần…" ĐÃ XOÁ 2026-08-13 theo yêu cầu chủ app.
+    /// Nó từng nằm ngay đây vì footer của section render SAU mọi dòng gợi ý, tức có thể trôi khỏi
+    /// màn hình; nay bản đồ chiếm phần trên và section chỉ còn vài dòng nên footer luôn nằm ngay
+    /// trên thanh này. Câu giải thích "nút đang xám vì sao" vì vậy CHƯA MẤT — nó chuyển về footer
+    /// của `homeSection` ("Vui lòng điền địa chỉ để tiếp tục."), và phải còn ở đâu đó: nút xám mà
+    /// không nói vì sao là lỗi UX tệ nhất (cùng khuôn `ProjectView.unsupportedNote`). ✗ xoá nốt
+    /// câu bên đó.
     private var startBar: some View {
         VStack(spacing: 6) {
-            if !hasHome {
-                Text(L.t(
-                    "Enter the address first — the drafting team needs it.",
-                    "Điền địa chỉ trước — đội vẽ cần biết bản vẽ này của căn nào."
-                ))
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-            }
             Button {
                 start()
             } label: {
@@ -539,5 +559,106 @@ struct ScanAddressView: View {
     /// ở màn chính và tab Đơn hàng) — đọc chú thích 🔴 về `đ`/`Đ` ở đó trước khi đụng vào.
     private static func matchKey(_ s: String) -> String {
         TextMatch.key(s)
+    }
+}
+
+/// Bản đồ xác nhận vị trí, nằm TRÊN cụm nhập (chủ app chốt 2026-08-13: *"khi nhập địa chỉ hoặc
+/// dùng vị trí hiện tại thì nó hiển thị vị trí đó ngay trong bản đồ để khách xác nhận chính xác
+/// vị trí"*).
+///
+/// 🔴 ĐÂY LÀ **APPLE MAPS (MapKit)**, ✗ Google Maps — dù chủ app gọi tên "google map". Nhúng Google
+/// Maps thật đòi SDK bên thứ ba + API key + tài khoản billing của Google, và kéo theo nghĩa vụ mới
+/// ở privacy manifest (`PrivacyInfo.xcprivacy`, chú thích số 3: *"THÊM SDK BÊN THỨ BA = PHẢI QUAY
+/// LẠI ĐÂY"*) đúng lúc app đang nộp App Store. MapKit đã có sẵn trong app (`AddressLookup` chạy
+/// `MKLocalSearchCompleter` từ 2026-07), không thêm một dòng phụ thuộc nào, và cho khách đúng thứ
+/// họ cần: nhìn cái ghim để biết đúng nhà hay chưa. Muốn Google Maps thật thì đó là một quyết định
+/// riêng — hỏi chủ app kèm ba khoản chi phí trên.
+///
+/// Bản đồ CHỈ ĐỂ NHÌN: không kéo ghim được, và toạ độ KHÔNG đi kèm đơn hàng (xem 🔴 ở
+/// `AddressGeocoder`). Không tra ra ghim cũng không chặn gì — nút "Bắt đầu quét" chỉ nhìn chữ
+/// trong ô.
+private struct AddressMapView: View {
+    let coordinate: CLLocationCoordinate2D?
+    let state: AddressPinState
+
+    /// Khung nhìn. Mặc định `.automatic` — có `UserAnnotation` trong nội dung nên khi khách ĐÃ cấp
+    /// quyền vị trí thì MapKit tự khung quanh chỗ họ đang đứng, tức thường là chính căn nhà sắp
+    /// quét, ngay trước khi gõ chữ nào.
+    @State private var camera: MapCameraPosition = .automatic
+
+    /// Bán kính khung khi đã có ghim: đủ rộng để thấy vài nhà hai bên (nhận ra góc phố), đủ hẹp để
+    /// phân biệt được nhà này với nhà kế bên — thứ duy nhất khách cần xác nhận ở đây.
+    private static let spanMeters: CLLocationDistance = 260
+
+    var body: some View {
+        Map(position: $camera) {
+            if let coordinate {
+                Marker(L.t("This property", "Căn này"), systemImage: "house.fill", coordinate: coordinate)
+            }
+            // Chấm xanh vị trí máy. CHỈ vẽ khi khách ĐÃ cấp quyền — `Map` của SwiftUI không tự đi
+            // xin quyền, quyền vẫn chỉ được xin ở nút "Dùng vị trí hiện tại" (đúng như câu khai
+            // `NSLocationWhenInUseUsageDescription` trong project.yml). Nó trả lời đúng câu khách
+            // hỏi khi đang đứng trước cửa: "cái ghim kia có phải chỗ tôi đang đứng không?".
+            UserAnnotation()
+        }
+        // `.flat`: không cần nhà nổi 3D — nó chỉ làm chậm và che mất số nhà.
+        .mapStyle(.standard(elevation: .flat))
+        .overlay(alignment: .bottom) { statusPill }
+        // Theo dõi bằng CHUỖI lat/long chứ không phải `CLLocationCoordinate2D`: kiểu đó không
+        // Equatable nên `onChange(of:)` không nhận.
+        .onChange(of: pinKey) { _, _ in recenter() }
+        .onAppear { recenter() }
+    }
+
+    private var pinKey: String {
+        guard let coordinate else { return "" }
+        return "\(coordinate.latitude),\(coordinate.longitude)"
+    }
+
+    /// Mất ghim thì GIỮ NGUYÊN khung hình cũ (guard, không reset về `.automatic`): trong lúc khách
+    /// sửa vài ký tự cuối của địa chỉ, bản đồ nhảy về mặc định rồi nhảy lại là một cú giật vô nghĩa.
+    private func recenter() {
+        guard let coordinate else { return }
+        withAnimation(.easeInOut(duration: 0.3)) {
+            camera = .region(MKCoordinateRegion(
+                center: coordinate,
+                latitudinalMeters: Self.spanMeters,
+                longitudinalMeters: Self.spanMeters
+            ))
+        }
+    }
+
+    /// Dải chữ nhỏ ở đáy bản đồ — CHỈ hiện khi CHƯA có ghim. Có ghim rồi thì cái ghim tự nói, thêm
+    /// chữ chỉ che mất bản đồ.
+    @ViewBuilder
+    private var statusPill: some View {
+        if state != .found {
+            Text(pillText)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(.ultraThinMaterial, in: Capsule())
+                .padding(.horizontal, 12)
+                .padding(.bottom, 10)
+        }
+    }
+
+    /// 🔴 Câu cho `.notFound` phải nói NGAY rằng vẫn quét được. Ô địa chỉ nhận CHỮ TỰ DO (tên kiểu
+    /// "Nhà chị Lan" là dữ liệu hợp lệ) và mất mạng cũng rơi vào đây — một câu cụt kiểu "không tìm
+    /// thấy địa chỉ" trên màn BẮT BUỘC sẽ làm khách tưởng mình bị chặn và quay ra sửa chữ đã đúng.
+    private var pillText: String {
+        switch state {
+        case .searching:
+            return L.t("Finding it on the map…", "Đang tìm trên bản đồ…")
+        case .notFound:
+            return L.t(
+                "Not on the map — you can still scan.",
+                "Không thấy trên bản đồ — vẫn quét được bình thường."
+            )
+        case .idle, .found:
+            return L.t("Type the address to see it here", "Nhập địa chỉ để xem trên bản đồ")
+        }
     }
 }

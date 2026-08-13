@@ -160,8 +160,9 @@ struct HomeView: View {
                 pendingScanStart = false
                 isMeshScanning = true
             }) {
-                // Không .presentationDetents: đây là Form nhiều mục (hai nút tắt + ô địa chỉ +
-                // gợi ý), ép .medium là phần gợi ý bị bóp còn một hai dòng.
+                // Không .presentationDetents: màn đó là BẢN ĐỒ + ô địa chỉ + nút vị trí + danh
+                // sách gợi ý, ép .medium là bản đồ và phần gợi ý cùng bị bóp còn một hai dòng.
+                // (Từ 13/08 bản đồ chiếm hẳn phần trên — càng không nhét vừa nửa màn hình.)
                 ScanAddressView { projectId in
                     pendingProjectId = projectId
                     pendingScanStart = true
@@ -539,7 +540,8 @@ struct HomeView: View {
             // mở dự án vừa hiện hộp xoá). `.plain` tắt hành vi đó: mỗi nút chỉ ăn vùng của chính
             // nó. Chọn `.plain` chứ ✗ `.borderless` cho cả hai vì `.plain` KHÔNG nhuộm nhãn theo
             // accent — dòng này cần đúng ba màu riêng (`.tint` cho thư mục, primary/secondary cho
-            // chữ, đỏ cho giỏ rác), một kiểu có nhuộm là thêm một tầng phải cãi nhau.
+            // chữ, xám cho giỏ rác — ĐỎ cho tới 13/08), một kiểu có nhuộm là thêm một tầng phải
+            // cãi nhau.
             // ⚠ Giá phải trả, chấp nhận: không còn dải xám nhấn-cả-dòng như `NavigationLink`.
             // Khách vẫn thấy phản hồi ngay vì màn được đẩy tức thì.
             .buttonStyle(.plain)
@@ -548,7 +550,14 @@ struct HomeView: View {
                 projectToDelete = project
             } label: {
                 Image(systemName: "trash")
-                    .foregroundStyle(.red)
+                    // XÁM (`.secondary`), ✗ ĐỎ — chủ app chốt 2026-08-13: *"biểu tượng giỏ rác nên
+                    // để màu như các biểu tượng ở bottom, đừng để màu đỏ"*. `.secondary` là đúng
+                    // màu 4 icon thường của `CedarTabBar` (`isOn ? accentColor : .secondary`).
+                    // ✗ đổi sang `.tint`: ngay bên trái là icon thư mục vốn đã `.tint`, hai icon
+                    // cùng màu nhấn trong một dòng thì không còn phân biệt được cái nào mở cái nào
+                    // xoá. Việc xoá vẫn có lưới an toàn riêng — nút này chỉ mở hộp xác nhận
+                    // (`projectToDelete`), không xoá thẳng.
+                    .foregroundStyle(.secondary)
                     // Ô chạm 44pt (mức tối thiểu của Apple) — icon thùng rác chỉ ~17pt, để trần
                     // thì phải chạm rất chính xác, mà ngay bên trái nó là nút MỞ dự án: chạm
                     // trượt ở đây không phải "bấm hụt" mà là "đi nhầm màn".

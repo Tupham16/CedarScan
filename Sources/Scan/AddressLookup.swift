@@ -2,14 +2,15 @@ import CoreLocation
 import Foundation
 import MapKit
 
-/// Hai thứ giúp khách điền địa chỉ nhanh ở `ScanAddressView`:
+/// Ba thứ phục vụ ô địa chỉ ở `ScanAddressView`:
 ///  • `LocationLookup` — "Dùng vị trí hiện tại": xin quyền → lấy toạ độ MỘT LẦN → đổi ra địa chỉ.
 ///  • `AddressCompleter` — gõ tới đâu gợi ý tới đó (MapKit).
+///  • `AddressGeocoder` — chiều NGƯỢC LẠI: chữ trong ô → toạ độ, để ghim lên bản đồ xác nhận.
 ///
-/// 🔴 CẢ HAI CHỈ LÀ ĐƯỜNG TẮT. Ô nhập chữ tự do vẫn là đường chính và PHẢI luôn đi tiếp được:
+/// 🔴 CẢ BA CHỈ LÀ ĐƯỜNG PHỤ. Ô nhập chữ tự do vẫn là đường chính và PHẢI luôn đi tiếp được:
 /// app này dùng ở công trường — trong nhà bê tông GPS mù, 4G chập chờn, và khách hoàn toàn có
-/// quyền từ chối cấp quyền vị trí. Mọi lỗi ở đây đều chỉ dẫn tới "không có gợi ý", không bao giờ
-/// chặn nút "Bắt đầu quét".
+/// quyền từ chối cấp quyền vị trí. Mọi lỗi ở đây đều chỉ dẫn tới "không có gợi ý"/"không có ghim
+/// trên bản đồ", không bao giờ chặn nút "Bắt đầu quét".
 
 // MARK: - Vị trí hiện tại → địa chỉ
 
@@ -28,6 +29,14 @@ final class LocationLookup: NSObject, ObservableObject {
     /// KHÔNG tự ghi thẳng vào ô nhập từ đây: `ScanAddressView` sở hữu ô đó và có `onChange` riêng
     /// (xoá căn đang chọn) — để hai nơi cùng ghi là mất dấu ai ghi đè ai.
     @Published var resolvedAddress: String?
+    /// Toạ độ đã sinh ra `resolvedAddress` ngay trước đó. Bản đồ xác nhận ghim THẲNG vào đây thay
+    /// vì gõ lại địa chỉ vừa tra vào `AddressGeocoder` — chuyến đi vòng đó vừa tốn thêm một lượt
+    /// gọi mạng vừa có thể trả về MỘT CHỖ KHÁC (geocode xuôi của một chuỗi rút gọn không hứa quay
+    /// lại đúng điểm đã reverse-geocode ra nó).
+    ///
+    /// ✗ dọn về nil sau khi dùng như `resolvedAddress`: đây là dữ liệu ĐI KÈM, view đọc nó ngay
+    /// trong `onChange` của `resolvedAddress` nên vòng đời do chuỗi kia quyết định.
+    @Published private(set) var lastCoordinate: CLLocationCoordinate2D?
 
     private let manager = CLLocationManager()
     private let geocoder = CLGeocoder()
@@ -195,6 +204,9 @@ extension LocationLookup: CLLocationManagerDelegate {
             let places = try await geocoder.reverseGeocodeLocation(location)
             let text = places.first.map(Self.format) ?? ""
             finishWorking()
+            // Ghi toạ độ TRƯỚC `resolvedAddress`: view đọc `lastCoordinate` bên trong `onChange`
+            // của `resolvedAddress`, nên thứ tự ngược lại là view đọc trúng toạ độ của lần trước.
+            lastCoordinate = location.coordinate
             if text.isEmpty {
                 state = .failed(L.t(
                     "No street address found here. Type it instead.",
@@ -263,6 +275,122 @@ final class AddressCompleter: NSObject, ObservableObject {
     func clear() {
         suggestions = []
         completer.queryFragment = ""
+    }
+}
+
+// MARK: - Địa chỉ → toạ độ (ghim lên bản đồ xác nhận)
+
+/// Trạng thái của cái ghim — bản đồ đọc để biết in câu gì lên dải chú thích.
+///
+/// Khai Ở NGOÀI `AddressGeocoder` chứ không lồng bên trong: class kia là `@MainActor`, mà một kiểu
+/// lồng trong nó có nguy cơ được suy ra là cùng isolation — lúc đó `==` do Swift tự sinh cũng thành
+/// `@MainActor` và mọi chỗ so sánh nằm ngoài main actor (các computed property phụ của một View —
+/// chỉ `body` mới là `@MainActor`) đều đẻ cảnh báo concurrency. Máy dev không compile được nên thứ
+/// duy nhất bắt được nó là CI; rẻ hơn thì đừng tạo ra nó.
+enum AddressPinState: Equatable {
+    /// Chưa đủ chữ để tra (mở màn, hoặc khách mới gõ vài ký tự).
+    case idle
+    case searching
+    case found
+    /// Tra xong mà không ra chỗ nào (hoặc mất mạng). ✗ coi là lỗi: ô địa chỉ nhận CHỮ TỰ DO, tên
+    /// kiểu "Nhà chị Lan" vốn không phải địa chỉ nào trên bản đồ mà vẫn là dữ liệu hợp lệ.
+    case notFound
+}
+
+/// Chiều ngược của `LocationLookup`: chữ trong ô địa chỉ → một toạ độ để ghim lên bản đồ ở đầu
+/// màn `ScanAddressView` (chủ app chốt 2026-08-13: khách phải NHÌN THẤY chỗ mình sắp quét).
+///
+/// 🔴 TOẠ ĐỘ Ở ĐÂY CHỈ ĐỂ NHÌN. Thứ đi tới đội vẽ vẫn là CHỮ trong ô nhập (`ScanAddressView.start`
+/// tạo dự án bằng chuỗi đó) — không có lat/long nào rời máy đi tới server của Cedar247. Đây là
+/// điều kiện để privacy manifest tiếp tục KHÔNG khai `Location`: đọc chú thích số 2 ở đầu
+/// `PrivacyInfo.xcprivacy` trước khi ai đó định gửi kèm toạ độ lên đơn hàng.
+///
+/// Vì sao `MKLocalSearch` chứ không phải `CLGeocoder.geocodeAddressString`: `CLGeocoder` bị Apple
+/// bóp lưu lượng rất gắt (gọi dồn là trả lỗi `.network` cho CẢ những lượt sau), mà ô này bắn theo
+/// từng phím gõ. `MKLocalSearch` là cùng dịch vụ đang chạy cho danh sách gợi ý ngay bên dưới ô.
+@MainActor
+final class AddressGeocoder: ObservableObject {
+    @Published private(set) var state: AddressPinState = .idle
+    @Published private(set) var coordinate: CLLocationCoordinate2D?
+
+    private var task: Task<Void, Never>?
+    /// Chuỗi ứng với `coordinate` đang giữ. Có nó thì `update` gọi lại bằng đúng chuỗi cũ là no-op
+    /// — cần thiết vì nút "Dùng vị trí hiện tại" ghim toạ độ THẬT trước, rồi mới đổ chữ vào ô và
+    /// làm `onChange` bắn `update`; thiếu mốc này thì cái ghim chính xác đó bị một lượt tra chữ
+    /// vòng vo đè lên.
+    private var pinnedKey = ""
+
+    /// Chờ ngần này rồi mới bắn — người gõ địa chỉ tay sinh ~10 phím/giây, không debounce là mỗi
+    /// địa chỉ tốn cả chục lượt gọi mạng cho đúng một cái ghim.
+    private static let debounceNanoseconds: UInt64 = 800_000_000
+    /// Dưới ngần này ký tự thì mọi kết quả đều là rác — và ô này còn nhận cả tên gọi, không riêng
+    /// địa chỉ.
+    private static let minimumQueryLength = 5
+
+    /// Ghim thẳng một toạ độ đã biết chắc (nút "Dùng vị trí hiện tại"), khỏi tra lại.
+    func pin(_ coordinate: CLLocationCoordinate2D, for address: String) {
+        task?.cancel()
+        task = nil
+        pinnedKey = Self.key(address)
+        self.coordinate = coordinate
+        state = .found
+    }
+
+    func update(address: String) {
+        let key = Self.key(address)
+        guard key != pinnedKey else { return } // đúng chuỗi đang ghim — giữ nguyên ghim
+        task?.cancel()
+        task = nil
+        pinnedKey = ""
+        // XOÁ ghim cũ NGAY khi chữ đổi, đừng chờ kết quả mới về. Giữ lại cái ghim của địa chỉ
+        // TRƯỚC trong lúc khách đã gõ sang địa chỉ KHÁC là bản đồ nói dối đúng chỗ nó sinh ra để
+        // nói thật — mà màn này tồn tại để khách XÁC NHẬN vị trí.
+        coordinate = nil
+        guard key.count >= Self.minimumQueryLength else {
+            state = .idle
+            return
+        }
+        state = .searching
+        task = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: Self.debounceNanoseconds)
+            guard !Task.isCancelled else { return }
+            await self?.search(address, key: key)
+        }
+    }
+
+    // ✗ thêm `clear()` cho "đối xứng" với `AddressCompleter.clear()`: KHÔNG có đường nào cần nó.
+    // Ô địa chỉ về rỗng thì chính `update("")` đã trả về `.idle` và bỏ ghim; còn lúc khách chạm một
+    // căn đã quét thì chữ trong ô ĐỨNG NGUYÊN (cố ý — xem `matchingRows`) nên cái ghim cũng phải
+    // đứng nguyên. Một hàm dọn không ai gọi là thứ phiên sau sẽ gọi nhầm chỗ.
+
+    private func search(_ address: String, key: String) async {
+        let request = MKLocalSearch.Request()
+        request.naturalLanguageQuery = address
+        request.resultTypes = .address // ✗ quán xá/cửa hàng — khách đang khai một CĂN NHÀ
+        do {
+            let response = try await MKLocalSearch(request: request).start()
+            // Lượt tra CŨ về muộn hơn lượt mới: `update` đã cancel task này rồi, bỏ kết quả đi.
+            guard !Task.isCancelled else { return }
+            if let place = response.mapItems.first {
+                coordinate = place.placemark.coordinate
+                pinnedKey = key
+                state = .found
+            } else {
+                state = .notFound
+            }
+        } catch {
+            // Mất mạng / không có kết quả (`MKError.placemarkNotFound`) → KHÔNG báo lỗi đỏ ở đâu
+            // cả, chỉ là không có ghim. Bản đồ là phần phụ; nút "Bắt đầu quét" không đụng tới nó.
+            guard !Task.isCancelled else { return }
+            state = .notFound
+        }
+    }
+
+    /// So chuỗi "có phải vẫn là địa chỉ đó không" — CỐ Ý KHÔNG dùng `TextMatch.key`: hàm kia bóc
+    /// dấu tiếng Việt và dấu câu để so TÊN CĂN NHÀ với nhau, còn ở đây chỉ cần biết chữ trong ô có
+    /// đổi hay không.
+    private static func key(_ s: String) -> String {
+        s.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
     }
 }
 
