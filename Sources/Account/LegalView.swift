@@ -51,24 +51,25 @@ enum LegalDoc: String, CaseIterable, Identifiable {
 
     static let contactEmail = "hello@cedar247.com"
 
-    /// 🔴 HAI Ô TRỐNG CÓ CHỦ ĐÍCH — chủ app chưa cung cấp (13/08). ✗ TỰ BỊA, ✗ đoán từ đâu ra.
+    /// 🔴 BA HẰNG SỐ NÀY LẤY TỪ GIẤY TỜ PHÁP NHÂN, ✗ TỰ SỬA, ✗ "dọn cho gọn".
+    /// Chủ app cung cấp 13/08/2026, đọc thẳng từ hồ sơ thành lập LLC (New Mexico).
+    /// Chúng xuất hiện ở SÁU chỗ: mục Contact của cả ba văn bản, mục "Apple" của EULA, và mục
+    /// General của Terms + EULA. Sửa ở đây là sửa hết sáu chỗ VÀ cả ba trang web
+    /// (`C:\Block\Cedar247Web\web-source\legal-to-web\` sinh trang từ chính file này).
     ///
-    /// Điền vào ĐÂY là xong cả ba văn bản LẪN ba trang web cùng lúc (trang web sinh ra từ chính
-    /// file này — xem `C:\Block\Cedar247Web\web-source\legal-to-web\`).
-    ///
-    /// · `governingState` — bang mà Cedar247 LLC đăng ký. **Cả năm vùng luật đã soi (EU/UK · Mỹ ·
-    ///   Canada · Úc · NZ) đều đánh** câu cũ *"the laws applicable at Cedar247's place of
-    ///   business"*: nó không gọi tên luật nào nên khách không thể biết mình đang đồng ý với cái
-    ///   gì, và một điều khoản mù mờ thì được giải thích CÓ LỢI CHO NGƯỜI TIÊU DÙNG.
+    /// · `governingState` — bang đăng ký LLC. **Cả năm vùng luật đã soi (EU/UK · Mỹ · Canada · Úc
+    ///   · NZ) đều đánh** câu cũ *"the laws applicable at Cedar247's place of business"*: nó không
+    ///   gọi tên luật nào nên khách không thể biết mình đang đồng ý với cái gì, và điều khoản mù
+    ///   mờ thì được giải thích CÓ LỢI CHO NGƯỜI TIÊU DÙNG.
     /// · `postalAddress` — 🔴 **APPLE BẮT BUỘC**, ✗ chuyện nội bộ: mục 8 của *Minimum Terms of
-    ///   Developer's EULA* đòi EULA phải ghi TÊN và ĐỊA CHỈ nhà phát triển. Nộp App Store mà chuỗi
-    ///   này còn nguyên ngoặc vuông là hồ sơ thiếu.
-    ///
-    /// Tiếng Anh vì cả ba văn bản là tiếng Anh; giữ nguyên ngoặc vuông để grep ra ngay
-    /// (`grep -n "TO BE CONFIRMED"`), và để nếu lỡ giao bản còn trống thì nó LỘ RA chứ không im.
+    ///   Developer's EULA* đòi EULA ghi TÊN và ĐỊA CHỈ nhà phát triển. Đây là địa chỉ đại lý đăng
+    ///   ký (Northwest Registered Agent) — **cố ý**, vì LLC New Mexico là loại ẩn danh và đây cũng
+    ///   là địa chỉ nằm trên hồ sơ công khai của bang, nên Apple đối chiếu là khớp.
+    ///   ⚠ Viết hoa/thường theo lối văn bản; NỘI DUNG phải khớp hồ sơ bang từng chữ — đổi một chữ
+    ///   là lệch với D-U-N-S và hồ sơ nhà nước, Apple bắt làm lại vòng xác minh.
     static let legalEntity = "Cedar247 LLC"
-    static let governingState = "[STATE TO BE CONFIRMED]"
-    static let postalAddress = "[POSTAL ADDRESS TO BE CONFIRMED]"
+    static let governingState = "New Mexico"
+    static let postalAddress = "1209 Mountain Road Pl NE, Ste N, Albuquerque, NM 87110"
 
     var sections: [LegalSection] {
         let raw: [(String, String)]
