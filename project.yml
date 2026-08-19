@@ -51,7 +51,7 @@ targets:
         # tiếng, cùng hiện "1.0" → chủ app test trúng bản cũ mà không ai biết, báo "lỗi vẫn
         # nguyên" oan. AltStore (My Apps) và Cài đặt iOS đều hiện số này — nó là cách DUY NHẤT
         # xác minh từ xa máy ông đang chạy bản nào. Ghi số giao kèm vào SESSION-HANDOFF §STATE.
-        MARKETING_VERSION: "2.27"
+        MARKETING_VERSION: "2.28"
     info:
       path: Sources/Info.plist
       properties:
@@ -103,8 +103,12 @@ targets:
         # mở plist của họ ra đọc.)
         # · File bản quét VẪN nằm nguyên trên máy (ARKit dựng mesh trên máy, phải ghi ra đĩa
         #   mới nén/tải lên được) — gỡ hai khoá chỉ giấu chúng khỏi trình duyệt file.
-        # · Đường XUẤT của khách KHÔNG đổi: nút **Chia sẻ** ở màn bản quét vẫn còn và PHẢI
-        #   còn — đó là cách khách gửi bổ sung bản quét cho chủ app khi đã lỡ đặt đơn.
+        # · 🔴 ĐOẠN CŨ Ở ĐÂY ĐÃ LẠC HẬU, ghi lại kẻo người sau tin nhầm: nó viết "nút **Chia sẻ**
+        #   ở màn bản quét vẫn còn và PHẢI còn — đó là cách khách gửi bổ sung bản quét cho chủ app
+        #   khi đã lỡ đặt đơn". **NÚT SHARE ĐÃ ẨN TỪ 19/08** (chủ app chốt), vì `SupplementSheet`
+        #   đã thay nó bằng đường TRONG APP từ 11/08 — xem `ScanDetailView.showShareButton`.
+        #   Đường XUẤT của khách nay là cú TẢI LÊN lúc đặt hàng / gửi bổ sung, ✗ còn là file khách
+        #   tự cầm đi ⇒ quyết định gỡ hai khoá Files càng đúng, KHÔNG phải xét lại.
         # · Đi CÙNG LƯỢT với `ScanPerfProfiler.enabled = false`: gỡ hai khoá là lấy mất đường
         #   đọc log, để bộ đo chạy tiếp thì chỉ ghi file không ai lấy được.
         # · Cần đo lại lần sau: khai lại CẢ HAI khoá + bật cờ profiler, giao bản đo cho riêng

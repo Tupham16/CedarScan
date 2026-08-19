@@ -82,6 +82,15 @@ struct SupplementScanResponse: Decodable {
     let alreadyAttachedScanIds: [String]?
     let supplementCount: Int?
     let fileCount: Int?
+    /// Đơn ĐÃ GIAO lúc khách bấm gửi. Server nhận nó từ 19/08 (chủ app chốt "đã đặt hay đã giao
+    /// đều không tính phí") — trước đó ca này luôn là lỗi `order_delivered`, ✗ bao giờ thành công.
+    let wasDelivered: Bool?
+    /// Thẻ Kanban đã tự kéo `done → fix` chưa. `false` khi đơn đã giao nhưng thẻ đang ở "hold" —
+    /// lúc đó việc phải xử lý tay, và câu báo cho khách ✗ được hứa chắc là đã vào hàng sản xuất.
+    /// 🔴 CẢ HAI PHẢI Optional: server CŨ không trả chúng, mà `JSONDecoder` ném lỗi cho CẢ
+    /// response nếu thiếu một field non-optional → một lượt gửi ĐÃ THÀNH CÔNG hiện thành "lỗi",
+    /// và khách gửi lại. Cùng bẫy đã ghi ở `OrderDTO.texturedScans`.
+    let movedToFix: Bool?
 }
 
 // MARK: Bảng giá dịch vụ

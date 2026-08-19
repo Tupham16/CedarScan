@@ -14,7 +14,9 @@ họ vẽ lại thành **bản vẽ mặt bằng 2D chuyên nghiệp** và giao 
   nhưng nút quét bị khoá xám (chữ trong app viết là "cần iPhone bản Pro").
 - **iOS 17** trở lên. App chỉ chạy dọc (portrait).
 - Máy tính **Windows** để cài app lần đầu (không cần máy Mac).
-- App chỉ xin quyền **camera**. Không xin micro, không xin vị trí, không xin thư viện ảnh.
+- App xin quyền **camera** (để quét). Quyền **vị trí** chỉ được hỏi khi bạn tự bấm **"Dùng vị trí
+  hiện tại"** ở màn nhập địa chỉ — lấy một lần để điền địa chỉ, **không theo dõi nền**; không bấm
+  nút đó thì app không bao giờ hỏi. Không xin micro, không xin thư viện ảnh.
 
 ---
 
@@ -161,14 +163,18 @@ Thêm ảnh ngay sau khi đặt, hoặc bất cứ lúc nào ở tab **Đơn hà
 
 ## Phần 3 — Nhận hàng
 
-Theo dõi ở tab **Đơn hàng**: trạng thái *Đã nhận → Đang xử lý → Đã giao*. Kéo xuống để làm mới.
+Theo dõi ở tab **Đơn hàng**: trạng thái *Đang xử lý → Đã giao*. Kéo xuống để làm mới.
 
-Ngoài ba mốc chính còn hai trạng thái khác: **Tạm giữ** (đơn tạm dừng — liên hệ Cedar247 để biết
+Ngoài hai mốc chính còn hai trạng thái khác: **Tạm giữ** (đơn tạm dừng — liên hệ Cedar247 để biết
 lý do) và **Hoàn tiền**.
 
 Khi đơn **Đã giao**, bấm **"Tải file thành phẩm"** để tải bản vẽ về.
 
 **Bạn nhận được định dạng nào**
+
+<!-- 🔴 BẢNG NÀY LÀ MỘT TRONG BA CHỖ APP NÓI VỀ ĐỊNH DẠNG FILE GIAO. Hai chỗ kia:
+     `OrderFAQContent` (tab Learn → Hỏi đáp về đơn hàng) và `LegalDoc.terms` mục "The service".
+     Đổi chính sách thì phải sửa CẢ BA, không thì ba văn bản của cùng một app nói khác nhau. -->
 
 | | |
 |---|---|
@@ -202,9 +208,11 @@ Xoá dự án là **xoá luôn các bản quét bên trong khỏi iPhone**, và 
 > lại bất cứ lúc nào ở tab **Đơn hàng**. Thứ bị xoá chỉ là **nguyên liệu gốc trên máy bạn**: mô
 > hình 3D và video walkthrough.
 
-> **Muốn giữ mô hình 3D hoặc video gốc?** Dùng nút **Chia sẻ** ở màn bản quét để lưu ra nơi khác
-> (iCloud, máy tính…) **trước khi xoá**. Chia sẻ được: mô hình 3D màu (file .zip chứa OBJ + GLB)
-> và video.
+> ⚠ **Nguyên liệu gốc (mô hình 3D + video) hiện KHÔNG lấy ra khỏi máy được.** Nút **Chia sẻ** ở
+> màn bản quét đã ẩn từ bản 2.28 (nó không còn cần cho việc gửi bổ sung — nay đã có nút **Gửi bổ
+> sung bản quét** ngay trong app). Nghĩa là xoá dự án là **mất hẳn** phần nguyên liệu gốc trên
+> máy bạn. Bản quét nào đã gửi lên cùng một đơn thì Cedar247 vẫn giữ bản sao — chỉ những bản quét
+> **chưa từng gửi lên** mới thật sự mất. Cân nhắc trước khi xoá.
 
 ---
 

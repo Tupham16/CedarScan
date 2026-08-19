@@ -35,24 +35,33 @@ struct AccountView: View {
                             }
                         } header: {
                             Text(L.t("About", "Giới thiệu"))
-                        } footer: {
-                            // 🔴 Câu này TỪNG ghi "(PDF/PNG/DWG)" và sai theo hướng TỐN TIỀN CHỦ APP:
-                            // nó gộp DWG vào như thể đã bao gồm, trong khi DWG là ADD-ON TÍNH TIỀN
-                            // riêng (`id: "dwg"`, nhãn "CAD File" trong catalog server — đổi từ
-                            // "CAD file (DWG)" ngày 13/08). Khách đọc
-                            // xong tưởng có sẵn, tới lúc nhận hàng không thấy → hoặc khiếu nại, hoặc
-                            // chủ app phải làm không công. Nó cũng bỏ sót JPG (mặc định) và kể PNG
-                            // như mặc định (thật ra chỉ có khi khách yêu cầu).
-                            //
-                            // Chính sách chủ app chốt 2026-07-20: mặc định PDF + JPG · yêu cầu thì
-                            // thêm được SVG/PNG · DWG là add-on. Đừng liệt kê định dạng ở chỗ nào
-                            // khác nữa — đây là chỗ DUY NHẤT trong app nói về định dạng file giao,
-                            // giữ một nguồn sự thật thì sau này đổi chính sách chỉ phải sửa một chỗ.
-                            Text(L.t(
-                                "Scan your space with LiDAR, send it to Cedar247, and our team will produce professional 2D floor plans. Delivered as PDF + JPG (SVG/PNG on request). DWG is a paid add-on.",
-                                "Quét không gian bằng LiDAR, gửi cho Cedar247 — đội ngũ của chúng tôi sẽ làm bản vẽ mặt bằng chuyên nghiệp. Giao PDF + JPG (cần SVG/PNG thì báo). DWG là dịch vụ thêm, tính tiền riêng."
-                            ))
                         }
+                        // 🔴 FOOTER CỦA MỤC "Giới thiệu" ĐÃ XOÁ 19/08 — CHỦ APP CHỐT
+                        // (*"Tab tài khoản: xóa dòng quét không gian bằng lidar,... đi"*).
+                        // Câu cũ: "Quét không gian bằng LiDAR, gửi cho Cedar247 … Giao PDF + JPG
+                        // (cần SVG/PNG thì báo). DWG là dịch vụ thêm, tính tiền riêng."
+                        //
+                        // Câu đó nói về ĐỊNH DẠNG FILE GIAO nên **ĐÃ DỜI, ✗ VỨT**: nay nằm ở
+                        // `OrderFAQContent` (tab Learn → "Hỏi đáp về đơn hàng", mục *"Tôi nhận
+                        // được những file gì?"*). ✗ chép định dạng trở lại đây.
+                        //
+                        // 🔴 **VÀ SỬA LUÔN MỘT LỜI DẶN SAI ĐÃ NẰM Ở ĐÂY TỪ LÂU** (vòng soi đối kháng
+                        // 19/08 bắt): chú thích cũ viết "đây là chỗ DUY NHẤT trong app nói về định
+                        // dạng file giao". **KHÔNG ĐÚNG** — `LegalDoc.terms` mục "The service" đã
+                        // liệt kê đủ y hệt (PDF+JPG mặc định · SVG/PNG khi yêu cầu · DWG add-on),
+                        // và đó mới là bản có HIỆU LỰC PHÁP LÝ, còn được sinh ra ba trang web công
+                        // khai. ⇒ Đổi chính sách định dạng thì phải sửa **BA** chỗ: `OrderFAQContent`
+                        // · `LegalDoc.terms` · **`HUONG-DAN.md` mục "Bạn nhận được định dạng nào"**
+                        // (sổ tay chủ app gửi KHÁCH — vòng soi thứ hai mới lôi ra chỗ này). Tin lời
+                        // dặn cũ mà sửa một chỗ là để ba văn bản của cùng một app nói khác nhau.
+                        //
+                        // Vì sao câu cũ phải cẩn thận đến thế (giữ lại để người sau khỏi viết lại
+                        // cái sai đã trả giá): đời trước nó ghi "(PDF/PNG/DWG)" — gộp DWG vào như
+                        // thể đã bao gồm, trong khi DWG là ADD-ON TÍNH TIỀN riêng (`id: "dwg"`,
+                        // nhãn "CAD File" trong catalog server từ 13/08). Khách đọc xong tưởng có
+                        // sẵn, tới lúc nhận hàng không thấy → hoặc khiếu nại, hoặc chủ app phải làm
+                        // không công. Chính sách chủ app chốt 2026-07-20 và vẫn đúng: mặc định
+                        // PDF + JPG · yêu cầu thì thêm được SVG/PNG · DWG là add-on.
                         Section {
                             Toggle(isOn: $scanCoachHaptics) {
                                 Label(L.t("Vibration alerts", "Rung cảnh báo"), systemImage: "iphone.radiowaves.left.and.right")

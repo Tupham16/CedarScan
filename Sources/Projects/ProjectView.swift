@@ -271,23 +271,31 @@ struct ProjectView: View {
             if scans.isEmpty {
                 emptyState
             } else {
+                // 🔴 DANH SÁCH BẢN QUÉT KHÔNG CÒN FOOTER — CHỦ APP CHỐT 19/08, ✗ THÊM LẠI.
+                //
+                // Ở đây đã có HAI câu chữ chết liên tiếp, ghi cả hai để người sau khỏi "bổ sung cho
+                // đầy đủ" lần thứ ba:
+                //  1. *"Đặt tên rõ cho từng bản quét (Cả căn, Part 1, Nhà kho…)"* — chủ app cho thay
+                //     sáng 19/08. (Lời khuyên đặt tên KHÔNG mất: nó chuyển sang mục Mẹo của
+                //     `OrderFAQContent`, kèm đúng bộ tên tiếng Anh mà màn đặt tên gợi ý.)
+                //  2. Câu Mẹo về quét bổ sung — chính chủ app đọc lại rồi bảo *"bỏ luôn không viết
+                //     câu đó nữa"* (19/08), sau khi phiên này chỉ ra rằng nó trỏ tới nút
+                //     **"Gửi bổ sung bản quét"**, mà nút đó CHỈ hiện khi dự án ĐÃ có đơn
+                //     (`projectOrderNumber != nil`, xem `bottomButtons`) — dự án chưa đặt thì nút đáy
+                //     tên "Đặt làm mặt bằng", tức câu chữ chỉ khách đi tìm một nút chưa tồn tại.
+                //
+                // ⇒ Việc "quét bổ sung không tính thêm phí" nay CHỈ nói ở tab Learn (mục Hỏi đáp về
+                // đơn hàng). Đừng nhét lại vào màn này: chủ app đã nhìn cả hai câu trên máy và bỏ cả hai.
                 List {
-                    Section {
-                        ForEach(scans) { record in
-                            ScanRow(
-                                store: store,
-                                record: record,
-                                onRename: {
-                                    renameText = record.name
-                                    recordToRename = record
-                                }
-                            )
-                        }
-                    } footer: {
-                        Text(L.t(
-                            "Give each scan a clear name (Whole home, Part 1, Shed…) so we can assemble the home correctly.",
-                            "Đặt tên rõ cho từng bản quét (Cả căn, Part 1, Nhà kho…) để đội xử lý ghép nhà chính xác."
-                        ))
+                    ForEach(scans) { record in
+                        ScanRow(
+                            store: store,
+                            record: record,
+                            onRename: {
+                                renameText = record.name
+                                recordToRename = record
+                            }
+                        )
                     }
                 }
             }
@@ -353,8 +361,10 @@ struct ProjectView: View {
                 // cho mọi lối vào, và nó bao trọn cả 0,3s trượt xuống.
                 // ⚠ Gác ở ĐÂY chứ ✗ `.disabled` cả cây bên dưới: cái đó lật `isEnabled` cho MỌI
                 // nút phía sau, cả màn xám đi trong 0,35s trước mắt khách (review vòng 2).
-                // ⚠ `ScanDetailView` CỐ Ý không gác theo: toolbar của nó chỉ có nút Chia sẻ —
-                // không phá dữ liệu, không pop màn. Lệch là có chủ đích, ✗ "sửa cho giống".
+                // ⚠ `ScanDetailView` CỐ Ý không gác theo: toolbar của nó không có gì phá dữ liệu
+                // và không có gì pop màn — nút Chia sẻ (thứ duy nhất từng nằm ở đó) nay đã ẨN theo
+                // lệnh chủ app 19/08, xem `ScanDetailView.showShareButton`, nên toolbar bên đó
+                // hiện RỖNG. Lệch là có chủ đích, ✗ "sửa cho giống".
                 .disabled(scanCover.blocksInput)
             }
         }

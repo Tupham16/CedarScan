@@ -27,6 +27,17 @@ struct CedarScanApp: App {
 
 enum RootTab: Hashable { case home, orders, scan, learn, account }
 
+/// Yêu cầu "mở dự án X" bắn từ tab Đơn hàng sang tab Home (nút **"Thêm bản quét"**, chủ app đặt
+/// 19/08).
+///
+/// 🔴 CÓ `seq` VÀ NÓ BẮT BUỘC. Không có nó thì bấm nút cho CÙNG một dự án lần thứ hai là gán một
+/// giá trị BẰNG giá trị cũ ⇒ `onChange` không bắn ⇒ nút chết im lặng từ lần thứ hai trở đi.
+/// Cùng đúng lý do `scanRequest` là một BỘ ĐẾM chứ không phải `Bool`.
+struct OpenProjectRequest: Equatable {
+    let seq: Int
+    let projectId: UUID
+}
+
 struct RootView: View {
     @EnvironmentObject private var store: ScanStore
     @EnvironmentObject private var account: AccountStore
@@ -36,6 +47,9 @@ struct RootView: View {
     /// Tab SCAN là NÚT HÀNH ĐỘNG, không phải trang: bấm nó bật về Home rồi yêu cầu HomeView mở màn
     /// quét mới. Tăng số này mỗi lần bấm = tín hiệu; `HomeView.onChange(of: scanRequest)` bắt được.
     @State private var scanRequest = 0
+    /// Yêu cầu mở một dự án, bắn từ tab Đơn hàng. Xem `OpenProjectRequest` + `requestOpenProject`.
+    @State private var openProjectRequest: OpenProjectRequest?
+    @State private var openProjectSeq = 0
 
     var body: some View {
         TabView(selection: $tab) {
@@ -45,13 +59,21 @@ struct RootView: View {
             // ⚠ Đọc `@EnvironmentObject` Ở ĐÂY thì AN TOÀN: `RootView` là gốc cây view, không bao
             // giờ bị push, environment của nó luôn nối. `.environmentObject(...)` ở trên GIỮ
             // NGUYÊN — mọi màn còn lại (OrdersView, AccountView, các sheet…) vẫn dùng nó.
-            HomeView(scanRequest: scanRequest, store: store, account: account)
+            HomeView(
+                scanRequest: scanRequest,
+                openProjectRequest: openProjectRequest,
+                store: store,
+                account: account
+            )
                 .tabItem {
                     Label(L.t("Home", "Home"), systemImage: "house")
                 }
                 .tag(RootTab.home)
                 .toolbar(.hidden, for: .tabBar)
-            OrdersView()
+            // `store` TRUYỀN TAY, cùng khuôn HomeView. Tab này KHÔNG push màn nào (chú thích ở
+            // `.searchable` của nó nói rõ) nên `@EnvironmentObject` ở đây vốn AN TOÀN — truyền tay
+            // là để hai tab đọc store theo MỘT cách, khỏi phải cãi nhau lần sau xem cách nào đúng.
+            OrdersView(store: store, onOpenProject: requestOpenProject)
                 .tabItem {
                     Label(L.t("Orders", "Đơn hàng"), systemImage: "shippingbox")
                 }
@@ -131,6 +153,22 @@ struct RootView: View {
     private func requestScan() {
         if tab != .home { tab = .home }
         scanRequest += 1
+    }
+
+    /// Nhảy từ tab Đơn hàng sang đúng dự án ở tab Home — nút "Thêm bản quét".
+    ///
+    /// 🔴 ĐỔI TAB Ở ĐÂY LÀ AN TOÀN, và đây là chỗ duy nhất trong file này được phép nói thế.
+    /// Thứ đã phá vùng an toàn của cả cây (9 bản IPA) là cú **NHẢY-VÀO-RỒI-RA** của đĩa SCAN
+    /// (`selection = .scan` rồi `onChange` bật ngược về `.home` TRONG CÙNG MỘT NHỊP) — xem khối
+    /// 🔴🔴 đầu `CedarTabBar.swift`. Ở đây là một lần đổi tab THƯỜNG, đúng cái mà harness CI
+    /// `31559667222` đo được là **lành** ("đổi tab THƯỜNG Home→Đơn hàng→Home → lành").
+    /// ✗ ai đọc lời cấm của đĩa SCAN rồi gỡ hàm này đi.
+    ///
+    /// Cú ĐẨY màn thì `HomeView` hoãn một nhịp rồi mới làm — lý do ở chỗ nó bắt `onChange`.
+    private func requestOpenProject(_ project: ScanProject) {
+        openProjectSeq += 1
+        openProjectRequest = OpenProjectRequest(seq: openProjectSeq, projectId: project.id)
+        tab = .home
     }
 
     /// Dọn IM LẶNG bản quét thuộc đơn đã giao.

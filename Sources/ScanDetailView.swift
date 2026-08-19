@@ -83,6 +83,11 @@ struct ScanDetailView: View {
     /// 🔴 DỮ LIỆU THƯỜNG cho nút Share trên thanh điều hướng — CHỤP trong `.task` (nơi
     /// environment còn nguyên vẹn), closure `.toolbar` CHỈ được đọc struct này.
     ///
+    /// ⚠ NÚT SHARE ĐANG ẨN (19/08, `showShareButton = false`) nên struct này tạm thời không nuôi
+    /// gì cả — **GIỮ NGUYÊN, ✗ dọn.** Bài học ghi ở đây là bài học về CLOSURE TOOLBAR nói chung,
+    /// không riêng nút Share: ai đặt bar item MỚI vào màn này cũng phải đi qua đúng khuôn "chụp
+    /// vào @State trong `.task` rồi mới đọc trong `.toolbar`". Xoá struct là xoá luôn lời cảnh báo.
+    ///
     /// VÌ SAO (crash log chủ app gửi 06/08, bản 1.1, iOS 26, incident E7FBB13A, 100% tái
     /// hiện trên đường "Đặt hàng ngay" ở màn preview → push màn này): UIKit dựng-và-đo bar
     /// item SỚM — `UIKitBarItemHost.initializeSize` ngay trong `willMove(toSuperview:)` —
@@ -197,7 +202,7 @@ struct ScanDetailView: View {
             // (RoomPlan: USDZ + ảnh mặt bằng). Hai nhánh ngoài đã bóc cùng RoomPlan — đường TẠO
             // của chúng chết từ 2026-07-19/20, không bản quét mới nào rơi vào được.
             // ⚠ Bản quét CŨ trên máy chủ app nay cũng đi đường này: có video thì xem được video,
-            // không có `model-colored.zip`/`mesh-preview.bin` thì `meshInfoFooter` nói thẳng
+            // không có `model-colored.zip`/`mesh-preview.bin` thì `missingModelNote` nói thẳng
             // "chưa thu được mô hình 3D". Không màn nào trắng trơn.
             meshTab
         }
@@ -223,7 +228,9 @@ struct ScanDetailView: View {
         // định đưa `@EnvironmentObject` trở lại:
         //  1. `meshTab` → `videoArea` → `videoURL` → `folder` → `store.folderURL`  ← chắc chắn
         //     nhất: `player` chỉ được gán trong `.task` nên lượt render ĐẦU luôn rẽ vào đây;
-        //  2. `meshTab` → `meshInfoFooter` → `meshFooterText` → `objURL`/`plyURL` → `folder`;
+        //  2. `meshTab` → `missingModelNote` → `hasMeshModel` → `objURL`/`plyURL`/`coloredZipURL`/
+        //     `coloredGLBURL` → `folder` (tên cũ: `meshInfoFooter` → `meshFooterText`, đổi 19/08 —
+        //     CỬA VẪN NGUYÊN, chỉ đổi tên và thêm hai URL đi CÙNG một cửa `folder`);
         //  3. `videoTab` → `videoArea` → `videoURL` → `folder`;
         //  4. `legacyTab` → `usdzURL` → `store.usdzURL` (và `legacyPlanTab` → `planURL`);
         //  5. `.safeAreaInset` → `serviceCard` → `current` (store) + `account` + `supplementOrderNumber`;
@@ -347,11 +354,16 @@ struct ScanDetailView: View {
             coloredGLBExists = FileManager.default.fileExists(atPath: coloredGLBURL.path)
             coloredZipExists = FileManager.default.fileExists(atPath: coloredZipURL.path)
             meshPreviewExists = FileManager.default.fileExists(atPath: meshPreviewURL.path)
-            if coloredZipExists, meshShareURL == nil {
-                meshShareURL = prepareNamedZip()
+            // 🔴 CẢ KHỐI NÀY CHỈ PHỤC VỤ NÚT SHARE — tắt cờ là tắt luôn cú copy zip 40–200MB
+            // vào thư mục tạm. `.task` CHẠY LẠI mỗi lần màn này hiện lại (đóng trình xem 3D,
+            // qua tab khác rồi quay về) nên để nó chạy là đốt đĩa + I/O cho một nút không còn hiện.
+            if Self.showShareButton {
+                if coloredZipExists, meshShareURL == nil {
+                    meshShareURL = prepareNamedZip()
+                }
+                // Chụp SAU khi các cờ file + meshShareURL đã chốt — snapshot đọc chúng.
+                shareSnapshot = makeShareSnapshot()
             }
-            // Chụp SAU khi các cờ file + meshShareURL đã chốt — snapshot đọc chúng.
-            shareSnapshot = makeShareSnapshot()
             await loadTexturedURL()
         }
         // 🔴 **CỬA TRÌNH BÀY DUY NHẤT CỦA TRÌNH XEM 3D (bản 2.0). ✗ THÊM CÁI THỨ HAI.**
@@ -723,14 +735,15 @@ struct ScanDetailView: View {
     // như chắc chắn mở ra ở CHẾ ĐỘ AR với camera bật" — lỗi chủ app từng báo. Nay không còn
     // đường nào trong app gọi `USDZPreview` nữa và file đó đã xoá.
 
-    /// Bản quét MESH 3D: video walkthrough + hướng dẫn chia sẻ mô hình màu.
-    /// (Không có floorplan/USDZ của app — mesh là sản phẩm chính, gửi ra ngoài bằng nút Share.
-    /// Mô hình CÓ TEXTURE thì do máy trạm bake, xem qua công tắc trong `modelRow`.)
+    /// Bản quét MESH 3D: video walkthrough + nút xem mô hình.
+    /// (Không có floorplan/USDZ của app — mesh là sản phẩm chính, và nó rời máy bằng đường TẢI
+    /// LÊN lúc đặt hàng / gửi bổ sung, ✗ còn bằng nút Share: nút đó ẨN từ 19/08, xem
+    /// `showShareButton`. Mô hình CÓ TEXTURE thì do máy trạm bake, xem qua công tắc trong `modelRow`.)
     private var meshTab: some View {
         VStack(spacing: 10) {
             videoArea(missing: L.t("No walkthrough video in this scan", "Bản quét này không có video"))
             modelRow
-            meshInfoFooter
+            missingModelNote
         }
     }
 
@@ -824,52 +837,94 @@ struct ScanDetailView: View {
         }
     }
 
-    private var meshInfoFooter: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Label(meshTitle, systemImage: "cube.transparent")
-                .font(.caption.weight(.semibold))
-            Text(meshFooterText)
-                .font(.caption)
-                .foregroundStyle(.secondary)
+    /// 🔴 `meshInfoFooter` ĐÃ THAY BẰNG HÀM NÀY — CHỦ APP CHỐT 19/08, CÙNG LƯỢT VỚI VIỆC
+    /// ẨN NÚT SHARE (xem `showShareButton`). Nguyên văn: *"luôn tiện xóa luôn dòng bản quét
+    /// mesh 3d, bấm share (góc trên)"*.
+    ///
+    /// Đã chết theo: nhãn `meshTitle` ("Bản quét Mesh 3D" — mọi bản quét đều là mesh từ 11/08,
+    /// nói với ai cũng đúng tức không nói gì) và hai nhánh "Bấm Share (góc trên)…" — chúng chỉ
+    /// đường tới một nút không còn hiện.
+    ///
+    /// 🔴 **NHƯNG NHÁNH THỨ BA THÌ GIỮ, CỐ Ý.** Nó không nhắc tới Share một chữ nào và không
+    /// phải câu mô tả — nó là **CẢNH BÁO**: bản quét dừng quá sớm nên trên đĩa chỉ còn video, mà
+    /// đội vẽ không dựng được mặt bằng từ video. Bỏ nốt nó thì bản quét hỏng trông **Y HỆT** bản
+    /// quét lành (khu video vẫn chạy, nút đặt hàng vẫn sáng) ⇒ khách đặt tiền cho một bản quét
+    /// không vẽ được. ✗ gỡ "cho gọn".
+    ///
+    /// Màu cam + icon tam giác chứ ✗ xám nhạt như cũ: trước đây nó là một trong ba câu mô tả nên
+    /// phải đồng màu với hai câu kia; nay nó là thứ DUY NHẤT còn in ra ở chỗ này nên chỉ xuất hiện
+    /// khi có chuyện.
+    @ViewBuilder
+    private var missingModelNote: some View {
+        if !hasMeshModel {
+            // 🔴 CÂU NÀY ✗ ĐƯỢC NÓI "chỉ có video". Điều kiện duy nhất là `!hasMeshModel` — nó
+            // KHÔNG hỏi video. Bản quét hỏng sạch (dừng cực sớm: không mesh, không video) và bản
+            // quét đời RoomPlan cũ trên máy chủ app đều rơi vào đây, mà ngay phía trên `videoArea`
+            // đang in "Bản quét này không có video" ⇒ hai câu ngược nhau trên cùng một màn.
+            // Vòng soi đối kháng vòng 2 (19/08) bắt được. Nói đúng thứ ĐO ĐƯỢC: thiếu mô hình 3D.
+            Label(
+                L.t("No 3D model in this scan — our team cannot draw a floor plan from it. Please scan this area again.",
+                    "Bản quét này chưa thu được mô hình 3D — đội vẽ không dựng được mặt bằng, hãy quét lại khu này."),
+                systemImage: "exclamationmark.triangle.fill"
+            )
+            .font(.caption)
+            .foregroundStyle(.orange)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal)
+            .padding(.bottom, 6)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal)
-        .padding(.bottom, 6)
     }
 
-    /// Chỉ hứa đúng file đang có: OBJ (chuẩn mới / bản cũ có GLB-zip), PLY (bản phao khi
-    /// chuyển OBJ lỗi), hoặc chỉ video (quét dừng quá sớm).
-    private var meshFooterText: String {
-        if FileManager.default.fileExists(atPath: objURL.path) || coloredGLBExists || coloredZipExists {
-            // ✗ hứa "màu" ở đây nữa: từ đợt LƯU NHANH, mesh xuất ra là XÁM với mọi bản quét
-            // bình thường (màu đến sau, từ texture do máy trạm bake) — khách tự bấm Share theo
-            // đúng câu này rồi nhận mô hình không màu là lỗi CÂU CHỮ, không phải lỗi file.
-            return L.t(
-                "Tap Share (top right) to send the 3D model (OBJ) together with the video. This scan type has no floor plan.",
-                "Bấm Share (góc trên) để gửi mô hình 3D (OBJ) kèm video. Loại bản quét này không có bản vẽ mặt bằng."
-            )
-        }
-        if FileManager.default.fileExists(atPath: plyURL.path) {
-            return L.t(
-                "Tap Share (top right) to send the raw 3D mesh (PLY) together with the video. This scan type has no floor plan.",
-                "Bấm Share (góc trên) để gửi mesh thô (PLY) kèm video. Loại bản quét này không có bản vẽ mặt bằng."
-            )
-        }
-        return L.t(
-            "This scan has video only — no 3D model was captured.",
-            "Bản quét này chỉ có video — chưa thu được mô hình 3D."
-        )
-    }
-
-    /// Nhãn mức nét đã bỏ 2026-07-31 cùng picker (chỉ còn MỘT mức) — `record.meshQuality` vẫn
-    /// được ghi vào meta.json nhưng không còn màn nào hiện nó.
-    private var meshTitle: String {
-        L.t("3D mesh scan", "Bản quét Mesh 3D")
+    /// Có mô hình 3D trên đĩa không — liệt ĐỦ bốn định dạng app từng lưu ra, đúng BỘ BỐN mà
+    /// `bestMeshModelURL` biết tìm. Thiếu một định dạng ở đây là bạt một bản quét LÀNH thành hỏng.
+    /// ⚠ Giống nhau ở BỘ, ✗ ở THỨ TỰ: ở đây là chuỗi `||` nên thứ tự vô nghĩa, còn
+    /// `bestMeshModelURL` xếp tốt→phao (zip→OBJ→GLB→PLY) và thứ tự BÊN ĐÓ mới có nghĩa.
+    /// ✗ "đồng bộ" hai bên theo nhau.
+    ///
+    /// 🔴🔴 **STAT THẲNG CẢ BỐN, ✗ ĐỌC `coloredZipExists`/`coloredGLBExists`.** Bản nháp đầu đọc hai
+    /// cờ đó và vòng soi đối kháng 19/08 bắt được — đây là lỗi ĐO ĐƯỢC, không phải chuyện gu:
+    ///  · hai cờ là `@State` khởi tạo `false`, CHỈ được gán trong `.task`, mà `.task` chạy SAU lượt
+    ///    dựng body đầu tiên;
+    ///  · bản quét LÀNH của bản hiện tại **không có `model.obj` lẫn `colored-mesh.ply` rời trên
+    ///    đĩa** — cả hai chỉ nằm TRONG `model-colored.zip` (`ScanStore.saveMeshScan` nén xong là
+    ///    xoá bản rời; app không có bộ giải nén, xem `MeshPreviewFile`);
+    ///  ⇒ lượt render đầu của MỌI bản quét lành cho `hasMeshModel == false` ⇒ **cảnh báo cam nháy
+    ///    lên rồi tắt**. Đời `meshFooterText` cũ dính y hệt nhưng in chữ XÁM lẫn giữa hai câu mô tả
+    ///    nên không ai thấy; nay nó là cảnh báo cam đơn độc, và mục Hỏi đáp mới vừa dạy khách rằng
+    ///    dòng cam nghĩa là "phải quét lại khu đó".
+    ///
+    /// Giá phải trả: 4 lần `fileExists` mỗi lượt dựng body thay vì 2. Chấp nhận — cùng LOẠI chi phí
+    /// đã có sẵn, và `coloredZipURL`/`coloredGLBURL` đi qua ĐÚNG cửa `folder` → `store.folderURL`
+    /// mà `objURL`/`plyURL` vẫn đi (cửa số 2 ở bảng §CRASH bên trên), ✗ mở thêm cửa mới nào.
+    /// ⚠ `coloredZipExists`/`coloredGLBExists` VẪN PHẢI GIỮ — khối Share trong `.task` còn dùng.
+    private var hasMeshModel: Bool {
+        let fm = FileManager.default
+        return fm.fileExists(atPath: objURL.path)
+            || fm.fileExists(atPath: coloredZipURL.path)
+            || fm.fileExists(atPath: coloredGLBURL.path)
+            || fm.fileExists(atPath: plyURL.path)
     }
 
     // 🔴 `videoTab` ĐÃ XOÁ 11/08. Nó là màn của bản quét CHỈ VIDEO (khảo sát không LiDAR) —
     // luồng tạo đã gỡ 2026-07-19 khi chủ app chốt "yêu cầu máy phải có lidar". Khu video của nó
     // (`videoArea`) vẫn còn và nay dùng chung trong `meshTab`.
+
+    /// 🔴🔴 **CÔNG TẮC ẨN NÚT SHARE — CHỦ APP CHỐT 19/08. ✗ TỰ BẬT LẠI.**
+    ///
+    /// Nguyên văn: *"vì đã có nút gửi bổ sung nên hãy ẩn nút share đó đi"*.
+    ///
+    /// 🔴 **ĐÂY LÀ VIỆC ĐẢO NGƯỢC MỘT QUYẾT ĐỊNH CŨ ĐƯỢC GHI RẤT NẶNG** (SESSION-HANDOFF
+    /// §STATE mục **2b**: *"NÚT SHARE PHẢI GIỮ. ✗ GỠ"*). Lý do của mục 2b là: Share + email
+    /// từng là đường DUY NHẤT để khách nhét thêm bản quét vào đơn ĐÃ đặt. **Lý do đó nay
+    /// HẾT HIỆU LỰC**: `SupplementSheet` (11/08, bản 2.3) đã thay nó bằng đường trong app, và
+    /// đường đó còn **không vỡ ở mốc 25MB của email** trong khi gói mesh 40–200MB — chính phần
+    /// đầu file `SupplementSheet.swift` ghi đúng cái vỡ đó.
+    ///
+    /// ẨN BẰNG CỜ, ✗ XOÁ CODE: toàn bộ bộ máy chia sẻ (`makeShareSnapshot` → `meshShareBundle`
+    /// → `bestMeshModelURL` → `prepareNamedZip`) còn nguyên, bật lại là sửa đúng MỘT dòng này.
+    /// Cờ này cũng gác luôn `.task`: tắt thì `prepareNamedZip()` **không chạy**, tức thôi copy
+    /// bản zip 40–200MB vào thư mục tạm mỗi lượt khách quay lại màn này.
+    private static let showShareButton = false
 
     /// Nút Share ở toolbar — CHỮ "Share", không phải icon (chủ app chốt 2026-07-28).
     ///
@@ -888,7 +943,10 @@ struct ScanDetailView: View {
     /// gắn xong từ lâu.)
     @ViewBuilder
     private func shareButton(_ s: ShareSnapshot) -> some View {
-        if !s.meshBundle.isEmpty {
+        // Cổng ẨN nằm Ở ĐÂY chứ ✗ ở `.toolbar` — `@ViewBuilder` chắc chắn nuốt được `if`,
+        // còn `@ToolbarContentBuilder` thì phải tin, mà repo này KHÔNG compile được cục bộ
+        // (mỗi lần đoán sai là một lượt CI). ToolbarItem vẫn còn nhưng rỗng ⇒ không vẽ gì.
+        if Self.showShareButton, !s.meshBundle.isEmpty {
             ShareLink(items: s.meshBundle) {
                 Text(L.t("Share", "Share"))
             }

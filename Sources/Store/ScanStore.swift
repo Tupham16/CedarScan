@@ -554,6 +554,27 @@ final class ScanStore: ObservableObject {
             .cloudOrderNumber
     }
 
+    /// Dự án TRÊN MÁY NÀY chứa bản quét của số đơn đã cho — `nil` = máy này không giữ dự án đó.
+    ///
+    /// Là chiều NGƯỢC của `orderNumber(ofProject:)` ngay trên, và cố ý nằm cạnh nó: hai hàm phải
+    /// hiểu "đã đặt" giống hệt nhau (`cloudOrderNumber` khớp từng ký tự), ✗ để hai màn tự lọc.
+    ///
+    /// 🔴 Sinh ra 19/08 cho nút **"Thêm bản quét"** ở tab Đơn hàng (chủ app đặt): tab đó lấy đơn
+    /// từ SERVER nên nó không biết gì về dự án trên máy — hàm này là cây cầu duy nhất.
+    ///
+    /// 🔴 Trả `nil` là chuyện BÌNH THƯỜNG, ✗ lỗi: khách xoá dự án rồi, hoặc đang dùng máy khác,
+    /// hoặc đơn đặt từ đời trước khi có dự án. Nơi gọi phải ẨN nút chứ ✗ hiện nút chết.
+    ///
+    /// Trả lời HOÀN TOÀN OFFLINE (đọc `meta.json` đã nạp) — nút không được nhấp nháy theo mạng.
+    func project(withOrderNumber orderNumber: String) -> ScanProject? {
+        // Bản quét MỚI NHẤT mang số đơn này — cùng luật "lấy đơn mới nhất" với `orderNumber(ofProject:)`
+        // cho dữ liệu đời cũ (một dự án từng mang nhiều số đơn).
+        let match = records
+            .filter { $0.cloudOrderNumber == orderNumber }
+            .max { $0.createdAt < $1.createdAt }
+        return project(with: match?.projectId)
+    }
+
     private func update(_ record: ScanRecord, _ mutate: (inout ScanRecord) -> Void) {
         guard let index = records.firstIndex(where: { $0.id == record.id }) else { return }
         mutate(&records[index])

@@ -4,6 +4,9 @@ import SwiftUI
 struct HomeView: View {
     /// Tín hiệu từ tab SCAN (RootView): mỗi lần TĂNG = một yêu cầu mở màn quét mới. Xem `.onChange`.
     let scanRequest: Int
+    /// Yêu cầu "mở dự án X" bắn từ tab Đơn hàng (nút **"Thêm bản quét"**, chủ app đặt 19/08).
+    /// Cùng khuôn tín hiệu với `scanRequest` ngay trên — xem `OpenProjectRequest` và `.onChange`.
+    let openProjectRequest: OpenProjectRequest?
     /// 🔴 TRUYỀN VÀO TỪ `RootView`, ✗ `@EnvironmentObject` — LÝ DO KHÁC hai màn PUSH, đọc kỹ.
     /// Bản thân HomeView chưa bao giờ văng: nó là GỐC của `NavigationStack` (không bị push) và
     /// tiêu đề là chuỗi CHẾT. Đổi ở đây là để ba closure `navigationDestination` bên dưới dựng
@@ -248,6 +251,10 @@ struct HomeView: View {
             // HomeView.
             .onChange(of: scanRequest) { _, _ in
                 beginNewScan()
+            }
+            // Tab Đơn hàng yêu cầu mở một dự án — nút "Thêm bản quét".
+            .onChange(of: openProjectRequest) { _, request in
+                openProject(request)
             }
             .alert(L.t("LiDAR required", "Cần cảm biến LiDAR"), isPresented: $showScanUnsupported) {
                 Button("OK", role: .cancel) {}
@@ -508,8 +515,12 @@ struct HomeView: View {
     /// Tách thành HÀM có `let` cục bộ + `return` tường minh — khuôn bắt buộc của repo cho dòng
     /// list nhiều tầng, CI từng chết vì "Swift type-check timeout" (xem `OrdersView.filterChip`,
     /// `ScanAddressView.projectRow`).
+    ///
+    /// Dòng phụ nay TÁCH RÕ ĐÃ ĐẶT / CHƯA ĐẶT — xem `projectCountLine`.
     private func projectRow(_ project: ScanProject) -> some View {
-        let count = store.scans(in: project).count
+        // `let` cục bộ + `return` tường minh — khuôn bắt buộc, xem khối trên. Dòng đếm được dựng
+        // Ở ĐÂY (String, ✗ View) để `Text(...)` bên dưới vẫn là một biểu thức tầm thường.
+        let countLine = Self.projectCountLine(store.scans(in: project))
         return HStack(spacing: 10) {
             Button {
                 path.append(project)
@@ -524,7 +535,7 @@ struct HomeView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(project.name)
                             .font(.headline)
-                        Text(L.t("\(count) scan(s)", "\(count) bản quét"))
+                        Text(countLine)
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -570,6 +581,35 @@ struct HomeView: View {
         .padding(.vertical, 2)
     }
 
+    /// Dòng phụ của một dự án ở trang chủ: **tổng · đã đặt · chưa đặt** — chủ app chốt 19/08
+    /// (*"từng dự án nên hiện rõ số bản quét chưa đặt và số bản quét đã đặt"*).
+    ///
+    /// Vì sao nó đáng chỗ trên màn hình: từ khi có luật "1 dự án 1 đơn", một dự án có thể vừa
+    /// chứa bản quét đã nằm trong đơn vừa chứa bản quét mới quét thêm. Con số "chưa đặt" chính là
+    /// thứ khách cần bấm **Gửi bổ sung bản quét** — nút đáy `ProjectView` cũng in đúng con số đó
+    /// (`orderableScans.count`). Trước bản này khách phải mở dự án ra mới biết.
+    ///
+    /// 🔴 CÙNG MỘT ĐỊNH NGHĨA "ĐÃ ĐẶT" VỚI CẢ APP: `cloudOrderNumber != nil` — y hệt
+    /// `ScanRow` (nhãn "Đã đặt"), `ProjectView.orderableScans` và `OrderSheet.otherScans`.
+    /// ✗ đổi sang hỏi server: dòng này phải đúng cả khi máy mất mạng, và `cloudOrderNumber` do
+    /// `SupplementSheet.stamp()`/`OrderSheet` đóng dấu xuống `meta.json` nên nó trả lời OFFLINE.
+    /// (Đây là chỗ đọc trạng thái "đã đặt" thứ NĂM — bốn chỗ cũ liệt ở §MULTI-ACCOUNT của
+    /// handoff. Ai đổi luật đóng dấu thì phải soi cả năm.)
+    ///
+    /// Dự án RỖNG giữ nguyên câu cũ ("0 bản quét"): in "0 đã đặt · 0 chưa đặt" là ba con số 0
+    /// nằm cạnh nhau, không nói thêm được gì.
+    private static func projectCountLine(_ scans: [ScanRecord]) -> String {
+        guard !scans.isEmpty else {
+            return L.t("0 scan(s)", "0 bản quét")
+        }
+        let ordered = scans.filter { $0.cloudOrderNumber != nil }.count
+        let pending = scans.count - ordered
+        return L.t(
+            "\(scans.count) scan(s) · \(ordered) ordered · \(pending) not ordered",
+            "\(scans.count) bản quét · \(ordered) đã đặt · \(pending) chưa đặt"
+        )
+    }
+
     // KHÔNG lọc bản quét đã đặt ra khỏi danh sách này. Từng thử và đó là lỗi CHẶN: `ScanRow` là
     // NavigationLink DUY NHẤT tới ScanDetailView, và `store.delete` chỉ được gọi từ swipe của
     // chính nó — ẩn dòng đi là bản quét mồ côi hoàn toàn, không mở/chia sẻ/xoá được, file 40-200MB
@@ -598,6 +638,45 @@ struct HomeView: View {
         pendingOrderRecord = nil
         pendingScanMore = false
         showScanSetup = true
+    }
+
+    /// Mở đúng dự án mà tab Đơn hàng vừa chỉ tới — nút "Thêm bản quét" (chủ app đặt 19/08).
+    ///
+    /// 🔴 **HOÃN MỘT NHỊP, BẮT BUỘC.** `RootView.requestOpenProject` đặt `tab = .home` và bắn tín
+    /// hiệu này TRONG CÙNG MỘT NHỊP, nên closure ở đây chạy đúng lúc `TabView` đang đổi tab. Đẩy
+    /// màn ngay tại đó là push vào một `UINavigationController` đang được gắn lại — cùng họ với
+    /// những lần "đẩy sai THỜI ĐIỂM" mà repo này đã trả giá (mục 3a: nút bị đĩa Scan đè; và hai
+    /// chỗ `dismiss()` hoãn nhịp ở `ProjectView.leaveDeadProject` / `ScanDetailView`).
+    /// `Task { @MainActor }` đẩy việc sang nhịp runloop sau, khi tab đã yên vị.
+    ///
+    /// 🔴 **VỀ GỐC RỒI MỚI ĐẨY — VÀ LÀ HAI NHỊP RIÊNG, ✗ MỘT.** Khách có thể đang đứng sâu trong
+    /// một dự án KHÁC; nối thêm vào `path` là chồng dự án lên dự án, và nút Back đưa họ về một căn
+    /// nhà chẳng liên quan.
+    /// ⚠ Bản nháp 19/08 viết `path = NavigationPath()` rồi `path.append(project)` LIỀN NHAU —
+    /// vòng soi đối kháng bắt: hai cú ghi `@State` trong cùng một khối đồng bộ được SwiftUI gộp
+    /// thành MỘT lần cập nhật, nên stack đi thẳng `[A] → [B]`, **không bao giờ đi qua trạng thái
+    /// rỗng**. Đó là một hình thái path repo này CHƯA TỪNG chạy (`path` xưa nay chỉ mọc thêm từ
+    /// gốc hoặc co lại bằng nút Back), và "thay phần tử 0 của một `UINavigationController` đang
+    /// hiển thị" đúng là loại việc đã tốn nhiều bản IPA ở đây. Tách hai nhịp = **pop về gốc**
+    /// rồi **push**, hai thao tác app vẫn làm hằng ngày.
+    ///
+    /// Dự án không còn trên máy (khách vừa xoá) → KHÔNG làm gì. Nút bên tab Đơn hàng vốn đã ẩn
+    /// khi không tra ra dự án, nên đây là lớp thứ hai — fail-closed, ✗ đẩy một màn rỗng.
+    ///
+    /// 🔴 GÁC `isMeshScanning`: đang quét mà pop cả stack là mất 10–30 phút đi bộ. Cùng lý do với
+    /// `ProjectView.leaveDeadProject`. Ca này tới được thật — lớp phủ quét vẽ đè cả tab.
+    private func openProject(_ request: OpenProjectRequest?) {
+        guard let request else { return }
+        Task { @MainActor in
+            guard !isMeshScanning else { return }
+            guard store.project(with: request.projectId) != nil else { return }
+            path = NavigationPath()
+            // Nhịp thứ hai: lúc này stack đã thật sự về gốc.
+            Task { @MainActor in
+                guard !isMeshScanning, let project = store.project(with: request.projectId) else { return }
+                path.append(project)
+            }
+        }
     }
 
     /// Mở màn quét mới — gọi từ `.onChange(of: scanRequest)` khi khách bấm tab SCAN. Giữ NGUYÊN

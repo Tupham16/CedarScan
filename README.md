@@ -23,8 +23,9 @@ people do that from the mesh and the walkthrough video.
 **Not in this app** (it was, before the RoomPlan flow was removed in July 2026)
 - No automatic 2D floor plan, room segmentation, or floor-area measurement on device
 - No USDZ export and no floor-plan PNG for new scans
-- Scans captured with the old RoomPlan flow can still be viewed, shared and ordered; they just
-  cannot be created any more
+- Scans captured with the old RoomPlan flow can still be renamed, ordered and deleted, but their
+  `model.usdz` and `floorplan.png` can no longer be opened: the RoomPlan viewer went with the flow,
+  so they land on the mesh screen and report that no 3D model was captured
 
 **What a scan produces on device**
 - `model-colored.zip` — `model.obj`, `model.mtl`, `camera-track.json`, `texture-shots/`
@@ -40,7 +41,11 @@ people do that from the mesh and the walkthrough video.
   in-app wording is "iPhone Pro (12 Pro or newer)". Without LiDAR the scan button is disabled, not
   hidden.
 - iOS 17.0+, portrait only
-- Camera access. No microphone, location, or photo-library permission is requested.
+- Camera access, plus one-shot location access requested only when the user taps "Use current
+  location" on the address screen (no background tracking). No microphone or photo-library
+  permission is requested.
+- No Share button on the scan screen since 2.28 (`ScanDetailView.showShareButton`) — scans leave
+  the device only by uploading with an order or an extra-scan send.
 
 **Build**
 No Mac needed — GitHub Actions builds an unsigned IPA on every push to `main`

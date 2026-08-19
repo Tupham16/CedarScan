@@ -4,6 +4,12 @@ import UniformTypeIdentifiers // UTType — suy ra MIME cho file đính kèm c�
 /// Danh sách đơn đã đặt xử lý: trạng thái + file thành phẩm khi đã giao.
 struct OrdersView: View {
     @EnvironmentObject private var account: AccountStore
+    /// 🔴 TRUYỀN TAY từ `RootView`, cùng khuôn `HomeView`. Tab này KHÔNG push màn nào nên
+    /// `@EnvironmentObject` ở đây vốn an toàn — truyền tay để hai tab đọc store theo MỘT cách.
+    /// Dùng cho ĐÚNG một việc: tra đơn → dự án trên máy, cho nút "Thêm bản quét".
+    @ObservedObject var store: ScanStore
+    /// Nhảy sang tab Home và mở dự án — `RootView.requestOpenProject`. Tab này ✗ tự đổi tab.
+    let onOpenProject: (ScanProject) -> Void
     @State private var orders: [OrderDTO] = []
     /// Chữ trong ô tìm kiếm. Lọc theo SỐ ĐƠN và TÊN BẢN QUÉT — hai thứ duy nhất khách nhìn thấy
     /// trên mỗi dòng, nên cũng là hai thứ duy nhất họ gõ lại được.
@@ -141,6 +147,33 @@ struct OrdersView: View {
     }
 
     /// Đơn đang hiển thị: khớp cả ô tìm kiếm lẫn bộ lọc trạng thái đang chọn.
+    /// Dự án TRÊN MÁY NÀY của đơn — `nil` thì KHÔNG hiện nút "Thêm bản quét".
+    ///
+    /// (Chú thích của `filteredOrders` nằm NGAY DƯỚI hàm này, ✗ trên nó — hàm này chen vào giữa
+    /// 19/08. Đọc đúng khối cho đúng hàm.)
+    ///
+    /// Hai ca trả nil, cả hai là hành vi ĐÚNG chứ ✗ lỗi:
+    ///  · **Đơn đã hoàn tiền** — `supplement-scan` từ chối bằng `order_closed`, nên hiện nút là
+    ///    dẫn khách đi quét 10–30 phút rồi tải 40–200MB lên để nhận một lời từ chối. Chặn ở đây,
+    ///    chỗ RẺ NHẤT. (Đơn ĐÃ GIAO thì KHÔNG chặn: server nhận nó từ 19/08 — xem
+    ///    `supplement-scan/route.ts`, chủ app chốt "đã đặt hay đã giao đều không tính phí".)
+    ///  · **Máy này không giữ dự án đó** — khách xoá rồi, hoặc đang dùng máy khác. Không có bản
+    ///    quét gốc trên máy thì cũng chẳng có gì để quét bổ sung vào.
+    ///  · **Dự án đó nay thuộc về một số đơn KHÁC** — xem khối 🔴 ngay dưới.
+    private func supplementProject(for order: OrderDTO) -> ScanProject? {
+        guard order.status != "refunded" else { return nil }
+        guard let project = store.project(withOrderNumber: order.orderNumber) else { return nil }
+        // 🔴 CHỐT CHỐNG GỬI NHẦM ĐƠN. Nút này chỉ ĐIỀU HƯỚNG; việc gửi ở trang dự án lại hỏi
+        // `ScanStore.orderNumber(ofProject:)`, hàm đó lấy số đơn của bản quét MỚI NHẤT. Một dự án
+        // ôm HAI số đơn là chuyện tới được trong app hôm nay (kéo một bản quét đã đặt lẻ vào một
+        // dự án đã có đơn — `moveScan`), và khi đó bấm nút ở đơn CŨ sẽ đưa khách tới trang dự án
+        // rồi gửi bản quét vào đơn MỚI. Sai đơn = đội vẽ nhận file cho một căn nhà khác.
+        // ⇒ Chỉ hiện nút khi hai chiều đồng ý với nhau. Lệch thì ẨN — khách vẫn còn đường vào từ
+        // tab Home, và ẩn một nút còn hơn gửi nhầm không ai biết.
+        guard store.orderNumber(ofProject: project.id) == order.orderNumber else { return nil }
+        return project
+    }
+
     private var filteredOrders: [OrderDTO] {
         searchedOrders.filter { filter.matches($0.status) }
     }
@@ -300,6 +333,9 @@ struct OrdersView: View {
                     }
                 }
 
+                // 🔴 KHỐI NÀY GÁC `status == "delivered"`, tức FILE THÀNH PHẨM — đúng, vì server
+                // chỉ trả `deliveryFiles` khi `stage === "done"`. Nút "Yêu cầu sửa" thì TÁCH RA
+                // khối riêng bên dưới: nó phải sống lâu hơn thế.
                 if order.status == "delivered" {
                     if let deliveredUrl = order.deliveredUrl, let url = URL(string: deliveredUrl) {
                         Link(destination: url) {
@@ -323,10 +359,42 @@ struct OrdersView: View {
                             }
                         }
                     }
+                }
+                // 🔴 "YÊU CẦU SỬA" GÁC THEO `deliveredAt`, ✗ theo `status == "delivered"` —
+                // sửa 19/08, vòng soi đối kháng bắt.
+                //
+                // Từ 19/08, gửi bổ sung vào một đơn ĐÃ GIAO kéo thẻ `done → fix`, tức `status` đổi
+                // thành `in_production`. Gác theo `status` là nút "Yêu cầu sửa" **BIẾN MẤT IM LẶNG**
+                // ngay sau khi khách gửi bổ sung — trong khi mục Hỏi đáp vừa hứa với họ HAI đường
+                // song song trong cửa sổ 90 ngày ("bản vẽ sai → Yêu cầu sửa" / "quét sót → Gửi bổ
+                // sung"). Khách phát hiện thêm một lỗi vẽ sẽ không còn nút nào để báo.
+                //
+                // `deliveredAt != null` là "đơn này đã từng được giao", và nó KHÔNG bị cú kéo cột
+                // xoá đi (`refundOrder`/`holdOrder`/`supplement-scan` đều không đụng trường đó) —
+                // đúng thứ cần gác. Server vẫn tự lo phần còn lại: `revision/route.ts` nhận cả khi
+                // thẻ đang ở "fix" (nay ghi được cả `feedback`, sửa cùng lượt).
+                if order.deliveredAt != nil {
                     Button {
                         revisionOrder = order
                     } label: {
                         Label(L.t("Request a revision", "Yêu cầu sửa"), systemImage: "pencil.and.outline")
+                            .font(.caption.weight(.semibold))
+                    }
+                    .buttonStyle(.bordered)
+                }
+                // 🆕 "THÊM BẢN QUÉT" — chủ app đặt 19/08: *"thêm nút thêm bản quét, khi kích vào
+                // đó nó nhảy qua dự án đó"*. Nó chữa một lỗ THẬT: khách nhận bản vẽ, thấy thiếu
+                // một khu, và không có đường nào từ đơn hàng ngược về căn nhà để quét thêm — họ
+                // phải tự đoán là mình cần sang tab Home tìm đúng dự án.
+                //
+                // 🔴 CHỈ ĐIỀU HƯỚNG, ✗ gửi gì cả. Việc gửi vẫn là `SupplementSheet` ở trang dự án
+                // — LỐI VÀO DUY NHẤT, ✗ nhân bản luồng gửi ở tab này (thứ trôi được giữa hai bản
+                // sao là cú ĐÓNG DẤU số đơn, mà thiếu dấu = khách TRẢ TIỀN HAI LẦN).
+                if let project = supplementProject(for: order) {
+                    Button {
+                        onOpenProject(project)
+                    } label: {
+                        Label(L.t("Add a scan", "Thêm bản quét"), systemImage: "plus.viewfinder")
                             .font(.caption.weight(.semibold))
                     }
                     .buttonStyle(.bordered)

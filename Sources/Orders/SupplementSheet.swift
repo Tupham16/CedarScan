@@ -43,6 +43,10 @@ struct SupplementSheet: View {
     @State private var deliveredOrder: OrderDTO?
     /// Chỉ gán khi khách BẤM nút → đây mới là thứ present sheet.
     @State private var revisionTarget: OrderDTO?
+    /// Câu dặn thêm cho ca đơn ĐÃ GIAO — `nil` với đơn thường. Chụp từ phản hồi của server
+    /// (`wasDelivered`/`movedToFix`), ✗ tự đoán trạng thái đơn ở phía app: app chỉ biết trạng
+    /// thái qua `listOrders()`, tức cần mạng và có thể cũ.
+    @State private var deliveredNote: String?
 
     var body: some View {
         NavigationStack {
@@ -130,7 +134,14 @@ struct SupplementSheet: View {
                 .foregroundStyle(.green)
                 Button(L.t("Done", "Xong")) { dismiss() }
             } footer: {
-                Text(L.t(
+                // 🔴 BA CÂU, ✗ MỘT. Đơn ĐÃ GIAO đi qua đường này từ 19/08, và khách vừa cầm bản
+                // vẽ trong tay: nói đúng một câu "đội đã được báo" là để họ tưởng bản vẽ CŨ đã
+                // gồm phần mới. Phải nói thẳng là sẽ có bản vẽ CẬP NHẬT gửi lại.
+                // ⚠ Và phải nói cả việc link tải bản cũ tạm mất — đó là hệ quả trực tiếp của việc
+                // thẻ về cột Fix (`orders/route.ts` chỉ trả `deliveryFiles` khi stage == "done").
+                // Khách mở tab Đơn hàng thấy nút Tải biến mất mà không được báo trước là một cú
+                // hoảng không đáng có, và là loại việc Support phải trả lời từng người.
+                Text(deliveredNote ?? L.t(
                     "Our team has been notified so the new area goes into your drawing.",
                     "Đội xử lý đã được báo để đưa phần mới vào bản vẽ của bạn."
                 ))
@@ -232,6 +243,7 @@ struct SupplementSheet: View {
                     extraScanIds: Array(cloudIds.dropFirst())
                 )
                 stamp(result)
+                deliveredNote = Self.deliveredNote(for: result)
                 // Đếm theo thứ SERVER xác nhận đã nằm trong đơn, ✗ theo số bản quét app gửi đi.
                 phase = .sent(result.scanIds?.count ?? records.count)
             } catch let error as APIError where error.code == "order_delivered" {
@@ -241,6 +253,26 @@ struct SupplementSheet: View {
                 phase = .failed(error.localizedDescription)
             }
         }
+    }
+
+    /// Câu dặn thêm cho đơn ĐÃ GIAO. `nil` = đơn thường, dùng câu mặc định.
+    ///
+    /// 🔴 Đọc `movedToFix` chứ ✗ chỉ `wasDelivered`: đơn đã giao mà thẻ đang ở "hold" thì server
+    /// KHÔNG kéo thẻ về hàng sản xuất và việc phải xử lý tay — hứa "sẽ gửi lại bản vẽ cập nhật"
+    /// lúc đó là hứa một thứ chưa ai cầm. Server cũ không trả hai khoá này (cả hai Optional) →
+    /// `nil` → câu mặc định, đúng hành vi trước 19/08.
+    private static func deliveredNote(for result: SupplementScanResponse) -> String? {
+        guard result.wasDelivered == true else { return nil }
+        if result.movedToFix == true {
+            return L.t(
+                "This order was already delivered, so our team will draw the new area and send you an updated drawing — at no extra charge. While they work on it the download link for the previous drawing is temporarily unavailable.",
+                "Đơn này đã giao rồi, nên đội xử lý sẽ vẽ thêm phần mới và gửi lại bản vẽ cập nhật cho bạn — không tính thêm phí. Trong lúc đó link tải bản vẽ cũ tạm thời không dùng được."
+            )
+        }
+        return L.t(
+            "This order was already delivered. Our team has your new scan and will be in touch — at no extra charge.",
+            "Đơn này đã giao rồi. Đội xử lý đã nhận được bản quét mới của bạn và sẽ liên hệ lại — không tính thêm phí."
+        )
     }
 
     /// Đóng dấu số đơn lên bản quét vừa gửi.
