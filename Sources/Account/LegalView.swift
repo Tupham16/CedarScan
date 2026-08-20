@@ -47,7 +47,11 @@ enum LegalDoc: String, CaseIterable, Identifiable {
     }
 
     /// Ngày cập nhật in ở đầu mỗi văn bản. SỬA NỘI DUNG THÌ SỬA CẢ NGÀY NÀY.
-    static let lastUpdated = "13 August 2026"
+    /// ⚠ SỬA 20/08: từng ghi nhầm "13 August 2026" — phiên làm việc kéo dài nhiều ngày và ngày
+    /// đó được SUY RA chứ không phải đọc từ đồng hồ. Lần thay đổi câu chữ THẬT SỰ gần nhất là
+    /// bản 2.27, commit `73c18eb` ngày **18/08/2026** (`git log --date=short`). Đổi nội dung thì
+    /// lấy ngày bằng `date`, ✗ suy từ ngày ghi trong handoff.
+    static let lastUpdated = "18 August 2026"
 
     static let contactEmail = "hello@cedar247.com"
 

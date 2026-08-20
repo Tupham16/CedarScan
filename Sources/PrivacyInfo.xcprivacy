@@ -125,8 +125,30 @@
 				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
 			</array>
 		</dict>
-		<!-- Mesh 3D của căn nhà, tên dự án, ghi chú trong đơn, file khách đính kèm (logo, bản
-		     vẽ cũ). Apple không có mục riêng cho mô hình 3D nên nó thuộc "Other User Content". -->
+		<!-- 🔴 THÊM 20/08: `EnvironmentScanning` là mục Apple dành RIÊNG cho dữ liệu quét không
+		     gian (LiDAR/ARKit) — trên trang App Store nó hiện là *Surroundings → Environment
+		     Scanning*. Bản đầu của file này bỏ sót nó và xếp mesh vào "Other User Content";
+		     bắt được khi đối chiếu với hai đối thủ trực tiếp: **CubiCasa** (id1439879192) và
+		     **Roomio** (id6752274376) — CẢ HAI đều khai mục này, đọc thẳng từ trang App Store của
+		     họ. Đây là loại dữ liệu ĐÚNG TRỌNG TÂM của một app quét LiDAR.
+		     ✗ bỏ "Other User Content": nó vẫn cần cho tên dự án, ghi chú đơn và file khách tự
+		     đính kèm — hai mục KHÁC nhau, giữ cả hai.
+		     Khoá đã đối chiếu với danh sách chính thức của Apple (37 khoá, lấy từ
+		     developer.apple.com .../NSPrivacyCollectedDataType.json) — hợp lệ. -->
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeEnvironmentScanning</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+			</array>
+		</dict>
+		<!-- Tên dự án (địa chỉ khách gõ), ghi chú trong đơn, file khách đính kèm (logo, bản vẽ
+		     cũ). Hình học 3D thì đã khai riêng ở `EnvironmentScanning` ngay trên. -->
 		<dict>
 			<key>NSPrivacyCollectedDataType</key>
 			<string>NSPrivacyCollectedDataTypeOtherUserContent</string>
