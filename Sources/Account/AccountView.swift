@@ -42,8 +42,8 @@ struct AccountView: View {
                         // (cần SVG/PNG thì báo). DWG là dịch vụ thêm, tính tiền riêng."
                         //
                         // Câu đó nói về ĐỊNH DẠNG FILE GIAO nên **ĐÃ DỜI, ✗ VỨT**: nay nằm ở
-                        // `OrderFAQContent` (tab Learn → "Hỏi đáp về đơn hàng", mục *"Tôi nhận
-                        // được những file gì?"*). ✗ chép định dạng trở lại đây.
+                        // `OrderFAQContent` (tab Learn → "Hỏi đáp về đơn hàng", mục `id: "formats"`
+                        // — ✗ trỏ theo câu hỏi, câu chữ đã đổi một lần). ✗ chép định dạng trở lại đây.
                         //
                         // 🔴 **VÀ SỬA LUÔN MỘT LỜI DẶN SAI ĐÃ NẰM Ở ĐÂY TỪ LÂU** (vòng soi đối kháng
                         // 19/08 bắt): chú thích cũ viết "đây là chỗ DUY NHẤT trong app nói về định
