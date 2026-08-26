@@ -12,6 +12,9 @@ Sources/Info.plist
 CedarScan.ipa
 SESSION-HANDOFF.md
 scratch_*
+PLAN-*
+tham-khao-doi-thu/
+tools/appstore-check.py
 
 # dSYM tải từ CI artifact để đọc crash log (xem tools/ips-symbolicate/) — nặng, và tải lại được.
 dsym-*/
