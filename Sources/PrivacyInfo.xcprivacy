@@ -98,8 +98,10 @@
 				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
 			</array>
 		</dict>
-		<!-- `DeviceID.current` gửi kèm lúc đăng ký (APIClient.register) — dùng cho hạn mức suất
-		     quét miễn phí, không dùng cho quảng cáo/theo dõi. -->
+		<!-- `DeviceID.current` gửi ở BA chỗ: đăng ký, xem giá, đặt đơn (APIClient.register /
+		     catalog / orderScan) — khớp câu khai trong LegalView: "when you create your account,
+		     when you view prices and when you place an order". Dùng cho hạn mức suất quét miễn
+		     phí, không dùng cho quảng cáo/theo dõi. -->
 		<dict>
 			<key>NSPrivacyCollectedDataType</key>
 			<string>NSPrivacyCollectedDataTypeDeviceID</string>
@@ -185,12 +187,8 @@
 		       timestamps + request paths      → Other Usage Data
 		       error messages                  → Other Diagnostic Data
 		       network address (địa chỉ IP)    → Other Data Types (Apple không có mục riêng cho IP)
-		     ⚠ ĐÂY LÀ CHỖ ĐANG CÓ NGHI VẤN, phiên sau đọc kỹ: soi server không thấy dòng code nào
-		     tự ghi access log (IP chỉ nằm trong bộ nhớ để chặn spam rồi bỏ) ⇒ lời khai này phụ
-		     thuộc HOÀN TOÀN vào mặc định của Railway + Cloudflare. Hai lối ra: (a) giữ như hiện
-		     nay — khai thừa, an toàn với Apple; (b) sửa câu "Technical records" trong `LegalView`
-		     cho khớp thực tế rồi bỏ ba mục này. (b) là việc của CHỦ APP vì đó là câu chữ pháp lý,
-		     và nó kéo theo build lại app + sửa trang web. ✗ tự chọn (b). -->
+		     Đổi câu "Technical records" trong `LegalView` thì soi lại ba mục này — bối cảnh đầy
+		     đủ ở PRIVACY-NOTES.md (ghi chú nội bộ, không nằm trong bundle). -->
 		<dict>
 			<key>NSPrivacyCollectedDataType</key>
 			<string>NSPrivacyCollectedDataTypeOtherUsageData</string>
@@ -253,8 +251,9 @@
 				<string>C617.1</string>
 			</array>
 		</dict>
-		<!-- `ProcessInfo.processInfo.systemUptime` — ColorMeshBuilder dùng làm mốc chống CHÙM
-		     cảnh báo (và ScanPerfProfiler khi bật). Đo QUÃNG thời gian giữa hai sự kiện trong
+		<!-- `ProcessInfo.processInfo.systemUptime` — chỗ gọi DUY NHẤT là ColorMeshBuilder (mốc
+		     chống CHÙM cảnh báo). ScanPerfProfiler dùng CACurrentMediaTime — API đó KHÔNG thuộc
+		     nhóm phải khai lý do, ✗ tính nó vào đây. Đo QUÃNG thời gian giữa hai sự kiện trong
 		     app, không gửi đi đâu. 35F9.1 = đúng lý do đó. -->
 		<dict>
 			<key>NSPrivacyAccessedAPIType</key>

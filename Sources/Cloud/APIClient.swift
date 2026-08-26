@@ -149,6 +149,15 @@ struct DeliveryFileDTO: Decodable, Hashable {
     let sizeLabel: String?
 }
 
+/// Server/staff-supplied link strings (paymentUrl, tourUrl, deliveredUrl, delivery files) may be
+/// hand-typed (`board-actions.ts` passes `order.deliveryLink` through verbatim). Only https may
+/// leave the app via Link/openURL/ShareLink — anything else (http, tel:, itms-services:, custom
+/// schemes) renders nothing.
+func httpsURL(_ string: String?) -> URL? {
+    guard let string, let url = URL(string: string), url.scheme?.lowercased() == "https" else { return nil }
+    return url
+}
+
 /// Mô hình CÓ TEXTURE do MÁY TRẠM bake (USDZ trên R2) — app tải về xem bằng QuickLook.
 /// Chỉ những bản quét đã bake xong mới có mặt trong `OrderDTO.texturedScans`.
 struct TexturedScanDTO: Decodable, Hashable {
@@ -170,7 +179,9 @@ struct OrderDTO: Decodable, Identifiable {
     let placedAt: String
     let deliveredAt: String?
     let deliveredUrl: String?
-    let deliveryFiles: [DeliveryFileDTO]
+    /// Optional per the same rule as `texturedScans` below: one server response omitting the key
+    /// must not kill decoding of the whole order list. Read via `files`.
+    let deliveryFiles: [DeliveryFileDTO]?
     let total: Int?
     let currency: String?
     let paid: Bool?
@@ -186,6 +197,8 @@ struct OrderDTO: Decodable, Identifiable {
     let texturedScans: [TexturedScanDTO]?
 
     var id: String { orderId }
+
+    var files: [DeliveryFileDTO] { deliveryFiles ?? [] }
 
     /// Mọi bản quét thuộc đơn. `scanIds` là nguồn ĐÚNG; `scanId` chỉ là tầng đầu tiên
     /// (orders/route.ts:65 lấy `orderScans[0]`), giữ làm phao cho server cũ.
@@ -214,7 +227,7 @@ struct OrderDTO: Decodable, Identifiable {
     /// cửa sổ 14 ngày đã tiêu hết trước khi khách nhận được bất cứ thứ gì — nhân viên vừa tải
     /// file giao lên là bản quét bị xoá ngay lần khách mở app kế tiếp.
     var isDeliveredToCustomer: Bool {
-        guard !deliveryFiles.isEmpty,
+        guard !files.isEmpty,
               let delivered = Self.isoDate(deliveredAt ?? ""),
               let placed = Self.isoDate(placedAt) else { return false }
         return delivered.timeIntervalSince(placed) > 60

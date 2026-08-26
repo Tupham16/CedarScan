@@ -278,19 +278,23 @@ struct SupplementSheet: View {
     /// Đóng dấu số đơn lên bản quét vừa gửi.
     ///
     /// 🔴 **BẮT BUỘC, VÀ LÀ VIỆC ĐẮT NHẤT CỦA MÀN NÀY.** Thiếu dấu thì bản quét vẫn hiện "chưa
-    /// đặt" ở CẢ BỐN chỗ đọc trạng thái (§MULTI-ACCOUNT: `ScanDetailView.serviceCard`,
-    /// `OrderSheet.otherScans`, `ProjectView.orderableScans`, `HomeView.ScanRow`) → khách bấm đặt
-    /// lần nữa → **TRẢ TIỀN HAI LẦN**. Cùng họ bẫy #28 và #20b.
+    /// đặt" ở CẢ NĂM chỗ đọc trạng thái (§MULTI-ACCOUNT: `ScanDetailView.serviceCard`,
+    /// `OrderSheet.otherScans`, `ProjectView.orderableScans`, `HomeView.ScanRow`,
+    /// `HomeView.projectCountLine`) → khách bấm đặt lần nữa → **TRẢ TIỀN HAI LẦN**. Cùng họ bẫy
+    /// #28 và #20b.
     ///
     /// Đối chiếu theo `cloudScanId` do SERVER trả về, ✗ theo thứ tự mảng: server có thể trả tập
-    /// khác (nhánh idempotent gộp cả bản đã nối từ lượt trước). `?? cloudIds` là phao cho bản
-    /// server cũ không trả `scanIds` — thà đóng dấu đúng tập mình vừa gửi còn hơn không đóng dấu.
+    /// khác (nhánh idempotent gộp cả bản đã nối từ lượt trước).
+    /// 🔴 `nil` ≠ `[]`. nil = old server without `scanIds` → stamp exactly what was sent;
+    /// [] = server explicitly attached nothing → stamp nothing. Folding both into one case
+    /// (`?? []` + "empty ⇒ stamp all") marked every scan "ordered" on an empty reply — the
+    /// customer never re-sends and the drawing team never gets the mesh.
     private func stamp(_ result: SupplementScanResponse) {
-        let stamped = Set(result.scanIds ?? [])
+        let stamped = result.scanIds.map { Set($0) }
         for record in records {
             guard let live = store.records.first(where: { $0.id == record.id }) else { continue }
             guard let cloudId = live.cloudScanId else { continue }
-            guard stamped.isEmpty || stamped.contains(cloudId) else { continue }
+            if let stamped, !stamped.contains(cloudId) { continue }
             store.setOrderNumber(live, orderNumber: result.orderNumber)
         }
     }

@@ -295,7 +295,7 @@ struct OrdersView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
-                if order.paid != true, let payString = order.paymentUrl, let payURL = URL(string: payString) {
+                if order.paid != true, let payURL = httpsURL(order.paymentUrl) {
                     Link(destination: payURL) {
                         Label(L.t("Pay Now", "Thanh toán ngay"), systemImage: "creditcard.fill")
                             .font(.subheadline.weight(.semibold))
@@ -304,7 +304,7 @@ struct OrdersView: View {
 
                 // Virtual Tour: trước khi giao = thêm ảnh phòng; sau khi giao = link tour chia sẻ được
                 if order.hasTour == true {
-                    if let tourString = order.tourUrl, let tourURL = URL(string: tourString) {
+                    if let tourURL = httpsURL(order.tourUrl) {
                         HStack(spacing: 12) {
                             Link(destination: tourURL) {
                                 Label(L.t("View Virtual Tour", "Xem Virtual Tour"), systemImage: "house.fill")
@@ -337,14 +337,14 @@ struct OrdersView: View {
                 // chỉ trả `deliveryFiles` khi `stage === "done"`. Nút "Yêu cầu sửa" thì TÁCH RA
                 // khối riêng bên dưới: nó phải sống lâu hơn thế.
                 if order.status == "delivered" {
-                    if let deliveredUrl = order.deliveredUrl, let url = URL(string: deliveredUrl) {
+                    if let url = httpsURL(order.deliveredUrl) {
                         Link(destination: url) {
                             Label(L.t("Download deliverables", "Tải file thành phẩm"), systemImage: "arrow.down.circle.fill")
                                 .font(.subheadline.weight(.semibold))
                         }
                     }
-                    ForEach(order.deliveryFiles, id: \.self) { file in
-                        if let url = URL(string: file.url) {
+                    ForEach(order.files, id: \.self) { file in
+                        if let url = httpsURL(file.url) {
                             Link(destination: url) {
                                 HStack {
                                     Image(systemName: "doc.fill")

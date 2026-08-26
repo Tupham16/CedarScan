@@ -142,7 +142,7 @@ struct TourPhotosView: View {
                     .font(.footnote)
                     .foregroundStyle(.orange)
                 }
-                if let urlString = tour?.tourUrl, let url = URL(string: urlString) {
+                if let url = httpsURL(tour?.tourUrl) {
                     Link(destination: url) {
                         Label(L.t("View your Virtual Tour", "Xem Virtual Tour của bạn"), systemImage: "house.fill")
                             .font(.subheadline.weight(.semibold))

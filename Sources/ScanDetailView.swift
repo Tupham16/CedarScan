@@ -1772,7 +1772,7 @@ struct OrderSheet: View {
             .multilineTextAlignment(.center)
             .padding(.horizontal)
 
-            if let payString = order.paymentUrl, let payURL = URL(string: payString) {
+            if let payURL = httpsURL(order.paymentUrl) {
                 Button {
                     openURL(payURL)
                 } label: {
