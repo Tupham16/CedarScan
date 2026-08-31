@@ -51,7 +51,7 @@ targets:
         # tiếng, cùng hiện "1.0" → chủ app test trúng bản cũ mà không ai biết, báo "lỗi vẫn
         # nguyên" oan. AltStore (My Apps) và Cài đặt iOS đều hiện số này — nó là cách DUY NHẤT
         # xác minh từ xa máy ông đang chạy bản nào. Ghi số giao kèm vào SESSION-HANDOFF §STATE.
-        MARKETING_VERSION: "2.31"
+        MARKETING_VERSION: "2.32"
     info:
       path: Sources/Info.plist
       properties:
