@@ -81,14 +81,14 @@ enum SaveStage: Int, CaseIterable, Sendable {
     /// Nhãn NGẮN cho khách — nói việc đang làm, ✗ tên file/tên hàm.
     var label: String {
         switch self {
-        case .finishingCapture: return L.t("Finishing the video…", "Đang hoàn tất video…")
+        case .finishingCapture: return String(localized: "Finishing the video…")
         // ✗ "Đang dựng mô hình 3D…" ở đây: đó là TIÊU ĐỀ cố định của màn chờ, lặp lại là
         // khách nhìn thấy đúng một câu hai lần suốt 40% thời gian.
-        case .buildingMesh: return L.t("Merging the mesh…", "Đang gom lưới…")
-        case .previewMesh: return L.t("Preparing the 3D preview…", "Đang tạo bản xem nhanh…")
-        case .readingMesh: return L.t("Preparing the file…", "Đang chuẩn bị tệp…")
-        case .writingModel: return L.t("Writing the 3D file…", "Đang ghi tệp 3D…")
-        case .packaging: return L.t("Compressing…", "Đang nén gói dữ liệu…")
+        case .buildingMesh: return String(localized: "Merging the mesh…")
+        case .previewMesh: return String(localized: "Preparing the 3D preview…")
+        case .readingMesh: return String(localized: "Preparing the file…")
+        case .writingModel: return String(localized: "Writing the 3D file…")
+        case .packaging: return String(localized: "Compressing…")
         }
     }
 }

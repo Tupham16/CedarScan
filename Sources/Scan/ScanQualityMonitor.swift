@@ -16,11 +16,11 @@ struct QualityAlert: Equatable {
 
     var message: String {
         switch code {
-        case .trackingLost: return L.t("Hold still", "Đứng yên một chút")
-        case .slowDown: return L.t("Slow down", "Đi chậm lại")
-        case .turnSlowly: return L.t("Turn slowly", "Xoay chậm lại")
-        case .lowLight: return L.t("Turn on lights", "Bật thêm đèn")
-        case .tooClose: return L.t("Step back a little", "Lùi ra xa một chút")
+        case .trackingLost: return String(localized: "Hold still")
+        case .slowDown: return String(localized: "Slow down")
+        case .turnSlowly: return String(localized: "Turn slowly")
+        case .lowLight: return String(localized: "Turn on lights")
+        case .tooClose: return String(localized: "Step back a little")
         }
     }
 }
@@ -306,7 +306,7 @@ final class ScanQualityMonitor: NSObject, ObservableObject {
         if voiceEnabled && now - lastSpeechTime > 5.0 {
             lastSpeechTime = now
             let utterance = AVSpeechUtterance(string: alert.message)
-            utterance.voice = AVSpeechSynthesisVoice(language: L.isVietnamese ? "vi-VN" : "en-US")
+            utterance.voice = AVSpeechSynthesisVoice(language: AppLanguage.speechVoice)
             utterance.rate = AVSpeechUtteranceDefaultSpeechRate
             speech.speak(utterance)
         }

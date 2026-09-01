@@ -435,19 +435,16 @@ struct ScanDetailView: View {
         }
         // Chặn mềm: chất lượng thấp → khuyên quét lại nhưng vẫn cho gửi (đội vẽ được báo trước)
         .confirmationDialog(
-            L.t("Scan quality is low", "Chất lượng bản quét thấp"),
+            String(localized: "Scan quality is low"),
             isPresented: $showLowQualityConfirm,
             titleVisibility: .visible
         ) {
-            Button(L.t("Order anyway", "Vẫn đặt hàng")) {
+            Button(String(localized: "Order anyway")) {
                 proceedUploadOrOrder()
             }
-            Button(L.t("I'll rescan first", "Để tôi quét lại"), role: .cancel) {}
+            Button(String(localized: "I'll rescan first"), role: .cancel) {}
         } message: {
-            Text(L.t(
-                "This scan scored \(current.qualityScore ?? 0)/100. Rescanning usually gives a more accurate floor plan. You can still order — our team will be notified about the quality.",
-                "Bản quét này được \(current.qualityScore ?? 0)/100 điểm. Quét lại thường cho bản vẽ chính xác hơn. Bạn vẫn có thể đặt — đội xử lý sẽ được báo trước về chất lượng."
-            ))
+            Text(String(localized: "This scan scored \(current.qualityScore ?? 0)/100. Rescanning usually gives a more accurate floor plan. You can still order — our team will be notified about the quality."))
         }
     }
 
@@ -509,10 +506,10 @@ struct ScanDetailView: View {
                     Image(systemName: current.qualityRescan == true
                         ? "exclamationmark.triangle.fill" : "checkmark.seal.fill")
                         .foregroundStyle(gradeColor(grade))
-                    Text(L.t("Scan quality: \(score)/100 (\(grade))", "Chất lượng quét: \(score)/100 (\(grade))"))
+                    Text(String(localized: "Scan quality: \(score)/100 (\(grade))"))
                         .font(.caption.weight(.semibold))
                     if current.qualityRescan == true {
-                        Text(L.t("· rescan recommended", "· nên quét lại"))
+                        Text(String(localized: "· rescan recommended"))
                             .font(.caption)
                             .foregroundStyle(.orange)
                     }
@@ -525,9 +522,9 @@ struct ScanDetailView: View {
                     Image(systemName: "shippingbox.fill")
                         .foregroundStyle(.tint)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(L.t("Floor plan ordered", "Đã đặt làm mặt bằng") + " · \(orderNumber)")
+                        Text(String(localized: "Floor plan ordered") + " · \(orderNumber)")
                             .font(.subheadline.weight(.semibold))
-                        Text(L.t("Track progress in the Orders tab.", "Theo dõi tiến độ ở mục Đơn hàng."))
+                        Text(String(localized: "Track progress in the Orders tab."))
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -539,21 +536,15 @@ struct ScanDetailView: View {
                 accountGateRow(
                     icon: "person.crop.circle.badge.exclamationmark",
                     iconTint: .secondary,
-                    message: L.t(
-                        "Sign in to order a professional floor plan from this scan.",
-                        "Đăng nhập để đặt làm bản vẽ mặt bằng chuyên nghiệp từ bản quét này."
-                    ),
-                    action: L.t("Sign in", "Đăng nhập")
+                    message: String(localized: "Sign in to order a professional floor plan from this scan."),
+                    action: String(localized: "Sign in")
                 )
             } else if account.needsVerification {
                 accountGateRow(
                     icon: "envelope.badge",
                     iconTint: .orange,
-                    message: L.t(
-                        "Verify your email to place an order.",
-                        "Xác minh email để đặt hàng."
-                    ),
-                    action: L.t("Verify email", "Xác minh email")
+                    message: String(localized: "Verify your email to place an order."),
+                    action: String(localized: "Verify email")
                 )
             } else if let supplementNumber = supplementOrderNumber {
                 // 🔴 Bản quét LẺ thuộc một dự án ĐÃ CÓ ĐƠN → "Gửi bổ sung", ✗ "Đặt làm mặt bằng"
@@ -568,8 +559,7 @@ struct ScanDetailView: View {
                     showSupplementSheet = true
                 } label: {
                     Label(
-                        L.t("Send extra scan to \(supplementNumber)",
-                            "Gửi bổ sung vào đơn \(supplementNumber)"),
+                        String(localized: "Send extra scan to \(supplementNumber)"),
                         systemImage: "paperplane.fill"
                     )
                     .font(.headline)
@@ -590,8 +580,8 @@ struct ScanDetailView: View {
                     } label: {
                         Label(
                             current.cloudScanId == nil
-                                ? L.t("Order Floor Plan", "Đặt làm mặt bằng")
-                                : L.t("Order Floor Plan", "Đặt làm mặt bằng"),
+                                ? String(localized: "Order Floor Plan")
+                                : String(localized: "Order Floor Plan"),
                             systemImage: "paperplane.fill"
                         )
                         .font(.headline)
@@ -600,22 +590,22 @@ struct ScanDetailView: View {
                     }
                     .buttonStyle(.borderedProminent)
                 case .preparing:
-                    progressRow(L.t("Preparing upload…", "Đang chuẩn bị…"), nil)
+                    progressRow(String(localized: "Preparing upload…"), nil)
                 // KHÔNG in tên file (model-colored.zip / colored-mesh.ply / scan-video.mp4):
                 // đó là chuyện nội bộ, khách không cần biết app gửi những gì. Giữ (n/tổng) +
                 // thanh tiến độ để khách biết còn phải chờ bao lâu — đó là thứ họ thật sự cần.
                 case .uploading(_, let index, let total, let fraction):
                     progressRow(
-                        L.t("Sending your scan… (\(index)/\(total))", "Đang gửi bản quét… (\(index)/\(total))"),
+                        String(localized: "Sending your scan… (\(index)/\(total))"),
                         fraction
                     )
                 case .finishing:
-                    progressRow(L.t("Finishing…", "Đang hoàn tất…"), nil)
+                    progressRow(String(localized: "Finishing…"), nil)
                 case .done:
                     Button {
                         showOrderSheet = true
                     } label: {
-                        Label(L.t("Order Floor Plan", "Đặt làm mặt bằng"), systemImage: "paperplane.fill")
+                        Label(String(localized: "Order Floor Plan"), systemImage: "paperplane.fill")
                             .font(.headline)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 10)
@@ -741,7 +731,7 @@ struct ScanDetailView: View {
     /// `showShareButton`. Mô hình CÓ TEXTURE thì do máy trạm bake, xem qua công tắc trong `modelRow`.)
     private var meshTab: some View {
         VStack(spacing: 10) {
-            videoArea(missing: L.t("No walkthrough video in this scan", "Bản quét này không có video"))
+            videoArea(missing: String(localized: "No walkthrough video in this scan"))
             modelRow
             missingModelNote
         }
@@ -774,7 +764,7 @@ struct ScanDetailView: View {
                     cloudScanId: current.cloudScanId
                 )
             } label: {
-                Label(L.t("View 3D model", "Xem mô hình 3D"), systemImage: "cube")
+                Label(String(localized: "View 3D model"), systemImage: "cube")
                     .font(.subheadline.weight(.semibold))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 9)
@@ -863,8 +853,7 @@ struct ScanDetailView: View {
             // đang in "Bản quét này không có video" ⇒ hai câu ngược nhau trên cùng một màn.
             // Vòng soi đối kháng vòng 2 (19/08) bắt được. Nói đúng thứ ĐO ĐƯỢC: thiếu mô hình 3D.
             Label(
-                L.t("No 3D model in this scan — our team cannot draw a floor plan from it. Please scan this area again.",
-                    "Bản quét này chưa thu được mô hình 3D — đội vẽ không dựng được mặt bằng, hãy quét lại khu này."),
+                String(localized: "No 3D model in this scan — our team cannot draw a floor plan from it. Please scan this area again."),
                 systemImage: "exclamationmark.triangle.fill"
             )
             .font(.caption)
@@ -948,7 +937,7 @@ struct ScanDetailView: View {
         // (mỗi lần đoán sai là một lượt CI). ToolbarItem vẫn còn nhưng rỗng ⇒ không vẽ gì.
         if Self.showShareButton, !s.meshBundle.isEmpty {
             ShareLink(items: s.meshBundle) {
-                Text(L.t("Share", "Share"))
+                Text(String(localized: "Share"))
             }
         }
     }
@@ -1158,16 +1147,10 @@ struct OrderSheet: View {
     /// `ScanGuideView` mục "Nhiều tầng — quét liền một mạch" (hiện TRƯỚC khi quét) và HUONG-DAN.md
     /// — ✗ chép lại vào đây.
     private var floorsFooterText: String {
-        let base = L.t(
-            "Select the other floors of the same home to order everything together.",
-            "Chọn các tầng khác của cùng căn nhà để đặt chung một đơn."
-        )
+        let base = String(localized: "Select the other floors of the same home to order everything together.")
         // Bản quét CŨ đời RoomPlan vẫn còn số đo thật trong meta.json — với chúng thì vẫn nói.
         guard combinedAreaSqm > 0 else { return base }
-        return base + " " + L.t(
-            "Total area: \(Int(combinedAreaSqm)) m².",
-            "Tổng diện tích: \(Int(combinedAreaSqm)) m²."
-        )
+        return base + " " + String(localized: "Total area: \(Int(combinedAreaSqm)) m².")
     }
 
     // 🔴 `selectionHasVideoScan` + `selectionHasMeshScan` ĐÃ XOÁ 11/08 cùng RoomPlan. Cả hai rẽ
@@ -1210,7 +1193,7 @@ struct OrderSheet: View {
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
-                        Button(L.t("Retry", "Thử lại")) {
+                        Button(String(localized: "Retry")) {
                             self.loadError = nil
                             Task { await loadCatalog() }
                         }
@@ -1218,14 +1201,14 @@ struct OrderSheet: View {
                     }
                     .padding(24)
                 } else {
-                    ProgressView(L.t("Loading options…", "Đang tải bảng giá…"))
+                    ProgressView(String(localized: "Loading options…"))
                 }
             }
-            .navigationTitle(L.t("Order Floor Plan", "Đặt làm mặt bằng"))
+            .navigationTitle(String(localized: "Order Floor Plan"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button(placedOrder == nil ? L.t("Cancel", "Hủy") : L.t("Close", "Đóng")) {
+                    Button(placedOrder == nil ? String(localized: "Cancel") : String(localized: "Close")) {
                         // Hủy trong lúc TẢI LÊN = HỦY THẬT: cancel Task rồi dismiss (checkpoint trước
                         // orderScan trong submit() đảm bảo đơn KHÔNG tạo). Nhưng trong lúc "Đang đặt
                         // hàng…" (`placingOrder`) thì nút này bị `.disabled` — guard đây chỉ để chắc
@@ -1373,7 +1356,7 @@ struct OrderSheet: View {
                     VStack(spacing: 6) {
                         Image(systemName: "paintpalette").font(.title2)
                         Text(tpl.name).font(.subheadline.weight(.medium))
-                        Text(L.t("Preview image coming soon", "Ảnh mẫu sẽ cập nhật sau"))
+                        Text(String(localized: "Preview image coming soon"))
                             .font(.caption2)
                     }
                     .foregroundStyle(.secondary)
@@ -1440,10 +1423,7 @@ struct OrderSheet: View {
             if isFreePromo, let remaining = catalog.freeOrdersRemaining, let totalFree = catalog.freeFirstOrders {
                 Section {
                     Label {
-                        Text(L.t(
-                            "This order is FREE! New customers get their first \(totalFree) orders free (\(remaining) left).",
-                            "Đơn này MIỄN PHÍ! Khách mới được miễn phí \(totalFree) đơn đầu (còn \(remaining) lượt)."
-                        ))
+                        Text(String(localized: "This order is FREE! New customers get their first \(totalFree) orders free (\(remaining) left)."))
                         .font(.subheadline.weight(.semibold))
                     } icon: {
                         Text("🎁")
@@ -1480,7 +1460,7 @@ struct OrderSheet: View {
                     }
                 }
             } header: {
-                Text(L.t("Floors in this order", "Các tầng trong đơn này"))
+                Text(String(localized: "Floors in this order"))
             } footer: {
                 // CHỈ NÓI KHI CÓ VIỆC PHẢI LÀM: không có bản quét nào khác để gộp thì mục này không
                 // có footer nào cả (chủ app chốt 2026-08-13 — xem `floorsFooterText`).
@@ -1488,10 +1468,7 @@ struct OrderSheet: View {
                     if extraFloors.isEmpty {
                         // Nhắc NỔI BẬT: gộp tầng = 1 giá cho cả căn — đừng đặt lẻ từng tầng!
                         Label {
-                            Text(L.t(
-                                "TIP: One order covers the WHOLE home — select the other floors above instead of ordering them separately!",
-                                "MẸO: MỘT đơn tính giá cho CẢ căn nhà — hãy chọn thêm các tầng ở trên thay vì đặt lẻ từng tầng!"
-                            ))
+                            Text(String(localized: "TIP: One order covers the WHOLE home — select the other floors above instead of ordering them separately!"))
                             .font(.footnote.weight(.semibold))
                         } icon: {
                             Text("💡")
@@ -1526,7 +1503,7 @@ struct OrderSheet: View {
                     }
                 }
             } header: {
-                Text(L.t("Packages (choose one or more)", "Gói dịch vụ (chọn một hoặc nhiều)"))
+                Text(String(localized: "Packages (choose one or more)"))
             }
 
             Section {
@@ -1545,33 +1522,27 @@ struct OrderSheet: View {
                     }
                 }
             } header: {
-                Text(L.t("Add-ons", "Dịch vụ thêm"))
+                Text(String(localized: "Add-ons"))
             } footer: {
                 VStack(alignment: .leading, spacing: 6) {
                     // Express: chỉ CẢNH BÁO. App không đo được diện tích (mesh không có areaSqm) nên
                     // không tự chặn nhà lớn được — chủ app tự xử khi vẽ.
                     if selectedAddons.contains("express") {
-                        Text(L.t(
-                            "⚡️ Express: delivered within 12 hours. Not available for homes over 5,000 sq ft (464 m²).",
-                            "⚡️ Express: giao trong vòng 12 giờ. Không áp dụng cho nhà trên 5.000 sq ft (464 m²)."
-                        ))
+                        Text(String(localized: "⚡️ Express: delivered within 12 hours. Not available for homes over 5,000 sq ft (464 m²)."))
                     }
                     if selectedAddons.contains("tour") {
-                        Text(L.t(
-                            "🏠 Virtual Tour: after ordering you'll add 1–3 photos per room — we pin them on your floor plan and you get a shareable interactive tour link.",
-                            "🏠 Virtual Tour: sau khi đặt, bạn thêm 1–3 ảnh cho mỗi phòng — đội ngũ ghim ảnh lên mặt bằng và bạn nhận link tour tương tác để chia sẻ."
-                        ))
+                        Text(String(localized: "🏠 Virtual Tour: after ordering you'll add 1–3 photos per room — we pin them on your floor plan and you get a shareable interactive tour link."))
                     }
                 }
             }
 
             Section {
-                Picker(L.t("Units", "Đơn vị đo"), selection: $unitSystem) {
-                    Text(L.t("Metric (m)", "Mét (m)")).tag("metric")
-                    Text(L.t("Imperial (ft)", "Feet (ft)")).tag("imperial")
-                    Text(L.t("Both (ft & m)", "Cả hai (ft & m)")).tag("both")
+                Picker(String(localized: "Units"), selection: $unitSystem) {
+                    Text(String(localized: "Metric (m)")).tag("metric")
+                    Text(String(localized: "Imperial (ft)")).tag("imperial")
+                    Text(String(localized: "Both (ft & m)")).tag("both")
                 }
-                Picker(L.t("Language", "Ngôn ngữ bản vẽ"), selection: $language) {
+                Picker(String(localized: "Language"), selection: $language) {
                     ForEach(Self.languageOptions, id: \.self) { lang in
                         Text(lang).tag(lang)
                     }
@@ -1581,22 +1552,22 @@ struct OrderSheet: View {
                 // form này KHÔNG có ô nào bắt buộc cả (nút Đặt hàng chỉ đòi chọn ít nhất một gói),
                 // nên dán nhãn "không bắt buộc" lên từng ô là lặp lại một điều đúng với tất cả.
                 // ✗ thêm lại cho riêng một ô: lúc đó ba ô còn lại trông như thể BẮT BUỘC.
-                TextField(L.t("Floor naming style", "Kiểu đặt tên tầng"), text: $floorNaming)
+                TextField(String(localized: "Floor naming style"), text: $floorNaming)
             } header: {
-                Text(L.t("Preferences (saved for next time)", "Tùy chọn (lưu cho lần sau)"))
+                Text(String(localized: "Preferences (saved for next time)"))
             }
 
             // Ghi chú TÁCH khỏi mục "lưu cho lần sau": server chỉ lưu gói/add-on/đơn vị/ngôn ngữ/kiểu
             // tên tầng làm mặc định (orderDefaults), KHÔNG lưu `notes` — để chung header cũ là hứa sai.
             Section {
                 TextField(
-                    L.t("Anything we should know?", "Ghi chú thêm"),
+                    String(localized: "Anything we should know?"),
                     text: $notes,
                     axis: .vertical
                 )
                 .lineLimit(3...6)
             } header: {
-                Text(L.t("Note", "Ghi chú"))
+                Text(String(localized: "Note"))
             }
 
             Section {
@@ -1620,10 +1591,10 @@ struct OrderSheet: View {
                     if uploadingFile {
                         HStack(spacing: 8) {
                             ProgressView()
-                            Text(L.t("Uploading…", "Đang tải lên…")).foregroundStyle(.secondary)
+                            Text(String(localized: "Uploading…")).foregroundStyle(.secondary)
                         }
                     } else {
-                        Label(L.t("Add a file (logo, PDF…)", "Thêm file (logo, PDF…)"), systemImage: "paperclip")
+                        Label(String(localized: "Add a file (logo, PDF…)"), systemImage: "paperclip")
                     }
                 }
                 // Khoá theo TRẦN SERVER: order route nhận tối đa `Self.maxOrderFiles` file. Chặn ở
@@ -1641,7 +1612,7 @@ struct OrderSheet: View {
                     Text(fileUploadError).font(.footnote).foregroundStyle(.red)
                 }
             } header: {
-                Text(L.t("Attachments", "Đính kèm file"))
+                Text(String(localized: "Attachments"))
             } footer: {
                 // Câu mời "Gửi thêm logo hoặc file cho đội vẽ nếu cần — ảnh hoặc PDF." ĐÃ XOÁ
                 // 2026-08-13 (chủ app): nút ngay trên đã ghi "Thêm file (logo, PDF…)", nói lại
@@ -1649,17 +1620,16 @@ struct OrderSheet: View {
                 // 🔴 CẢNH BÁO TRẦN THÌ GIỮ — nó là thứ DUY NHẤT giải thích vì sao nút thêm file
                 // bỗng xám khi đủ 10 file. Bỏ nốt nó là nút chết không lý do (xem `.disabled`).
                 if orderFiles.count >= Self.maxOrderFiles {
-                    Text(L.t("Maximum \(Self.maxOrderFiles) files per order.",
-                             "Tối đa \(Self.maxOrderFiles) file mỗi đơn."))
+                    Text(String(localized: "Maximum \(Self.maxOrderFiles) files per order."))
                 }
             }
 
             Section {
-                TextField(L.t("Coupon code", "Mã giảm giá"), text: $couponCode)
+                TextField(String(localized: "Coupon code"), text: $couponCode)
                     .textInputAutocapitalization(.characters)
                     .autocorrectionDisabled()
             } footer: {
-                Text(L.t("The discount is applied on the payment page.", "Giảm giá được áp dụng ở trang thanh toán."))
+                Text(String(localized: "The discount is applied on the payment page."))
             }
 
             Section {
@@ -1667,10 +1637,7 @@ struct OrderSheet: View {
                     .filter({ areaSqFt > $0.overSqFt && $0.fee > 0 })
                     .max(by: { $0.overSqFt < $1.overSqFt }) {
                     HStack {
-                        Text(L.t(
-                            "Large property fee (over \(Int(surcharge.overSqFt)) sq ft)",
-                            "Phụ phí nhà lớn (trên \(Int(surcharge.overSqFt)) sq ft)"
-                        ))
+                        Text(String(localized: "Large property fee (over \(Int(surcharge.overSqFt)) sq ft)"))
                         .font(.footnote)
                         Spacer()
                         Text("+$\(surcharge.fee)")
@@ -1701,7 +1668,7 @@ struct OrderSheet: View {
                                 Text(busyLabel).font(.subheadline)
                             }
                         } else {
-                            Text(L.t("Place order", "Đặt hàng") + " · " + (isFreePromo ? L.t("FREE 🎁", "MIỄN PHÍ 🎁") : "$\(totalUSD)"))
+                            Text(String(localized: "Place order") + " · " + (isFreePromo ? String(localized: "FREE 🎁") : "$\(totalUSD)"))
                                 .font(.headline)
                         }
                     }
@@ -1722,10 +1689,7 @@ struct OrderSheet: View {
                 // điều riêng của đơn này — "không phải trả gì cả". Bỏ nốt là khách vừa thấy nút
                 // "MIỄN PHÍ 🎁" vừa không có gì xác nhận.
                 if isFreePromo {
-                    Text(L.t(
-                        "Free order — no payment needed. Our team starts right after you place it.",
-                        "Đơn miễn phí — không cần thanh toán, đội ngũ bắt đầu ngay sau khi đặt."
-                    ))
+                    Text(String(localized: "Free order — no payment needed. Our team starts right after you place it."))
                 }
             }
         }
@@ -1737,35 +1701,33 @@ struct OrderSheet: View {
             Image(systemName: "checkmark.circle.fill")
                 .font(.system(size: 52))
                 .foregroundStyle(.green)
-            Text(L.t("Order placed!", "Đã đặt hàng!"))
+            Text(String(localized: "Order placed!"))
                 .font(.title3.weight(.bold))
             Text(order.orderNumber)
                 .font(.title3.monospaced().weight(.bold))
             // Dòng "MIỄN PHÍ — khuyến mãi đơn đầu 🎁" ĐÃ BỎ 2026-09-01 theo chủ app. Đơn free
             // vì thế KHÔNG rơi xuống nhánh tổng tiền (in "$0" còn tệ hơn dòng vừa bỏ).
             if order.free != true, let total = order.total {
-                Text(L.t("Total: $\(total)", "Tổng tiền: $\(total)"))
+                Text(String(localized: "Total: $\(total)"))
                     .font(.headline)
             }
             if let discount = order.discount, discount > 0 {
-                Text(L.t("Coupon applied: −$\(String(format: "%.2f", discount))",
-                         "Đã áp mã giảm: −$\(String(format: "%.2f", discount))"))
+                Text(String(localized: "Coupon applied: −$\(String(format: "%.2f", discount))"))
                     .font(.subheadline)
                     .foregroundStyle(.green)
             } else if order.couponApplied == false {
-                Text(L.t("Coupon code was not valid — full price applies.",
-                         "Mã giảm giá không hợp lệ — tính giá đầy đủ."))
+                Text(String(localized: "Coupon code was not valid — full price applies."))
                     .font(.footnote)
                     .foregroundStyle(.orange)
             }
             // Câu "Đội ngũ Cedar247 sẽ bắt đầu…" (CẢ HAI nhánh free/trả tiền) ĐÃ BỎ 2026-09-01
             // theo chủ app — thay bằng lời cảm ơn, GIỮ đúng dòng "Theo dõi…". Việc "trả tiền ở
             // bước sau" vẫn hiện qua nút "Thanh toán ngay" / câu "gửi link qua email" ngay dưới.
-            Text(L.t("Thank you for choosing Cedar247!", "Cảm ơn bạn đã tin chọn Cedar247!"))
+            Text(String(localized: "Thank you for choosing Cedar247!"))
                 .font(.subheadline.weight(.medium))
                 .multilineTextAlignment(.center)
                 .padding(.horizontal)
-            Text(L.t("Track progress in the Orders tab.", "Theo dõi tiến độ ở mục Đơn hàng."))
+            Text(String(localized: "Track progress in the Orders tab."))
                 .font(.footnote)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -1775,7 +1737,7 @@ struct OrderSheet: View {
                 Button {
                     openURL(payURL)
                 } label: {
-                    Label(L.t("Pay Now", "Thanh toán ngay"), systemImage: "creditcard.fill")
+                    Label(String(localized: "Pay Now"), systemImage: "creditcard.fill")
                         .font(.headline)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 10)
@@ -1783,10 +1745,7 @@ struct OrderSheet: View {
                 .buttonStyle(.borderedProminent)
                 .padding(.horizontal)
             } else if order.free != true {
-                Text(L.t(
-                    "We will email you a payment link shortly.",
-                    "Link thanh toán sẽ được gửi qua email trong ít phút."
-                ))
+                Text(String(localized: "We will email you a payment link shortly."))
                 .font(.footnote)
                 .foregroundStyle(.secondary)
             }
@@ -1796,7 +1755,7 @@ struct OrderSheet: View {
                 Button {
                     showTourPhotos = true
                 } label: {
-                    Label(L.t("Add room photos for your tour", "Thêm ảnh phòng cho tour"),
+                    Label(String(localized: "Add room photos for your tour"),
                           systemImage: "photo.on.rectangle.angled")
                         .font(.headline)
                         .frame(maxWidth: .infinity)
@@ -1805,10 +1764,7 @@ struct OrderSheet: View {
                 .buttonStyle(.bordered)
                 .tint(.indigo)
                 .padding(.horizontal)
-                Text(L.t(
-                    "1–3 photos per room. You can also add them later in the Orders tab.",
-                    "1–3 ảnh mỗi phòng. Bạn cũng có thể thêm sau ở mục Đơn hàng."
-                ))
+                Text(String(localized: "1–3 photos per room. You can also add them later in the Orders tab."))
                 .font(.footnote)
                 .foregroundStyle(.secondary)
             }
@@ -1857,7 +1813,7 @@ struct OrderSheet: View {
                 // hành vi cũ (upload sẽ tự hỏng và báo lỗi) thay vì im lặng bỏ qua.
                 let live = store.records.first { $0.id == scan.id } ?? scan
                 if let existing = live.cloudScanId { return existing }
-                busyLabel = L.t("Uploading \(live.name)…", "Đang tải \(live.name)…")
+                busyLabel = String(localized: "Uploading \(live.name)…")
                 let uploader = ScanUploader()
                 if let cloudId = await uploader.upload(record: live, folder: store.folderURL(for: live)) {
                     store.setCloudScanId(live, cloudScanId: cloudId)
@@ -1866,7 +1822,7 @@ struct OrderSheet: View {
                 if case .failed(let message) = uploader.phase {
                     errorMessage = "\(live.name): \(message)"
                 } else {
-                    errorMessage = L.t("Could not upload \(live.name).", "Không tải được \(live.name).")
+                    errorMessage = String(localized: "Could not upload \(live.name).")
                 }
                 return nil
             }
@@ -1895,10 +1851,7 @@ struct OrderSheet: View {
             if isFreePromo, let fresh = try? await APIClient.shared.catalog() {
                 catalog = fresh
                 if (fresh.freeOrdersRemaining ?? 0) == 0 {
-                    errorMessage = L.t(
-                        "Your free-order slots were just used up. Please review the price and tap Place order again.",
-                        "Suất miễn phí vừa hết. Vui lòng xem lại giá rồi bấm Đặt hàng lại."
-                    )
+                    errorMessage = String(localized: "Your free-order slots were just used up. Please review the price and tap Place order again.")
                     isBusy = false
                     busyLabel = nil
                     return
@@ -1917,7 +1870,7 @@ struct OrderSheet: View {
             // Từ đây là điểm KHÔNG QUAY ĐẦU: khoá hủy (nút + onDisappear) để orderScan chạy trọn.
             // Đặt cờ trên MainActor TRƯỚC `await` nên UI kịp disable nút Hủy trước khi request bay đi.
             placingOrder = true
-            busyLabel = L.t("Placing order…", "Đang đặt hàng…")
+            busyLabel = String(localized: "Placing order…")
             do {
                 let result = try await APIClient.shared.orderScan(
                     scanId: primaryCloudId,

@@ -18,20 +18,17 @@ struct AuthView: View {
                 .font(.system(size: 44))
                 .foregroundStyle(.tint)
             Text(isRegistering
-                 ? L.t("Create your account", "Tạo tài khoản")
-                 : L.t("Sign in to Cedar247", "Đăng nhập Cedar247"))
+                 ? String(localized: "Create your account")
+                 : String(localized: "Sign in to Cedar247"))
                 .font(.title2.weight(.bold))
-            Text(L.t(
-                "Send your scans to our team and get professional floor plans back — right in this app.",
-                "Gửi bản quét cho đội ngũ Cedar247 và nhận bản vẽ mặt bằng chuyên nghiệp ngay trong app."
-            ))
+            Text(String(localized: "Send your scans to our team and get professional floor plans back — right in this app."))
             .font(.subheadline)
             .foregroundStyle(.secondary)
             .multilineTextAlignment(.center)
 
             VStack(spacing: 12) {
                 if isRegistering {
-                    TextField(L.t("Your name", "Tên của bạn"), text: $name)
+                    TextField(String(localized: "Your name"), text: $name)
                         .textContentType(.name)
                         .textFieldStyle(.roundedBorder)
                 }
@@ -41,7 +38,7 @@ struct AuthView: View {
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .textFieldStyle(.roundedBorder)
-                SecureField(L.t("Password (min 8 characters)", "Mật khẩu (tối thiểu 8 ký tự)"), text: $password)
+                SecureField(String(localized: "Password (min 8 characters)"), text: $password)
                     .textContentType(isRegistering ? .newPassword : .password)
                     .textFieldStyle(.roundedBorder)
             }
@@ -61,8 +58,8 @@ struct AuthView: View {
                         ProgressView().tint(.white)
                     } else {
                         Text(isRegistering
-                             ? L.t("Create account", "Tạo tài khoản")
-                             : L.t("Sign in", "Đăng nhập"))
+                             ? String(localized: "Create account")
+                             : String(localized: "Sign in"))
                     }
                 }
                 .font(.headline)
@@ -77,8 +74,8 @@ struct AuthView: View {
                 errorMessage = nil
             } label: {
                 Text(isRegistering
-                     ? L.t("Already have an account? Sign in", "Đã có tài khoản? Đăng nhập")
-                     : L.t("New here? Create an account", "Chưa có tài khoản? Đăng ký"))
+                     ? String(localized: "Already have an account? Sign in")
+                     : String(localized: "New here? Create an account"))
                     .font(.subheadline)
             }
 
@@ -86,7 +83,7 @@ struct AuthView: View {
                 Button {
                     showForgotPassword = true
                 } label: {
-                    Text(L.t("Forgot password?", "Quên mật khẩu?"))
+                    Text(String(localized: "Forgot password?"))
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }

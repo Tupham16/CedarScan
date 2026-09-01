@@ -16,12 +16,9 @@ struct VerifyEmailView: View {
             Image(systemName: "envelope.badge")
                 .font(.system(size: 44))
                 .foregroundStyle(.tint)
-            Text(L.t("Verify your email", "Xác minh email"))
+            Text(String(localized: "Verify your email"))
                 .font(.title2.weight(.bold))
-            Text(L.t(
-                "We sent a 6-digit code to \(account.customer?.email ?? "your email"). Enter it below to activate your account.",
-                "Chúng tôi đã gửi mã 6 số tới \(account.customer?.email ?? "email của bạn"). Nhập mã bên dưới để kích hoạt tài khoản."
-            ))
+            Text(String(localized: "We sent a 6-digit code to \(account.customer?.email ?? String(localized: "your email")). Enter it below to activate your account."))
             .font(.subheadline)
             .foregroundStyle(.secondary)
             .multilineTextAlignment(.center)
@@ -47,7 +44,7 @@ struct VerifyEmailView: View {
             } label: {
                 Group {
                     if isBusy { ProgressView().tint(.white) }
-                    else { Text(L.t("Verify", "Xác minh")) }
+                    else { Text(String(localized: "Verify")) }
                 }
                 .font(.headline)
                 .frame(maxWidth: .infinity)
@@ -60,8 +57,8 @@ struct VerifyEmailView: View {
                 resend()
             } label: {
                 Text(resendCooldown > 0
-                     ? L.t("Resend code (\(resendCooldown)s)", "Gửi lại mã (\(resendCooldown)s)")
-                     : L.t("Resend code", "Gửi lại mã"))
+                     ? String(localized: "Resend code (\(resendCooldown)s)")
+                     : String(localized: "Resend code"))
                     .font(.subheadline)
             }
             .disabled(resendCooldown > 0 || isBusy)
@@ -69,7 +66,7 @@ struct VerifyEmailView: View {
             Button(role: .destructive) {
                 account.signOut()
             } label: {
-                Text(L.t("Sign out", "Đăng xuất"))
+                Text(String(localized: "Sign out"))
                     .font(.footnote)
             }
             .padding(.top, 4)
@@ -99,7 +96,7 @@ struct VerifyEmailView: View {
         Task {
             do {
                 _ = try await APIClient.shared.resendCode()
-                infoMessage = L.t("A new code has been sent.", "Đã gửi mã mới.")
+                infoMessage = String(localized: "A new code has been sent.")
                 startCooldown()
             } catch {
                 errorMessage = error.localizedDescription

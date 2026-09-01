@@ -6,10 +6,19 @@ import SwiftUI
 /// và App Store review cũng mở mục này khi máy chưa đăng nhập; một cái link chết là một vòng bị
 /// từ chối. Đổi lại: sửa câu chữ = phải build lại app.
 ///
-/// **TIẾNG ANH, KHÔNG song ngữ** — khác mọi màn khác trong app. Khách của Cedar247 là khách nước
-/// ngoài (giá USD, địa chỉ Mỹ), và một văn bản pháp lý dịch hai thứ tiếng thì phải ghi rõ bản nào
-/// có hiệu lực khi hai bản lệch nhau. Nếu sau này cần bản tiếng Việt thì thêm bản dịch KÈM một
-/// câu "bản tiếng Anh là bản có hiệu lực", đừng dùng `L.t` trộn lẫn từng câu.
+/// **HAI BẢN TRỌN VẸN: TIẾNG ANH + TIẾNG PHÁP** (bản Pháp thêm 09/2026 khi chủ app chốt bán cho
+/// người tiêu dùng Québec — Bill 96 đòi hợp đồng mẫu phải có bản tiếng Pháp). Đúng theo ghi chú
+/// thiết kế cũ: dịch là dịch TRỌN VĂN BẢN kèm điều khoản "Language / Langue" nói rõ bản nào có
+/// hiệu lực ở đâu — ✗ trộn lẫn từng câu qua String Catalog. Vì vậy nội dung các mảng *Sections /
+/// *SectionsFR nằm NGOÀI Localizable.xcstrings, cố ý.
+/// · App hiện bản Pháp khi ngôn ngữ app là tiếng Pháp (`AppLanguage.code == "fr"`), mọi ngôn ngữ
+///   khác thấy bản Anh.
+/// · SỬA BẢN ANH THÌ PHẢI SỬA BẢN PHÁP CÙNG LƯỢT — hai bản phải cùng số mục, cùng nghĩa. Bản
+///   Pháp sinh từ `tools/legal-fr/` (kho dịch đã qua review đối kháng); đổi câu tiếng Anh mà
+///   không cập nhật bản Pháp là hai bản lệch nhau — với khách Québec thì BẢN PHÁP mới là bản
+///   có hiệu lực, nên lệch = tự viết lại hợp đồng của chính mình mà không biết.
+/// · `governingState` chỉ nội suy vào bản Anh; bản Pháp viết cứng "Nouveau-Mexique" — đổi bang
+///   đăng ký LLC thì sửa CẢ HAI.
 ///
 /// ⚠ Nội dung dưới đây mô tả ĐÚNG những gì app/server đang làm thật (id thiết bị cho suất miễn
 /// phí, **bản quét nằm trên máy tới khi khách tự xoá — mục "How long we keep it" sửa 10/08 ở bản
@@ -32,9 +41,9 @@ enum LegalDoc: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .privacy: return "Privacy Policy"
-        case .terms: return "Terms and Conditions"
-        case .eula: return "End User Licence Agreement"
+        case .privacy: return String(localized: "Privacy Policy")
+        case .terms: return String(localized: "Terms and Conditions")
+        case .eula: return String(localized: "End User Licence Agreement")
         }
     }
 
@@ -46,12 +55,16 @@ enum LegalDoc: String, CaseIterable, Identifiable {
         }
     }
 
-    /// Ngày cập nhật in ở đầu mỗi văn bản. SỬA NỘI DUNG THÌ SỬA CẢ NGÀY NÀY.
+    /// Ngày cập nhật in ở đầu mỗi văn bản. SỬA NỘI DUNG THÌ SỬA CẢ NGÀY NÀY — CẢ HAI BẢN.
     /// ⚠ SỬA 20/08: từng ghi nhầm "13 August 2026" — phiên làm việc kéo dài nhiều ngày và ngày
-    /// đó được SUY RA chứ không phải đọc từ đồng hồ. Lần thay đổi câu chữ THẬT SỰ gần nhất là
-    /// bản 2.27, commit `73c18eb` ngày **18/08/2026** (`git log --date=short`). Đổi nội dung thì
-    /// lấy ngày bằng `date`, ✗ suy từ ngày ghi trong handoff.
-    static let lastUpdated = "18 August 2026"
+    /// đó được SUY RA chứ không phải đọc từ đồng hồ. Đổi nội dung thì lấy ngày bằng `date`,
+    /// ✗ suy từ ngày ghi trong handoff.
+    /// (01/09/2026: thêm mục Language/Langue + bản dịch tiếng Pháp trọn vẹn — lệnh `date` chạy
+    /// lúc sửa: 2026-09-01.)
+    static let lastUpdated = "1 September 2026"
+
+    /// Ngày cập nhật viết theo lối Pháp, in trên bản Pháp. Đổi `lastUpdated` thì đổi cả đây.
+    static let lastUpdatedFR = "1er septembre 2026"
 
     static let contactEmail = "hello@cedar247.com"
 
@@ -75,12 +88,19 @@ enum LegalDoc: String, CaseIterable, Identifiable {
     static let governingState = "New Mexico"
     static let postalAddress = "1209 Mountain Road Pl NE, Ste N, Albuquerque, NM 87110"
 
+    /// Ngôn ngữ app là tiếng Pháp thì hiện bản Pháp — quyết định MỘT LẦN lúc đọc, theo bundle
+    /// localization đã resolve (khách Québec đặt máy tiếng Pháp rơi đúng vào đây).
+    static var isFrench: Bool { AppLanguage.code == "fr" }
+
+    /// Ngày in đầu văn bản, theo ngôn ngữ của chính văn bản đang hiện.
+    static var displayLastUpdated: String { isFrench ? lastUpdatedFR : lastUpdated }
+
     var sections: [LegalSection] {
         let raw: [(String, String)]
         switch self {
-        case .privacy: raw = Self.privacySections
-        case .terms: raw = Self.termsSections
-        case .eula: raw = Self.eulaSections
+        case .privacy: raw = Self.isFrench ? Self.privacySectionsFR : Self.privacySections
+        case .terms: raw = Self.isFrench ? Self.termsSectionsFR : Self.termsSections
+        case .eula: raw = Self.isFrench ? Self.eulaSectionsFR : Self.eulaSections
         }
         return raw.map { LegalSection(heading: $0.0, text: $0.1) }
     }
@@ -137,6 +157,8 @@ extension LegalDoc {
          "CedarScan is a professional tool and is not directed at children. We do not knowingly collect data from anyone under sixteen. If you believe a child has given us data, write to us and we will remove it."),
         ("Changes",
          "If we change this policy we will update the date at the top and, for anything significant, tell you in the app or by email. Continuing to use CedarScan after a change means you accept the updated policy."),
+        ("Language",
+         "This document exists in English and in French. If you are a consumer in Québec, the French version is made available to you and applies; the English version binds you only if you expressly choose it after receiving the French version. Everywhere else, if the two versions ever differ, the English version prevails to the extent your local law allows."),
         ("Contact",
          "\(legalEntity), \(postalAddress) — \(contactEmail)"),
     ]
@@ -180,6 +202,8 @@ extension LegalDoc {
          "You may stop using CedarScan and delete your account at any time. We may end this agreement if you break these terms seriously or repeatedly. Ending it does not affect orders already delivered or amounts already owed."),
         ("General",
          "If any part of these terms is unenforceable, the rest still applies. Failing to enforce a term is not a waiver of it. These terms are governed by the law of the State of \(governingState), United States, without regard to its conflict-of-law rules. If you are a consumer, that choice does not deprive you of the protection of any provision of the law of your country of residence that cannot be departed from by agreement; a consumer may bring proceedings in the courts of their own country of residence, and we will bring proceedings against a consumer only in the courts of the country where that consumer lives. We may update these terms and will show the new date at the top; material changes will be notified in the app or by email."),
+        ("Language",
+         "This document exists in English and in French. If you are a consumer in Québec, the French version is made available to you and applies; the English version binds you only if you expressly choose it after receiving the French version. Everywhere else, if the two versions ever differ, the English version prevails to the extent your local law allows."),
         ("Contact",
          "\(legalEntity), \(postalAddress) — \(contactEmail)"),
     ]
@@ -217,6 +241,8 @@ extension LegalDoc {
          "You confirm that you are not located in a country subject to a United States government embargo or designated as a terrorist-supporting country, and that you are not listed on any United States government list of prohibited or restricted parties. You will use the app only in compliance with applicable law."),
         ("General",
          "If any provision of this licence is unenforceable, the rest remains in force. This licence is governed by the law of the State of \(governingState), United States, without regard to its conflict-of-law rules. If you are a consumer, that choice does not deprive you of the protection of any provision of the law of your country of residence that cannot be departed from by agreement, and you may bring proceedings in the courts of your own country of residence. It is the entire agreement between you and Cedar247 about the app itself."),
+        ("Language",
+         "This document exists in English and in French. If you are a consumer in Québec, the French version is made available to you and applies; the English version binds you only if you expressly choose it after receiving the French version. Everywhere else, if the two versions ever differ, the English version prevails to the extent your local law allows."),
         ("Contact",
          "\(legalEntity), \(postalAddress) — \(contactEmail)"),
     ]
@@ -231,7 +257,7 @@ struct LegalDocumentView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
-                Text("Last updated: \(LegalDoc.lastUpdated)")
+                Text("Last updated: \(LegalDoc.displayLastUpdated)")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
                 ForEach(doc.sections) { section in

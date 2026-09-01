@@ -22,23 +22,17 @@ struct ForgotPasswordView: View {
                             .textInputAutocapitalization(.never)
                             .autocorrectionDisabled()
                     } footer: {
-                        Text(L.t(
-                            "We will email you a 6-digit code to reset your password.",
-                            "Chúng tôi sẽ gửi mã 6 số qua email để đặt lại mật khẩu."
-                        ))
+                        Text(String(localized: "We will email you a 6-digit code to reset your password."))
                     }
                 } else if step == 1 {
                     Section {
-                        TextField(L.t("6-digit code", "Mã 6 số"), text: $code)
+                        TextField(String(localized: "6-digit code"), text: $code)
                             .keyboardType(.numberPad)
                             .textContentType(.oneTimeCode)
-                        SecureField(L.t("New password (min 8 characters)", "Mật khẩu mới (tối thiểu 8 ký tự)"), text: $newPassword)
+                        SecureField(String(localized: "New password (min 8 characters)"), text: $newPassword)
                             .textContentType(.newPassword)
                     } footer: {
-                        Text(L.t(
-                            "Check the inbox (and spam folder) of \(email). The code expires in 15 minutes.",
-                            "Kiểm tra hộp thư (cả mục spam) của \(email). Mã hết hạn sau 15 phút."
-                        ))
+                        Text(String(localized: "Check the inbox (and spam folder) of \(email). The code expires in 15 minutes."))
                     }
                 } else {
                     Section {
@@ -46,12 +40,9 @@ struct ForgotPasswordView: View {
                             Image(systemName: "checkmark.circle.fill")
                                 .font(.system(size: 44))
                                 .foregroundStyle(.green)
-                            Text(L.t("Password updated!", "Đã đổi mật khẩu!"))
+                            Text(String(localized: "Password updated!"))
                                 .font(.headline)
-                            Text(L.t(
-                                "Sign in with your new password. Other devices were signed out for safety.",
-                                "Đăng nhập bằng mật khẩu mới. Các thiết bị khác đã bị đăng xuất để bảo mật."
-                            ))
+                            Text(String(localized: "Sign in with your new password. Other devices were signed out for safety."))
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
@@ -79,8 +70,8 @@ struct ForgotPasswordView: View {
                                     ProgressView().tint(.white)
                                 } else {
                                     Text(step == 0
-                                         ? L.t("Send code", "Gửi mã")
-                                         : L.t("Set new password", "Đặt mật khẩu mới"))
+                                         ? String(localized: "Send code")
+                                         : String(localized: "Set new password"))
                                         .font(.headline)
                                 }
                             }
@@ -93,11 +84,11 @@ struct ForgotPasswordView: View {
                     }
                 }
             }
-            .navigationTitle(L.t("Reset password", "Đặt lại mật khẩu"))
+            .navigationTitle(String(localized: "Reset password"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button(step == 2 ? L.t("Close", "Đóng") : L.t("Cancel", "Hủy")) { dismiss() }
+                    Button(step == 2 ? String(localized: "Close") : String(localized: "Cancel")) { dismiss() }
                 }
             }
         }

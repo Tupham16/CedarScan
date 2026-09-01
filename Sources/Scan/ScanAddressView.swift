@@ -189,11 +189,11 @@ struct ScanAddressView: View {
             // Tiêu đề "Trước khi quét" đổi thành TÊN THỨ MÀN NÀY HỎI (chủ app chốt 2026-08-13) và
             // để cỡ LỚN cho dễ nhận. Nhãn "Địa chỉ căn nhà" của section đã bỏ theo — hai chữ y hệt
             // nhau cách nhau 30pt là một dòng thừa, mà màn này vốn chỉ hỏi đúng một thứ.
-            .navigationTitle(L.t("Property address", "Địa chỉ căn nhà"))
+            .navigationTitle(String(localized: "Property address"))
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button(L.t("Cancel", "Hủy")) { dismiss() }
+                    Button(String(localized: "Cancel")) { dismiss() }
                 }
             }
             // Địa chỉ tra được từ GPS đổ vào ô nhập ở ĐÂY, không phải trong `LocationLookup`:
@@ -255,7 +255,7 @@ struct ScanAddressView: View {
     private var homeSection: some View {
         Section {
             TextField(
-                L.t("Address or name (e.g. 1600 College Ave)", "Địa chỉ hoặc tên (vd 1600 College Ave)"),
+                String(localized: "Address or name (e.g. 1600 College Ave)"),
                 text: $address
             )
             .textInputAutocapitalization(.words)
@@ -299,10 +299,7 @@ struct ScanAddressView: View {
             // theo yêu cầu chủ app), mà điền xong rồi thì một câu "vui lòng điền địa chỉ" nằm lại
             // dưới ô đã có chữ chỉ làm khách tưởng mình điền sai.
             if !hasHome {
-                Text(L.t(
-                    "Please enter the address to continue.",
-                    "Vui lòng điền địa chỉ để tiếp tục."
-                ))
+                Text(String(localized: "Please enter the address to continue."))
             }
         }
     }
@@ -315,7 +312,7 @@ struct ScanAddressView: View {
             addressWhenLocating = address
             locator.requestAddress()
         } label: {
-            Label(L.t("Use my location", "Dùng vị trí hiện tại"), systemImage: "location.fill")
+            Label(String(localized: "Use my location"), systemImage: "location.fill")
                 .font(.subheadline.weight(.semibold))
                 // TRẮNG tường minh cho CẢ icon lẫn chữ. Trong List, icon của Label bị iOS tô
                 // màu tint (accent) bất chấp buttonStyle — accent trên nền borderedProminent
@@ -352,7 +349,7 @@ struct ScanAddressView: View {
         case .working:
             HStack(spacing: 8) {
                 ProgressView()
-                Text(L.t("Finding your address…", "Đang tìm địa chỉ của bạn…"))
+                Text(String(localized: "Finding your address…"))
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
@@ -360,14 +357,11 @@ struct ScanAddressView: View {
             // Cùng khuôn với alert quyền Camera: nói rõ vì sao + đưa thẳng tới Cài đặt, chứ không
             // để khách đoán. Và nói luôn rằng gõ tay vẫn đi tiếp được — đây KHÔNG phải ngõ cụt.
             VStack(alignment: .leading, spacing: 6) {
-                Text(L.t(
-                    "Location is off for CedarScan. Turn it on in Settings, or just type the address below.",
-                    "CedarScan chưa được cấp quyền vị trí. Bật trong Cài đặt, hoặc cứ gõ địa chỉ bên dưới."
-                ))
+                Text(String(localized: "Location is off for CedarScan. Turn it on in Settings, or just type the address below."))
                 .font(.footnote)
                 .foregroundStyle(.secondary)
                 if let url = URL(string: UIApplication.openSettingsURLString) {
-                    Link(L.t("Open Settings", "Mở Cài đặt"), destination: url)
+                    Link(String(localized: "Open Settings"), destination: url)
                         .font(.footnote.weight(.semibold))
                 }
             }
@@ -420,13 +414,13 @@ struct ScanAddressView: View {
         if let picked = store.projects.first(where: { $0.id == pickedProjectId }) {
             HStack {
                 Label(
-                    L.t("Adding to: \(picked.name)", "Thêm vào: \(picked.name)"),
+                    String(localized: "Adding to: \(picked.name)"),
                     systemImage: "checkmark.circle.fill"
                 )
                 .font(.footnote)
                 .foregroundStyle(.tint)
                 Spacer(minLength: 8)
-                Button(L.t("Clear", "Bỏ chọn")) { pickedProjectId = nil }
+                Button(String(localized: "Clear")) { pickedProjectId = nil }
                     .font(.footnote)
                     .buttonStyle(.borderless)
             }
@@ -441,7 +435,7 @@ struct ScanAddressView: View {
     private var matchingRows: some View {
         if pickedProjectId == nil && !matchingProjects.isEmpty {
             // Không có nhãn này thì mấy dòng bên dưới ô nhập trông như thông tin CHỈ ĐỂ XEM.
-            Text(L.t("Already scanned — tap to reuse", "Đã quét — chạm để dùng lại"))
+            Text(String(localized: "Already scanned — tap to reuse"))
                 .font(.caption)
                 .foregroundStyle(.secondary)
             ForEach(matchingProjects) { project in
@@ -476,7 +470,7 @@ struct ScanAddressView: View {
                 .foregroundStyle(.primary)
                 .lineLimit(1)
             Spacer(minLength: 8)
-            Text(L.t("\(count) scan(s)", "\(count) bản quét"))
+            Text(String(localized: "\(count) scan(s)"))
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .layoutPriority(1)
@@ -528,9 +522,9 @@ struct ScanAddressView: View {
     /// Chỉ cần người dùng biết mình đang làm gì.
     private var startLabel: String {
         if exactMatch != nil {
-            return L.t("Create a separate home with this name", "Tạo căn RIÊNG cùng tên")
+            return String(localized: "Create a separate home with this name")
         }
-        return L.t("Start scanning", "Bắt đầu quét")
+        return String(localized: "Start scanning")
     }
     // KHÔNG có nút "Bỏ qua": địa chỉ giờ BẮT BUỘC, nút Bắt đầu bị khoá tới khi có căn nhà.
     // (Nút "Bỏ qua" từng tồn tại hồi địa chỉ còn tuỳ chọn — nó vừa thừa vừa dễ lẫn với "Hủy" ở
@@ -593,7 +587,7 @@ private struct AddressMapView: View {
     var body: some View {
         Map(position: $camera) {
             if let coordinate {
-                Marker(L.t("This property", "Căn này"), systemImage: "house.fill", coordinate: coordinate)
+                Marker(String(localized: "This property"), systemImage: "house.fill", coordinate: coordinate)
             }
             // Chấm xanh vị trí máy. CHỈ vẽ khi khách ĐÃ cấp quyền — `Map` của SwiftUI không tự đi
             // xin quyền, quyền vẫn chỉ được xin ở nút "Dùng vị trí hiện tại" (đúng như câu khai
@@ -651,14 +645,11 @@ private struct AddressMapView: View {
     private var pillText: String {
         switch state {
         case .searching:
-            return L.t("Finding it on the map…", "Đang tìm trên bản đồ…")
+            return String(localized: "Finding it on the map…")
         case .notFound:
-            return L.t(
-                "Not on the map — you can still scan.",
-                "Không thấy trên bản đồ — vẫn quét được bình thường."
-            )
+            return String(localized: "Not on the map — you can still scan.")
         case .idle, .found:
-            return L.t("Type the address to see it here", "Nhập địa chỉ để xem trên bản đồ")
+            return String(localized: "Type the address to see it here")
         }
     }
 }

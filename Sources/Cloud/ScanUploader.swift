@@ -42,7 +42,7 @@ final class ScanUploader: ObservableObject {
         guard present.contains(where: {
             $0.kind == "obj" || $0.kind == "video" || $0.kind == "mesh" || $0.kind == "objzip"
         }) else {
-            phase = .failed(L.t("No scan files found for this scan.", "Không tìm thấy file của bản quét này."))
+            phase = .failed(String(localized: "No scan files found for this scan."))
             return nil
         }
 

@@ -66,7 +66,7 @@ struct RootView: View {
                 account: account
             )
                 .tabItem {
-                    Label(L.t("Home", "Home"), systemImage: "house")
+                    Label(String(localized: "Home"), systemImage: "house")
                 }
                 .tag(RootTab.home)
                 .toolbar(.hidden, for: .tabBar)
@@ -75,7 +75,7 @@ struct RootView: View {
             // là để hai tab đọc store theo MỘT cách, khỏi phải cãi nhau lần sau xem cách nào đúng.
             OrdersView(store: store, onOpenProject: requestOpenProject)
                 .tabItem {
-                    Label(L.t("Orders", "Đơn hàng"), systemImage: "shippingbox")
+                    Label(String(localized: "Orders"), systemImage: "shippingbox")
                 }
                 .tag(RootTab.orders)
                 .toolbar(.hidden, for: .tabBar)
@@ -83,19 +83,19 @@ struct RootView: View {
             // không bao giờ hiện. Color.clear cho nhẹ.
             Color.clear
                 .tabItem {
-                    Label(L.t("Scan", "SCAN"), systemImage: "viewfinder")
+                    Label(String(localized: "Scan"), systemImage: "viewfinder")
                 }
                 .tag(RootTab.scan)
                 .toolbar(.hidden, for: .tabBar)
             LearnView()
                 .tabItem {
-                    Label(L.t("Learn", "Learn"), systemImage: "graduationcap")
+                    Label(String(localized: "Learn"), systemImage: "graduationcap")
                 }
                 .tag(RootTab.learn)
                 .toolbar(.hidden, for: .tabBar)
             AccountView()
                 .tabItem {
-                    Label(L.t("Account", "Tài khoản"), systemImage: "person.circle")
+                    Label(String(localized: "Account"), systemImage: "person.circle")
                 }
                 .tag(RootTab.account)
                 .toolbar(.hidden, for: .tabBar)

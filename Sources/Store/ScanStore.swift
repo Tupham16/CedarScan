@@ -264,10 +264,7 @@ final class ScanStore: ObservableObject {
         let hasMesh = meshURL.map { fileManager.fileExists(atPath: $0.path) } ?? false
         guard hasVideo || hasMesh else {
             throw NSError(domain: "CedarScan", code: 1, userInfo: [
-                NSLocalizedDescriptionKey: L.t(
-                    "Nothing was captured — no 3D mesh and no video.",
-                    "Chưa thu được dữ liệu — không có mesh 3D lẫn video."
-                ),
+                NSLocalizedDescriptionKey: String(localized: "Nothing was captured — no 3D mesh and no video."),
             ])
         }
 
@@ -589,6 +586,6 @@ final class ScanStore: ObservableObject {
     private static func defaultName() -> String {
         let formatter = DateFormatter()
         formatter.dateFormat = "dd/MM/yyyy HH:mm"
-        return "Scan \(formatter.string(from: Date()))"
+        return String(localized: "Scan \(formatter.string(from: Date()))")
     }
 }

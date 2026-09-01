@@ -51,11 +51,11 @@ struct SupplementSheet: View {
     var body: some View {
         NavigationStack {
             Form { content }
-                .navigationTitle(L.t("Send extra scan", "Gửi bổ sung bản quét"))
+                .navigationTitle(String(localized: "Send extra scan"))
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .topBarLeading) {
-                        Button(L.t("Close", "Đóng")) { dismiss() }
+                        Button(String(localized: "Close")) { dismiss() }
                             .disabled(isWorking)
                     }
                 }
@@ -88,12 +88,9 @@ struct SupplementSheet: View {
                     .font(.subheadline)
             }
         } header: {
-            Text(L.t("Scans to send", "Bản quét sẽ gửi"))
+            Text(String(localized: "Scans to send"))
         } footer: {
-            Text(L.t(
-                "These will be added to order \(orderNumber) — the one you already placed for this property. No extra charge.",
-                "Các bản quét này sẽ được thêm vào đơn \(orderNumber) — đơn bạn đã đặt cho căn nhà này. Không tính thêm phí."
-            ))
+            Text(String(localized: "These will be added to order \(orderNumber) — the one you already placed for this property. No extra charge."))
         }
 
         switch phase {
@@ -102,7 +99,7 @@ struct SupplementSheet: View {
                 Button {
                     send()
                 } label: {
-                    Label(L.t("Send to order \(orderNumber)", "Gửi vào đơn \(orderNumber)"),
+                    Label(String(localized: "Send to order \(orderNumber)"),
                           systemImage: "paperplane.fill")
                         .font(.headline)
                         .frame(maxWidth: .infinity)
@@ -119,20 +116,16 @@ struct SupplementSheet: View {
                     Text(label).font(.subheadline)
                 }
             } footer: {
-                Text(L.t(
-                    "Keep the app open until this finishes.",
-                    "Giữ app mở tới khi gửi xong."
-                ))
+                Text(String(localized: "Keep the app open until this finishes."))
             }
         case .sent(let count):
             Section {
                 Label(
-                    L.t("Sent — \(count) scan(s) added to \(orderNumber)",
-                        "Đã gửi — \(count) bản quét vào đơn \(orderNumber)"),
+                    String(localized: "Sent — \(count) scan(s) added to \(orderNumber)"),
                     systemImage: "checkmark.circle.fill"
                 )
                 .foregroundStyle(.green)
-                Button(L.t("Done", "Xong")) { dismiss() }
+                Button(String(localized: "Done")) { dismiss() }
             } footer: {
                 // 🔴 BA CÂU, ✗ MỘT. Đơn ĐÃ GIAO đi qua đường này từ 19/08, và khách vừa cầm bản
                 // vẽ trong tay: nói đúng một câu "đội đã được báo" là để họ tưởng bản vẽ CŨ đã
@@ -141,10 +134,7 @@ struct SupplementSheet: View {
                 // thẻ về cột Fix (`orders/route.ts` chỉ trả `deliveryFiles` khi stage == "done").
                 // Khách mở tab Đơn hàng thấy nút Tải biến mất mà không được báo trước là một cú
                 // hoảng không đáng có, và là loại việc Support phải trả lời từng người.
-                Text(deliveredNote ?? L.t(
-                    "Our team has been notified so the new area goes into your drawing.",
-                    "Đội xử lý đã được báo để đưa phần mới vào bản vẽ của bạn."
-                ))
+                Text(deliveredNote ?? String(localized: "Our team has been notified so the new area goes into your drawing."))
             }
         case .delivered(let message):
             // Chủ app chốt: *"đã giao thì chỉ là yêu cầu sửa"*. SERVER là nơi phán quyết (app chỉ
@@ -155,7 +145,7 @@ struct SupplementSheet: View {
                 Button {
                     openRevision()
                 } label: {
-                    Label(L.t("Request a revision", "Gửi yêu cầu sửa"), systemImage: "arrow.uturn.backward")
+                    Label(String(localized: "Request a revision"), systemImage: "arrow.uturn.backward")
                         .font(.headline)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 6)
@@ -164,14 +154,14 @@ struct SupplementSheet: View {
                 .listRowInsets(EdgeInsets())
                 .listRowBackground(Color.clear)
             } header: {
-                Text(L.t("Order already delivered", "Đơn đã giao"))
+                Text(String(localized: "Order already delivered"))
             }
         case .failed(let message):
             Section {
                 Text(message)
                     .font(.subheadline)
                     .foregroundStyle(.red)
-                Button(L.t("Try again", "Thử lại")) { send() }
+                Button(String(localized: "Try again")) { send() }
             }
         }
     }
@@ -184,15 +174,12 @@ struct SupplementSheet: View {
     private func send() {
         task?.cancel()
         task = Task { @MainActor in
-            phase = .working(L.t("Finding your order…", "Đang tìm đơn của bạn…"))
+            phase = .working(String(localized: "Finding your order…"))
             let order: OrderDTO
             do {
                 let list = try await APIClient.shared.listOrders()
                 guard let found = list.orders.first(where: { $0.orderNumber == orderNumber }) else {
-                    phase = .failed(L.t(
-                        "We couldn't find order \(orderNumber) on your account. Please sign in with the account that placed it.",
-                        "Không tìm thấy đơn \(orderNumber) trong tài khoản này. Hãy đăng nhập bằng tài khoản đã đặt đơn đó."
-                    ))
+                    phase = .failed(String(localized: "We couldn't find order \(orderNumber) on your account. Please sign in with the account that placed it."))
                     return
                 }
                 order = found
@@ -214,13 +201,13 @@ struct SupplementSheet: View {
                     cloudIds.append(existing)
                     continue
                 }
-                phase = .working(L.t("Uploading \(live.name)…", "Đang tải \(live.name)…"))
+                phase = .working(String(localized: "Uploading \(live.name)…"))
                 let uploader = ScanUploader()
                 guard let cloudId = await uploader.upload(record: live, folder: store.folderURL(for: live)) else {
                     if case .failed(let message) = uploader.phase {
                         phase = .failed("\(live.name): \(message)")
                     } else {
-                        phase = .failed(L.t("Could not upload \(live.name).", "Không tải được \(live.name)."))
+                        phase = .failed(String(localized: "Could not upload \(live.name)."))
                     }
                     return
                 }
@@ -228,14 +215,14 @@ struct SupplementSheet: View {
                 cloudIds.append(cloudId)
             }
             guard let primary = cloudIds.first else {
-                phase = .failed(L.t("No scan to send.", "Không có bản quét nào để gửi."))
+                phase = .failed(String(localized: "No scan to send."))
                 return
             }
 
             // 🔴 ĐIỂM KHÔNG QUAY ĐẦU (bẫy #26): từ đây `interactiveDismissDisabled` đã khoá vuốt
             // đóng, và ✗ kiểm `Task.isCancelled` sau cú gọi này — huỷ SAU khi server đã nối bản
             // quét là HALF-STATE (server có, app không đóng dấu → khách gửi lại mãi).
-            phase = .working(L.t("Sending to \(orderNumber)…", "Đang gửi vào đơn \(orderNumber)…"))
+            phase = .working(String(localized: "Sending to \(orderNumber)…"))
             do {
                 let result = try await APIClient.shared.supplementScan(
                     orderId: order.orderId,
@@ -264,15 +251,9 @@ struct SupplementSheet: View {
     private static func deliveredNote(for result: SupplementScanResponse) -> String? {
         guard result.wasDelivered == true else { return nil }
         if result.movedToFix == true {
-            return L.t(
-                "This order was already delivered, so our team will draw the new area and send you an updated drawing — at no extra charge. While they work on it the download link for the previous drawing is temporarily unavailable.",
-                "Đơn này đã giao rồi, nên đội xử lý sẽ vẽ thêm phần mới và gửi lại bản vẽ cập nhật cho bạn — không tính thêm phí. Trong lúc đó link tải bản vẽ cũ tạm thời không dùng được."
-            )
+            return String(localized: "This order was already delivered, so our team will draw the new area and send you an updated drawing — at no extra charge. While they work on it the download link for the previous drawing is temporarily unavailable.")
         }
-        return L.t(
-            "This order was already delivered. Our team has your new scan and will be in touch — at no extra charge.",
-            "Đơn này đã giao rồi. Đội xử lý đã nhận được bản quét mới của bạn và sẽ liên hệ lại — không tính thêm phí."
-        )
+        return String(localized: "This order was already delivered. Our team has your new scan and will be in touch — at no extra charge.")
     }
 
     /// Đóng dấu số đơn lên bản quét vừa gửi.

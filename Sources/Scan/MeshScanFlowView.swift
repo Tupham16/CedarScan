@@ -244,49 +244,40 @@ struct MeshScanFlowView: View {
             store.endBusy()
         }
         .alert(
-            L.t("LiDAR not available", "Máy không hỗ trợ LiDAR"),
+            String(localized: "LiDAR not available"),
             isPresented: $showUnsupported
         ) {
             Button("OK") { dismiss() }
         } message: {
-            Text(L.t(
-                "3D mesh scanning needs a LiDAR sensor (iPhone Pro).",
-                "Quét mesh 3D cần cảm biến LiDAR (iPhone Pro)."
-            ))
+            Text(String(localized: "3D mesh scanning needs a LiDAR sensor (iPhone Pro)."))
         }
         .alert(
-            L.t("Camera access needed", "Cần quyền Camera"),
+            String(localized: "Camera access needed"),
             isPresented: $showCameraDenied
         ) {
-            Button(L.t("Open Settings", "Mở Cài đặt")) {
+            Button(String(localized: "Open Settings")) {
                 if let url = URL(string: UIApplication.openSettingsURLString) {
                     UIApplication.shared.open(url)
                 }
                 dismiss()
             }
-            Button(L.t("Cancel", "Hủy"), role: .cancel) { dismiss() }
+            Button(String(localized: "Cancel"), role: .cancel) { dismiss() }
         } message: {
-            Text(L.t(
-                "CedarScan needs camera access to scan in 3D. Turn it on in Settings.",
-                "CedarScan cần quyền Camera để quét 3D. Hãy bật trong phần Cài đặt."
-            ))
+            Text(String(localized: "CedarScan needs camera access to scan in 3D. Turn it on in Settings."))
         }
         .confirmationDialog(
-            L.t("No 3D model captured yet", "Chưa quét được mô hình 3D"),
+            String(localized: "No 3D model captured yet"),
             isPresented: $showEmptyMeshConfirm,
             titleVisibility: .visible
         ) {
-            Button(L.t("Keep scanning", "Quét tiếp"), role: .cancel) {}
+            Button(String(localized: "Keep scanning"), role: .cancel) {}
             // "Vẫn lưu phần đã có": mesh dưới ngưỡng (nếu >0 đỉnh) vẫn được xuất kèm video.
-            Button(L.t("Save anyway", "Vẫn lưu phần đã có")) {
+            Button(String(localized: "Save anyway")) {
                 controller.qualityMonitor.setActive(false)
                 showNaming = true
             }
         } message: {
-            Text(L.t(
-                "Walk around and point the camera at walls and floors for a few more seconds.",
-                "Hãy đi thêm vài giây, hướng camera vào tường và sàn để có dữ liệu 3D."
-            ))
+            Text(String(localized: "Walk around and point the camera at walls and floors for a few more seconds."))
         }
     }
 
@@ -298,7 +289,7 @@ struct MeshScanFlowView: View {
                 controller.cancel()
                 dismiss()
             } label: {
-                Text(L.t("Cancel", "Hủy"))
+                Text(String(localized: "Cancel"))
                     .font(.headline)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 8)
@@ -316,7 +307,7 @@ struct MeshScanFlowView: View {
                     .padding(10)
                     .background(.ultraThinMaterial, in: Circle())
             }
-            .accessibilityLabel(L.t("Toggle scan mesh", "Bật/tắt lưới quét"))
+            .accessibilityLabel(String(localized: "Toggle scan mesh"))
         }
         .padding()
     }
@@ -330,10 +321,7 @@ struct MeshScanFlowView: View {
             // (có mesh nhưng builder chưa ghi) đều là "chưa vào bản quét". Kèm ngoại lệ kính:
             // LiDAR xuyên kính nên cửa sổ/cửa kính KHÔNG BAO GIỜ hết đỏ — không dặn trước là
             // khách đứng quét mãi một tấm kính chờ hết đỏ, rồi mất tin luôn vào màu đỏ.
-            Text(L.t(
-                "Walk slowly and point the camera at every surface — stairs and multiple floors are fine. Red = not in your scan yet (glass and windows always stay red — skip them). White mesh = saved.",
-                "Đi chậm, hướng camera vào mọi bề mặt — cầu thang/nhiều tầng thoải mái. Màu ĐỎ = chưa vào bản quét (kính/cửa sổ luôn đỏ — bỏ qua). Lưới TRẮNG = đã lưu."
-            ))
+            Text(String(localized: "Walk slowly and point the camera at every surface — stairs and multiple floors are fine. Red = not in your scan yet (glass and windows always stay red — skip them). White mesh = saved."))
             .font(.footnote)
             .multilineTextAlignment(.center)
             .padding(.horizontal, 12)
@@ -343,7 +331,7 @@ struct MeshScanFlowView: View {
             Button {
                 stopTapped()
             } label: {
-                Text(L.t("Stop & Save", "Dừng & Lưu"))
+                Text(String(localized: "Stop & Save"))
                     .font(.headline)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
@@ -360,20 +348,17 @@ struct MeshScanFlowView: View {
         // khi ARKit gộp anchor giải phóng chỗ, nhưng thường đứng lâu).
         if controller.trackingLost {
             bannerLabel(
-                L.t("Tracking lost — Stop & Save what you have.", "Mất định vị — hãy Dừng & Lưu phần đã quét."),
+                String(localized: "Tracking lost — Stop & Save what you have."),
                 color: .red
             )
         } else if controller.isInterrupted {
             bannerLabel(
-                L.t("Scan interrupted — waiting to recover…", "Phiên quét bị gián đoạn — đang chờ khôi phục…"),
+                String(localized: "Scan interrupted — waiting to recover…"),
                 color: .yellow
             )
         } else if controller.capReached {
             bannerLabel(
-                L.t(
-                    "Model is full — Stop & Save this part, then scan the rest as a NEW scan.",
-                    "Mô hình đã đầy — hãy Dừng & Lưu phần này, rồi quét phần còn lại thành bản quét MỚI."
-                ),
+                String(localized: "Model is full — Stop & Save this part, then scan the rest as a NEW scan."),
                 color: .orange
             )
         }
@@ -400,10 +385,7 @@ struct MeshScanFlowView: View {
             // Câu này chủ app viết thẳng 13/08, ✗ sửa lại cho "gọn". Vế cũ ("Đây là khu nào? Một
             // bản quét mesh có thể phủ nhiều tầng.") nói về CÁCH CHIA bản quét — thứ ông vừa bỏ
             // khỏi danh sách gợi ý; nay câu hỏi đúng một việc: khu vực nào của căn nhà.
-            subtitle: L.t(
-                "Which area of the property is this?",
-                "Đây là khu vực nào của property."
-            ),
+            subtitle: String(localized: "Which area of the property is this?"),
             suggestions: Self.nameSuggestions,
             typeAheadSuggestions: Self.nameTypeAhead,
             onSave: {
@@ -428,7 +410,7 @@ struct MeshScanFlowView: View {
         ZStack {
             Color.black.opacity(0.5).ignoresSafeArea()
             VStack(spacing: 10) {
-                Text(L.t("Building 3D model…", "Đang dựng mô hình 3D…"))
+                Text(String(localized: "Building 3D model…"))
                     .font(.headline)
                 ProgressView(value: saveProgress.fraction)
                 HStack(spacing: 6) {
@@ -448,10 +430,7 @@ struct MeshScanFlowView: View {
                 // Câu cũ ("Mức nét cao có thể mất một lúc.") nói về một PICKER đã bỏ từ
                 // 31/07 và không đặt được kỳ vọng nào. Câu mới nói đúng thứ khách cần biết:
                 // nhà lớn thì lâu. Giữ MỘT dòng — chủ app không thích màn hình phình ra.
-                Text(L.t(
-                    "A whole house can take a few minutes.",
-                    "Nhà lớn có thể mất vài phút."
-                ))
+                Text(String(localized: "A whole house can take a few minutes."))
                 .font(.footnote)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)

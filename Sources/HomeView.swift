@@ -119,7 +119,7 @@ struct HomeView: View {
             .searchable(
                 text: $searchText,
                 placement: .navigationBarDrawer(displayMode: .always),
-                prompt: L.t("Search homes and scans", "Tìm dự án, bản quét")
+                prompt: String(localized: "Search homes and scans")
             )
             // (`SafeAreaRepair` — ba phát "sửa-từ-ngoài" bắn từ onAppear của màn này — ĐÃ XOÁ HẲN
             // ở 2.13. Nó được ĐO là TRƠ: lúc đang lỗi, `fix 9` cho biết nó đã chạy 9 lượt và cú
@@ -230,21 +230,18 @@ struct HomeView: View {
                 }
             }
             .alert(
-                L.t("Part of the home is missing", "Còn một phần nhà chưa vào bản quét"),
+                String(localized: "Part of the home is missing"),
                 isPresented: $showScanNextPart
             ) {
-                Button(L.t("Scan the rest now", "Quét phần còn lại ngay")) {
+                Button(String(localized: "Scan the rest now")) {
                     pendingOrderRecord = nil // đổi ý: quét tiếp đã, đặt hàng sau
                     isMeshScanning = true
                 }
-                Button(L.t("Scan later", "Quét sau"), role: .cancel) {
+                Button(String(localized: "Scan later"), role: .cancel) {
                     goToPendingOrder()
                 }
             } message: {
-                Text(L.t(
-                    "The 3D model hit its size limit before you finished — the saved part is safe. Scan the remaining area as another scan (name them \"Part 1\", \"Part 2\"…) and they can be merged later.",
-                    "Mô hình 3D chạm giới hạn trước khi quét xong — phần đã lưu vẫn an toàn. Hãy quét khu còn lại thành một bản quét khác (đặt tên \"Part 1\", \"Part 2\"…) để ghép lại sau."
-                ))
+                Text(String(localized: "The 3D model hit its size limit before you finished — the saved part is safe. Scan the remaining area as another scan (name them \"Part 1\", \"Part 2\"…) and they can be merged later."))
             }
             // Tab SCAN (RootView) yêu cầu mở màn quét mới — thay cho nút "Quét không gian mới" cũ ở
             // đáy Home. Máy quét (cover qua `ScanCover` + các cờ pending) vẫn nằm nguyên trong
@@ -256,25 +253,22 @@ struct HomeView: View {
             .onChange(of: openProjectRequest) { _, request in
                 openProject(request)
             }
-            .alert(L.t("LiDAR required", "Cần cảm biến LiDAR"), isPresented: $showScanUnsupported) {
+            .alert(String(localized: "LiDAR required"), isPresented: $showScanUnsupported) {
                 Button("OK", role: .cancel) {}
             } message: {
-                Text(L.t(
-                    "CedarScan needs an iPhone Pro (12 Pro or newer) with a LiDAR sensor.",
-                    "CedarScan cần iPhone bản Pro (12 Pro trở lên) có cảm biến LiDAR."
-                ))
+                Text(String(localized: "CedarScan needs an iPhone Pro (12 Pro or newer) with a LiDAR sensor."))
             }
-            .alert(L.t("Rename scan", "Đổi tên bản quét"), isPresented: renameAlertBinding) {
-                TextField(L.t("New name", "Tên mới"), text: $renameText)
-                Button(L.t("Save", "Lưu")) {
+            .alert(String(localized: "Rename scan"), isPresented: renameAlertBinding) {
+                TextField(String(localized: "New name"), text: $renameText)
+                Button(String(localized: "Save")) {
                     if let record = recordToRename {
                         store.rename(record, to: renameText)
                     }
                     recordToRename = nil
                 }
-                Button(L.t("Cancel", "Hủy"), role: .cancel) { recordToRename = nil }
+                Button(String(localized: "Cancel"), role: .cancel) { recordToRename = nil }
             }
-            .alert(L.t("Could not save", "Lỗi khi lưu"), isPresented: saveErrorBinding) {
+            .alert(String(localized: "Could not save"), isPresented: saveErrorBinding) {
                 Button("OK", role: .cancel) { saveError = nil }
             } message: {
                 Text(saveError ?? "")
@@ -298,7 +292,7 @@ struct HomeView: View {
                     store.deleteProjectAndScans(project)
                     projectToDelete = nil
                 }
-                Button(L.t("Cancel", "Hủy"), role: .cancel) { projectToDelete = nil }
+                Button(String(localized: "Cancel"), role: .cancel) { projectToDelete = nil }
             } message: { project in
                 Text(DeleteProjectPrompt.message(scanCount: store.scans(in: project).count))
             }
@@ -413,7 +407,7 @@ struct HomeView: View {
             Image(systemName: "camera.metering.matrix")
                 .font(.system(size: 56))
                 .foregroundStyle(.secondary)
-            Text(L.t("No scans yet", "Chưa có bản quét nào"))
+            Text(String(localized: "No scans yet"))
                 .font(.title3.weight(.semibold))
             Text(isSupported
                  // Hết nhắc "tạo Dự án": nút folder đã gỡ, và bản quét nào cũng tự vào một dự án
@@ -422,14 +416,8 @@ struct HomeView: View {
                  // ⚠ CÂU NÀY TẢ NÚT THEO NHÃN "Scan" TRÊN NÚT (chủ app trả lại nhãn 2026-07-28,
                  // xem `CedarTabBar.scanItem`). Ai đổi nhãn/thiết kế nút thì sửa cả câu này —
                  // đời trước nút không có chữ, câu cũ phải tả "nút tròn" theo hình dạng.
-                 ? L.t(
-                    "Tap the Scan button in the middle of the bottom bar to scan your first space. Every scan is filed under the home address you enter.",
-                    "Bấm nút Scan ở giữa thanh dưới để quét không gian đầu tiên. Mỗi bản quét sẽ tự vào dự án theo địa chỉ bạn nhập."
-                 )
-                 : L.t(
-                    "CedarScan measures with the LiDAR sensor, which this iPhone does not have. You need an iPhone Pro (12 Pro or newer).",
-                    "CedarScan đo bằng cảm biến LiDAR mà iPhone này không có. Bạn cần iPhone bản Pro (12 Pro trở lên)."
-                 ))
+                 ? String(localized: "Tap the Scan button in the middle of the bottom bar to scan your first space. Every scan is filed under the home address you enter.")
+                 : String(localized: "CedarScan measures with the LiDAR sensor, which this iPhone does not have. You need an iPhone Pro (12 Pro or newer)."))
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -465,15 +453,12 @@ struct HomeView: View {
             // Tìm không ra thì PHẢI nói ra. Không có dòng này, danh sách rỗng trơn trông y hệt
             // "máy chưa có bản quét nào" — người dùng tưởng dữ liệu bay mất.
             if !searchText.isEmpty && visibleProjects.isEmpty && visibleLooseScans.isEmpty {
-                Text(L.t(
-                    "No homes or scans match \"\(searchText)\".",
-                    "Không có dự án hay bản quét nào khớp \"\(searchText)\"."
-                ))
+                Text(String(localized: "No homes or scans match \"\(searchText)\"."))
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
             }
             if !visibleProjects.isEmpty {
-                Section(L.t("Properties", "Dự án (căn nhà)")) {
+                Section(String(localized: "Properties")) {
                     ForEach(visibleProjects) { project in
                         projectRow(project)
                     }
@@ -481,8 +466,8 @@ struct HomeView: View {
             }
             if !visibleLooseScans.isEmpty {
                 Section(store.projects.isEmpty
-                        ? L.t("Scans", "Bản quét")
-                        : L.t("Not in a property", "Chưa vào dự án")) {
+                        ? String(localized: "Scans")
+                        : String(localized: "Not in a property")) {
                     ForEach(visibleLooseScans) { record in
                         ScanRow(
                             store: store,
@@ -576,7 +561,7 @@ struct HomeView: View {
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain) // cùng lý do với nút trên — xem khối 🔴 ở đó
-            .accessibilityLabel(L.t("Delete property", "Xóa dự án"))
+            .accessibilityLabel(String(localized: "Delete property"))
         }
         .padding(.vertical, 2)
     }
@@ -600,14 +585,11 @@ struct HomeView: View {
     /// nằm cạnh nhau, không nói thêm được gì.
     private static func projectCountLine(_ scans: [ScanRecord]) -> String {
         guard !scans.isEmpty else {
-            return L.t("0 scan(s)", "0 bản quét")
+            return String(localized: "0 scan(s)")
         }
         let ordered = scans.filter { $0.cloudOrderNumber != nil }.count
         let pending = scans.count - ordered
-        return L.t(
-            "\(scans.count) scan(s) · \(ordered) ordered · \(pending) not ordered",
-            "\(scans.count) bản quét · \(ordered) đã đặt · \(pending) chưa đặt"
-        )
+        return String(localized: "\(scans.count) scan(s) · \(ordered) ordered · \(pending) not ordered")
     }
 
     // KHÔNG lọc bản quét đã đặt ra khỏi danh sách này. Từng thử và đó là lỗi CHẶN: `ScanRow` là
@@ -718,7 +700,7 @@ struct ScanRow: View {
                     // rồi, để biết căn nhà còn thiếu tầng nào mà quét thêm. Một icon nhỏ màu xanh
                     // không nói được điều đó.
                     if record.cloudOrderNumber != nil {
-                        Label(L.t("Ordered", "Đã đặt"), systemImage: "shippingbox.fill")
+                        Label(String(localized: "Ordered"), systemImage: "shippingbox.fill")
                             .font(.caption)
                             .foregroundStyle(.tint)
                     } else if record.cloudScanId != nil {
@@ -737,12 +719,12 @@ struct ScanRow: View {
             Button(role: .destructive) {
                 store.delete(record)
             } label: {
-                Label(L.t("Delete", "Xóa"), systemImage: "trash")
+                Label(String(localized: "Delete"), systemImage: "trash")
             }
             Button {
                 onRename()
             } label: {
-                Label(L.t("Rename", "Đổi tên"), systemImage: "pencil")
+                Label(String(localized: "Rename"), systemImage: "pencil")
             }
         }
         .contextMenu {
@@ -754,20 +736,20 @@ struct ScanRow: View {
                         }
                     }
                 } label: {
-                    Label(L.t("Move to property", "Chuyển vào dự án"), systemImage: "folder")
+                    Label(String(localized: "Move to property"), systemImage: "folder")
                 }
             }
             if record.projectId != nil {
                 Button {
                     store.moveScan(record, to: nil)
                 } label: {
-                    Label(L.t("Remove from property", "Đưa ra khỏi dự án"), systemImage: "folder.badge.minus")
+                    Label(String(localized: "Remove from property"), systemImage: "folder.badge.minus")
                 }
             }
             Button {
                 onRename()
             } label: {
-                Label(L.t("Rename", "Đổi tên"), systemImage: "pencil")
+                Label(String(localized: "Rename"), systemImage: "pencil")
             }
         }
     }
@@ -791,6 +773,6 @@ struct ScanRow: View {
     /// đường TẠO của chúng chết từ 2026-07-19/20. Bản quét CŨ trên máy nay cũng hiện "Mesh 3D" —
     /// hơi sai với chúng, nhưng chủ app là người duy nhất còn giữ và đã chốt bóc sạch RoomPlan.
     private var typePart: String {
-        L.t("3D mesh", "Mesh 3D")
+        String(localized: "3D mesh")
     }
 }

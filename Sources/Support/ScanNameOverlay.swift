@@ -47,7 +47,7 @@ struct ScanNameOverlay: View {
         ZStack {
             Color.black.opacity(0.45).ignoresSafeArea()
             VStack(spacing: 14) {
-                Text(L.t("Name this scan", "Đặt tên bản quét"))
+                Text(String(localized: "Name this scan"))
                     .font(.headline)
                 Text(subtitle)
                     .font(.footnote)
@@ -57,7 +57,7 @@ struct ScanNameOverlay: View {
                 suggestionGrid
 
                 TextField(
-                    L.t("Or type a name (e.g. Attic)", "Hoặc tự gõ tên (vd Attic)"),
+                    String(localized: "Or type a name (e.g. Attic)"),
                     text: $name
                 )
                 .textFieldStyle(.roundedBorder)
@@ -76,14 +76,14 @@ struct ScanNameOverlay: View {
                 }
 
                 Button(action: onSave) {
-                    Text(L.t("Save scan", "Lưu bản quét"))
+                    Text(String(localized: "Save scan"))
                         .font(.headline)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 10)
                 }
                 .buttonStyle(.borderedProminent)
 
-                Button(L.t("Back", "Quay lại"), action: onBack)
+                Button(String(localized: "Back"), action: onBack)
                     .font(.subheadline)
             }
             .padding(20)

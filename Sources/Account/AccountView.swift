@@ -34,7 +34,7 @@ struct AccountView: View {
                                 Label("cedar247.com", systemImage: "globe")
                             }
                         } header: {
-                            Text(L.t("About", "Giới thiệu"))
+                            Text(String(localized: "About"))
                         }
                         // 🔴 FOOTER CỦA MỤC "Giới thiệu" ĐÃ XOÁ 19/08 — CHỦ APP CHỐT
                         // (*"Tab tài khoản: xóa dòng quét không gian bằng lidar,... đi"*).
@@ -64,18 +64,15 @@ struct AccountView: View {
                         // PDF + JPG · yêu cầu thì thêm được SVG/PNG · DWG là add-on.
                         Section {
                             Toggle(isOn: $scanCoachHaptics) {
-                                Label(L.t("Vibration alerts", "Rung cảnh báo"), systemImage: "iphone.radiowaves.left.and.right")
+                                Label(String(localized: "Vibration alerts"), systemImage: "iphone.radiowaves.left.and.right")
                             }
                             Toggle(isOn: $scanCoachVoice) {
-                                Label(L.t("Voice coaching", "Nhắc bằng giọng nói"), systemImage: "speaker.wave.2")
+                                Label(String(localized: "Voice coaching"), systemImage: "speaker.wave.2")
                             }
                         } header: {
-                            Text(L.t("Scan coaching", "Trợ giúp khi quét"))
+                            Text(String(localized: "Scan coaching"))
                         } footer: {
-                            Text(L.t(
-                                "Alerts while scanning when you move or turn too fast, light is low, or you get too close.",
-                                "Cảnh báo trong lúc quét khi đi/xoay nhanh quá, thiếu sáng hoặc dí quá sát."
-                            ))
+                            Text(String(localized: "Alerts while scanning when you move or turn too fast, light is low, or you get too close."))
                         }
                         Section {
                             LegalLinks()
@@ -86,24 +83,21 @@ struct AccountView: View {
                             Button(role: .destructive) {
                                 account.signOut()
                             } label: {
-                                Label(L.t("Sign out", "Đăng xuất"), systemImage: "rectangle.portrait.and.arrow.right")
+                                Label(String(localized: "Sign out"), systemImage: "rectangle.portrait.and.arrow.right")
                             }
                         }
                         Section {
                             Button(role: .destructive) {
                                 showDeleteAccount = true
                             } label: {
-                                Label(L.t("Delete account", "Xóa tài khoản"), systemImage: "trash")
+                                Label(String(localized: "Delete account"), systemImage: "trash")
                             }
                         } footer: {
                             // 🔴 CÂU NÀY PHẢI KHỚP `LegalView` mục "Deleting your account" VÀ khớp
                             // `account/delete/route.ts` trên server. Bản cũ ("your account and
                             // scans") mơ hồ giữa MÁY và SERVER: trên máy `submit()` chỉ gọi API rồi
                             // đăng xuất, thư mục `Documents/Scans` KHÔNG bị đụng.
-                            Text(L.t(
-                                "Deletes your account and the scans we hold in the cloud. Scans on this iPhone are not affected. This cannot be undone.",
-                                "Xóa tài khoản và các bản quét đang nằm trên máy chủ. Bản quét trong máy này không bị ảnh hưởng. Không thể hoàn tác."
-                            ))
+                            Text(String(localized: "Deletes your account and the scans we hold in the cloud. Scans on this iPhone are not affected. This cannot be undone."))
                         }
                     }
                 } else {
@@ -113,7 +107,7 @@ struct AccountView: View {
                     }
                 }
             }
-            .navigationTitle(L.t("Account", "Tài khoản"))
+            .navigationTitle(String(localized: "Account"))
             .sheet(isPresented: $showDeleteAccount) {
                 DeleteAccountView()
             }
@@ -164,10 +158,7 @@ struct DeleteAccountView: View {
                         //     bảng Order, nên MỌI đơn ở lại, giao hay chưa. Khách có đơn đang vẽ dở
                         //     đọc câu cũ sẽ tưởng đơn biến mất theo tài khoản.
                         // (3) Không nói rõ bản quét TRONG MÁY không bị đụng (chỉ server bị xoá).
-                        Text(L.t(
-                            "This permanently deletes your account and the scans we hold in the cloud. Your orders stay in our records, and so do the files attached to them. Scans on this iPhone are not affected. This CANNOT be undone.",
-                            "Thao tác này xóa vĩnh viễn tài khoản và các bản quét đang nằm trên máy chủ. Đơn hàng vẫn lưu trong sổ sách, kèm các file đính kèm của đơn. Bản quét trong máy này không bị ảnh hưởng. KHÔNG thể hoàn tác."
-                        ))
+                        Text(String(localized: "This permanently deletes your account and the scans we hold in the cloud. Your orders stay in our records, and so do the files attached to them. Scans on this iPhone are not affected. This CANNOT be undone."))
                         .font(.footnote)
                     } icon: {
                         Image(systemName: "exclamationmark.triangle.fill")
@@ -175,7 +166,7 @@ struct DeleteAccountView: View {
                     }
                 }
                 Section {
-                    SecureField(L.t("Enter your password to confirm", "Nhập mật khẩu để xác nhận"), text: $password)
+                    SecureField(String(localized: "Enter your password to confirm"), text: $password)
                         .textContentType(.password)
                 }
                 if let errorMessage {
@@ -193,7 +184,7 @@ struct DeleteAccountView: View {
                             if isBusy {
                                 ProgressView()
                             } else {
-                                Text(L.t("Delete my account forever", "Xóa vĩnh viễn tài khoản của tôi"))
+                                Text(String(localized: "Delete my account forever"))
                                     .font(.headline)
                             }
                         }
@@ -202,11 +193,11 @@ struct DeleteAccountView: View {
                     .disabled(isBusy || password.isEmpty)
                 }
             }
-            .navigationTitle(L.t("Delete account", "Xóa tài khoản"))
+            .navigationTitle(String(localized: "Delete account"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button(L.t("Cancel", "Hủy")) { dismiss() }
+                    Button(String(localized: "Cancel")) { dismiss() }
                 }
             }
         }

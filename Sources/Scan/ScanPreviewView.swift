@@ -94,7 +94,7 @@ struct ScanPreviewView: View {
 
     private var header: some View {
         VStack(spacing: 4) {
-            Label(L.t("Scan saved", "Đã lưu bản quét"), systemImage: "checkmark.circle.fill")
+            Label(String(localized: "Scan saved"), systemImage: "checkmark.circle.fill")
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.green)
             // Địa chỉ là thứ khách cần đối chiếu nhất ("mình vừa quét đúng căn chưa?") nên nó là
@@ -126,8 +126,8 @@ struct ScanPreviewView: View {
     private var mediaPicker: some View {
         if meshPreviewURL != nil {
             Picker("", selection: $showingMesh) {
-                Text(L.t("Video", "Video")).tag(false)
-                Text(L.t("3D model", "Mô hình 3D")).tag(true)
+                Text(String(localized: "Video")).tag(false)
+                Text(String(localized: "3D model")).tag(true)
             }
             .pickerStyle(.segmented)
             .labelsHidden()
@@ -164,10 +164,7 @@ struct ScanPreviewView: View {
                 Image(systemName: "video.slash")
                     .font(.largeTitle)
                     .foregroundStyle(.secondary)
-                Text(L.t(
-                    "No walkthrough video was recorded — your 3D scan was still saved.",
-                    "Không quay được video hành trình — mô hình 3D của bạn vẫn đã được lưu."
-                ))
+                Text(String(localized: "No walkthrough video was recorded — your 3D scan was still saved."))
                 .font(.footnote)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -185,14 +182,8 @@ struct ScanPreviewView: View {
             // trên nhãn nút nên nhắc lại ở đây là thừa. Câu chữ theo đúng tab đang mở — bảo
             // "xem lại video" trong lúc khách đang xoay mô hình là chỉ sai chỗ.
             Text(showingMesh
-                ? L.t(
-                    "Spin the model to check for any room you missed.",
-                    "Xoay mô hình để chắc không sót phòng nào."
-                )
-                : L.t(
-                    "Check the video for any room you missed.",
-                    "Xem lại video để chắc không sót phòng nào."
-                ))
+                ? String(localized: "Spin the model to check for any room you missed.")
+                : String(localized: "Check the video for any room you missed."))
             .font(.caption)
             .foregroundStyle(.secondary)
             .multilineTextAlignment(.center)
@@ -206,7 +197,7 @@ struct ScanPreviewView: View {
             // chính là lý do màn preview này tồn tại.
             Button(action: onScanMore) {
                 Label(
-                    L.t("Scan another area of this home", "Quét thêm khu vực còn thiếu"),
+                    String(localized: "Scan another area of this home"),
                     systemImage: "viewfinder"
                 )
                 .font(.subheadline.weight(.semibold))
@@ -225,7 +216,7 @@ struct ScanPreviewView: View {
                     //  • "Xong" nghe như đóng hẳn việc, khách tưởng hết cơ hội đặt.
                     // "Đặt hàng sau" thành cặp song song với "Đặt hàng ngay": cùng nói về ĐẶT
                     // HÀNG, chỉ khác thời điểm, nên không nhánh nào đọc nhầm sang chuyện quét.
-                    Text(L.t("Order later", "Đặt hàng sau"))
+                    Text(String(localized: "Order later"))
                         .font(.headline)
                         .lineLimit(1)
                         .minimumScaleFactor(0.7)
@@ -239,8 +230,8 @@ struct ScanPreviewView: View {
                     // sắp xảy ra, không thì khách bấm "Đặt hàng ngay" rồi thấy một màn không có
                     // giá và tưởng app hỏng.
                     Text(isSupplement
-                         ? L.t("Send extra scan", "Gửi bổ sung bản quét")
-                         : L.t("Order now", "Đặt hàng ngay"))
+                         ? String(localized: "Send extra scan")
+                         : String(localized: "Order now"))
                         .font(.headline)
                         .lineLimit(1)
                         .minimumScaleFactor(0.7)

@@ -130,7 +130,7 @@ final class TexturedModelCache: ObservableObject {
             } else {
                 // Câu chữ này ĐI THẲNG vào dòng lỗi khách đọc → phải qua L.t. Khách của
                 // Cedar247 là người nước ngoài, nhánh tiếng Anh MỚI là nhánh thường.
-                phase = .failed(L.t("cached file is empty", "file cache rỗng"))
+                phase = .failed(String(localized: "cached file is empty"))
             }
             return
         }

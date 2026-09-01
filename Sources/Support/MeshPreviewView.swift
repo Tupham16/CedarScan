@@ -52,10 +52,7 @@ struct MeshPreviewView: View {
                 MeshSceneView(scene: scene, cameraNode: cameraNode)
                 VStack {
                     Spacer()
-                    Text(L.t(
-                        "Drag to rotate · pinch to zoom",
-                        "Kéo để xoay · chụm hai ngón để phóng to"
-                    ))
+                    Text(String(localized: "Drag to rotate · pinch to zoom"))
                     .font(.caption2)
                     .foregroundStyle(.white.opacity(0.55))
                     .padding(.bottom, 8)
@@ -67,10 +64,7 @@ struct MeshPreviewView: View {
                     Image(systemName: "cube.transparent")
                         .font(.largeTitle)
                         .foregroundStyle(.white.opacity(0.5))
-                    Text(L.t(
-                        "Couldn't open the 3D model for this scan.",
-                        "Không mở được mô hình 3D của bản quét này."
-                    ))
+                    Text(String(localized: "Couldn't open the 3D model for this scan."))
                     .font(.footnote)
                     .foregroundStyle(.white.opacity(0.7))
                     .multilineTextAlignment(.center)

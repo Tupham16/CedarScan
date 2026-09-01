@@ -89,11 +89,11 @@ struct CedarTabBar: View {
 
     var body: some View {
         HStack(alignment: .bottom, spacing: 0) {
-            tabItem(.home, icon: "house", filled: "house.fill", title: L.t("Home", "Home"))
-            tabItem(.orders, icon: "shippingbox", filled: "shippingbox.fill", title: L.t("Orders", "Đơn hàng"))
+            tabItem(.home, icon: "house", filled: "house.fill", title: String(localized: "Home"))
+            tabItem(.orders, icon: "shippingbox", filled: "shippingbox.fill", title: String(localized: "Orders"))
             scanItem
-            tabItem(.learn, icon: "graduationcap", filled: "graduationcap.fill", title: L.t("Learn", "Learn"))
-            tabItem(.account, icon: "person.circle", filled: "person.circle.fill", title: L.t("Account", "Tài khoản"))
+            tabItem(.learn, icon: "graduationcap", filled: "graduationcap.fill", title: String(localized: "Learn"))
+            tabItem(.account, icon: "person.circle", filled: "person.circle.fill", title: String(localized: "Account"))
         }
         .frame(height: Self.totalHeight)
         // Nền mờ + đường kẻ chỉ phủ phần thanh `barHeight` DƯỚI CÙNG (ghim đáy). Vùng phía trên
@@ -185,7 +185,7 @@ struct CedarTabBar: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(L.t("Scan a new space", "Quét không gian mới"))
+        .accessibilityLabel(String(localized: "Scan a new space"))
     }
 
     /// Chồng cao nhất ở đây là vòng "khoét lỗ" (`scanDiameter + 6` = 72) — nó quyết định bất

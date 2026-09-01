@@ -16,6 +16,13 @@ targets:
     sources:
       - Sources
       - Assets.xcassets
+      # String Catalog 8 ngôn ngữ (bản 2.34): en nguồn + vi fr de cs sk es nl.
+      # `buildPhase: resources` khai TƯỜNG MINH — đừng dựa vào việc XcodeGen tự đoán phase cho
+      # đuôi .xcstrings; rơi nhầm vào Compile Sources là build hỏng theo kiểu khó đoán.
+      # Localizable.xcstrings SINH BẰNG MÁY (tools/build_xcstrings.py đọc kho dịch) — sửa bản
+      # dịch thì sửa ở kho dịch rồi sinh lại, ✗ sửa tay file .xcstrings.
+      - path: Localization
+        buildPhase: resources
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.cedar247.cedarscan
@@ -51,7 +58,7 @@ targets:
         # tiếng, cùng hiện "1.0" → chủ app test trúng bản cũ mà không ai biết, báo "lỗi vẫn
         # nguyên" oan. AltStore (My Apps) và Cài đặt iOS đều hiện số này — nó là cách DUY NHẤT
         # xác minh từ xa máy ông đang chạy bản nào. Ghi số giao kèm vào SESSION-HANDOFF §STATE.
-        MARKETING_VERSION: "2.33"
+        MARKETING_VERSION: "2.34"
     info:
       path: Sources/Info.plist
       properties:
@@ -117,3 +124,20 @@ targets:
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
         ITSAppUsesNonExemptEncryption: false
+        # ĐA NGÔN NGỮ (bản 2.34): tiếng Anh là ngôn ngữ nguồn; 7 bản dịch nằm trong
+        # Localization/Localizable.xcstrings (UI) + Localization/InfoPlist.xcstrings (chuỗi xin
+        # quyền). Khai CFBundleLocalizations tường minh để App Store liệt kê đủ 8 thứ tiếng và
+        # iOS hiện mục chọn ngôn ngữ riêng cho app trong Settings.
+        # 🔴 NSCameraUsageDescription ở TRÊN (bản gốc trong Info.plist) phải GIỮ TIẾNG ANH —
+        # appstore-check.py kiểm câu đó, và reviewer Apple đọc bản gốc; bản dịch chỉ nằm trong
+        # InfoPlist.xcstrings.
+        CFBundleDevelopmentRegion: en
+        CFBundleLocalizations:
+          - en
+          - vi
+          - fr
+          - de
+          - cs
+          - sk
+          - es
+          - nl

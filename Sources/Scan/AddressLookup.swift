@@ -96,10 +96,7 @@ final class LocationLookup: NSObject, ObservableObject {
             // KHÔNG đụng `waitingForPermission` ở đây — van này chỉ được bật khi đã qua cửa xin
             // quyền, và xoá cờ đó là cắt đứt callback quyền còn đang chờ (xem chú thích ở nhánh
             // `.notDetermined`).
-            self.state = .failed(L.t(
-                "Still looking… no luck. Type the address instead.",
-                "Chưa tìm được vị trí. Bạn nhập địa chỉ bằng tay nhé."
-            ))
+            self.state = .failed(String(localized: "Still looking… no luck. Type the address instead."))
         }
     }
 
@@ -188,10 +185,7 @@ extension LocationLookup: CLLocationManagerDelegate {
             if isDenied {
                 self.state = .denied
             } else {
-                self.state = .failed(L.t(
-                    "Could not get your location. Type the address instead.",
-                    "Không lấy được vị trí. Bạn nhập địa chỉ bằng tay nhé."
-                ))
+                self.state = .failed(String(localized: "Could not get your location. Type the address instead."))
             }
         }
     }
@@ -208,10 +202,7 @@ extension LocationLookup: CLLocationManagerDelegate {
             // của `resolvedAddress`, nên thứ tự ngược lại là view đọc trúng toạ độ của lần trước.
             lastCoordinate = location.coordinate
             if text.isEmpty {
-                state = .failed(L.t(
-                    "No street address found here. Type it instead.",
-                    "Không tra được địa chỉ ở đây. Bạn nhập bằng tay nhé."
-                ))
+                state = .failed(String(localized: "No street address found here. Type it instead."))
             } else {
                 resolvedAddress = text
                 state = .idle
@@ -219,10 +210,7 @@ extension LocationLookup: CLLocationManagerDelegate {
         } catch {
             finishWorking()
             // Reverse geocode cần MẠNG. Trong nhà bê tông có GPS mà không có sóng là chuyện thường.
-            state = .failed(L.t(
-                "Could not look up the address (no connection?). Type it instead.",
-                "Không tra được địa chỉ (mất mạng?). Bạn nhập bằng tay nhé."
-            ))
+            state = .failed(String(localized: "Could not look up the address (no connection?). Type it instead."))
         }
     }
 }

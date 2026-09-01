@@ -34,7 +34,7 @@ struct OrdersView: View {
                     ordersList
                 }
             }
-            .navigationTitle(L.t("Orders", "Đơn hàng"))
+            .navigationTitle(String(localized: "Orders"))
             // Khoá theo DANH TÍNH khách chứ không chỉ theo cờ `isSignedIn`: một máy có thể dùng
             // >1 tài khoản (A đăng xuất → B đăng nhập). Với `id: isSignedIn` thì cache `orders`
             // của A đứng nguyên suốt lúc B chờ mạng — B thấy đơn, tên bản quét, và bấm được
@@ -93,10 +93,9 @@ struct OrdersView: View {
             Image(systemName: "person.crop.circle.badge.questionmark")
                 .font(.system(size: 44))
                 .foregroundStyle(.secondary)
-            Text(L.t("Sign in to see your orders", "Đăng nhập để xem đơn hàng"))
+            Text(String(localized: "Sign in to see your orders"))
                 .font(.headline)
-            Text(L.t("Go to the Account tab to sign in or create an account.",
-                     "Vào mục Tài khoản để đăng nhập hoặc đăng ký."))
+            Text(String(localized: "Go to the Account tab to sign in or create an account."))
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -114,18 +113,15 @@ struct OrdersView: View {
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
-                Button(L.t("Retry", "Thử lại")) { Task { await load() } }
+                Button(String(localized: "Retry")) { Task { await load() } }
                     .buttonStyle(.bordered)
             } else {
                 Image(systemName: "shippingbox")
                     .font(.system(size: 44))
                     .foregroundStyle(.secondary)
-                Text(L.t("No orders yet", "Chưa có đơn nào"))
+                Text(String(localized: "No orders yet"))
                     .font(.headline)
-                Text(L.t(
-                    "Open a scan and tap \"Order Floor Plan\" to have our team create professional drawings.",
-                    "Mở một bản quét và bấm \"Đặt làm mặt bằng\" để đội ngũ Cedar247 vẽ bản chuyên nghiệp cho bạn."
-                ))
+                Text(String(localized: "Open a scan and tap \"Order Floor Plan\" to have our team create professional drawings."))
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -188,17 +184,16 @@ struct OrdersView: View {
         // khi `orders.isEmpty && isLoading`. Không có nhánh này thì màn hình khẳng định "Không có
         // đơn nào" đúng lúc dữ liệu còn đang trên đường về.
         if isLoading && orders.isEmpty {
-            return L.t("Loading your orders…", "Đang tải đơn hàng…")
+            return String(localized: "Loading your orders…")
         }
         let hasQuery = !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         if hasQuery && searchedOrders.isEmpty {
-            return L.t("No orders match your search.", "Không có đơn nào khớp với từ khóa.")
+            return String(localized: "No orders match your search.")
         }
         if filter != .all {
-            return L.t("No orders in this category — try another filter above.",
-                       "Không có đơn nào ở mục này — thử chọn mục khác ở trên.")
+            return String(localized: "No orders in this category — try another filter above.")
         }
-        return L.t("No orders in this category.", "Không có đơn nào ở mục này.")
+        return String(localized: "No orders in this category.")
     }
 
     /// Các nút lọc thật sự hiện ra.
@@ -259,12 +254,11 @@ struct OrdersView: View {
                     HStack(spacing: 8) {
                         Image(systemName: "wifi.exclamationmark")
                             .foregroundStyle(.orange)
-                        Text(L.t("Couldn't refresh — showing saved data.",
-                                 "Không tải được dữ liệu mới — đang hiện dữ liệu cũ."))
+                        Text(String(localized: "Couldn't refresh — showing saved data."))
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                         Spacer()
-                        Button(L.t("Retry", "Thử lại")) { Task { await load() } }
+                        Button(String(localized: "Retry")) { Task { await load() } }
                             .font(.footnote.weight(.semibold))
                     }
                 }
@@ -287,7 +281,7 @@ struct OrdersView: View {
                     if let total = order.total, total > 0 {
                         Text("· $\(total)")
                         if order.paid == true {
-                            Label(L.t("Paid", "Đã trả"), systemImage: "checkmark.seal.fill")
+                            Label(String(localized: "Paid"), systemImage: "checkmark.seal.fill")
                                 .foregroundStyle(.green)
                         }
                     }
@@ -297,7 +291,7 @@ struct OrdersView: View {
 
                 if order.paid != true, let payURL = httpsURL(order.paymentUrl) {
                     Link(destination: payURL) {
-                        Label(L.t("Pay Now", "Thanh toán ngay"), systemImage: "creditcard.fill")
+                        Label(String(localized: "Pay Now"), systemImage: "creditcard.fill")
                             .font(.subheadline.weight(.semibold))
                     }
                 }
@@ -307,7 +301,7 @@ struct OrdersView: View {
                     if let tourURL = httpsURL(order.tourUrl) {
                         HStack(spacing: 12) {
                             Link(destination: tourURL) {
-                                Label(L.t("View Virtual Tour", "Xem Virtual Tour"), systemImage: "house.fill")
+                                Label(String(localized: "View Virtual Tour"), systemImage: "house.fill")
                                     .font(.subheadline.weight(.semibold))
                             }
                             ShareLink(item: tourURL) {
@@ -321,9 +315,8 @@ struct OrdersView: View {
                         } label: {
                             Label(
                                 (order.tourPhotoCount ?? 0) > 0
-                                    ? L.t("Tour photos: \(order.tourPhotoCount ?? 0) — add more",
-                                          "Ảnh tour: \(order.tourPhotoCount ?? 0) — thêm ảnh")
-                                    : L.t("Add tour photos", "Thêm ảnh cho tour"),
+                                    ? String(localized: "Tour photos: \(order.tourPhotoCount ?? 0) — add more")
+                                    : String(localized: "Add tour photos"),
                                 systemImage: "photo.on.rectangle.angled"
                             )
                             .font(.caption.weight(.semibold))
@@ -339,7 +332,7 @@ struct OrdersView: View {
                 if order.status == "delivered" {
                     if let url = httpsURL(order.deliveredUrl) {
                         Link(destination: url) {
-                            Label(L.t("Download deliverables", "Tải file thành phẩm"), systemImage: "arrow.down.circle.fill")
+                            Label(String(localized: "Download deliverables"), systemImage: "arrow.down.circle.fill")
                                 .font(.subheadline.weight(.semibold))
                         }
                     }
@@ -377,7 +370,7 @@ struct OrdersView: View {
                     Button {
                         revisionOrder = order
                     } label: {
-                        Label(L.t("Request a revision", "Yêu cầu sửa"), systemImage: "pencil.and.outline")
+                        Label(String(localized: "Request a revision"), systemImage: "pencil.and.outline")
                             .font(.caption.weight(.semibold))
                     }
                     .buttonStyle(.bordered)
@@ -394,7 +387,7 @@ struct OrdersView: View {
                     Button {
                         onOpenProject(project)
                     } label: {
-                        Label(L.t("Add a scan", "Thêm bản quét"), systemImage: "plus.viewfinder")
+                        Label(String(localized: "Add a scan"), systemImage: "plus.viewfinder")
                             .font(.caption.weight(.semibold))
                     }
                     .buttonStyle(.bordered)
@@ -418,7 +411,7 @@ struct OrdersView: View {
         .searchable(
             text: $searchText,
             placement: .navigationBarDrawer(displayMode: .always),
-            prompt: L.t("Search order # or scan name", "Tìm số đơn hoặc tên bản quét")
+            prompt: String(localized: "Search order # or scan name")
         )
     }
 
@@ -454,12 +447,9 @@ struct RevisionSheet: View {
                             Image(systemName: "checkmark.circle.fill")
                                 .font(.system(size: 44))
                                 .foregroundStyle(.green)
-                            Text(L.t("Revision requested!", "Đã gửi yêu cầu sửa!"))
+                            Text(String(localized: "Revision requested!"))
                                 .font(.headline)
-                            Text(L.t(
-                                "Our team will update your floor plan and deliver a revised version.",
-                                "Đội ngũ sẽ chỉnh sửa và giao lại bản cập nhật cho bạn."
-                            ))
+                            Text(String(localized: "Our team will update your floor plan and deliver a revised version."))
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
@@ -470,8 +460,7 @@ struct RevisionSheet: View {
                 } else {
                     Section {
                         TextField(
-                            L.t("What should we change? (e.g. missing door on Floor 2, wrong room label…)",
-                                "Cần sửa gì? (vd thiếu cửa ở Floor 2, sai tên phòng…)"),
+                            String(localized: "What should we change? (e.g. missing door on Floor 2, wrong room label…)"),
                             text: $message,
                             axis: .vertical
                         )
@@ -479,8 +468,7 @@ struct RevisionSheet: View {
                     } header: {
                         Text(order.orderNumber)
                     } footer: {
-                        Text(L.t("Revisions for mistakes on our side are free.",
-                                 "Sửa lỗi thuộc về chúng tôi là miễn phí."))
+                        Text(String(localized: "Revisions for mistakes on our side are free."))
                     }
                     attachmentsSection
                     if let errorMessage {
@@ -492,7 +480,7 @@ struct RevisionSheet: View {
                     }
                 }
             }
-            .navigationTitle(L.t("Request a revision", "Yêu cầu sửa"))
+            .navigationTitle(String(localized: "Request a revision"))
             .navigationBarTitleDisplayMode(.inline)
             // Vuốt xuống lúc ĐANG GỬI / ĐANG TẢI FILE thì sheet đóng mà request vẫn bay tiếp:
             // khách tin là đã hủy, thực tế đội vẽ vẫn nhận yêu cầu (và `onSent` không chạy nên
@@ -501,7 +489,7 @@ struct RevisionSheet: View {
             .interactiveDismissDisabled(isBusy || uploadingFile)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button(sent ? L.t("Close", "Đóng") : L.t("Cancel", "Hủy")) { dismiss() }
+                    Button(sent ? String(localized: "Close") : String(localized: "Cancel")) { dismiss() }
                 }
                 if !sent {
                     ToolbarItem(placement: .topBarTrailing) {
@@ -511,7 +499,7 @@ struct RevisionSheet: View {
                             if isBusy {
                                 ProgressView()
                             } else {
-                                Text(L.t("Send", "Gửi")).bold()
+                                Text(String(localized: "Send")).bold()
                             }
                         }
                         // Khoá luôn khi ĐANG TẢI FILE: gửi lúc đó là lời nhắn tới nơi mà file
@@ -547,10 +535,10 @@ struct RevisionSheet: View {
                 if uploadingFile {
                     HStack(spacing: 8) {
                         ProgressView()
-                        Text(L.t("Uploading…", "Đang tải lên…")).foregroundStyle(.secondary)
+                        Text(String(localized: "Uploading…")).foregroundStyle(.secondary)
                     }
                 } else {
-                    Label(L.t("Add a file (photo, PDF…)", "Thêm file (ảnh, PDF…)"), systemImage: "paperclip")
+                    Label(String(localized: "Add a file (photo, PDF…)"), systemImage: "paperclip")
                 }
             }
             // Khoá cả khi ĐANG GỬI (`isBusy`): thêm file lúc đó là file lên R2 SAU khi POST đã
@@ -572,13 +560,11 @@ struct RevisionSheet: View {
             // "(không bắt buộc)" bỏ theo mục cùng tên ở form đặt hàng (`ScanDetailView`, 13/08):
             // hai mục này cố ý CÙNG KHUÔN, để lệch chữ là hai màn nói hai kiểu về cùng một việc.
             // Ở đây cũng đúng nghĩa — nút Gửi chỉ đòi có LỜI NHẮN, file thì không.
-            Text(L.t("Attachments", "Đính kèm file"))
+            Text(String(localized: "Attachments"))
         } footer: {
             Text(files.count >= Self.maxFiles
-                 ? L.t("Maximum \(Self.maxFiles) files per request.",
-                       "Tối đa \(Self.maxFiles) file mỗi lần gửi.")
-                 : L.t("A marked-up photo or PDF helps us find exactly what to fix.",
-                       "Ảnh chụp/PDF có đánh dấu giúp đội vẽ tìm đúng chỗ cần sửa."))
+                 ? String(localized: "Maximum \(Self.maxFiles) files per request.")
+                 : String(localized: "A marked-up photo or PDF helps us find exactly what to fix."))
         }
     }
 
@@ -657,12 +643,12 @@ enum OrderFilter: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .all: return L.t("All", "Tất cả")
-        case .processing: return L.t("Processing", "Đang xử lý")
-        case .onHold: return L.t("On hold", "Tạm giữ")
-        case .ready: return L.t("Ready", "Đã giao")
-        case .refunded: return L.t("Refunded", "Hoàn tiền")
-        case .other: return L.t("Other", "Khác")
+        case .all: return String(localized: "All")
+        case .processing: return String(localized: "Processing")
+        case .onHold: return String(localized: "On hold")
+        case .ready: return String(localized: "Ready")
+        case .refunded: return String(localized: "Refunded")
+        case .other: return String(localized: "Other")
         }
     }
 
@@ -684,11 +670,11 @@ struct StatusBadge: View {
     private var info: (String, Color) {
         switch status {
         case "delivered":
-            return (L.t("Delivered", "Đã giao"), .green)
+            return (String(localized: "Delivered"), .green)
         case "on_hold":
-            return (L.t("On hold", "Tạm giữ"), .orange)
+            return (String(localized: "On hold"), .orange)
         case "refunded":
-            return (L.t("Refunded", "Hoàn tiền"), .red)
+            return (String(localized: "Refunded"), .red)
         // "in_production" VÀ "received"/mặc định đều hiện "Đang xử lý" — chủ app chốt bỏ nhãn
         // "Đã nhận" (khiến khách nôn nóng), gộp vào "đang xử lý".
         //
@@ -697,7 +683,7 @@ struct StatusBadge: View {
         // nhau cạnh nhau trên một màn hình — đọc thành lỗi render chứ không thành hai ý nghĩa.
         // Xanh lá/cam/đỏ ở trên thì GIỮ NGUYÊN: chúng là bộ màu ngữ nghĩa, đọc theo nhau.
         default:
-            return (L.t("Processing", "Đang xử lý"), .accentColor)
+            return (String(localized: "Processing"), .accentColor)
         }
     }
 

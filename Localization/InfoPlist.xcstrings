@@ -1,0 +1,100 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "NSCameraUsageDescription": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CedarScan používá kameru a senzor LiDAR ke skenování místností vaší nemovitosti a k vytvoření 3D modelu, podle kterého se kreslí váš půdorys."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CedarScan verwendet die Kamera und den LiDAR-Sensor, um die Räume Ihrer Immobilie zu scannen und das 3D-Modell zu erstellen, aus dem Ihr Grundriss gezeichnet wird."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CedarScan usa la cámara y el sensor LiDAR para escanear las habitaciones de tu propiedad y crear el modelo 3D a partir del cual se dibuja tu plano."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CedarScan utilise la caméra et le capteur LiDAR pour numériser les pièces de votre propriété et construire le modèle 3D à partir duquel votre plan d'étage est dessiné."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CedarScan gebruikt de camera en de LiDAR-sensor om de kamers van je pand te scannen en het 3D-model te bouwen waaruit je plattegrond wordt getekend."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CedarScan používa kameru a senzor LiDAR na skenovanie miestností vašej nehnuteľnosti a vytvorenie 3D modelu, podľa ktorého sa kreslí váš pôdorys."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CedarScan dùng camera và cảm biến LiDAR để quét các phòng trong ngôi nhà của bạn và dựng mô hình 3D làm gốc vẽ bản mặt bằng."
+          }
+        }
+      }
+    },
+    "NSLocationWhenInUseUsageDescription": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CedarScan používá vaši polohu pouze k vyplnění adresy nemovitosti, kterou se chystáte skenovat. Adresu můžete vždy zadat ručně."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CedarScan verwendet Ihren Standort nur, um die Adresse der Immobilie auszufüllen, die Sie gleich scannen. Sie können die Adresse stattdessen jederzeit von Hand eingeben."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CedarScan usa tu ubicación solo para rellenar la dirección de la propiedad que vas a escanear. Siempre puedes escribir la dirección a mano."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CedarScan utilise votre position uniquement pour remplir l'adresse de la propriété que vous vous apprêtez à numériser. Vous pouvez toujours saisir l'adresse à la main à la place."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CedarScan gebruikt je locatie alleen om het adres in te vullen van het pand dat je gaat scannen. Je kunt het adres ook altijd zelf typen."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CedarScan používa vašu polohu iba na vyplnenie adresy nehnuteľnosti, ktorú sa chystáte skenovať. Adresu môžete vždy zadať ručne."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CedarScan chỉ dùng vị trí của bạn để điền địa chỉ ngôi nhà sắp quét. Bạn luôn có thể tự gõ địa chỉ thay vào đó."
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

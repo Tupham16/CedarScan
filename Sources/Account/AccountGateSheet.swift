@@ -65,7 +65,7 @@ struct AccountGateSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button(L.t("Cancel", "Hủy")) { dismiss() }
+                    Button(String(localized: "Cancel")) { dismiss() }
                 }
             }
         }

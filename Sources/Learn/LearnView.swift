@@ -24,11 +24,8 @@ struct LearnView: View {
                     NavigationLink(value: Topic.scanGuide) {
                         Label {
                             VStack(alignment: .leading, spacing: 2) {
-                                Text(L.t("How to scan well", "Cách quét đẹp"))
-                                Text(L.t(
-                                    "Lighting, walking speed, stairs, and what to do when you finish.",
-                                    "Ánh sáng, tốc độ đi, cầu thang, và việc phải làm khi quét xong."
-                                ))
+                                Text(String(localized: "How to scan well"))
+                                Text(String(localized: "Lighting, walking speed, stairs, and what to do when you finish."))
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                             }
@@ -39,7 +36,7 @@ struct LearnView: View {
                         .padding(.vertical, 2)
                     }
                 } header: {
-                    Text(L.t("Scanning", "Quét"))
+                    Text(String(localized: "Scanning"))
                 }
                 // Mục thứ hai, TÁCH SECTION RIÊNG chứ ✗ nối vào Section "Quét": hai mục nói về hai
                 // việc khác hẳn nhau (cầm máy đi quét · trả tiền và nhận hàng), và khách vào đây
@@ -48,11 +45,8 @@ struct LearnView: View {
                     NavigationLink(value: Topic.orderFAQ) {
                         Label {
                             VStack(alignment: .leading, spacing: 2) {
-                                Text(L.t("Order Q&A", "Hỏi đáp về đơn hàng"))
-                                Text(L.t(
-                                    "How to order, extra scans at no charge, payment, files and revisions.",
-                                    "Cách đặt hàng, gửi bổ sung không mất phí, thanh toán, file nhận được và yêu cầu sửa."
-                                ))
+                                Text(String(localized: "Order Q&A"))
+                                Text(String(localized: "How to order, extra scans at no charge, payment, files and revisions."))
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                             }
@@ -67,26 +61,23 @@ struct LearnView: View {
                         .padding(.vertical, 2)
                     }
                 } header: {
-                    Text(L.t("Orders", "Đơn hàng"))
+                    Text(String(localized: "Orders"))
                 } footer: {
-                    Text(L.t(
-                        "More guides are on the way.",
-                        "Các hướng dẫn khác sẽ được bổ sung."
-                    ))
+                    Text(String(localized: "More guides are on the way."))
                 }
             }
-            .navigationTitle(L.t("Learn", "Learn"))
+            .navigationTitle(String(localized: "Learn"))
             .navigationDestination(for: Topic.self) { topic in
                 switch topic {
                 case .scanGuide:
                     // RUỘT của hướng dẫn (không kèm NavigationStack riêng) — lồng hai
                     // NavigationStack là mất nút Back và có hai thanh tiêu đề chồng nhau.
                     ScanGuideContent()
-                        .navigationTitle(L.t("How to scan well", "Cách quét đẹp"))
+                        .navigationTitle(String(localized: "How to scan well"))
                         .navigationBarTitleDisplayMode(.inline)
                 case .orderFAQ:
                     OrderFAQContent()
-                        .navigationTitle(L.t("Order Q&A", "Hỏi đáp về đơn hàng"))
+                        .navigationTitle(String(localized: "Order Q&A"))
                         .navigationBarTitleDisplayMode(.inline)
                 }
             }

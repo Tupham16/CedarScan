@@ -374,7 +374,7 @@ final class APIClient {
         if !(200...299).contains(status) {
             let body = try? JSONDecoder().decode(ServerError.self, from: data)
             throw APIError(
-                message: body?.error ?? L.t("Something went wrong. Please try again.", "Có lỗi xảy ra. Vui lòng thử lại."),
+                message: body?.error ?? String(localized: "Something went wrong. Please try again."),
                 statusCode: status,
                 code: body?.code
             )
@@ -576,7 +576,7 @@ final class APIClient {
     /// PUT dữ liệu ảnh (đã nén JPEG trong RAM) lên presigned URL.
     func uploadData(_ data: Data, to putUrl: String, contentType: String) async throws {
         guard let url = URL(string: putUrl) else {
-            throw APIError(message: "Invalid upload URL", statusCode: 0)
+            throw APIError(message: String(localized: "Invalid upload URL"), statusCode: 0)
         }
         var request = URLRequest(url: url)
         request.httpMethod = "PUT"
@@ -586,7 +586,7 @@ final class APIClient {
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
         guard (200...299).contains(status) else {
             throw APIError(
-                message: L.t("Upload failed. Please try again.", "Tải lên thất bại. Vui lòng thử lại."),
+                message: String(localized: "Upload failed. Please try again."),
                 statusCode: status
             )
         }
@@ -601,7 +601,7 @@ final class APIClient {
         progress: @escaping (Double) -> Void
     ) async throws {
         guard let url = URL(string: putUrl) else {
-            throw APIError(message: "Invalid upload URL", statusCode: 0)
+            throw APIError(message: String(localized: "Invalid upload URL"), statusCode: 0)
         }
         var request = URLRequest(url: url)
         request.httpMethod = "PUT"
@@ -622,7 +622,7 @@ final class APIClient {
                     continuation.resume()
                 } else {
                     continuation.resume(throwing: APIError(
-                        message: L.t("Upload failed. Please try again.", "Tải lên thất bại. Vui lòng thử lại."),
+                        message: String(localized: "Upload failed. Please try again."),
                         statusCode: status
                     ))
                 }

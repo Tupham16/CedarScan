@@ -24,11 +24,11 @@ struct ScanGuideView: View {
     var body: some View {
         NavigationStack {
             ScanGuideContent(onStart: onStart)
-                .navigationTitle(L.t("How to scan well", "Cách quét đẹp"))
+                .navigationTitle(String(localized: "How to scan well"))
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .topBarTrailing) {
-                        Button(L.t("Close", "Đóng")) {
+                        Button(String(localized: "Close")) {
                             UserDefaults.standard.set(true, forKey: Self.seenKey)
                             dismiss()
                         }
@@ -68,16 +68,12 @@ struct ScanGuideContent: View {
     private var beforeSection: some View {
         tipSection(
             icon: "checklist",
-            title: L.t("Before you scan", "Trước khi quét"),
+            title: String(localized: "Before you scan"),
             tips: [
-                L.t("Turn on all the lights and open interior doors.",
-                    "Bật hết đèn, mở các cửa trong nhà."),
-                L.t("Clear walking paths — you will walk through every room.",
-                    "Dọn lối đi — bạn sẽ đi qua mọi phòng."),
-                L.t("Around 10 minutes per scan is the sweet spot. Bigger homes take longer and that is fine — just know the phone gets hotter and colour is captured less often as a scan drags on.",
-                    "Khoảng 10 phút mỗi bản quét là đẹp nhất. Nhà lớn cần lâu hơn thì cứ quét đủ — chỉ cần biết trước: quét càng dài máy càng nóng và app lấy màu càng thưa dần."),
-                L.t("Take the case off and stay out of direct sun — it keeps the phone from throttling.",
-                    "Tháo ốp lưng, tránh nắng trực tiếp — đỡ bị máy bóp hiệu năng."),
+                String(localized: "Turn on all the lights and open interior doors."),
+                String(localized: "Clear walking paths — you will walk through every room."),
+                String(localized: "Around 10 minutes per scan is the sweet spot. Bigger homes take longer and that is fine — just know the phone gets hotter and colour is captured less often as a scan drags on."),
+                String(localized: "Take the case off and stay out of direct sun — it keeps the phone from throttling."),
             ]
         )
     }
@@ -85,20 +81,14 @@ struct ScanGuideContent: View {
     private var whileSection: some View {
         tipSection(
             icon: "figure.walk",
-            title: L.t("While scanning", "Trong lúc quét"),
+            title: String(localized: "While scanning"),
             tips: [
-                L.t("Hold the phone at chest height, tilted slightly down.",
-                    "Cầm máy ngang ngực, hơi chúc xuống."),
-                L.t("Walk SLOWLY along the walls. Slow is accurate.",
-                    "Đi CHẬM men theo tường. Chậm = chính xác."),
-                L.t("Point the camera at every wall, corner, door and window.",
-                    "Hướng camera vào mọi bức tường, góc phòng, cửa và cửa sổ."),
-                L.t("Keep about 40cm or more from surfaces — closer than roughly 30cm and the LiDAR starts punching holes in the mesh. When the app says \"Step back a little\", step back.",
-                    "Giữ cách bề mặt khoảng 40cm trở lên — dí sát dưới ~30cm là LiDAR bắt đầu tạo lỗ thủng. App hiện \"Lùi ra xa một chút\" thì lùi lại."),
-                L.t("Sweep the ceiling once in each room so the room closes up as a solid volume.",
-                    "Lia lên trần một lượt ở mỗi phòng để hình khối phòng khép kín."),
-                L.t("Avoid pointing at mirrors and large glass for too long.",
-                    "Tránh chĩa lâu vào gương và kính lớn."),
+                String(localized: "Hold the phone at chest height, tilted slightly down."),
+                String(localized: "Walk SLOWLY along the walls. Slow is accurate."),
+                String(localized: "Point the camera at every wall, corner, door and window."),
+                String(localized: "Keep about 40cm or more from surfaces — closer than roughly 30cm and the LiDAR starts punching holes in the mesh. When the app says \"Step back a little\", step back."),
+                String(localized: "Sweep the ceiling once in each room so the room closes up as a solid volume."),
+                String(localized: "Avoid pointing at mirrors and large glass for too long."),
             ]
         )
     }
@@ -109,18 +99,13 @@ struct ScanGuideContent: View {
         // lộ ra ô trống lúc sideload, nên chỗ này cố ý chọn cái đã được chứng minh.
         tipSection(
             icon: "building.2",
-            title: L.t("Several floors — scan straight through", "Nhiều tầng — quét liền một mạch"),
+            title: String(localized: "Several floors — scan straight through"),
             tips: [
-                L.t("Do NOT stop between floors. Walk up the stairs while still scanning — that is what keeps the floors stacked correctly in 3D.",
-                    "ĐỪNG dừng giữa các tầng. Vừa quét vừa đi lên cầu thang — đó là thứ giữ các tầng chồng đúng nhau trong 3D."),
-                L.t("Take the stairs extra slowly, keeping the steps in view.",
-                    "Lên cầu thang thật chậm, giữ bậc thang trong khung hình."),
-                L.t("Every time you stop and save, the next scan starts a brand new coordinate system — two separate scans will NOT line up on their own.",
-                    "Mỗi lần dừng và lưu là bản quét sau bắt đầu một hệ toạ độ hoàn toàn mới — hai bản riêng sẽ KHÔNG tự khớp nhau."),
-                L.t("If the home is too big for one pass, split at a natural break (through a door, a separate wing) rather than mid-room.",
-                    "Nhà lớn quá không quét hết một mạch thì chia ở ranh giới tự nhiên (qua cửa, sang một cánh nhà khác), đừng cắt giữa phòng."),
-                L.t("When you do split, start the next scan by walking back through a room you already scanned — that overlap is what lets our team line the parts up by hand.",
-                    "Khi buộc phải chia, hãy bắt đầu bản sau bằng cách đi lại qua một phòng đã quét — phần chồng lấn đó là thứ giúp đội xử lý ghép các phần lại bằng tay."),
+                String(localized: "Do NOT stop between floors. Walk up the stairs while still scanning — that is what keeps the floors stacked correctly in 3D."),
+                String(localized: "Take the stairs extra slowly, keeping the steps in view."),
+                String(localized: "Every time you stop and save, the next scan starts a brand new coordinate system — two separate scans will NOT line up on their own."),
+                String(localized: "If the home is too big for one pass, split at a natural break (through a door, a separate wing) rather than mid-room."),
+                String(localized: "When you do split, start the next scan by walking back through a room you already scanned — that overlap is what lets our team line the parts up by hand."),
             ]
         )
     }
@@ -128,16 +113,12 @@ struct ScanGuideContent: View {
     private var savingSection: some View {
         tipSection(
             icon: "square.and.arrow.down",
-            title: L.t("When you finish", "Khi quét xong"),
+            title: String(localized: "When you finish"),
             tips: [
-                L.t("Tap Stop & Save, NAME the scan and tap Save — the scan is still recording until you do. Only then put the phone down.",
-                    "Bấm Dừng & Lưu, ĐẶT TÊN bản quét rồi bấm Lưu — chưa bấm là máy vẫn đang quét tiếp. Xong bước đó mới đặt máy xuống."),
-                L.t("After that the screen stays on by itself until saving finishes — leave the phone alone.",
-                    "Sau đó màn hình tự sáng cho tới khi lưu xong — cứ để yên máy, đừng chạm vào."),
-                L.t("Building the model takes a couple of minutes on a large home — do not close the app.",
-                    "Dựng mô hình mất vài phút với nhà lớn — đừng tắt app."),
-                L.t("Saving works the processor hard, so if another area is still to scan, let the phone rest a few minutes first.",
-                    "Lúc lưu máy chạy hết công suất để dựng mô hình, nên nếu còn khu khác phải quét thì để máy nghỉ vài phút cho nguội đã."),
+                String(localized: "Tap Stop & Save, NAME the scan and tap Save — the scan is still recording until you do. Only then put the phone down."),
+                String(localized: "After that the screen stays on by itself until saving finishes — leave the phone alone."),
+                String(localized: "Building the model takes a couple of minutes on a large home — do not close the app."),
+                String(localized: "Saving works the processor hard, so if another area is still to scan, let the phone rest a few minutes first."),
             ]
         )
     }
@@ -150,7 +131,7 @@ struct ScanGuideContent: View {
                 dismiss()
                 onStart()
             } label: {
-                Text(L.t("Got it — start scanning", "Hiểu rồi — bắt đầu quét"))
+                Text(String(localized: "Got it — start scanning"))
                     .font(.headline)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)

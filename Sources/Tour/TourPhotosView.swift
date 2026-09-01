@@ -55,15 +55,14 @@ struct TourPhotosView: View {
                 if let tour, tour.hasTour {
                     content
                 } else if tour != nil {
-                    Text(L.t("This order does not include the Virtual Tour add-on.",
-                             "Đơn này không có gói Virtual Tour."))
+                    Text(String(localized: "This order does not include the Virtual Tour add-on."))
                         .foregroundStyle(.secondary)
                         .padding(24)
                 } else if let loadError {
                     VStack(spacing: 12) {
                         Text(loadError).font(.subheadline).foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
-                        Button(L.t("Retry", "Thử lại")) {
+                        Button(String(localized: "Retry")) {
                             self.loadError = nil
                             Task { await load() }
                         }
@@ -74,25 +73,24 @@ struct TourPhotosView: View {
                     ProgressView()
                 }
             }
-            .navigationTitle(L.t("Tour photos", "Ảnh cho tour"))
+            .navigationTitle(String(localized: "Tour photos"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button(L.t("Done", "Xong")) { dismiss() }
+                    Button(String(localized: "Done")) { dismiss() }
                 }
             }
             .task { await load() }
-            .alert(L.t("Room name", "Tên phòng"), isPresented: $showCustomRoom) {
-                TextField(L.t("e.g. Guest Room", "vd Guest Room"), text: $customRoomName)
-                Button(L.t("Add", "Thêm")) {
+            .alert(String(localized: "Room name"), isPresented: $showCustomRoom) {
+                TextField(String(localized: "e.g. Guest Room"), text: $customRoomName)
+                Button(String(localized: "Add")) {
                     let name = customRoomName.trimmingCharacters(in: .whitespacesAndNewlines)
                     if !name.isEmpty, !extraRooms.contains(name) { extraRooms.append(name) }
                     customRoomName = ""
                 }
-                Button(L.t("Cancel", "Hủy"), role: .cancel) { customRoomName = "" }
+                Button(String(localized: "Cancel"), role: .cancel) { customRoomName = "" }
             } message: {
-                Text(L.t("Use English so viewers can read it on the tour page.",
-                         "Nên dùng tiếng Anh để người xem trang tour đọc được."))
+                Text(String(localized: "Use English so viewers can read it on the tour page."))
             }
         }
     }
@@ -127,16 +125,12 @@ struct TourPhotosView: View {
     private var content: some View {
         Form {
             Section {
-                Text(L.t(
-                    "Add 1–3 photos per room. Our team will pin them to the right spot on your floor plan and you'll get a shareable tour link with your delivery.",
-                    "Thêm 1–3 ảnh cho mỗi phòng. Đội ngũ sẽ ghim ảnh vào đúng vị trí trên mặt bằng — khi giao hàng bạn sẽ nhận link tour để chia sẻ."
-                ))
+                Text(String(localized: "Add 1–3 photos per room. Our team will pin them to the right spot on your floor plan and you'll get a shareable tour link with your delivery."))
                 .font(.footnote)
                 .foregroundStyle(.secondary)
                 if isPublished {
                     Label(
-                        L.t("The tour has been delivered — photos are locked. Contact support for changes.",
-                            "Tour đã được giao — ảnh đã khoá. Liên hệ hỗ trợ nếu cần đổi."),
+                        String(localized: "The tour has been delivered — photos are locked. Contact support for changes."),
                         systemImage: "lock.fill"
                     )
                     .font(.footnote)
@@ -144,7 +138,7 @@ struct TourPhotosView: View {
                 }
                 if let url = httpsURL(tour?.tourUrl) {
                     Link(destination: url) {
-                        Label(L.t("View your Virtual Tour", "Xem Virtual Tour của bạn"), systemImage: "house.fill")
+                        Label(String(localized: "View your Virtual Tour"), systemImage: "house.fill")
                             .font(.subheadline.weight(.semibold))
                     }
                 }
@@ -152,7 +146,7 @@ struct TourPhotosView: View {
 
             if scans.count > 1 {
                 Section {
-                    Picker(L.t("Floor", "Tầng"), selection: Binding(
+                    Picker(String(localized: "Floor"), selection: Binding(
                         get: { currentScanId ?? "" },
                         set: { selectedScanId = $0 }
                     )) {
@@ -189,9 +183,9 @@ struct TourPhotosView: View {
                             Button(s) { extraRooms.append(s) }
                         }
                         Divider()
-                        Button(L.t("Custom room…", "Phòng khác…")) { showCustomRoom = true }
+                        Button(String(localized: "Custom room…")) { showCustomRoom = true }
                     } label: {
-                        Label(L.t("Add a room", "Thêm phòng"), systemImage: "plus.circle.fill")
+                        Label(String(localized: "Add a room"), systemImage: "plus.circle.fill")
                     }
                 }
             }
@@ -225,7 +219,7 @@ struct TourPhotosView: View {
                 do {
                     guard let raw = try await item.loadTransferable(type: Data.self),
                           let jpeg = TourPhotoResizer.jpegData(from: raw) else {
-                        errorMessage = L.t("Could not read that photo.", "Không đọc được ảnh đó.")
+                        errorMessage = String(localized: "Could not read that photo.")
                         continue
                     }
                     let slot = try await APIClient.shared.createTourPhoto(

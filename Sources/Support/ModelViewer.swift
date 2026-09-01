@@ -77,10 +77,7 @@ struct ModelViewerScreen: View {
                     .ignoresSafeArea()
                 VStack {
                     Spacer()
-                    Text(L.t(
-                        "Drag to rotate · pinch to zoom",
-                        "Kéo để xoay · chụm hai ngón để phóng to"
-                    ))
+                    Text(String(localized: "Drag to rotate · pinch to zoom"))
                     .font(.caption2)
                     .foregroundStyle(.white.opacity(0.55))
                     .padding(.bottom, 8)
@@ -91,16 +88,13 @@ struct ModelViewerScreen: View {
                 statusBlock(
                     icon: "cube.transparent",
                     text: wantTexture
-                        ? L.t("Couldn't open the textured model.",
-                              "Không mở được mô hình có texture.")
-                        : L.t("Couldn't open the 3D model for this scan.",
-                              "Không mở được mô hình 3D của bản quét này.")
+                        ? String(localized: "Couldn't open the textured model.")
+                        : String(localized: "Couldn't open the 3D model for this scan.")
                 )
             } else if let message = downloadError {
                 statusBlock(
                     icon: "exclamationmark.triangle",
-                    text: L.t("Couldn't download the model (\(message))",
-                              "Không tải được mô hình (\(message))")
+                    text: String(localized: "Couldn't download the model (\(message))")
                 )
             } else {
                 loadingBlock
@@ -143,7 +137,7 @@ struct ModelViewerScreen: View {
                     // mất dấu X trắng.
                     .background(Color.black.opacity(0.45), in: Circle())
             }
-            .accessibilityLabel(L.t("Close", "Đóng"))
+            .accessibilityLabel(String(localized: "Close"))
 
             Spacer()
 
@@ -196,7 +190,7 @@ struct ModelViewerScreen: View {
                 .foregroundStyle(.white.opacity(0.7))
                 .multilineTextAlignment(.center)
             if textured.phase == .downloading {
-                Button(L.t("Cancel", "Hủy")) {
+                Button(String(localized: "Cancel")) {
                     textured.cancel()
                     // Về lại lưới xám nếu có — đừng bỏ khách ở màn trống. Không có xám thì
                     // đóng luôn, vì lúc đó màn này không còn gì để hiện.
@@ -217,9 +211,9 @@ struct ModelViewerScreen: View {
         if textured.phase == .downloading {
             // Nói rõ ĐANG TẢI (chứ không phải đang mở): 29–75MB qua 4G là chuyện của vài phút,
             // và khách phải biết nó đang tốn dữ liệu di động.
-            return L.t("Downloading the textured model…", "Đang tải mô hình có texture…")
+            return String(localized: "Downloading the textured model…")
         }
-        return L.t("Opening the model…", "Đang mở mô hình…")
+        return String(localized: "Opening the model…")
     }
 
     private func statusBlock(icon: String, text: String) -> some View {

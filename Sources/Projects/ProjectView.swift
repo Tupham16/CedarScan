@@ -332,12 +332,12 @@ struct ProjectView: View {
                         projectNameText = displayTitle
                         showRenameProject = true
                     } label: {
-                        Label(L.t("Rename property", "Đổi tên dự án"), systemImage: "pencil")
+                        Label(String(localized: "Rename property"), systemImage: "pencil")
                     }
                     Button(role: .destructive) {
                         showDeleteConfirm = true
                     } label: {
-                        Label(L.t("Delete property", "Xóa dự án"), systemImage: "trash")
+                        Label(String(localized: "Delete property"), systemImage: "trash")
                     }
                 } label: {
                     Image(systemName: "ellipsis.circle")
@@ -376,9 +376,9 @@ struct ProjectView: View {
             bottomButtons
                 .padding(.bottom, CedarTabBar.reservedHeight)
         }
-        .alert(L.t("Rename property", "Đổi tên dự án"), isPresented: $showRenameProject) {
-            TextField(L.t("Name", "Tên"), text: $projectNameText)
-            Button(L.t("Save", "Lưu")) {
+        .alert(String(localized: "Rename property"), isPresented: $showRenameProject) {
+            TextField(String(localized: "Name"), text: $projectNameText)
+            Button(String(localized: "Save")) {
                 // Tiêu đề KHÔNG còn tự theo store nữa (nó chỉ đọc `let`/`@State` — xem
                 // `projectName`), nên phải cập nhật tay ở đây.
                 // 🔴 Nằm TRONG `if let project` và dùng ĐÚNG phép chuẩn hoá của
@@ -391,7 +391,7 @@ struct ProjectView: View {
                     if !trimmed.isEmpty { renamedTitle = trimmed }
                 }
             }
-            Button(L.t("Cancel", "Hủy"), role: .cancel) {}
+            Button(String(localized: "Cancel"), role: .cancel) {}
         }
         // 🔴 XOÁ DỰ ÁN NAY XOÁ LUÔN FILE BẢN QUÉT KHỎI MÁY (mục 5b — chủ app chốt 10/08). Câu
         // chữ lấy từ `DeleteProjectPrompt` chứ ✗ gõ tại chỗ: lối vào THỨ HAI là nút giỏ rác trên
@@ -403,19 +403,19 @@ struct ProjectView: View {
                 if let project { store.deleteProjectAndScans(project) }
                 dismiss()
             }
-            Button(L.t("Cancel", "Hủy"), role: .cancel) {}
+            Button(String(localized: "Cancel"), role: .cancel) {}
         } message: {
             Text(DeleteProjectPrompt.message(scanCount: scans.count))
         }
-        .alert(L.t("Rename scan", "Đổi tên bản quét"), isPresented: renameAlertBinding) {
-            TextField(L.t("New name", "Tên mới"), text: $renameText)
-            Button(L.t("Save", "Lưu")) {
+        .alert(String(localized: "Rename scan"), isPresented: renameAlertBinding) {
+            TextField(String(localized: "New name"), text: $renameText)
+            Button(String(localized: "Save")) {
                 if let record = recordToRename { store.rename(record, to: renameText) }
                 recordToRename = nil
             }
-            Button(L.t("Cancel", "Hủy"), role: .cancel) { recordToRename = nil }
+            Button(String(localized: "Cancel"), role: .cancel) { recordToRename = nil }
         }
-        .alert(L.t("Could not save", "Lỗi khi lưu"), isPresented: saveErrorBinding) {
+        .alert(String(localized: "Could not save"), isPresented: saveErrorBinding) {
             Button("OK", role: .cancel) { saveError = nil }
         } message: {
             Text(saveError ?? "")
@@ -473,21 +473,18 @@ struct ProjectView: View {
             }
         }
         .alert(
-            L.t("Part of the home is missing", "Còn một phần nhà chưa vào bản quét"),
+            String(localized: "Part of the home is missing"),
             isPresented: $showScanNextPart
         ) {
-            Button(L.t("Scan the rest now", "Quét phần còn lại ngay")) {
+            Button(String(localized: "Scan the rest now")) {
                 pendingOrderRecord = nil
                 isMeshScanning = true
             }
-            Button(L.t("Scan later", "Quét sau"), role: .cancel) {
+            Button(String(localized: "Scan later"), role: .cancel) {
                 goToPendingOrder()
             }
         } message: {
-            Text(L.t(
-                "The 3D model hit its size limit before you finished — the saved part is safe. Scan the remaining area as another scan (name them \"Part 1\", \"Part 2\"…) and they can be merged later.",
-                "Mô hình 3D chạm giới hạn trước khi quét xong — phần đã lưu vẫn an toàn. Hãy quét khu còn lại thành một bản quét khác (đặt tên \"Part 1\", \"Part 2\"…) để ghép lại sau."
-            ))
+            Text(String(localized: "The 3D model hit its size limit before you finished — the saved part is safe. Scan the remaining area as another scan (name them \"Part 1\", \"Part 2\"…) and they can be merged later."))
         }
         .sheet(item: $orderTarget) { target in
             orderSheetBody(target)
@@ -622,12 +619,9 @@ struct ProjectView: View {
             Image(systemName: "folder")
                 .font(.system(size: 44))
                 .foregroundStyle(.secondary)
-            Text(L.t("No scans in this property yet", "Dự án chưa có bản quét nào"))
+            Text(String(localized: "No scans in this property yet"))
                 .font(.headline)
-            Text(L.t(
-                "Scan the whole home in one continuous pass — multiple floors are fine. If it's very large, split it into several scans (Part 1, Part 2…). Or long-press an existing scan in the main list to move it here.",
-                "Quét liền một mạch cả căn nhà là tốt nhất (kể cả nhiều tầng). Nhà quá lớn thì chia thành nhiều bản quét (Part 1, Part 2…). Hoặc nhấn giữ bản quét có sẵn ở danh sách chính để chuyển vào đây."
-            ))
+            Text(String(localized: "Scan the whole home in one continuous pass — multiple floors are fine. If it's very large, split it into several scans (Part 1, Part 2…). Or long-press an existing scan in the main list to move it here."))
             .font(.subheadline)
             .foregroundStyle(.secondary)
             .multilineTextAlignment(.center)
@@ -693,10 +687,7 @@ struct ProjectView: View {
     @ViewBuilder
     private var unsupportedNote: some View {
         if !isSupported {
-            Text(L.t(
-                "This iPhone has no LiDAR sensor. CedarScan needs an iPhone Pro (12 Pro or newer).",
-                "iPhone này không có cảm biến LiDAR. CedarScan cần iPhone bản Pro (12 Pro trở lên)."
-            ))
+            Text(String(localized: "This iPhone has no LiDAR sensor. CedarScan needs an iPhone Pro (12 Pro or newer)."))
             .font(.caption)
             .foregroundStyle(.secondary)
             .multilineTextAlignment(.center)
@@ -718,7 +709,7 @@ struct ProjectView: View {
                     startScanning()
                 }
             } label: {
-                Label(L.t("Scan more", "Quét bổ sung"), systemImage: "viewfinder")
+                Label(String(localized: "Scan more"), systemImage: "viewfinder")
                     .font(.headline)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
@@ -768,10 +759,8 @@ struct ProjectView: View {
                     // đọc MỘT điều kiện (`projectOrderNumber`) — xem `presentSendSheet()`.
                     Label(
                         projectOrderNumber != nil
-                            ? L.t("Send extra scan (\(orderableScans.count))",
-                                  "Gửi bổ sung bản quét (\(orderableScans.count))")
-                            : L.t("Order Floor Plan (\(orderableScans.count) scan(s))",
-                                  "Đặt làm mặt bằng (\(orderableScans.count) bản quét)"),
+                            ? String(localized: "Send extra scan (\(orderableScans.count))")
+                            : String(localized: "Order Floor Plan (\(orderableScans.count) scan(s))"),
                         systemImage: "paperplane.fill"
                     )
                     .font(.headline)
@@ -780,19 +769,16 @@ struct ProjectView: View {
                 }
                 .buttonStyle(.bordered)
                 .confirmationDialog(
-                    L.t("Some scans have low quality", "Có bản quét chất lượng thấp"),
+                    String(localized: "Some scans have low quality"),
                     isPresented: $showLowQualityConfirm,
                     titleVisibility: .visible
                 ) {
-                    Button(L.t("Order anyway", "Vẫn đặt hàng")) {
+                    Button(String(localized: "Order anyway")) {
                         presentSendSheet()
                     }
-                    Button(L.t("I'll rescan first", "Để tôi quét lại"), role: .cancel) {}
+                    Button(String(localized: "I'll rescan first"), role: .cancel) {}
                 } message: {
-                    Text(L.t(
-                        "Rescanning the flagged floors usually gives a more accurate floor plan: \(lowQualityNames). You can still order — our team will be notified.",
-                        "Quét lại các tầng bị đánh dấu thường cho bản vẽ chính xác hơn: \(lowQualityNames). Bạn vẫn có thể đặt — đội xử lý sẽ được báo trước."
-                    ))
+                    Text(String(localized: "Rescanning the flagged floors usually gives a more accurate floor plan: \(lowQualityNames). You can still order — our team will be notified."))
                 }
             }
         }
@@ -820,29 +806,20 @@ struct ProjectView: View {
 /// Câu này ĐÚNG SỰ THẬT về kỹ thuật: app không có endpoint nào xoá đơn hay file thành phẩm; nó
 /// chỉ xoá `Documents/Scans/<uuid>/` trên chính máy này.
 enum DeleteProjectPrompt {
-    static var title: String { L.t("Delete this property?", "Xóa dự án này?") }
+    static var title: String { String(localized: "Delete this property?") }
 
     /// Nhãn nút phá huỷ, CÓ SỐ BẢN QUÉT trong nhãn (chủ app duyệt). Người dùng bấm xuyên qua phần
     /// chữ mô tả nhưng gần như luôn đọc nhãn nút — nên con số phải nằm ở đây, không chỉ trong
     /// message.
     static func confirmLabel(scanCount: Int) -> String {
-        guard scanCount > 0 else { return L.t("Delete property", "Xóa dự án") }
-        return L.t(
-            "Delete property and \(scanCount) scan(s)",
-            "Xóa dự án và \(scanCount) bản quét"
-        )
+        guard scanCount > 0 else { return String(localized: "Delete property") }
+        return String(localized: "Delete property and \(scanCount) scan(s)")
     }
 
     static func message(scanCount: Int) -> String {
         guard scanCount > 0 else {
-            return L.t(
-                "This property has no scans on this iPhone.",
-                "Dự án này chưa có bản quét nào trên máy."
-            )
+            return String(localized: "This property has no scans on this iPhone.")
         }
-        return L.t(
-            "\(scanCount) scan(s) will be deleted from this iPhone and cannot be recovered. Orders you have already placed and the finished drawings are NOT affected — they stay on Cedar247 and you can download them from the Orders tab any time.",
-            "\(scanCount) bản quét sẽ bị xóa khỏi iPhone, không lấy lại được. Đơn đã đặt và file thành phẩm KHÔNG bị ảnh hưởng — chúng nằm trên máy chủ Cedar247, tải lại ở tab Đơn hàng bất cứ lúc nào."
-        )
+        return String(localized: "\(scanCount) scan(s) will be deleted from this iPhone and cannot be recovered. Orders you have already placed and the finished drawings are NOT affected — they stay on Cedar247 and you can download them from the Orders tab any time.")
     }
 }
