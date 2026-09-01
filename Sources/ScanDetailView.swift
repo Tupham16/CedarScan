@@ -1714,9 +1714,9 @@ struct OrderSheet: View {
             } footer: {
                 // Nhánh KHÔNG-free ("Sau khi đặt sẽ có link thanh toán bảo mật (Stripe/PayPal)")
                 // ĐÃ XOÁ 2026-08-13 (chủ app). Việc "trả tiền ở bước sau" vẫn được nói ở màn
-                // THÀNH CÔNG ngay sau khi bấm (`successView`: nút "Thanh toán ngay" + câu "đội ngũ
-                // bắt đầu sau khi nhận thanh toán") và ở tab Đơn hàng — tức khách vẫn không bị bất
-                // ngờ, chỉ là không đọc nó hai lần.
+                // THÀNH CÔNG ngay sau khi bấm (`successView`: nút "Thanh toán ngay" / câu "gửi
+                // link qua email" — câu "đội ngũ bắt đầu sau khi nhận thanh toán" đã bỏ 2026-09-01)
+                // và ở tab Đơn hàng — tức khách vẫn không bị bất ngờ, chỉ là không đọc nó hai lần.
                 //
                 // Câu cho đơn MIỄN PHÍ thì GIỮ: nó không mô tả quy trình chung mà nói đúng một
                 // điều riêng của đơn này — "không phải trả gì cả". Bỏ nốt là khách vừa thấy nút
@@ -1741,11 +1741,9 @@ struct OrderSheet: View {
                 .font(.title3.weight(.bold))
             Text(order.orderNumber)
                 .font(.title3.monospaced().weight(.bold))
-            if order.free == true {
-                Text(L.t("FREE — first-orders promo 🎁", "MIỄN PHÍ — khuyến mãi đơn đầu 🎁"))
-                    .font(.headline)
-                    .foregroundStyle(.green)
-            } else if let total = order.total {
+            // Dòng "MIỄN PHÍ — khuyến mãi đơn đầu 🎁" ĐÃ BỎ 2026-09-01 theo chủ app. Đơn free
+            // vì thế KHÔNG rơi xuống nhánh tổng tiền (in "$0" còn tệ hơn dòng vừa bỏ).
+            if order.free != true, let total = order.total {
                 Text(L.t("Total: $\(total)", "Tổng tiền: $\(total)"))
                     .font(.headline)
             }
@@ -1760,17 +1758,18 @@ struct OrderSheet: View {
                     .font(.footnote)
                     .foregroundStyle(.orange)
             }
-            // Đơn miễn phí server set `paidAt` sẵn + vào thẳng hàng xử lý → KHÔNG có thanh toán nào để
-            // "chờ". In "bắt đầu sau khi nhận thanh toán" ngay dưới dòng "MIỄN PHÍ 🎁" là tự mâu thuẫn.
-            Text(order.free == true
-                ? L.t("Our team will start right away. Track progress in the Orders tab.",
-                      "Đội ngũ Cedar247 sẽ bắt đầu ngay. Theo dõi tiến độ ở mục Đơn hàng.")
-                : L.t("Our team will start after payment is received. Track progress in the Orders tab.",
-                      "Đội ngũ Cedar247 sẽ bắt đầu sau khi nhận thanh toán. Theo dõi tiến độ ở mục Đơn hàng."))
-            .font(.footnote)
-            .foregroundStyle(.secondary)
-            .multilineTextAlignment(.center)
-            .padding(.horizontal)
+            // Câu "Đội ngũ Cedar247 sẽ bắt đầu…" (CẢ HAI nhánh free/trả tiền) ĐÃ BỎ 2026-09-01
+            // theo chủ app — thay bằng lời cảm ơn, GIỮ đúng dòng "Theo dõi…". Việc "trả tiền ở
+            // bước sau" vẫn hiện qua nút "Thanh toán ngay" / câu "gửi link qua email" ngay dưới.
+            Text(L.t("Thank you for choosing Cedar247!", "Cảm ơn bạn đã tin chọn Cedar247!"))
+                .font(.subheadline.weight(.medium))
+                .multilineTextAlignment(.center)
+                .padding(.horizontal)
+            Text(L.t("Track progress in the Orders tab.", "Theo dõi tiến độ ở mục Đơn hàng."))
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal)
 
             if let payURL = httpsURL(order.paymentUrl) {
                 Button {
