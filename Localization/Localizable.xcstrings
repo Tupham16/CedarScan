@@ -1881,6 +1881,53 @@
         }
       }
     },
+    "By placing this order you agree to the Terms and Conditions.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Odesláním této objednávky souhlasíte s Obchodními podmínkami."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mit dieser Bestellung stimmen Sie den Allgemeinen Geschäftsbedingungen zu."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Al hacer este pedido, aceptas los Términos y condiciones."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En passant cette commande, vous acceptez les Conditions générales."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Door deze bestelling te plaatsen ga je akkoord met de Algemene voorwaarden."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Odoslaním tejto objednávky súhlasíte s Obchodnými podmienkami."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đặt đơn này là bạn đồng ý với Điều khoản và điều kiện."
+          }
+        }
+      }
+    },
     "Camera access needed": {
       "extractionState": "manual",
       "localizations": {

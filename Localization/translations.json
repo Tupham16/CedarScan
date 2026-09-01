@@ -4343,6 +4343,18 @@
     "es": "Escaneo %@",
     "nl": "Scan %@"
    }
+  },
+  {
+   "key": "By placing this order you agree to the Terms and Conditions.",
+   "translations": {
+    "vi": "Đặt đơn này là bạn đồng ý với Điều khoản và điều kiện.",
+    "fr": "En passant cette commande, vous acceptez les Conditions générales.",
+    "de": "Mit dieser Bestellung stimmen Sie den Allgemeinen Geschäftsbedingungen zu.",
+    "cs": "Odesláním této objednávky souhlasíte s Obchodními podmínkami.",
+    "sk": "Odoslaním tejto objednávky súhlasíte s Obchodnými podmienkami.",
+    "es": "Al hacer este pedido, aceptas los Términos y condiciones.",
+    "nl": "Door deze bestelling te plaatsen ga je akkoord met de Algemene voorwaarden."
+   }
   }
  ],
  "infoplist": {

@@ -158,7 +158,7 @@ extension LegalDoc {
         ("Changes",
          "If we change this policy we will update the date at the top and, for anything significant, tell you in the app or by email. Continuing to use CedarScan after a change means you accept the updated policy."),
         ("Language",
-         "This document exists in English and in French. If you are a consumer in Québec, the French version is made available to you and applies; the English version binds you only if you expressly choose it after receiving the French version. Everywhere else, if the two versions ever differ, the English version prevails to the extent your local law allows."),
+         "This document exists in English and in French. If you are a consumer in Québec, the French version is made available to you and applies; the English version binds you only if you expressly choose it after receiving the French version. Everywhere else, if the two versions ever differ, the English version prevails to the extent your local law allows. You may write to us in English or in French."),
         ("Contact",
          "\(legalEntity), \(postalAddress) — \(contactEmail)"),
     ]
@@ -203,7 +203,7 @@ extension LegalDoc {
         ("General",
          "If any part of these terms is unenforceable, the rest still applies. Failing to enforce a term is not a waiver of it. These terms are governed by the law of the State of \(governingState), United States, without regard to its conflict-of-law rules. If you are a consumer, that choice does not deprive you of the protection of any provision of the law of your country of residence that cannot be departed from by agreement; a consumer may bring proceedings in the courts of their own country of residence, and we will bring proceedings against a consumer only in the courts of the country where that consumer lives. We may update these terms and will show the new date at the top; material changes will be notified in the app or by email."),
         ("Language",
-         "This document exists in English and in French. If you are a consumer in Québec, the French version is made available to you and applies; the English version binds you only if you expressly choose it after receiving the French version. Everywhere else, if the two versions ever differ, the English version prevails to the extent your local law allows."),
+         "This document exists in English and in French. If you are a consumer in Québec, the French version is made available to you and applies; the English version binds you only if you expressly choose it after receiving the French version. Everywhere else, if the two versions ever differ, the English version prevails to the extent your local law allows. You may write to us in English or in French."),
         ("Contact",
          "\(legalEntity), \(postalAddress) — \(contactEmail)"),
     ]
@@ -242,7 +242,7 @@ extension LegalDoc {
         ("General",
          "If any provision of this licence is unenforceable, the rest remains in force. This licence is governed by the law of the State of \(governingState), United States, without regard to its conflict-of-law rules. If you are a consumer, that choice does not deprive you of the protection of any provision of the law of your country of residence that cannot be departed from by agreement, and you may bring proceedings in the courts of your own country of residence. It is the entire agreement between you and Cedar247 about the app itself."),
         ("Language",
-         "This document exists in English and in French. If you are a consumer in Québec, the French version is made available to you and applies; the English version binds you only if you expressly choose it after receiving the French version. Everywhere else, if the two versions ever differ, the English version prevails to the extent your local law allows."),
+         "This document exists in English and in French. If you are a consumer in Québec, the French version is made available to you and applies; the English version binds you only if you expressly choose it after receiving the French version. Everywhere else, if the two versions ever differ, the English version prevails to the extent your local law allows. You may write to us in English or in French."),
         ("Contact",
          "\(legalEntity), \(postalAddress) — \(contactEmail)"),
     ]
@@ -289,7 +289,7 @@ extension LegalDoc {
         ("Modifications",
          "Si nous modifions la présente politique, nous mettrons à jour la date figurant en haut et, pour toute modification substantielle, nous vous en informerons dans l'application ou par courriel. Continuer à utiliser CedarScan après une modification vaut acceptation de la politique mise à jour."),
         ("Langue",
-         "Le présent document existe en anglais et en français. Si vous êtes un consommateur au Québec, la version française vous est remise et s'applique ; la version anglaise ne vous lie que si vous la choisissez expressément après avoir reçu la version française. Ailleurs, en cas de divergence entre les deux versions, la version anglaise prévaut dans la mesure où votre loi locale le permet."),
+         "Le présent document existe en anglais et en français. Si vous êtes un consommateur au Québec, la version française vous est remise et s'applique ; la version anglaise ne vous lie que si vous la choisissez expressément après avoir reçu la version française. Ailleurs, en cas de divergence entre les deux versions, la version anglaise prévaut dans la mesure où votre loi locale le permet. Vous pouvez nous écrire en anglais ou en français."),
         ("Contact",
          "\(legalEntity), \(postalAddress) — \(contactEmail)"),
     ]
@@ -332,7 +332,7 @@ extension LegalDoc {
         ("Dispositions générales",
          "Si une partie des présentes conditions est inapplicable, le reste demeure applicable. Le fait de ne pas faire valoir une clause ne vaut pas renonciation à celle-ci. Les présentes conditions sont régies par le droit de l'État du Nouveau-Mexique, États-Unis, sans égard à ses règles de conflit de lois. Si vous êtes un consommateur, ce choix ne vous prive pas de la protection des dispositions de la loi de votre pays de résidence auxquelles il ne peut être dérogé par convention ; un consommateur peut engager une procédure devant les tribunaux de son propre pays de résidence, et nous n'engagerons de procédure contre un consommateur que devant les tribunaux du pays où ce consommateur vit. Nous pouvons mettre à jour les présentes conditions et afficherons la nouvelle date en haut du document ; les modifications substantielles seront notifiées dans l'application ou par courriel."),
         ("Langue",
-         "Le présent document existe en anglais et en français. Si vous êtes un consommateur au Québec, la version française vous est remise et s'applique ; la version anglaise ne vous lie que si vous la choisissez expressément après avoir reçu la version française. Ailleurs, en cas de divergence entre les deux versions, la version anglaise prévaut dans la mesure où votre loi locale le permet."),
+         "Le présent document existe en anglais et en français. Si vous êtes un consommateur au Québec, la version française vous est remise et s'applique ; la version anglaise ne vous lie que si vous la choisissez expressément après avoir reçu la version française. Ailleurs, en cas de divergence entre les deux versions, la version anglaise prévaut dans la mesure où votre loi locale le permet. Vous pouvez nous écrire en anglais ou en français."),
         ("Contact",
          "\(legalEntity), \(postalAddress) — \(contactEmail)"),
     ]
@@ -369,7 +369,7 @@ extension LegalDoc {
         ("Dispositions générales",
          "Si une disposition de la présente licence est inapplicable, le reste demeure en vigueur. La présente licence est régie par le droit de l'État du Nouveau-Mexique, États-Unis, sans égard à ses règles de conflit de lois. Si vous êtes un consommateur, ce choix ne vous prive pas de la protection des dispositions de la loi de votre pays de résidence auxquelles il ne peut être dérogé par convention, et vous pouvez engager une procédure devant les tribunaux de votre propre pays de résidence. La présente licence constitue l'intégralité de l'accord entre vous et Cedar247 au sujet de l'application elle-même."),
         ("Langue",
-         "Le présent document existe en anglais et en français. Si vous êtes un consommateur au Québec, la version française vous est remise et s'applique ; la version anglaise ne vous lie que si vous la choisissez expressément après avoir reçu la version française. Ailleurs, en cas de divergence entre les deux versions, la version anglaise prévaut dans la mesure où votre loi locale le permet."),
+         "Le présent document existe en anglais et en français. Si vous êtes un consommateur au Québec, la version française vous est remise et s'applique ; la version anglaise ne vous lie que si vous la choisissez expressément après avoir reçu la version française. Ailleurs, en cas de divergence entre les deux versions, la version anglaise prévaut dans la mesure où votre loi locale le permet. Vous pouvez nous écrire en anglais ou en français."),
         ("Contact",
          "\(legalEntity), \(postalAddress) — \(contactEmail)"),
     ]

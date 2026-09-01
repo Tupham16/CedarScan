@@ -1091,6 +1091,10 @@ struct OrderSheet: View {
     @State private var busyLabel: String?
     @State private var errorMessage: String?
     @State private var placedOrder: OrderScanResponse?
+    /// Mở Điều khoản từ dòng "Đặt đơn này là bạn đồng ý…" ở footer nút Đặt hàng (thêm 01/09,
+    /// bản 2.35 — điểm chốt hợp đồng phải trưng được điều khoản NGAY TẠI CHỖ, theo đúng ngôn ngữ
+    /// app; khách Québec máy tiếng Pháp thấy bản Pháp — điều 55 Charte đòi bản Pháp đến tay trước).
+    @State private var showTermsSheet = false
     /// Task của `submit()` — giữ vào @State để HỦY được (nút Hủy / onDisappear). Trước đây là
     /// `Task {}` vô danh không ai cancel: bấm Hủy giữa lúc tải lên chỉ đóng sheet, Task chạy tiếp
     /// và vẫn tạo đơn ngầm. Xem `submit()` + nút Hủy + `.onDisappear`.
@@ -1688,8 +1692,23 @@ struct OrderSheet: View {
                 // Câu cho đơn MIỄN PHÍ thì GIỮ: nó không mô tả quy trình chung mà nói đúng một
                 // điều riêng của đơn này — "không phải trả gì cả". Bỏ nốt là khách vừa thấy nút
                 // "MIỄN PHÍ 🎁" vừa không có gì xác nhận.
-                if isFreePromo {
-                    Text(String(localized: "Free order — no payment needed. Our team starts right after you place it."))
+                VStack(alignment: .leading, spacing: 4) {
+                    if isFreePromo {
+                        Text(String(localized: "Free order — no payment needed. Our team starts right after you place it."))
+                    }
+                    // Dòng đồng ý điều khoản — MỘT dòng footer, bấm được để đọc ngay tại chỗ
+                    // (không bắt khách rời form sang tab Tài khoản). Sheet bọc NavigationStack
+                    // vì LegalDocumentView dùng navigationTitle.
+                    Button {
+                        showTermsSheet = true
+                    } label: {
+                        Text(String(localized: "By placing this order you agree to the Terms and Conditions."))
+                            .multilineTextAlignment(.leading)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .sheet(isPresented: $showTermsSheet) {
+                        NavigationStack { LegalDocumentView(doc: .terms) }
+                    }
                 }
             }
         }
