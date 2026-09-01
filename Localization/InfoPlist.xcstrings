@@ -31,7 +31,7 @@
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "CedarScan gebruikt de camera en de LiDAR-sensor om de kamers van je pand te scannen en het 3D-model te bouwen waaruit je plattegrond wordt getekend."
+            "value": "CedarScan gebruikt de camera en de LiDAR-sensor om de kamers van je pand te scannen en het 3D-model te bouwen op basis waarvan je plattegrond wordt getekend."
           }
         },
         "sk": {

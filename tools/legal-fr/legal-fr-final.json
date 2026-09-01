@@ -1,0 +1,350 @@
+{
+ "docs": {
+  "eula": {
+   "doc": "eula",
+   "title_fr": "Contrat de licence d'utilisateur final",
+   "sections": [
+    {
+     "heading_en": "This licence",
+     "heading_fr": "La présente licence",
+     "text_fr": "Le présent Contrat de licence d'utilisateur final régit votre utilisation de l'application CedarScan elle-même. Les services que vous commandez par l'intermédiaire de l'application sont régis par nos Conditions générales, et le traitement de vos données par notre Politique de confidentialité. En installant ou en utilisant l'application, vous acceptez la présente licence ; si vous ne l'acceptez pas, supprimez l'application."
+    },
+    {
+     "heading_en": "What you may do",
+     "heading_fr": "Ce que vous pouvez faire",
+     "text_fr": "Cedar247 vous concède une licence personnelle, non exclusive, non transférable et révocable vous autorisant à installer et à utiliser CedarScan sur des appareils de marque Apple que vous possédez ou contrôlez, pour vos propres besoins professionnels ou privés, conformément aux Règles d'utilisation des Apple Media Services Terms and Conditions (conditions générales des services multimédias d'Apple). L'application peut également être consultée et utilisée par d'autres comptes qui vous sont associés, en votre qualité d'acheteur, par l'intermédiaire du Family Sharing (partage familial) ou des achats en volume. La licence porte sur l'utilisation de l'application, non sur sa propriété."
+    },
+    {
+     "heading_en": "What you may not do",
+     "heading_fr": "Ce que vous ne pouvez pas faire",
+     "text_fr": "Vous ne devez pas copier, vendre, louer, sous-licencier ni redistribuer l'application. Vous ne devez pas la modifier, la traduire, la décompiler, la désassembler ni en faire l'ingénierie inverse, ni tenter d'en reconstituer le code source, sauf dans la mesure où la loi le permet expressément malgré cette restriction. Vous ne devez pas retirer ni masquer les mentions de propriété. Vous ne devez pas contourner les limites techniques, telles que le quota de commandes gratuites ou les restrictions de téléversement, et vous ne devez pas accéder à nos serveurs par un autre moyen que l'application elle-même."
+    },
+    {
+     "heading_en": "Ownership",
+     "heading_fr": "Propriété",
+     "text_fr": "CedarScan, son interface, son code et tout ce qu'elle contient appartiennent à Cedar247 ou à ses concédants de licence et sont protégés par le droit d'auteur et d'autres lois. Vous ne recevez que les droits énoncés dans la présente licence ; rien d'autre ne vous est concédé, ni implicitement ni autrement."
+    },
+    {
+     "heading_en": "Your content",
+     "heading_fr": "Votre contenu",
+     "text_fr": "Les numérisations, photos et fichiers que vous créez ou téléversez demeurent les vôtres. La licence que vous nous accordez pour les traiter, ainsi que les limites de ce que nous pouvons en faire, sont énoncées dans nos Conditions générales et notre Politique de confidentialité."
+    },
+    {
+     "heading_en": "What the app needs",
+     "heading_fr": "Ce dont l'application a besoin",
+     "text_fr": "CedarScan nécessite un iPhone doté d'un capteur LiDAR — un iPhone 12 Pro ou un modèle Pro ultérieur — fonctionnant sous iOS 17 ou une version ultérieure. L'application a besoin de l'accès à la caméra pour numériser ; sans cet accès, la numérisation ne peut pas fonctionner. L'accès à la localisation est facultatif et sert uniquement à préremplir l'adresse d'une propriété lorsque vous le demandez. Le téléversement des numérisations et la passation de commandes nécessitent une connexion Internet et un compte."
+    },
+    {
+     "heading_en": "Updates and changes",
+     "heading_fr": "Mises à jour et modifications",
+     "text_fr": "Nous pouvons publier des mises à jour, et certaines peuvent être nécessaires pour que l'application continue de fonctionner avec nos serveurs. Des fonctionnalités peuvent être ajoutées, modifiées ou supprimées au fil du temps. Les mises à jour sont régies par la présente licence, sauf si elles sont accompagnées de leurs propres conditions."
+    },
+    {
+     "heading_en": "Third-party services",
+     "heading_fr": "Services de tiers",
+     "text_fr": "L'application repose sur des services que nous ne contrôlons pas, notamment les cadres logiciels de la plateforme d'Apple, nos fournisseurs d'hébergement infonuagique et de stockage et notre prestataire de paiement. Leurs conditions s'appliquent à leur partie du service, et nous ne sommes pas responsables de la manière dont ces tiers exercent leurs activités. Vous vous engagez à respecter toutes les conditions de tiers applicables à votre utilisation de l'application."
+    },
+    {
+     "heading_en": "No warranty",
+     "heading_fr": "Absence de garantie",
+     "text_fr": "Nous fournissons l'application avec un soin et une compétence raisonnables. Nous ne garantissons pas que l'application fonctionnera sans interruption ni sans erreur, ni qu'une numérisation réussira toujours, quels que soient la propriété et les conditions d'éclairage. Rien dans la présente licence n'exclut, ne restreint ni ne modifie une garantie, un droit ou un recours dont vous bénéficiez en vertu d'une loi et qui ne peut pas être légalement exclu. Si vous êtes en Australie, nos biens et services sont assortis de garanties qui ne peuvent pas être exclues en vertu de l'Australian Consumer Law ; si vous êtes en Nouvelle-Zélande, le Consumer Guarantees Act 1993 s'applique ; et les consommateurs de l'Union européenne, du Royaume-Uni et du Canada conservent les droits impératifs que leur confère leur propre loi. Toute exclusion de garantie de qualité marchande, d'adéquation à un usage particulier ou d'absence de contrefaçon figurant dans la présente licence ne s'applique pas à vous dans la mesure où elle exclurait, restreindrait ou modifierait une telle garantie. En dehors de ces cas, et dans toute la mesure permise par votre loi locale, l'application est fournie telle quelle et selon sa disponibilité."
+    },
+    {
+     "heading_en": "Limitation of liability",
+     "heading_fr": "Limitation de responsabilité",
+     "text_fr": "Rien dans la présente clause n'exclut ni ne limite une responsabilité qui ne peut pas être légalement exclue ou limitée, et le plafond de cinquante dollars américains ci-dessous ne s'applique pas lorsque votre loi locale ne le permet pas — y compris aux consommateurs d'Australie et de Nouvelle-Zélande. Sous cette réserve, et dans toute la mesure permise par la loi, Cedar247 n'est pas responsable des pertes indirectes ou consécutives découlant de votre utilisation de l'application, y compris un manque à gagner, une perte de données ou une numérisation devant être recommencée, et notre responsabilité totale au titre de la présente licence est limitée à cinquante dollars américains, ce qui reflète le fait que l'application est fournie gratuitement."
+    },
+    {
+     "heading_en": "Term and termination",
+     "heading_fr": "Durée et résiliation",
+     "text_fr": "La présente licence demeure en vigueur jusqu'à sa résiliation. Elle prend fin automatiquement si vous enfreignez l'une de ses conditions, et vous pouvez y mettre fin à tout moment en supprimant l'application. Les articles relatifs à la propriété, à la garantie, à la responsabilité et aux dispositions générales survivent à la résiliation."
+    },
+    {
+     "heading_en": "Apple",
+     "heading_fr": "Apple",
+     "text_fr": "La présente licence est conclue entre vous et Cedar247 uniquement, et non avec Apple, et Cedar247 est seule responsable de l'application et de son contenu. Cedar247, et non Apple, est seule responsable de la fourniture de tout service de maintenance et d'assistance relatif à l'application, et Apple n'a aucune obligation d'en fournir. Si l'application ne se conforme pas à une garantie applicable, vous pouvez en aviser Apple, et Apple vous remboursera le prix d'achat de l'application, le cas échéant ; dans toute la mesure permise par la loi, Apple n'a aucune autre obligation de garantie, quelle qu'elle soit, à l'égard de l'application, et toute autre réclamation, perte, responsabilité et tout autre dommage, coût ou frais attribuables à un défaut de conformité à une garantie relèvent de la seule responsabilité de Cedar247. Cedar247, et non Apple, est responsable du traitement de toute réclamation de votre part ou de la part d'un tiers relative à l'application, y compris les réclamations en responsabilité du fait des produits, toute réclamation selon laquelle l'application ne se conforme pas à une exigence légale ou réglementaire, et les réclamations fondées sur la législation en matière de protection des consommateurs ou de protection des renseignements personnels, ou sur toute législation similaire. Cedar247, et non Apple, est responsable de l'enquête, de la défense, du règlement et de la décharge de toute réclamation d'un tiers selon laquelle l'application porte atteinte à des droits de propriété intellectuelle. Apple et ses filiales sont des tiers bénéficiaires de la présente licence et, dès votre acceptation de celle-ci, Apple aura le droit — et sera réputée avoir accepté le droit — de la faire valoir à votre encontre en qualité de tiers bénéficiaire. Toute question, plainte ou réclamation concernant l'application doit être adressée à Cedar247 LLC, 1209 Mountain Road Pl NE, Ste N, Albuquerque, NM 87110, hello@cedar247.com."
+    },
+    {
+     "heading_en": "Export and compliance",
+     "heading_fr": "Exportation et conformité",
+     "text_fr": "Vous confirmez que vous n'êtes pas situé dans un pays faisant l'objet d'un embargo du gouvernement des États-Unis ou désigné par celui-ci comme un pays soutenant le terrorisme, et que vous ne figurez sur aucune liste du gouvernement des États-Unis recensant des parties interdites ou soumises à des restrictions. Vous n'utiliserez l'application qu'en conformité avec la loi applicable."
+    },
+    {
+     "heading_en": "General",
+     "heading_fr": "Dispositions générales",
+     "text_fr": "Si une disposition de la présente licence est inapplicable, le reste demeure en vigueur. La présente licence est régie par le droit de l'État du Nouveau-Mexique, États-Unis, sans égard à ses règles de conflit de lois. Si vous êtes un consommateur, ce choix ne vous prive pas de la protection des dispositions de la loi de votre pays de résidence auxquelles il ne peut être dérogé par convention, et vous pouvez engager une procédure devant les tribunaux de votre propre pays de résidence. La présente licence constitue l'intégralité de l'accord entre vous et Cedar247 au sujet de l'application elle-même."
+    },
+    {
+     "heading_en": "Language",
+     "heading_fr": "Langue",
+     "text_fr": "Le présent document existe en anglais et en français. Si vous êtes un consommateur au Québec, la version française vous est remise et s'applique ; la version anglaise ne vous lie que si vous la choisissez expressément après avoir reçu la version française. Ailleurs, en cas de divergence entre les deux versions, la version anglaise prévaut dans la mesure où votre loi locale le permet."
+    },
+    {
+     "heading_en": "Contact",
+     "heading_fr": "Contact",
+     "text_fr": "Cedar247 LLC, 1209 Mountain Road Pl NE, Ste N, Albuquerque, NM 87110 — hello@cedar247.com"
+    }
+   ],
+   "change_log": [
+    "What you may not do: applied native-lens minor fix — \"tenter d'en dériver le code source\" changed to \"tenter d'en reconstituer le code source\" (anglicism removed, same legal scope).",
+    "What the app needs: applied native-lens minor fix — \"remplir l'adresse\" changed to \"préremplir l'adresse\" (idiomatic autofill verb, same meaning).",
+    "Third-party services: cross-doc terminology — \"nos fournisseurs d'hébergement et de stockage en nuage\" changed to \"nos fournisseurs d'hébergement infonuagique et de stockage\" to match the locked shared term \"hébergement infonuagique\" (task-specified term takes precedence over the cross review's fix_fr, which had proposed \"en nuage\" instead; privacy already uses \"hébergement infonuagique\").",
+    "No warranty: applied native-lens minor fix — \"dans chaque propriété ou dans chaque condition d'éclairage\" changed to \", quels que soient la propriété et les conditions d'éclairage\" (removes calque, same meaning).",
+    "No warranty: cross-doc inconsistency fix — \"conservent leurs droits locaux impératifs\" changed to \"conservent les droits impératifs que leur confère leur propre loi\" to match the EU/UK/Canada consumer-reserve formula word-for-word with terms (terms taken as canonical).",
+    "Limitation of liability: applied native-lens minor fix — \"lorsque votre loi ne le permet pas\" changed to \"lorsque votre loi locale ne le permet pas\" (internal terminology consistency with No warranty).",
+    "Apple: applied native-lens MAJOR grammar fix in the claims enumeration — \"...de protection des consommateurs, de protection des renseignements personnels ou toute législation similaire\" changed to \"...de protection des consommateurs ou de protection des renseignements personnels, ou sur toute législation similaire\" (repeats the preposition so \"toute législation similaire\" attaches correctly to \"fondées sur\").",
+    "Apple: applied minor fix flagged by BOTH lenses — \"l'acquittement de toute réclamation\" changed to \"la décharge de toute réclamation\" (term used in Apple's French EULA model for \"discharge\").",
+    "General: cross-doc inconsistency fix — governing-law/consumer-forum formula aligned word-for-word with terms (canonical): \"auxquelles il ne peut pas être dérogé par convention\" changed to \"auxquelles il ne peut être dérogé par convention\" (Rome I formula without \"pas\") and \"vous pouvez intenter une action devant les tribunaux\" changed to \"vous pouvez engager une procédure devant les tribunaux\".",
+    "General: applied minor fix flagged by BOTH lenses — \"Elle constitue l'intégralité de l'accord...\" changed to \"La présente licence constitue l'intégralité de l'accord...\" (unambiguous antecedent in the entire-agreement clause).",
+    "Added new section \"Langue\" (heading_en \"Language\") immediately before Contact, text_fr taken verbatim from cross.language_clause.text_fr; no review raised issues against it. Section count is now 16 (15 original + 1).",
+    "SKIPPED native-lens minor typography fix (replace ordinary spaces before ; and : with non-breaking U+00A0/U+202F): it directly conflicts with the task instruction to use only regular spaces; ordinary spaces kept throughout, straight apostrophes and quotes preserved.",
+    "UI paths: audited the EULA against ui_fr_names.json — the EULA references no in-app tab or button names (references to Conditions générales / Politique de confidentialité are document titles, not UI elements), so no substitutions were needed. Shared terms \"quota de commandes gratuites\" and \"propriété\" were already conformant in the EULA and left as-is.",
+    "Verbatim items verified intact: Cedar247 LLC, hello@cedar247.com, 1209 Mountain Road Pl NE, Ste N, Albuquerque, NM 87110, CedarScan, LiDAR, iPhone 12 Pro, iOS 17, Apple Media Services Terms and Conditions, Australian Consumer Law, Consumer Guarantees Act 1993. No other sentence outside the scope of items above was altered."
+   ]
+  },
+  "terms": {
+   "doc": "terms",
+   "title_fr": "Conditions générales",
+   "sections": [
+    {
+     "heading_en": "These terms",
+     "heading_fr": "Les présentes conditions",
+     "text_fr": "Les présentes conditions constituent le contrat entre vous et Cedar247 concernant l'application CedarScan et les services de dessin commandés par son intermédiaire. En créant un compte ou en passant une commande, vous les acceptez. Si vous commandez pour une société, vous confirmez que vous êtes autorisé à accepter les présentes conditions en son nom."
+    },
+    {
+     "heading_en": "Your account",
+     "heading_fr": "Votre compte",
+     "text_fr": "Fournissez des renseignements exacts, gardez votre mot de passe pour vous et informez-nous rapidement si vous soupçonnez qu'une autre personne y a accès. Vous êtes responsable de ce qui se passe sous votre compte. Nous pouvons suspendre ou fermer un compte utilisé pour abuser du service, pour contourner les limites des promotions ou pour enfreindre les présentes conditions."
+    },
+    {
+     "heading_en": "What the service is",
+     "heading_fr": "En quoi consiste le service",
+     "text_fr": "Vous réalisez une numérisation tridimensionnelle d'une propriété avec l'application. Notre équipe dessine ensuite à la main, à partir de cette numérisation, les livrables que vous avez commandés. Sauf indication contraire dans votre commande, les plans sont livrés aux formats PDF et JPG ; les formats SVG ou PNG sont disponibles sur demande ; un fichier CAO DWG est une option payante. Les options supplémentaires telles que la mise en couleur, les plans d'implantation, le délai express et les visites virtuelles sont facturées séparément et ne sont incluses que lorsque vous les sélectionnez."
+    },
+    {
+     "heading_en": "Your part of the job",
+     "heading_fr": "Votre part du travail",
+     "text_fr": "Le dessin ne peut être meilleur que la numérisation. Suivez les consignes de l'onglet Apprendre : numérisez toute la propriété en un seul parcours continu lorsque c'est possible, gardez chaque mur, coin, porte et fenêtre dans le champ de vision, et vérifiez l'aperçu avant de commander. Vous confirmez que vous êtes en droit de numériser la propriété et de nous en transmettre le résultat — parce que vous en êtes propriétaire ou parce que vous avez la permission du propriétaire ou de l'occupant — et que toute personne présente a été informée que l'espace est enregistré en 3D."
+    },
+    {
+     "heading_en": "Prices and promotions",
+     "heading_fr": "Prix et promotions",
+     "text_fr": "Les prix sont affichés dans l'application, en dollars américains, au moment où vous commandez, et c'est ce prix qui s'applique à cette commande. Les nouveaux comptes peuvent recevoir un nombre limité de commandes gratuites ; ce quota est compté par compte et par appareil, peut être modifié ou retiré à tout moment et ne peut pas être réparti entre des comptes supplémentaires créés pour en obtenir davantage. Les très grandes propriétés peuvent donner lieu à un supplément : nous en calculons le montant une fois la superficie mesurée et nous vous le communiquerons toujours avant de vous demander de le payer."
+    },
+    {
+     "heading_en": "Payment",
+     "heading_fr": "Paiement",
+     "text_fr": "Les commandes payantes sont réglées par l'intermédiaire de notre page de paiement et de notre prestataire de paiement. La production commence une fois le paiement confirmé, sauf si la commande est couverte par le quota de commandes gratuites, auquel cas elle commence immédiatement. Si un paiement est annulé ou fait l'objet d'une rétrofacturation, nous pouvons suspendre la commande ou retenir les livrables jusqu'à ce que la situation soit résolue."
+    },
+    {
+     "heading_en": "Turnaround",
+     "heading_fr": "Délais de réalisation",
+     "text_fr": "Les délais que nous indiquons sont des objectifs fondés sur une charge de travail normale, non des garanties, et ils courent à compter de la confirmation du paiement et de la fin du téléversement des fichiers de numérisation. L'option de délai express est un objectif plus rapide pour les habitations ordinaires ; elle ne s'applique pas aux très grandes propriétés, et une numérisation qui se révèle inutilisable prendra toujours plus de temps, car nous devons d'abord revenir vers vous."
+    },
+    {
+     "heading_en": "Revisions",
+     "heading_fr": "Révisions",
+     "text_fr": "Si nous avons commis une erreur — une porte manquante, une pièce mal étiquetée, une dimension erronée alors que la bonne mesure était lisible dans votre numérisation — signalez-le-nous via Commandes, Demander une révision, et nous la corrigerons gratuitement. Joignez une photo ou un fichier annoté si cela nous aide à repérer l'endroit. Les demandes qui modifient ce que vous aviez commandé à l'origine, ou qui nous demandent de dessiner une zone que votre numérisation ne couvre pas, constituent un nouveau travail et font l'objet d'un devis en conséquence. Les révisions sont disponibles pendant 90 jours après la livraison, à raison de trois au maximum par commande, conformément à la politique de révision publiée sur notre site web ; au-delà, ou une fois que vous nous avez demandé de supprimer les fichiers, il se peut que nous ne disposions plus des données sources."
+    },
+    {
+     "heading_en": "Refunds",
+     "heading_fr": "Remboursements",
+     "text_fr": "Vous pouvez annuler et être remboursé intégralement à tout moment avant que nous commencions à dessiner. Une fois le dessin commencé, nous rembourserons une part équitable du prix, appréciée selon la quantité de travail déjà effectuée. Si nous ne pouvons pas livrer du tout, vous récupérez la totalité. Si une numérisation est trop incomplète pour que nous puissions en tirer un dessin, nous vous en informerons avant d'accepter le travail, plutôt que de livrer quelque chose d'inutilisable."
+    },
+    {
+     "heading_en": "What the drawings are and are not",
+     "heading_fr": "Ce que les dessins sont et ne sont pas",
+     "text_fr": "Les livrables sont produits à partir de la numérisation que vous fournissez et sont destinés au marketing, à la planification, à l'évaluation d'espaces et à d'autres usages courants du même ordre. Ils ne constituent ni un plan d'arpentage, ni un rapport structural, ni une mesure certifiée, et il ne faut pas s'y fier pour les limites légales de propriété, les demandes de permis, les travaux de structure ou tout autre usage où une erreur porterait à conséquence, à moins qu'un professionnel qualifié ne les ait vérifiés sur place. De petits écarts entre le dessin et le bâtiment sont normaux et inhérents à la numérisation."
+    },
+    {
+     "heading_en": "Who owns what",
+     "heading_fr": "À qui appartient quoi",
+     "text_fr": "Vos numérisations, vos photos et les fichiers que vous joignez restent votre propriété. Vous accordez à Cedar247 une licence pour les stocker, les traiter et les adapter dans la mesure nécessaire pour produire et livrer votre commande, pour assurer l'assistance et les révisions, et pour conserver les registres que le présent contrat exige. Une fois votre commande payée — ou livrée dans le cadre du quota de commandes gratuites — les livrables finis vous appartiennent et vous pouvez les utiliser comme vous l'entendez, y compris à des fins commerciales. Nous pouvons conserver des mesures techniques anonymes concernant les numérisations, telles que la taille des fichiers et des indicateurs de qualité de capture, afin d'améliorer le service ; ces mesures ne vous identifient pas et n'identifient pas votre propriété. Nous ne publierons aucune image ni aucun dessin de votre propriété, ne les utiliserons à des fins de marketing ni ne les montrerons à un tiers sans vous le demander au préalable."
+    },
+    {
+     "heading_en": "Acceptable use",
+     "heading_fr": "Utilisation acceptable",
+     "text_fr": "N'utilisez pas CedarScan pour numériser une propriété que vous n'avez pas le droit de numériser, pour enregistrer des personnes à leur insu, pour enfreindre la loi, pour surcharger ou sonder nos systèmes, pour obtenir des livrables que vous n'avez pas payés, ou pour revendre l'accès à l'application elle-même. Revendre les dessins que nous réalisons pour vous, dans le cadre de votre propre service à votre propre client, est expressément autorisé — c'est ce que font bon nombre de nos clients."
+    },
+    {
+     "heading_en": "Availability",
+     "heading_fr": "Disponibilité",
+     "text_fr": "Nous nous efforçons de maintenir le service en fonctionnement, mais nous ne promettons pas qu'il sera ininterrompu. La maintenance, les pannes de réseau et les changements apportés par Apple ou par nos fournisseurs peuvent tous l'interrompre. Nous pouvons ajouter, modifier ou retirer des fonctionnalités ; si un changement réduit de façon substantielle quelque chose que vous avez déjà payé mais que vous n'avez pas encore reçu, dites-le-nous et nous y remédierons."
+    },
+    {
+     "heading_en": "Liability",
+     "heading_fr": "Responsabilité",
+     "text_fr": "Rien dans les présentes conditions n'exclut, ne restreint ni ne modifie un droit, une garantie ou un recours dont vous disposez en vertu d'une loi à laquelle il ne peut être légalement dérogé — y compris la responsabilité en cas de décès ou de préjudice corporel causés par notre négligence, et la responsabilité en cas de fraude. Si vous êtes un consommateur en Australie, nos services sont assortis de garanties au titre de l'Australian Consumer Law qui ne peuvent être exclues ; si vous êtes un consommateur en Nouvelle-Zélande, le Consumer Guarantees Act 1993 s'applique ; et les consommateurs de l'Union européenne, du Royaume-Uni et du Canada conservent les droits impératifs que leur confère leur propre loi. Les plafonds monétaires ci-dessous ne s'appliquent à aucune responsabilité qui nous incombe en vertu de ces lois. Sous cette réserve, et seulement dans la mesure où la loi le permet : le service et les livrables sont fournis sans autres garanties que celles que la loi implique ; Cedar247 n'est pas responsable des pertes indirectes ou consécutives, du manque à gagner, de la perte de revenus, de données ou d'occasions, ni des décisions prises sur la foi d'un dessin sans vérification indépendante ; et notre responsabilité totale découlant d'une commande est limitée au montant que vous avez payé pour cette commande, ou à cinquante dollars américains lorsque la commande était gratuite. Lorsque la loi nous permet de limiter la responsabilité pour manquement à une garantie du consommateur portant sur des services qui ne sont pas habituellement acquis à des fins personnelles, domestiques ou ménagères, cette responsabilité est limitée, à notre choix, à la fourniture des services à nouveau ou au paiement du coût d'une nouvelle fourniture de ces services."
+    },
+    {
+     "heading_en": "Indemnity",
+     "heading_fr": "Indemnisation",
+     "text_fr": "Vous nous garantissez contre les réclamations formées par un tiers au motif que vous avez numérisé une propriété sans en avoir le droit, ou que les éléments que vous nous avez envoyés portaient atteinte aux droits d'autrui."
+    },
+    {
+     "heading_en": "Ending the agreement",
+     "heading_fr": "Fin du contrat",
+     "text_fr": "Vous pouvez cesser d'utiliser CedarScan et supprimer votre compte à tout moment. Nous pouvons mettre fin au présent contrat si vous enfreignez les présentes conditions de manière grave ou répétée. La fin du contrat n'affecte ni les commandes déjà livrées ni les montants déjà dus."
+    },
+    {
+     "heading_en": "General",
+     "heading_fr": "Dispositions générales",
+     "text_fr": "Si une partie des présentes conditions est inapplicable, le reste demeure applicable. Le fait de ne pas faire valoir une clause ne vaut pas renonciation à celle-ci. Les présentes conditions sont régies par le droit de l'État du Nouveau-Mexique, États-Unis, sans égard à ses règles de conflit de lois. Si vous êtes un consommateur, ce choix ne vous prive pas de la protection des dispositions de la loi de votre pays de résidence auxquelles il ne peut être dérogé par convention ; un consommateur peut engager une procédure devant les tribunaux de son propre pays de résidence, et nous n'engagerons de procédure contre un consommateur que devant les tribunaux du pays où ce consommateur vit. Nous pouvons mettre à jour les présentes conditions et afficherons la nouvelle date en haut du document ; les modifications substantielles seront notifiées dans l'application ou par courriel."
+    },
+    {
+     "heading_en": "Language",
+     "heading_fr": "Langue",
+     "text_fr": "Le présent document existe en anglais et en français. Si vous êtes un consommateur au Québec, la version française vous est remise et s'applique ; la version anglaise ne vous lie que si vous la choisissez expressément après avoir reçu la version française. Ailleurs, en cas de divergence entre les deux versions, la version anglaise prévaut dans la mesure où votre loi locale le permet."
+    },
+    {
+     "heading_en": "Contact",
+     "heading_fr": "Contact",
+     "text_fr": "Cedar247 LLC, 1209 Mountain Road Pl NE, Ste N, Albuquerque, NM 87110 — hello@cedar247.com"
+    }
+   ],
+   "change_log": [
+    "En quoi consiste le service (MAJOR, lens juridique) : 'plans de situation' -> 'plans d'implantation' (le terme initial designait un autre produit).",
+    "Votre part du travail (MAJOR, lens hieu dinh) : 'soit que vous en êtes... soit que vous avez...' (indicatif fautif apres 'soit que') -> 'parce que vous en êtes propriétaire ou parce que vous avez la permission...'.",
+    "Prix et promotions (minor, lens hieu dinh) : phrase du supplement recomposee en deux propositions ('...un supplément : nous en calculons le montant une fois la superficie mesurée et nous vous le communiquerons toujours avant de vous demander de le payer') pour corriger le melange des temps et la collocation 'communiquer un supplément'.",
+    "Paiement (cross/inconsistencies) : 'couverte par un quota gratuit' -> 'couverte par le quota de commandes gratuites' (terme chot commun aux 3 documents).",
+    "Délais de réalisation (minor, lens hieu dinh) : 'L'option express' -> 'L'option de délai express' pour coller au nom de l'option introduit dans 'En quoi consiste le service' ('le délai express').",
+    "Révisions (minor, lens hieu dinh) : 'une dimension erronée que nous aurions pu lire dans votre numérisation' -> 'une dimension erronée alors que la bonne mesure était lisible dans votre numérisation' (levee d'ambiguite). Le chemin UI 'Commandes, Demander une révision' verifie contre ui_fr_names.json : correspond exactement ('Orders' = Commandes, 'Request a revision' = Demander une révision), garde tel quel.",
+    "Remboursements (minor, lens hieu dinh) : 'trop incomplète pour être dessinée' -> 'trop incomplète pour que nous puissions en tirer un dessin' (on ne dessine pas une numérisation).",
+    "Ce que les dessins sont et ne sont pas (minor, lens juridique) : 'un arpentage' -> 'un plan d'arpentage' (document, pas operation ; parallelisme avec 'rapport'/'mesure').",
+    "À qui appartient quoi (cross/inconsistencies) : 'dans le cadre d'un quota gratuit' -> 'dans le cadre du quota de commandes gratuites' (terme chot).",
+    "À qui appartient quoi (minor, lens juridique) : 'ces mesures ne permettent d'identifier ni vous ni votre propriété' -> 'ces mesures ne vous identifient pas et n'identifient pas votre propriété' (retour a la formulation factuelle de l'anglais, sans affirmation d'anonymisation absolue).",
+    "Disponibilité (minor, lens hieu dinh) : 'déjà payé et pas encore reçu' -> 'déjà payé mais que vous n'avez pas encore reçu' (ellipse familiere corrigee).",
+    "Indemnisation (minor, lens hieu dinh) : 'Vous nous garantirez' (futur, calque de 'You will indemnify') -> 'Vous nous garantissez' (present contractuel).",
+    "Dispositions générales (cross/terme chot 'modifications substantielles') : 'les changements substantiels seront notifiés' -> 'les modifications substantielles seront notifiées', pour que le terme soit identique dans les 3 documents ; le reste de la clause loi-applicable/for du consommateur est inchange (les terms sont la version de reference, c'est l'eula qui s'aligne).",
+    "Ajout de la section 'Language' / 'Langue' avant Contact, texte = cross.language_clause.text_fr tel quel (aucune review n'a d'objection sur cette clause). Total sections : 18 d'origine + 1 = 19, ordre inchange.",
+    "Verifications : 'l'onglet Apprendre' correspond a ui_fr_names.json ('Learn' = Apprendre). Verbatims intacts : Cedar247 LLC, hello@cedar247.com, adresse Albuquerque, CedarScan, PDF/JPG/SVG/PNG/DWG, Australian Consumer Law, Consumer Guarantees Act 1993. Ponctuation : apostrophes droites, espaces ordinaires uniquement (la suggestion d'espaces insécables du reviewer eula n'est pas appliquee, contraire a la consigne).",
+    "Non appliques (hors perimetre terms) : les fixes des reviews eula et privacy concernent leurs propres documents ; l'inconsistency 'hébergement infonuagique/en nuage' et 'propriété/bien' ne touchent aucun passage des terms."
+   ]
+  },
+  "privacy": {
+   "doc": "privacy",
+   "title_fr": "Politique de confidentialité",
+   "sections": [
+    {
+     "heading_en": "Who we are",
+     "heading_fr": "Qui nous sommes",
+     "text_fr": "CedarScan est une application mobile publiée par Cedar247. Lorsque vous numérisez une propriété et commandez des plans par l'intermédiaire de l'application, Cedar247 est le responsable du traitement des renseignements personnels décrits ci-dessous. Écrivez-nous à hello@cedar247.com pour tout ce qui concerne la présente politique."
+    },
+    {
+     "heading_en": "The short version",
+     "heading_fr": "La version courte",
+     "text_fr": "Nous recueillons ce qui nous est nécessaire pour transformer votre numérisation en plan d'étage, pour gérer votre compte et pour empêcher que le quota de commandes gratuites ne fasse l'objet d'abus. Nous ne vendons pas vos renseignements, nous n'affichons pas de publicité et nous ne suivons pas vos activités dans d'autres applications ni sur d'autres sites web."
+    },
+    {
+     "heading_en": "Information you give us",
+     "heading_fr": "Renseignements que vous nous fournissez",
+     "text_fr": "Renseignements sur le compte : votre nom, votre adresse courriel et un mot de passe (conservé uniquement sous forme d'empreinte cryptographique). Renseignements sur la propriété : l'adresse ou le libellé que vous saisissez pour chaque habitation, afin que l'équipe de dessin sache à quel bâtiment un plan se rapporte. Renseignements sur la commande : les forfaits et options que vous choisissez, vos préférences de dessin, les notes que vous rédigez, les codes promotionnels et les fichiers que vous joignez, par exemple un logo ou un PDF annoté."
+    },
+    {
+     "heading_en": "Information the app captures",
+     "heading_fr": "Renseignements que l'application capte",
+     "text_fr": "Données de numérisation : la géométrie 3D produite par le capteur LiDAR, une vidéo en couleur enregistrée pendant que vous parcourez les lieux, et les fichiers de modèle qui en sont dérivés. Ces éléments captent l'intérieur de la propriété ; veuillez donc les traiter comme vous traiteriez des photographies des mêmes pièces. Tout ce qui est visible pendant la numérisation figurera dans le fichier, y compris les personnes, les documents et les écrans. Consultez toutes les personnes présentes avant de commencer, et rangez d'abord les objets privés."
+    },
+    {
+     "heading_en": "Location",
+     "heading_fr": "Localisation",
+     "text_fr": "L'application peut remplir l'adresse d'une propriété à partir de la position de votre appareil, mais uniquement au moment où vous touchez le bouton qui le demande. Il n'y a aucun suivi de localisation en arrière-plan ni en continu. Les coordonnées sont converties en adresse municipale — c'est cette adresse qui est conservée — et vous pouvez toujours saisir l'adresse à la main à la place : l'application fonctionne entièrement sans l'autorisation de localisation."
+    },
+    {
+     "heading_en": "Device identifier",
+     "heading_fr": "Identifiant de l'appareil",
+     "text_fr": "L'application lit l'identifiant qu'iOS attribue, sur votre appareil, aux applications provenant du même développeur, et le transmet lorsque vous créez votre compte, lorsque vous consultez les prix et lorsque vous passez une commande. Il n'a qu'un seul but : appliquer le quota limité de commandes gratuites non seulement par compte, mais aussi par appareil. Il ne s'agit pas de l'identifiant publicitaire et il n'est pas communiqué à des tiers à des fins de marketing. iOS le réinitialise dès que vous supprimez toutes les applications Cedar247 de l'appareil. Nous conservons une trace de l'identifiant et du nombre de commandes gratuites qu'il a utilisées même après la suppression d'un compte, faute de quoi le quota pourrait être remis à zéro par la simple création d'un nouveau compte ; écrivez-nous si vous souhaitez que cette trace soit supprimée."
+    },
+    {
+     "heading_en": "Technical records",
+     "heading_fr": "Journaux techniques",
+     "text_fr": "Nos serveurs conservent des journaux d'exploitation ordinaires — horodatages, chemins des requêtes, messages d'erreur, adresses réseau et tailles approximatives des fichiers — pour maintenir le service en fonctionnement, analyser les pannes et détecter les abus."
+    },
+    {
+     "heading_en": "What we never collect",
+     "heading_fr": "Ce que nous ne recueillons jamais",
+     "text_fr": "Nous n'accédons ni à vos contacts, ni à votre calendrier, ni à votre photothèque (au-delà d'un fichier que vous joignez délibérément), ni à vos données de santé, ni aux identifiants publicitaires, et l'application n'enregistre pas de son. La vidéo de numérisation ne comporte aucune piste audio."
+    },
+    {
+     "heading_en": "Why we use your data",
+     "heading_fr": "Pourquoi nous utilisons vos renseignements",
+     "text_fr": "Pour exécuter notre contrat avec vous : produire et livrer les plans que vous commandez, encaisser le paiement et vous assister ensuite. Pour nos intérêts légitimes : maintenir la sécurité du service, prévenir les abus des promotions et améliorer la précision des consignes de capture. Pour respecter nos obligations légales : fiscalité, comptabilité et tenue de registres. Lorsque la loi exige un consentement — par exemple pour la localisation de l'appareil — nous le demandons, et vous pouvez le refuser ou le retirer dans les réglages de votre appareil."
+    },
+    {
+     "heading_en": "Who sees your data",
+     "heading_fr": "Qui voit vos renseignements",
+     "text_fr": "L'équipe de production de Cedar247 et les spécialistes du dessin qui travaillent sur votre commande voient les fichiers de numérisation, le libellé de la propriété et vos notes de commande, et sont tenus à des obligations de confidentialité. Nous faisons aussi appel à des prestataires de services qui traitent des données pour notre compte : hébergement infonuagique et stockage d'objets, notre prestataire de paiement et un prestataire d'envoi de courriels. Ils agissent uniquement sur nos instructions, et nous ne travaillons qu'avec des prestataires dont les conditions les obligent à protéger vos renseignements à un niveau au moins équivalent à celui prévu par la présente politique et à ne les utiliser que pour le service qu'ils nous fournissent. Nous pouvons divulguer des données si la loi l'exige, ou pour faire valoir ou défendre des droits en justice. Nous ne vendons pas de renseignements personnels et nous ne les communiquons pas à des courtiers en données."
+    },
+    {
+     "heading_en": "Address look-up uses Apple",
+     "heading_fr": "La recherche d'adresse passe par Apple",
+     "text_fr": "L'écran d'adresse s'appuie sur les services cartographiques d'Apple. Lorsque vous touchez le bouton de localisation, vos coordonnées sont envoyées à Apple pour être converties en adresse municipale ; ce bouton est entièrement facultatif. Les suggestions d'adresse fonctionnent différemment : à partir du troisième caractère, ce que vous tapez dans le champ d'adresse est envoyé à Apple pour obtenir la liste de suggestions, et cela se produit au fil de la frappe, que vous touchiez ou non une suggestion. Il en va de même pour la carte affichée en haut de l'écran d'adresse : elle charge les images cartographiques depuis Apple et, dès que vous avez tapé au moins cinq caractères, l'adresse est envoyée à Apple pour situer le repère affiché sur la carte. Cette version ne comporte aucun réglage pour désactiver l'une ou l'autre de ces fonctions. Apple traite ces données selon sa propre politique de confidentialité et nous n'en recevons rien d'autre que le texte d'adresse que vous obtenez en fin de compte — les coordonnées derrière le repère de la carte restent sur votre appareil et ne nous parviennent jamais."
+    },
+    {
+     "heading_en": "Where your data is held",
+     "heading_fr": "Où vos renseignements sont conservés",
+     "text_fr": "Nos prestataires d'hébergement et de stockage exercent leurs activités aux États-Unis et dans l'Union européenne ; vos renseignements peuvent donc être transférés hors de votre propre pays. Lorsque les transferts relèvent des règles européennes ou du Royaume-Uni, nous nous appuyons sur des clauses contractuelles types conclues avec ces prestataires."
+    },
+    {
+     "heading_en": "How long we keep it",
+     "heading_fr": "Combien de temps nous les conservons",
+     "text_fr": "Sur votre téléphone, les numérisations restent jusqu'à ce que vous les supprimiez — rien n'est supprimé automatiquement au bout d'un délai. Supprimer une propriété dans l'application supprime du téléphone les numérisations de cette propriété, et cela ne peut pas être annulé ; les copies que nous détenons pour votre commande ne sont pas concernées. Chaque numérisation est volumineuse ; supprimez donc les propriétés dont vous n'avez plus besoin pour récupérer de l'espace. De notre côté, nous conservons actuellement les fichiers de numérisation, les pièces jointes de commande et les dossiers de commande aussi longtemps qu'ils sont nécessaires à la commande et à ses registres ; un plan livré peut revenir pour révision, et les dossiers de commande sont exigés à des fins fiscales et comptables. Nous n'effectuons pas aujourd'hui de purge automatique de notre stockage. Les plans terminés restent disponibles en téléchargement pendant au moins 365 jours à compter de la livraison ; passé ce délai, nous pouvons les supprimer — conservez donc votre propre copie. Les pièces jointes de commande et les dossiers de commande survivent au compte lui-même — voyez \"Suppression de votre compte\" ci-dessous pour savoir exactement ce qui disparaît et ce qui reste. Si vous voulez que vos fichiers de numérisation soient supprimés plus tôt, supprimez votre compte ; pour les pièces jointes de commande, écrivez-nous par courriel et nous les supprimerons une fois la commande clôturée."
+    },
+    {
+     "heading_en": "Deleting your account",
+     "heading_fr": "Suppression de votre compte",
+     "text_fr": "Dans Compte, l'option Supprimer le compte supprime votre compte et, de notre stockage, vos fichiers de numérisation ainsi que vos éventuelles photos de visite virtuelle. Trois éléments y survivent délibérément. Premièrement, les commandes déjà passées restent dans nos registres commerciaux : le numéro, la date et le montant de la commande, ainsi que le nom et l'adresse courriel figurant sur la commande, l'adresse ou le libellé de la propriété que vous lui avez donné, vos notes de commande et la liste des fichiers qui l'accompagnaient — le droit fiscal exige ce registre, et un plan livré peut encore revenir pour révision. Deuxièmement, les fichiers encore nécessaires pour achever une commande que vous avez payée restent jusqu'à la clôture de cette commande ; détruire à mi-parcours un travail que vous avez payé serait, lui aussi, irréversible. Troisièmement, les fichiers que vous avez vous-même joints à une commande — un logo, un PDF annoté envoyé avec une demande de révision — restent attachés à cette commande. Écrivez à hello@cedar247.com si vous souhaitez que ces pièces jointes et les renseignements personnels figurant sur les commandes clôturées soient supprimés, et nous le ferons partout où la loi nous le permet. La suppression du compte lui-même ne peut pas être annulée."
+    },
+    {
+     "heading_en": "Your rights",
+     "heading_fr": "Vos droits",
+     "text_fr": "Selon votre lieu de résidence, vous pouvez nous demander une copie de vos renseignements, nous demander de les rectifier, nous demander de les supprimer, demander la limitation de certains traitements ou vous y opposer, ou les demander dans un format portable. Écrivez à hello@cedar247.com et nous vous répondrons dans les délais prévus par la loi. Si vous vous trouvez dans l'Espace économique européen ou au Royaume-Uni, vous pouvez aussi déposer une plainte auprès de votre autorité de contrôle ; si vous vous trouvez en Californie, vous pouvez exercer les droits conférés par la loi de cet État sans être traité différemment pour l'avoir fait."
+    },
+    {
+     "heading_en": "Security",
+     "heading_fr": "Sécurité",
+     "text_fr": "Le trafic entre l'application et nos serveurs est chiffré en transit. Les téléversements utilisent des liens de courte durée servant chacun à une seule fin, et chaque lien est rattaché au compte qui l'a demandé. Les mots de passe sont conservés uniquement sous forme d'empreintes. Un point à connaître : une fois un fichier téléversé, il réside à une adresse web longue et impossible à deviner qui fonctionne sans mot de passe, afin que notre équipe de dessin et vos liens de téléchargement continuent de fonctionner — traitez un lien vers votre numérisation ou votre plan comme vous traiteriez le fichier lui-même, et prévenez-nous si un lien a été partagé par erreur afin que nous puissions déplacer ou supprimer le fichier. Aucun système n'est parfait ; utilisez donc un mot de passe fort et unique et prévenez-nous immédiatement si vous pensez que quelqu'un d'autre a accédé à votre compte."
+    },
+    {
+     "heading_en": "Children",
+     "heading_fr": "Enfants",
+     "text_fr": "CedarScan est un outil professionnel et ne s'adresse pas aux enfants. Nous ne recueillons pas sciemment de renseignements auprès de personnes de moins de seize ans. Si vous pensez qu'un enfant nous a fourni des renseignements, écrivez-nous et nous les supprimerons."
+    },
+    {
+     "heading_en": "Changes",
+     "heading_fr": "Modifications",
+     "text_fr": "Si nous modifions la présente politique, nous mettrons à jour la date figurant en haut et, pour toute modification substantielle, nous vous en informerons dans l'application ou par courriel. Continuer à utiliser CedarScan après une modification vaut acceptation de la politique mise à jour."
+    },
+    {
+     "heading_en": "Language",
+     "heading_fr": "Langue",
+     "text_fr": "Le présent document existe en anglais et en français. Si vous êtes un consommateur au Québec, la version française vous est remise et s'applique ; la version anglaise ne vous lie que si vous la choisissez expressément après avoir reçu la version française. Ailleurs, en cas de divergence entre les deux versions, la version anglaise prévaut dans la mesure où votre loi locale le permet."
+    },
+    {
+     "heading_en": "Contact",
+     "heading_fr": "Contact",
+     "text_fr": "Cedar247 LLC, 1209 Mountain Road Pl NE, Ste N, Albuquerque, NM 87110 — hello@cedar247.com"
+    }
+   ],
+   "change_log": [
+    "Qui nous sommes: 'un bien immobilier' -> 'une propriété' (cross/propriété) ; 'pour toute question relative à la présente politique' -> 'pour tout ce qui concerne la présente politique' (legal lens, minor).",
+    "La version courte: phrase de suivi réécrite 'nous ne suivons pas vos activités dans d'autres applications ni sur d'autres sites web' (major lens natif + minor lens juridique, fix identique).",
+    "Renseignements que vous nous fournissez: étiquettes 'Données de compte / du bien / de commande' -> 'Renseignements sur le compte / sur la propriété / sur la commande' (legal lens minor, fusionné avec cross/propriété).",
+    "Renseignements que l'application capte: 'l'intérieur du bien' -> 'de la propriété' (cross) ; 'Demandez l'accord de toutes les personnes présentes' -> 'Consultez toutes les personnes présentes' (legal lens minor, réaligne sur l'anglais 'Ask everyone present').",
+    "Localisation: 'l'adresse d'un bien' -> 'd'une propriété' (cross) ; 'adresse postale' -> 'adresse municipale' (legal lens minor) ; chaîne de virgules restructurée avec tirets (lens natif minor) — les deux fixes portant sur la même phrase ont été fusionnés, terminologie du lens juridique prioritaire.",
+    "Identifiant de l'appareil: 'Il n'existe que dans un seul but' -> 'Il n'a qu'un seul but :' (lens natif, major).",
+    "Journaux techniques: 'adresse réseau' -> 'adresses réseau' (lens natif minor).",
+    "Qui voit vos renseignements: 'sous obligations de confidentialité' -> 'et sont tenus à des obligations de confidentialité' (lens natif minor) ; 'le libellé du bien' -> 'de la propriété' (cross). 'hébergement infonuagique' CONSERVÉ tel quel : le terme chôté par la tâche ('hébergement infonuagique') prime sur le fix cross qui proposait 'en nuage'.",
+    "La recherche d'adresse passe par Apple: 'la carte en haut de cet écran' -> 'la carte affichée en haut de l'écran d'adresse' (legal lens minor) ; 'pour trouver le point qu'elle marque' -> 'pour situer le repère affiché sur la carte' (lens natif minor, compatible, fusionné) ; 'au final' -> 'en fin de compte' (lens natif minor) ; 'adresse postale' -> 'adresse municipale' (legal lens minor, occurrence de cette section).",
+    "Combien de temps nous les conservons: 'Supprimer un bien... de ce bien' -> 'Supprimer une propriété... de cette propriété' (cross) ; 'les biens dont vous avez terminé' -> 'les propriétés dont vous n'avez plus besoin' (lens natif MAJOR + cross fusionnés) ; 'disponibles au téléchargement... alors conservez votre propre copie' -> 'disponibles en téléchargement... — conservez donc votre propre copie' (lens natif minor). Renvoi interne \"Suppression de votre compte\" inchangé, toujours synchronisé avec le titre de la section suivante.",
+    "Suppression de votre compte: 'Compte, Supprimer le compte supprime votre compte' -> 'Dans Compte, l'option Supprimer le compte supprime votre compte' (lens natif MAJOR ; libellés UI vérifiés contre ui_fr_names.json : 'Compte' et 'Supprimer le compte' exacts) ; 'le libellé du bien' -> 'de la propriété' (cross) ; 'détruire à mi-chemin un travail payé n'est pas non plus quelque chose que nous pouvons annuler' -> 'détruire à mi-parcours un travail que vous avez payé serait, lui aussi, irréversible' (lens natif minor).",
+    "Vos droits: 'nous répondrons dans le délai que la loi autorise' -> 'nous vous répondrons dans les délais prévus par la loi' (lens natif minor).",
+    "Sécurité: 'chaque lien est lié au compte' -> 'chaque lien est rattaché au compte' (lens natif minor).",
+    "Modifications: 'pour toute modification significative' -> 'pour toute modification substantielle' (cross/material changes, terme chôté 'modifications substantielles').",
+    "Ajout de la section 'Langue' (heading_en 'Language') en avant-dernière position, avant Contact, avec le text_fr de cross.language_clause repris verbatim (aucune review ne le commentait).",
+    "NON appliqué: suggestion typographique (espaces insécables avant ; et :) issue de la review eula — contraire à la consigne 'espaces ordinaires uniquement' ; fix cross 'hébergement en nuage' — supplanté par le terme verrouillé par la tâche ; fix eula 'préremplir l'adresse' non transposé à privacy (hors périmètre, aucune review privacy ne le demandait).",
+    "Vérifications: 20 sections = 19 d'origine + 1 (Langue), ordre inchangé ; verbatim intact (Cedar247 LLC, hello@cedar247.com, adresse Albuquerque, CedarScan, LiDAR, PDF) ; 'quota de commandes gratuites' conforme au terme chôté ('quota limité de commandes gratuites' de la section Identifiant conserve 'limité' présent dans la source, comme le fix de review) ; guillemets et apostrophes droits, espaces ordinaires uniquement."
+   ]
+  }
+ }
+}

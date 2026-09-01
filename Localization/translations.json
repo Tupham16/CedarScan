@@ -4353,7 +4353,7 @@
    "cs": "CedarScan používá kameru a senzor LiDAR ke skenování místností vaší nemovitosti a k vytvoření 3D modelu, podle kterého se kreslí váš půdorys.",
    "sk": "CedarScan používa kameru a senzor LiDAR na skenovanie miestností vašej nehnuteľnosti a vytvorenie 3D modelu, podľa ktorého sa kreslí váš pôdorys.",
    "es": "CedarScan usa la cámara y el sensor LiDAR para escanear las habitaciones de tu propiedad y crear el modelo 3D a partir del cual se dibuja tu plano.",
-   "nl": "CedarScan gebruikt de camera en de LiDAR-sensor om de kamers van je pand te scannen en het 3D-model te bouwen waaruit je plattegrond wordt getekend."
+   "nl": "CedarScan gebruikt de camera en de LiDAR-sensor om de kamers van je pand te scannen en het 3D-model te bouwen op basis waarvan je plattegrond wordt getekend."
   },
   "NSLocationWhenInUseUsageDescription": {
    "vi": "CedarScan chỉ dùng vị trí của bạn để điền địa chỉ ngôi nhà sắp quét. Bạn luôn có thể tự gõ địa chỉ thay vào đó.",
