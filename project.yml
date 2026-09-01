@@ -21,8 +21,13 @@ targets:
       # đuôi .xcstrings; rơi nhầm vào Compile Sources là build hỏng theo kiểu khó đoán.
       # Localizable.xcstrings SINH BẰNG MÁY (tools/build_xcstrings.py đọc kho dịch) — sửa bản
       # dịch thì sửa ở kho dịch rồi sinh lại, ✗ sửa tay file .xcstrings.
+      # `excludes: translations.json` — kho dịch là INPUT lúc build script chạy TAY, app không
+      # đọc nó lúc chạy; thiếu dòng excludes thì 220KB kho dịch bị chép nguyên vào bundle
+      # (review đối kháng 01/09 bắt được trong IPA thật).
       - path: Localization
         buildPhase: resources
+        excludes:
+          - translations.json
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.cedar247.cedarscan
