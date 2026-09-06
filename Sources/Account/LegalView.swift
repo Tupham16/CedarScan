@@ -19,6 +19,12 @@ import SwiftUI
 ///   có hiệu lực, nên lệch = tự viết lại hợp đồng của chính mình mà không biết.
 /// · `governingState` chỉ nội suy vào bản Anh; bản Pháp viết cứng "Nouveau-Mexique" — đổi bang
 ///   đăng ký LLC thì sửa CẢ HAI.
+/// · 06/09/2026 **D1 = "(b) nhẹ" như CubiCasa**: Terms nói rõ dịch vụ vẽ bán cho người hành nghề
+///   (mục "These terms") + câu van an toàn ở "Refunds"; KHÔNG có ô tick / không nhắc quyền huỷ
+///   14 ngày.
+///   Bản Pháp VẪN bắt buộc: điều 55 Charte áp cho MỌI hợp đồng mẫu (adhésion), không riêng người
+///   tiêu dùng. EULA cố ý GIỮ "business or private purposes": EULA cấp phép dùng APP (miễn phí),
+///   còn Terms nói về DỊCH VỤ VẼ — hai đối tượng khác nhau, ✗ "đồng bộ" EULA sang B2B.
 ///
 /// ⚠ Nội dung dưới đây mô tả ĐÚNG những gì app/server đang làm thật (id thiết bị cho suất miễn
 /// phí, **bản quét nằm trên máy tới khi khách tự xoá — mục "How long we keep it" sửa 10/08 ở bản
@@ -61,10 +67,14 @@ enum LegalDoc: String, CaseIterable, Identifiable {
     /// ✗ suy từ ngày ghi trong handoff.
     /// (01/09/2026: thêm mục Language/Langue + bản dịch tiếng Pháp trọn vẹn — lệnh `date` chạy
     /// lúc sửa: 2026-09-01.)
-    static let lastUpdated = "1 September 2026"
+    /// (06/09/2026: D1 chốt "(b) nhẹ" như CubiCasa — mục "These terms" nói dịch vụ vẽ dành cho
+    /// người hành nghề + câu van an toàn ở "Refunds"; KHÔNG có ô tick 14 ngày, không đụng luồng
+    /// đặt hàng. Các điều khoản bảo vệ người tiêu dùng ở "Liability"/"General"/"Refunds" GIỮ
+    /// NGUYÊN — ✗ xoá. `date` lúc sửa: 2026-09-06.)
+    static let lastUpdated = "6 September 2026"
 
     /// Ngày cập nhật viết theo lối Pháp, in trên bản Pháp. Đổi `lastUpdated` thì đổi cả đây.
-    static let lastUpdatedFR = "1er septembre 2026"
+    static let lastUpdatedFR = "6 septembre 2026"
 
     static let contactEmail = "hello@cedar247.com"
 
@@ -169,7 +179,7 @@ extension LegalDoc {
 extension LegalDoc {
     static let termsSections: [(String, String)] = [
         ("These terms",
-         "These terms form the agreement between you and Cedar247 for the CedarScan app and the drawing services ordered through it. By creating an account or placing an order you accept them. If you are ordering for a company, you confirm you may accept these terms on its behalf."),
+         "These terms form the agreement between you and Cedar247 for the CedarScan app and the drawing services ordered through it. By creating an account or placing an order you accept them. If you are ordering for a company, you confirm you may accept these terms on its behalf. CedarScan is a professional tool. The drawing service is built for people who order drawings as part of their business or profession — estate agents, photographers, architects, designers, contractors and property managers — and we supply it on that basis."),
         ("Your account",
          "Give accurate details, keep your password to yourself, and tell us promptly if you suspect someone else has access. You are responsible for what happens under your account. We may suspend or close an account that is used to abuse the service, to evade promotion limits, or to break these terms."),
         ("What the service is",
@@ -185,7 +195,7 @@ extension LegalDoc {
         ("Revisions",
          "If we made a mistake — a missing door, a mislabelled room, a wrong dimension we could have read from your scan — tell us through Orders, Request a revision, and we will fix it free of charge. Attach a photo or a marked-up file if it helps us find the spot. Requests that change what you originally ordered, or that ask us to draw an area your scan does not cover, are new work and are quoted as such. Revisions are available for 90 days after delivery, up to three per order, matching the revision policy published on our website; after that, or once you have asked us to delete the files, we may no longer have the source data."),
         ("Refunds",
-         "You can cancel and be refunded in full at any time before we start drawing. Once drawing has begun we will refund a fair part of the price, judged by how much work has been done. If we cannot deliver at all, you get everything back. If a scan is too incomplete to draw, we will tell you before we take the work on rather than deliver something unusable."),
+         "You can cancel and be refunded in full at any time before we start drawing. Once drawing has begun we will refund a fair part of the price, judged by how much work has been done. If we cannot deliver at all, you get everything back. If a scan is too incomplete to draw, we will tell you before we take the work on rather than deliver something unusable. This is Cedar247's own refund policy; it does not reduce any right your local law gives you."),
         ("What the drawings are and are not",
          "Deliverables are produced from the scan you supply and are intended for marketing, planning, space assessment and similar everyday purposes. They are not a land survey, a structural report, or a certified measurement, and they should not be relied on for legal boundaries, permit submissions, structural work or anything else where an error would matter, unless a qualified professional has verified them on site. Small differences between the drawing and the building are normal and inherent to scanning."),
         ("Who owns what",
@@ -298,7 +308,7 @@ extension LegalDoc {
 extension LegalDoc {
     static let termsSectionsFR: [(String, String)] = [
         ("Les présentes conditions",
-         "Les présentes conditions constituent le contrat entre vous et Cedar247 concernant l'application CedarScan et les services de dessin commandés par son intermédiaire. En créant un compte ou en passant une commande, vous les acceptez. Si vous commandez pour une société, vous confirmez que vous êtes autorisé à accepter les présentes conditions en son nom."),
+         "Les présentes conditions constituent le contrat entre vous et Cedar247 concernant l'application CedarScan et les services de dessin commandés par son intermédiaire. En créant un compte ou en passant une commande, vous les acceptez. Si vous commandez pour une société, vous confirmez que vous êtes autorisé à accepter les présentes conditions en son nom. CedarScan est un outil professionnel. Le service de dessin est conçu pour les personnes qui commandent des dessins dans le cadre de leurs activités professionnelles ou commerciales — courtiers immobiliers, photographes, architectes, designers, entrepreneurs en construction et gestionnaires immobiliers — et c'est sur cette base que nous le fournissons."),
         ("Votre compte",
          "Fournissez des renseignements exacts, gardez votre mot de passe pour vous et informez-nous rapidement si vous soupçonnez qu'une autre personne y a accès. Vous êtes responsable de ce qui se passe sous votre compte. Nous pouvons suspendre ou fermer un compte utilisé pour abuser du service, pour contourner les limites des promotions ou pour enfreindre les présentes conditions."),
         ("En quoi consiste le service",
@@ -314,7 +324,7 @@ extension LegalDoc {
         ("Révisions",
          "Si nous avons commis une erreur — une porte manquante, une pièce mal étiquetée, une dimension erronée alors que la bonne mesure était lisible dans votre numérisation — signalez-le-nous via Commandes, Demander une révision, et nous la corrigerons gratuitement. Joignez une photo ou un fichier annoté si cela nous aide à repérer l'endroit. Les demandes qui modifient ce que vous aviez commandé à l'origine, ou qui nous demandent de dessiner une zone que votre numérisation ne couvre pas, constituent un nouveau travail et font l'objet d'un devis en conséquence. Les révisions sont disponibles pendant 90 jours après la livraison, à raison de trois au maximum par commande, conformément à la politique de révision publiée sur notre site web ; au-delà, ou une fois que vous nous avez demandé de supprimer les fichiers, il se peut que nous ne disposions plus des données sources."),
         ("Remboursements",
-         "Vous pouvez annuler et être remboursé intégralement à tout moment avant que nous commencions à dessiner. Une fois le dessin commencé, nous rembourserons une part équitable du prix, appréciée selon la quantité de travail déjà effectuée. Si nous ne pouvons pas livrer du tout, vous récupérez la totalité. Si une numérisation est trop incomplète pour que nous puissions en tirer un dessin, nous vous en informerons avant d'accepter le travail, plutôt que de livrer quelque chose d'inutilisable."),
+         "Vous pouvez annuler et être remboursé intégralement à tout moment avant que nous commencions à dessiner. Une fois le dessin commencé, nous rembourserons une part équitable du prix, appréciée selon la quantité de travail déjà effectuée. Si nous ne pouvons pas livrer du tout, vous récupérez la totalité. Si une numérisation est trop incomplète pour que nous puissions en tirer un dessin, nous vous en informerons avant d'accepter le travail, plutôt que de livrer quelque chose d'inutilisable. Cette politique de remboursement est propre à Cedar247 ; elle ne restreint aucun droit que votre loi locale vous accorde."),
         ("Ce que les dessins sont et ne sont pas",
          "Les livrables sont produits à partir de la numérisation que vous fournissez et sont destinés au marketing, à la planification, à l'évaluation d'espaces et à d'autres usages courants du même ordre. Ils ne constituent ni un plan d'arpentage, ni un rapport structural, ni une mesure certifiée, et il ne faut pas s'y fier pour les limites légales de propriété, les demandes de permis, les travaux de structure ou tout autre usage où une erreur porterait à conséquence, à moins qu'un professionnel qualifié ne les ait vérifiés sur place. De petits écarts entre le dessin et le bâtiment sont normaux et inhérents à la numérisation."),
         ("À qui appartient quoi",
