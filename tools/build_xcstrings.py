@@ -1,5 +1,7 @@
 # Sinh Localization/Localizable.xcstrings + Localization/InfoPlist.xcstrings tu kho dich
 # Localization/translations.json. CHAY LAI file nay sau khi sua kho dich — ✗ sua tay .xcstrings.
+# Also re-run after editing a purpose string in project.yml: its English copy goes into
+# InfoPlist.xcstrings and overrides Info.plist on English devices. build.yml fails on drift.
 #
 #   python tools/build_xcstrings.py
 #
@@ -45,14 +47,34 @@ def check(key, lang, val, errors):
     if not val.strip():
         errors.append(f"[{lang}] ban dich rong: {key[:60]!r}")
 
-def entry(translations):
-    return {
-        "extractionState": "manual",
-        "localizations": {
-            lang: {"stringUnit": {"state": "translated", "value": translations[lang]}}
-            for lang in LANGS if lang in translations
-        },
+def entry(translations, source=None):
+    locs = {
+        lang: {"stringUnit": {"state": "translated", "value": translations[lang]}}
+        for lang in LANGS if lang in translations
     }
+    if source is not None:
+        locs["en"] = {"stringUnit": {"state": "translated", "value": source}}
+    return {"extractionState": "manual", "localizations": locs}
+
+def plist_source(key):
+    # Info.plist keys are symbolic, so the English text must be explicit: Xcode 26 emits
+    # en.lproj/InfoPlist.strings and, without it, the permission prompt shows the KEY NAME.
+    # Read from project.yml (one source for the sentence). Only a one-line plain scalar is
+    # accepted: anything else would be mis-read silently.
+    lines = open(os.path.join(ROOT, "project.yml"), encoding="utf-8").read().split("\n")
+    hits = [i for i, l in enumerate(lines) if re.match(r"[ \t]+" + re.escape(key) + r":", l)]
+    if len(hits) != 1:
+        sys.exit(f"HONG project.yml: {key} x{len(hits)}")
+    line = lines[hits[0]]
+    val = line.split(":", 1)[1].strip()
+    nxt = next((l for l in lines[hits[0] + 1:] if l.strip()), "")
+    deeper = len(nxt) - len(nxt.lstrip()) > len(line) - len(line.lstrip())
+    # Also rejected: a trailing comment (space or tab before #) and $(VAR) / ${VAR}, which end up
+    # in Info.plist differently from this raw text.
+    bad = not val or val[0] in "\"'>|#&*![{" or re.search(r"[ \t]#|\$[({]", val)
+    if bad or (deeper and not nxt.lstrip().startswith("#")):
+        sys.exit(f"HONG project.yml: {key} phai la plain scalar MOT dong")
+    return val
 
 def build(keys, path, require_all):
     errors, strings = [], {}
@@ -64,7 +86,9 @@ def build(keys, path, require_all):
             errors.append(f"thieu {missing}: {key[:60]!r}")
         for lang, val in tr.items():
             check(key, lang, val, errors)
-        strings[key] = entry(tr)
+        if "source" in k:
+            check(key, "en", k["source"], errors)
+        strings[key] = entry(tr, k.get("source"))
     if errors:
         for e in errors:
             print("HONG", e)
@@ -77,5 +101,5 @@ def build(keys, path, require_all):
 
 store = json.load(open(os.path.join(LOC, "translations.json"), encoding="utf-8"))
 build(store["keys"], os.path.join(LOC, "Localizable.xcstrings"), require_all=True)
-build([{"key": k, "translations": v} for k, v in store["infoplist"].items()],
+build([{"key": k, "translations": v, "source": plist_source(k)} for k, v in store["infoplist"].items()],
       os.path.join(LOC, "InfoPlist.xcstrings"), require_all=True)

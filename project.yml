@@ -63,7 +63,7 @@ targets:
         # tiếng, cùng hiện "1.0" → chủ app test trúng bản cũ mà không ai biết, báo "lỗi vẫn
         # nguyên" oan. AltStore (My Apps) và Cài đặt iOS đều hiện số này — nó là cách DUY NHẤT
         # xác minh từ xa máy ông đang chạy bản nào. Ghi số giao kèm vào SESSION-HANDOFF §STATE.
-        MARKETING_VERSION: "2.37"
+        MARKETING_VERSION: "2.38"
     info:
       path: Sources/Info.plist
       properties:
@@ -136,6 +136,8 @@ targets:
         # 🔴 NSCameraUsageDescription ở TRÊN (bản gốc trong Info.plist) phải GIỮ TIẾNG ANH —
         # appstore-check.py kiểm câu đó, và reviewer Apple đọc bản gốc; bản dịch chỉ nằm trong
         # InfoPlist.xcstrings.
+        # Since Xcode 26 the build also ships en.lproj, so the English copy in InfoPlist.xcstrings
+        # overrides the two sentences above: after editing one, re-run tools/build_xcstrings.py.
         CFBundleDevelopmentRegion: en
         CFBundleLocalizations:
           - en
