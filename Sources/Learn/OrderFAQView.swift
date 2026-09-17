@@ -230,7 +230,7 @@ struct OrderFAQContent: View {
             FAQItem(
                 id: "pay",
                 question: String(localized: "Where do I pay?"),
-                answer: String(localized: "Tap \"Pay Now\" — on the screen right after you order, or in the Orders tab. It opens the payment page in your browser. No button yet? Give it a few minutes; the link reaches your email.")
+                answer: String(localized: "Tap \"Pay Now\" — on the screen right after you order, or in the Orders tab. You pay by card in the app, or on the payment page in your browser. No button yet? Give it a few minutes; the link reaches your email.")
             ),
             FAQItem(
                 id: "track",

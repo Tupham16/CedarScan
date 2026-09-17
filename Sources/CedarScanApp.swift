@@ -120,6 +120,7 @@ struct RootView: View {
                 .ignoresSafeArea(.keyboard, edges: .bottom)
         }
         .task(id: account.isSignedIn) {
+            await confirmPendingPayments()
             await purgeDeliveredScans()
         }
         // `.task(id:)` KHÔNG đủ: TabView gốc không bao giờ disappear/reappear trong vòng đời
@@ -128,8 +129,18 @@ struct RootView: View {
         // trong nền cả tuần thì không bao giờ được dọn. Thêm mốc quay lại foreground.
         .onChange(of: scenePhase) { _, phase in
             guard phase == .active else { return }
-            Task { await purgeDeliveredScans() }
+            Task {
+                await confirmPendingPayments()
+                await purgeDeliveredScans()
+            }
         }
+    }
+
+    /// A card payment completed in the app but not yet confirmed by the server (network dropped
+    /// right after the sheet closed) is asked about again here. Nothing pending = no request.
+    private func confirmPendingPayments() async {
+        guard account.isSignedIn else { return }
+        await PaymentFlow.shared.confirmPending()
     }
 
     /// 🔴🔴 **ĐĨA SCAN GỌI THẲNG VÀO ĐÂY. ✗ BAO GIỜ ĐẶT `tab = .scan` NỮA — ĐÓ LÀ CON BUG.**

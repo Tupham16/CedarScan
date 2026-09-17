@@ -61,6 +61,9 @@ struct OrderScanResponse: Decodable {
     let couponApplied: Bool?
     let free: Bool?
     let hasTour: Bool? // đơn có add-on Virtual Tour → mời khách thêm ảnh phòng ngay
+    /// Server hint: this order can be paid in the app (Stripe PaymentSheet) — see `PaymentFlow`.
+    /// nil/false (older server, switch off) = open `paymentUrl` in the browser as before.
+    let payInApp: Bool?
 }
 
 /// Kết quả "gửi bổ sung bản quét" (`POST orders/{id}/supplement-scan`).
@@ -186,6 +189,8 @@ struct OrderDTO: Decodable, Identifiable {
     let currency: String?
     let paid: Bool?
     let paymentUrl: String?
+    /// Same hint as `OrderScanResponse.payInApp`. Optional: an older server does not send it.
+    let payInApp: Bool?
     // Virtual Tour add-on
     let hasTour: Bool?
     let tourPhotoCount: Int?
@@ -304,6 +309,27 @@ struct TourPhotoCompleteResponse: Decodable {
     let photoId: String
     let status: String
     let url: String
+}
+
+// MARK: In-app payment (Stripe PaymentSheet)
+
+/// `POST orders/{id}/payment-sheet`: what Stripe's PaymentSheet needs for ONE unpaid order. The
+/// server decides the amount and sends the publishable key (test accounts get Stripe TEST keys on
+/// prod) — ✗ never hard-code a key in the app. Fields the app does not use are left undecoded.
+struct PaymentSheetParams: Decodable {
+    /// The PaymentIntent's client secret. ✗ log, ✗ store.
+    let paymentIntent: String
+    let customer: String
+    let ephemeralKey: String
+    let publishableKey: String
+    let merchantDisplayName: String?
+}
+
+/// `POST orders/{id}/payment-confirm`: the server asks Stripe itself and settles the order.
+/// `processing` = the charge is still in flight, ask again later.
+struct PaymentConfirmResponse: Decodable {
+    let paid: Bool
+    let processing: Bool?
 }
 
 struct APIError: LocalizedError {
@@ -510,6 +536,17 @@ final class APIClient {
 
     func listOrders() async throws -> OrdersResponse {
         try await send("orders")
+    }
+
+    // MARK: In-app payment — callers: `PaymentFlow` only
+
+    /// Any non-200 (`APIError.code` says why) means "pay in the browser", except `already_paid`.
+    func paymentSheet(orderId: String) async throws -> PaymentSheetParams {
+        try await send("orders/\(orderId)/payment-sheet", method: "POST", json: [:])
+    }
+
+    func paymentConfirm(orderId: String) async throws -> PaymentConfirmResponse {
+        try await send("orders/\(orderId)/payment-confirm", method: "POST", json: [:])
     }
 
     // MARK: Gửi bổ sung bản quét vào đơn ĐÃ ĐẶT

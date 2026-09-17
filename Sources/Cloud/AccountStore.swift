@@ -11,6 +11,13 @@ final class AccountStore: ObservableObject {
     private static let emailVerifiedKey = "app-email-verified"
 
     var isSignedIn: Bool { customer != nil }
+
+    /// The signed-in customer's id for code outside the view tree (`PaymentFlow` files its markers
+    /// under it). Same record `init()` restores; `signOut()` removes it.
+    static var savedCustomerId: String? {
+        guard let data = UserDefaults.standard.data(forKey: customerKey) else { return nil }
+        return (try? JSONDecoder().decode(CustomerDTO.self, from: data))?.id
+    }
     var needsVerification: Bool { customer != nil && !emailVerified }
 
     init() {

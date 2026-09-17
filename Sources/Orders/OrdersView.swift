@@ -79,6 +79,9 @@ struct OrdersView: View {
     private func load() async {
         guard account.isSignedIn else { return }
         isLoading = true
+        // Card payments the server has not confirmed yet. Not awaited: the list must never wait on
+        // it, and the row shows "Paid" from `PaymentFlow` either way.
+        Task { await PaymentFlow.shared.confirmPending() }
         do {
             orders = try await APIClient.shared.listOrders().orders
             errorMessage = nil
@@ -289,11 +292,18 @@ struct OrdersView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
+                // In-app card sheet when the server offers it, else the browser — see `PaymentFlow`.
                 if order.paid != true, let payURL = httpsURL(order.paymentUrl) {
-                    Link(destination: payURL) {
+                    PayNowButton(
+                        orderId: order.orderId,
+                        payURL: payURL,
+                        payInApp: order.payInApp == true,
+                        onPaid: { Task { await load() } }
+                    ) {
                         Label(String(localized: "Pay Now"), systemImage: "creditcard.fill")
                             .font(.subheadline.weight(.semibold))
                     }
+                    .buttonStyle(.borderless)
                 }
 
                 // Virtual Tour: trước khi giao = thêm ảnh phòng; sau khi giao = link tour chia sẻ được

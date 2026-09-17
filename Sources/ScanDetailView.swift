@@ -1752,10 +1752,15 @@ struct OrderSheet: View {
                 .multilineTextAlignment(.center)
                 .padding(.horizontal)
 
+            // The card sheet opens by itself right after Place order when the server offers in-app
+            // payment; closing it leaves this button. Otherwise the browser, as before — `PaymentFlow`.
             if let payURL = httpsURL(order.paymentUrl) {
-                Button {
-                    openURL(payURL)
-                } label: {
+                PayNowButton(
+                    orderId: order.orderId,
+                    payURL: payURL,
+                    payInApp: order.payInApp == true,
+                    opensOnAppear: true
+                ) {
                     Label(String(localized: "Pay Now"), systemImage: "creditcard.fill")
                         .font(.headline)
                         .frame(maxWidth: .infinity)

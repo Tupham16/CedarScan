@@ -2017,15 +2017,15 @@
    }
   },
   {
-   "key": "Tap \"Pay Now\" — on the screen right after you order, or in the Orders tab. It opens the payment page in your browser. No button yet? Give it a few minutes; the link reaches your email.",
+   "key": "Tap \"Pay Now\" — on the screen right after you order, or in the Orders tab. You pay by card in the app, or on the payment page in your browser. No button yet? Give it a few minutes; the link reaches your email.",
    "translations": {
-    "vi": "Bạn bấm \"Thanh toán ngay\" — ở màn hình ngay sau khi đặt, hoặc ở tab Đơn hàng. Nút mở trang thanh toán bằng trình duyệt. Chưa thấy nút thì đợi vài phút, link sẽ tới email của bạn.",
-    "fr": "Touchez \"Payer maintenant\" — sur l'écran juste après la commande, ou dans l'onglet Commandes. Le bouton ouvre la page de paiement dans votre navigateur. Pas encore de bouton? Patientez quelques minutes; le lien arrive dans votre boîte courriel.",
-    "de": "Tippen Sie auf \"Jetzt bezahlen\" — auf dem Bildschirm direkt nach der Bestellung oder im Tab \"Bestellungen\". Er öffnet die Zahlungsseite in Ihrem Browser. Noch kein Button? Warten Sie ein paar Minuten — der Link kommt per E-Mail.",
-    "cs": "Klepněte na \"Zaplatit nyní\" — na obrazovce hned po objednání, nebo na záložce Objednávky. Tlačítko otevře platební stránku ve vašem prohlížeči. Tlačítko zatím nikde? Dejte tomu pár minut; odkaz vám dorazí na e-mail.",
-    "sk": "Ťuknite na \"Zaplatiť teraz\" — na obrazovke hneď po objednaní alebo na karte Objednávky. Otvorí sa platobná stránka vo vašom prehliadači. Tlačidlo ešte nevidíte? Počkajte pár minút; odkaz vám príde na e-mail.",
-    "es": "Toca \"Pagar ahora\" — en la pantalla justo después de pedir, o en la pestaña Pedidos. Se abre la página de pago en tu navegador. ¿Aún no ves el botón? Dale unos minutos; el enlace llegará a tu correo.",
-    "nl": "Tik op \"Nu betalen\" — op het scherm direct na het bestellen, of in het tabblad Bestellingen. De knop opent de betaalpagina in je browser. Nog geen knop? Geef het een paar minuten; de link komt in je mailbox."
+    "vi": "Bạn bấm \"Thanh toán ngay\" — ở màn hình ngay sau khi đặt, hoặc ở tab Đơn hàng. Bạn trả bằng thẻ ngay trong app, hoặc ở trang thanh toán trên trình duyệt. Chưa thấy nút thì đợi vài phút, link sẽ tới email của bạn.",
+    "fr": "Touchez \"Payer maintenant\" — sur l'écran juste après la commande, ou dans l'onglet Commandes. Vous payez par carte dans l'app, ou sur la page de paiement dans votre navigateur. Pas encore de bouton? Patientez quelques minutes; le lien arrive dans votre boîte courriel.",
+    "de": "Tippen Sie auf \"Jetzt bezahlen\" — auf dem Bildschirm direkt nach der Bestellung oder im Tab \"Bestellungen\". Sie bezahlen per Karte in der App oder auf der Zahlungsseite in Ihrem Browser. Noch kein Button? Warten Sie ein paar Minuten — der Link kommt per E-Mail.",
+    "cs": "Klepněte na \"Zaplatit nyní\" — na obrazovce hned po objednání, nebo na záložce Objednávky. Zaplatíte kartou v aplikaci, nebo na platební stránce ve vašem prohlížeči. Tlačítko zatím nikde? Dejte tomu pár minut; odkaz vám dorazí na e-mail.",
+    "sk": "Ťuknite na \"Zaplatiť teraz\" — na obrazovke hneď po objednaní alebo na karte Objednávky. Zaplatíte platobnou kartou v aplikácii alebo na platobnej stránke vo vašom prehliadači. Tlačidlo ešte nevidíte? Počkajte pár minút; odkaz vám príde na e-mail.",
+    "es": "Toca \"Pagar ahora\" — en la pantalla justo después de pedir, o en la pestaña Pedidos. Pagas con tarjeta en la app, o en la página de pago en tu navegador. ¿Aún no ves el botón? Dale unos minutos; el enlace llegará a tu correo.",
+    "nl": "Tik op \"Nu betalen\" — op het scherm direct na het bestellen, of in het tabblad Bestellingen. Je betaalt met je betaalkaart in de app, of op de betaalpagina in je browser. Nog geen knop? Geef het een paar minuten; de link komt in je mailbox."
    }
   },
   {
