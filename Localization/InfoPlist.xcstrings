@@ -16,6 +16,12 @@
             "value": "CedarScan verwendet die Kamera und den LiDAR-Sensor, um die Räume Ihrer Immobilie zu scannen und das 3D-Modell zu erstellen, aus dem Ihr Grundriss gezeichnet wird."
           }
         },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CedarScan uses the camera and LiDAR sensor to scan the rooms of your property and build the 3D model your floor plan is drawn from."
+          }
+        },
         "es": {
           "stringUnit": {
             "state": "translated",
@@ -61,6 +67,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "CedarScan verwendet Ihren Standort nur, um die Adresse der Immobilie auszufüllen, die Sie gleich scannen. Sie können die Adresse stattdessen jederzeit von Hand eingeben."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CedarScan uses your location only to fill in the address of the property you are about to scan. You can always type the address by hand instead."
           }
         },
         "es": {

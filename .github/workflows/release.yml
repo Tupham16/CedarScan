@@ -208,6 +208,12 @@ jobs:
           print("PrivacyInfo.xcprivacy    :", priv or "KHONG CO")
           if not priv:
               fail.append("Thieu PrivacyInfo.xcprivacy o goc bundle")
+          # A purpose string whose text is its own key name = the permission prompt shows the key.
+          for n in names:
+              if n.endswith(".lproj/InfoPlist.strings"):
+                  for k, v in plistlib.loads(z.read(n)).items():
+                      if v == k:
+                          fail.append(n + ": " + k + " has no text")
           if fail:
               for f in fail:
                   print("::error::" + f)

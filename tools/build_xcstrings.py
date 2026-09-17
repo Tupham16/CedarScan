@@ -45,14 +45,24 @@ def check(key, lang, val, errors):
     if not val.strip():
         errors.append(f"[{lang}] ban dich rong: {key[:60]!r}")
 
-def entry(translations):
-    return {
-        "extractionState": "manual",
-        "localizations": {
-            lang: {"stringUnit": {"state": "translated", "value": translations[lang]}}
-            for lang in LANGS if lang in translations
-        },
+def entry(translations, source=None):
+    locs = {
+        lang: {"stringUnit": {"state": "translated", "value": translations[lang]}}
+        for lang in LANGS if lang in translations
     }
+    if source is not None:
+        locs["en"] = {"stringUnit": {"state": "translated", "value": source}}
+    return {"extractionState": "manual", "localizations": locs}
+
+def plist_source(key):
+    # Info.plist keys are symbolic, so the English text must be explicit: Xcode 26 emits
+    # en.lproj/InfoPlist.strings and, without it, the permission prompt shows the KEY NAME.
+    # Read from project.yml so there is one source for the English sentence.
+    text = open(os.path.join(ROOT, "project.yml"), encoding="utf-8").read()
+    m = re.search(r"^[ \t]+" + re.escape(key) + r":[ \t]*(\S.*?)[ \t]*$", text, re.M)
+    if not m:
+        sys.exit(f"HONG project.yml thieu {key}")
+    return m.group(1)
 
 def build(keys, path, require_all):
     errors, strings = [], {}
@@ -64,7 +74,9 @@ def build(keys, path, require_all):
             errors.append(f"thieu {missing}: {key[:60]!r}")
         for lang, val in tr.items():
             check(key, lang, val, errors)
-        strings[key] = entry(tr)
+        if "source" in k:
+            check(key, "en", k["source"], errors)
+        strings[key] = entry(tr, k.get("source"))
     if errors:
         for e in errors:
             print("HONG", e)
@@ -77,5 +89,5 @@ def build(keys, path, require_all):
 
 store = json.load(open(os.path.join(LOC, "translations.json"), encoding="utf-8"))
 build(store["keys"], os.path.join(LOC, "Localizable.xcstrings"), require_all=True)
-build([{"key": k, "translations": v} for k, v in store["infoplist"].items()],
+build([{"key": k, "translations": v, "source": plist_source(k)} for k, v in store["infoplist"].items()],
       os.path.join(LOC, "InfoPlist.xcstrings"), require_all=True)
