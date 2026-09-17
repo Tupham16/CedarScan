@@ -235,7 +235,7 @@ struct OrderFAQContent: View {
             FAQItem(
                 id: "track",
                 question: String(localized: "How do I follow my order?"),
-                answer: String(localized: "The Orders tab. Each order carries a badge — Processing, On hold, Delivered or Refunded. The search box finds an order by number or by scan name.")
+                answer: String(localized: "The Orders tab. Each order carries a badge — Processing, On hold, Delivered or Refunded. The search box finds an order by property name, order number or scan name.")
             ),
             FAQItem(
                 id: "formats",

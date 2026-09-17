@@ -11751,49 +11751,49 @@
         }
       }
     },
-    "Search order # or scan name": {
+    "Search property or order #": {
       "extractionState": "manual",
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Hledat číslo objednávky nebo název skenu"
+            "value": "Hledat nemovitost nebo číslo objednávky"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Bestellnr. oder Scan-Namen suchen"
+            "value": "Objekt oder Bestellnr. suchen"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Buscar n.º de pedido o escaneo"
+            "value": "Buscar propiedad o n.º de pedido"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "N° de commande ou nom de numérisation"
+            "value": "Propriété ou n° de commande"
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Zoek op bestelnummer of scannaam"
+            "value": "Zoek op woning of bestelnummer"
           }
         },
         "sk": {
           "stringUnit": {
             "state": "translated",
-            "value": "Hľadať č. objednávky alebo názov skenu"
+            "value": "Hľadať nehnuteľnosť alebo č. objednávky"
           }
         },
         "vi": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tìm số đơn hoặc tên bản quét"
+            "value": "Tìm tên dự án hoặc số đơn"
           }
         }
       }
@@ -13631,49 +13631,49 @@
         }
       }
     },
-    "The Orders tab. Each order carries a badge — Processing, On hold, Delivered or Refunded. The search box finds an order by number or by scan name.": {
+    "The Orders tab. Each order carries a badge — Processing, On hold, Delivered or Refunded. The search box finds an order by property name, order number or scan name.": {
       "extractionState": "manual",
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Na záložce Objednávky. Každá objednávka má štítek — Zpracovává se, Pozastaveno, Doručeno nebo Vráceno. Vyhledávací pole najde objednávku podle čísla i podle názvu skenu."
+            "value": "Na záložce Objednávky. Každá objednávka má štítek — Zpracovává se, Pozastaveno, Doručeno nebo Vráceno. Vyhledávací pole najde objednávku podle názvu nemovitosti, čísla objednávky nebo názvu skenu."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Im Tab \"Bestellungen\". Jede Bestellung hat einen Status — In Bearbeitung, Wartend, Geliefert oder Erstattet. Das Suchfeld findet Bestellungen nach Nummer oder Scan-Namen."
+            "value": "Im Tab \"Bestellungen\". Jede Bestellung hat einen Status — In Bearbeitung, Wartend, Geliefert oder Erstattet. Das Suchfeld findet Bestellungen nach Objektnamen, Bestellnummer oder Scan-Namen."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "En la pestaña Pedidos. Cada pedido lleva una etiqueta — En proceso, En espera, Entregado o Reembolsado. El buscador encuentra un pedido por número o por nombre de escaneo."
+            "value": "En la pestaña Pedidos. Cada pedido lleva una etiqueta — En proceso, En espera, Entregado o Reembolsado. El buscador encuentra un pedido por nombre de la propiedad, por número de pedido o por nombre de escaneo."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Dans l'onglet Commandes. Chaque commande porte une étiquette — En traitement, En attente, Livrée ou Remboursée. Le champ de recherche trouve une commande par numéro ou par nom de numérisation."
+            "value": "Dans l'onglet Commandes. Chaque commande porte une étiquette — En traitement, En attente, Livrée ou Remboursée. Le champ de recherche trouve une commande par nom de propriété, par numéro de commande ou par nom de numérisation."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "In het tabblad Bestellingen. Elke bestelling heeft een label — In behandeling, In de wacht, Geleverd of Terugbetaald. Via het zoekveld vind je een bestelling op bestelnummer of scannaam."
+            "value": "In het tabblad Bestellingen. Elke bestelling heeft een label — In behandeling, In de wacht, Geleverd of Terugbetaald. Via het zoekveld vind je een bestelling op woningnaam, bestelnummer of scannaam."
           }
         },
         "sk": {
           "stringUnit": {
             "state": "translated",
-            "value": "Na karte Objednávky. Každá objednávka má štítok — Spracúva sa, Pozastavená, Doručená alebo Refundovaná. Vyhľadávacie pole nájde objednávku podľa čísla alebo názvu skenu."
+            "value": "Na karte Objednávky. Každá objednávka má štítok — Spracúva sa, Pozastavená, Doručená alebo Refundovaná. Vyhľadávacie pole nájde objednávku podľa názvu nehnuteľnosti, čísla objednávky alebo názvu skenu."
           }
         },
         "vi": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tab Đơn hàng. Mỗi đơn có một nhãn — Đang xử lý, Tạm giữ, Đã giao hoặc Hoàn tiền. Ô tìm kiếm tìm được theo số đơn hoặc tên bản quét."
+            "value": "Tab Đơn hàng. Mỗi đơn có một nhãn — Đang xử lý, Tạm giữ, Đã giao hoặc Hoàn tiền. Ô tìm kiếm tìm được theo tên dự án, số đơn hoặc tên bản quét."
           }
         }
       }

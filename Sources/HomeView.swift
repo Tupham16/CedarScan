@@ -506,6 +506,7 @@ struct HomeView: View {
         // `let` cục bộ + `return` tường minh — khuôn bắt buộc, xem khối trên. Dòng đếm được dựng
         // Ở ĐÂY (String, ✗ View) để `Text(...)` bên dưới vẫn là một biểu thức tầm thường.
         let countLine = Self.projectCountLine(store.scans(in: project))
+        let created = project.createdAt.formatted(date: .abbreviated, time: .omitted)
         return HStack(spacing: 10) {
             Button {
                 path.append(project)
@@ -520,6 +521,10 @@ struct HomeView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(project.name)
                             .font(.headline)
+                        // Creation date — owner asked 17/09; a restyle must keep it.
+                        Text(created)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                         Text(countLine)
                             .font(.caption)
                             .foregroundStyle(.secondary)
