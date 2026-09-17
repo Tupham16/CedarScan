@@ -69,6 +69,15 @@ jobs:
             exit 1
           fi
 
+      # App Store Connect only accepts builds made with Xcode 26+ / iOS 26 SDK (since 2026-04-28);
+      # the macos-15 default is Xcode 16.4. Pinned to an exact version: a newer major also switches
+      # the SDK, and with it the system UI design (UIDesignRequiresCompatibility is ignored from
+      # the iOS 27 SDK on). build.yml must pin the same one.
+      - name: Select Xcode 26.3
+        run: |
+          sudo xcode-select -s /Applications/Xcode_26.3.app
+          xcodebuild -version
+
       - name: Install XcodeGen
         run: brew install xcodegen
 
@@ -187,7 +196,10 @@ jobs:
           print("Bundle id                :", info.get("CFBundleIdentifier"))
           print("Camera purpose           :", info.get("NSCameraUsageDescription"))
           print("Device family            :", info.get("UIDeviceFamily"))
+          print("Xcode / SDK              :", info.get("DTXcode"), info.get("DTSDKName"))
           fail = []
+          if int(info.get("DTXcode") or 0) < 2600:
+              fail.append("Built with Xcode < 26 - App Store Connect rejects the upload")
           if info.get("CFBundleShortVersionString") in (None, "1.0"):
               fail.append("CFBundleShortVersionString sai (XcodeGen ghi cung 1.0?)")
           if str(info.get("CFBundleVersion")) == "1":
