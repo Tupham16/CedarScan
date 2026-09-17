@@ -175,6 +175,9 @@ struct OrderDTO: Decodable, Identifiable {
     /// Optional để bản server cũ không làm hỏng decode cả danh sách đơn.
     let scanIds: [String]?
     let scanName: String?
+    /// House the order was placed under. Optional: an older server omits it, and so do orders
+    /// placed without one.
+    let projectName: String?
     let status: String
     let placedAt: String
     let deliveredAt: String?
@@ -251,7 +254,8 @@ struct OrderDTO: Decodable, Identifiable {
     /// Server dùng `Date.toISOString()` — LUÔN có mili-giây. Nhưng thử cả hai dạng: một thay đổi
     /// nhỏ phía server mà parse hỏng thì `wasDeliveredAtLeast` trả false mãi và app không bao
     /// giờ dọn nữa — hỏng thầm lặng, không ai biết.
-    private static func isoDate(_ raw: String) -> Date? {
+    /// Also used for the date on each Orders row.
+    static func isoDate(_ raw: String) -> Date? {
         let withMs = ISO8601DateFormatter()
         withMs.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         if let d = withMs.date(from: raw) { return d }

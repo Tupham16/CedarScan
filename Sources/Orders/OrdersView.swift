@@ -6,13 +6,13 @@ struct OrdersView: View {
     @EnvironmentObject private var account: AccountStore
     /// 🔴 TRUYỀN TAY từ `RootView`, cùng khuôn `HomeView`. Tab này KHÔNG push màn nào nên
     /// `@EnvironmentObject` ở đây vốn an toàn — truyền tay để hai tab đọc store theo MỘT cách.
-    /// Dùng cho ĐÚNG một việc: tra đơn → dự án trên máy, cho nút "Thêm bản quét".
+    /// Looks up order → project on this device: for the "Add a scan" button, and as the row
+    /// title / search fallback (display only).
     @ObservedObject var store: ScanStore
     /// Nhảy sang tab Home và mở dự án — `RootView.requestOpenProject`. Tab này ✗ tự đổi tab.
     let onOpenProject: (ScanProject) -> Void
     @State private var orders: [OrderDTO] = []
-    /// Chữ trong ô tìm kiếm. Lọc theo SỐ ĐƠN và TÊN BẢN QUÉT — hai thứ duy nhất khách nhìn thấy
-    /// trên mỗi dòng, nên cũng là hai thứ duy nhất họ gõ lại được.
+    /// Search text, matched against `searchKeys(of:)`: order #, house name, scan names.
     @State private var searchText = ""
     /// Danh tính khách mà `orders` hiện thuộc về — để chỉ XOÁ cache khi tài khoản đổi THẬT, không
     /// xoá trên mỗi lần `.task` chạy lại (tránh chớp trắng + giữ được banner "dữ liệu cũ" của [17]).
@@ -137,9 +137,34 @@ struct OrdersView: View {
     private var searchedOrders: [OrderDTO] {
         let key = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !key.isEmpty else { return orders }
-        return orders.filter {
-            TextMatch.contains($0.orderNumber, key) || TextMatch.contains($0.scanName ?? "", key)
+        return orders.filter { order in
+            searchKeys(of: order).contains { TextMatch.contains($0, key) }
         }
+    }
+
+    /// House name of an order: the server's, else the project on this device that holds its
+    /// scans. `nil` = neither has one (older order, other device). Display and search only.
+    private func projectName(of order: OrderDTO) -> String? {
+        if let sent = Self.nonBlank(order.projectName) { return sent }
+        return Self.nonBlank(store.project(withOrderNumber: order.orderNumber)?.name)
+    }
+
+    /// Row title. Scan names alone ("Main floor") cannot tell two houses apart.
+    private func title(of order: OrderDTO) -> String {
+        projectName(of: order) ?? Self.nonBlank(order.scanName) ?? order.orderNumber
+    }
+
+    /// Everything a customer may type to find an order. The local name is listed even when the
+    /// server sent one: the project may have been renamed since.
+    private func searchKeys(of order: OrderDTO) -> [String] {
+        let local = store.project(withOrderNumber: order.orderNumber)?.name
+        let keys: [String?] = [order.orderNumber, order.projectName, local, order.scanName]
+        return keys.compactMap { $0 }
+    }
+
+    private static func nonBlank(_ text: String?) -> String? {
+        let trimmed = text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return trimmed.isEmpty ? nil : trimmed
     }
 
     /// Đơn đang hiển thị: khớp cả ô tìm kiếm lẫn bộ lọc trạng thái đang chọn.
@@ -271,7 +296,7 @@ struct OrdersView: View {
             ForEach(filteredOrders) { order in
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
-                    Text(order.scanName ?? order.orderNumber)
+                    Text(title(of: order))
                         .font(.headline)
                     Spacer()
                     StatusBadge(status: order.status)
@@ -411,12 +436,13 @@ struct OrdersView: View {
         .searchable(
             text: $searchText,
             placement: .navigationBarDrawer(displayMode: .always),
-            prompt: String(localized: "Search order # or scan name")
+            prompt: String(localized: "Search property or order #")
         )
     }
 
     private static func formatDate(_ iso: String) -> String {
-        guard let date = ISO8601DateFormatter().date(from: iso) else { return "" }
+        // Server timestamps carry milliseconds, which a default ISO8601DateFormatter rejects.
+        guard let date = OrderDTO.isoDate(iso) else { return "" }
         return date.formatted(date: .abbreviated, time: .omitted)
     }
 }

@@ -2041,15 +2041,15 @@
    }
   },
   {
-   "key": "The Orders tab. Each order carries a badge — Processing, On hold, Delivered or Refunded. The search box finds an order by number or by scan name.",
+   "key": "The Orders tab. Each order carries a badge — Processing, On hold, Delivered or Refunded. The search box finds an order by property name, order number or scan name.",
    "translations": {
-    "vi": "Tab Đơn hàng. Mỗi đơn có một nhãn — Đang xử lý, Tạm giữ, Đã giao hoặc Hoàn tiền. Ô tìm kiếm tìm được theo số đơn hoặc tên bản quét.",
-    "fr": "Dans l'onglet Commandes. Chaque commande porte une étiquette — En traitement, En attente, Livrée ou Remboursée. Le champ de recherche trouve une commande par numéro ou par nom de numérisation.",
-    "de": "Im Tab \"Bestellungen\". Jede Bestellung hat einen Status — In Bearbeitung, Wartend, Geliefert oder Erstattet. Das Suchfeld findet Bestellungen nach Nummer oder Scan-Namen.",
-    "cs": "Na záložce Objednávky. Každá objednávka má štítek — Zpracovává se, Pozastaveno, Doručeno nebo Vráceno. Vyhledávací pole najde objednávku podle čísla i podle názvu skenu.",
-    "sk": "Na karte Objednávky. Každá objednávka má štítok — Spracúva sa, Pozastavená, Doručená alebo Refundovaná. Vyhľadávacie pole nájde objednávku podľa čísla alebo názvu skenu.",
-    "es": "En la pestaña Pedidos. Cada pedido lleva una etiqueta — En proceso, En espera, Entregado o Reembolsado. El buscador encuentra un pedido por número o por nombre de escaneo.",
-    "nl": "In het tabblad Bestellingen. Elke bestelling heeft een label — In behandeling, In de wacht, Geleverd of Terugbetaald. Via het zoekveld vind je een bestelling op bestelnummer of scannaam."
+    "vi": "Tab Đơn hàng. Mỗi đơn có một nhãn — Đang xử lý, Tạm giữ, Đã giao hoặc Hoàn tiền. Ô tìm kiếm tìm được theo tên dự án, số đơn hoặc tên bản quét.",
+    "fr": "Dans l'onglet Commandes. Chaque commande porte une étiquette — En traitement, En attente, Livrée ou Remboursée. Le champ de recherche trouve une commande par nom de propriété, par numéro de commande ou par nom de numérisation.",
+    "de": "Im Tab \"Bestellungen\". Jede Bestellung hat einen Status — In Bearbeitung, Wartend, Geliefert oder Erstattet. Das Suchfeld findet Bestellungen nach Objektnamen, Bestellnummer oder Scan-Namen.",
+    "cs": "Na záložce Objednávky. Každá objednávka má štítek — Zpracovává se, Pozastaveno, Doručeno nebo Vráceno. Vyhledávací pole najde objednávku podle názvu nemovitosti, čísla objednávky nebo názvu skenu.",
+    "sk": "Na karte Objednávky. Každá objednávka má štítok — Spracúva sa, Pozastavená, Doručená alebo Refundovaná. Vyhľadávacie pole nájde objednávku podľa názvu nehnuteľnosti, čísla objednávky alebo názvu skenu.",
+    "es": "En la pestaña Pedidos. Cada pedido lleva una etiqueta — En proceso, En espera, Entregado o Reembolsado. El buscador encuentra un pedido por nombre de la propiedad, por número de pedido o por nombre de escaneo.",
+    "nl": "In het tabblad Bestellingen. Elke bestelling heeft een label — In behandeling, In de wacht, Geleverd of Terugbetaald. Via het zoekveld vind je een bestelling op woningnaam, bestelnummer of scannaam."
    }
   },
   {
@@ -2377,15 +2377,15 @@
    }
   },
   {
-   "key": "Search order # or scan name",
+   "key": "Search property or order #",
    "translations": {
-    "vi": "Tìm số đơn hoặc tên bản quét",
-    "fr": "N° de commande ou nom de numérisation",
-    "de": "Bestellnr. oder Scan-Namen suchen",
-    "cs": "Hledat číslo objednávky nebo název skenu",
-    "sk": "Hľadať č. objednávky alebo názov skenu",
-    "es": "Buscar n.º de pedido o escaneo",
-    "nl": "Zoek op bestelnummer of scannaam"
+    "vi": "Tìm tên dự án hoặc số đơn",
+    "fr": "Propriété ou n° de commande",
+    "de": "Objekt oder Bestellnr. suchen",
+    "cs": "Hledat nemovitost nebo číslo objednávky",
+    "sk": "Hľadať nehnuteľnosť alebo č. objednávky",
+    "es": "Buscar propiedad o n.º de pedido",
+    "nl": "Zoek op woning of bestelnummer"
    }
   },
   {
