@@ -31,9 +31,9 @@ final class PaymentFlow: ObservableObject {
     /// The order whose sheet is being prepared. One at a time; Pay Now is disabled meanwhile.
     /// Cleared BEFORE the sheet goes up, so a sheet that never reports back cannot lock Pay Now.
     @Published private(set) var loadingOrderId: String?
-    /// Orders whose sheet has closed and whose fate is being asked of the server: Pay Now waits, so
-    /// a late "use the browser" can never land on top of a second attempt. Bounded by the request
-    /// timeout, unlike a sheet.
+    /// Orders whose sheet has closed and whose fate is being asked of the server. EVERY Pay Now waits
+    /// (as for `loadingOrderId`), so a late "use the browser" can never land on top of another
+    /// attempt — of this order or of any other. Bounded by the request timeout, unlike a sheet.
     @Published private(set) var settlingOrderIds: Set<String> = []
     /// Orders paid here during this run, plus the completed-but-unconfirmed ones from disk.
     @Published private(set) var paidOrderIds: Set<String> = []
@@ -72,7 +72,7 @@ final class PaymentFlow: ObservableObject {
     // MARK: Paying
 
     func pay(orderId: String) async -> Outcome {
-        guard loadingOrderId == nil, !settlingOrderIds.contains(orderId) else { return .canceled }
+        guard loadingOrderId == nil, settlingOrderIds.isEmpty else { return .canceled }
         // A keyboard left up (the Orders search field) would cover the lower half of the sheet.
         UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
         // The screen that asks is the only one the sheet may appear on.
@@ -274,7 +274,7 @@ struct PayNowButton<Content: View>: View {
                     .opacity(isLoading ? 0 : 1)
                     .overlay { if isLoading { ProgressView() } }
             }
-            .disabled(flow.loadingOrderId != nil || isLoading)
+            .disabled(flow.loadingOrderId != nil || !flow.settlingOrderIds.isEmpty)
             .onAppear {
                 guard opensOnAppear, !openedOnAppear else { return }
                 openedOnAppear = true
