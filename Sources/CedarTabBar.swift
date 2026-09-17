@@ -1,5 +1,4 @@
 import SwiftUI
-import UIKit // UIColor.systemBackground cho vòng "khoét lỗ" quanh nút SCAN
 
 /// Thanh tab TỰ VẼ (thay thanh gốc của TabView, đã bị ẩn ở `RootView`).
 ///
@@ -59,8 +58,7 @@ struct CedarTabBar: View {
     /// Muốn dải mỏng hơn nữa thì phải thu chồng đĩa-nhãn ở `scanItem` trước.
     ///
     /// 🔴 BẤT BIẾN KÍCH THƯỚC: chồng cao nhất trong `scanItem` là
-    /// vòng khoét lỗ (66+6=72) + spacing 2 + nhãn ~12 + đệm đáy 6 = 92 ≤ 94 (2pt dư để quầng
-    /// sáng không dí sát nội dung phía trên).
+    /// vòng khoét lỗ (66+6=72) + spacing 2 + nhãn ~12 + đệm đáy 6 = 92 ≤ 94 (2pt dư).
     /// Phóng nút/nhãn to hơn thì PHẢI nới `totalHeight` trước, không thì vòng tròn bị cắt cụt.
     private static let totalHeight: CGFloat = 94
 
@@ -89,11 +87,11 @@ struct CedarTabBar: View {
 
     var body: some View {
         HStack(alignment: .bottom, spacing: 0) {
-            tabItem(.home, icon: "house", filled: "house.fill", title: String(localized: "Home"))
-            tabItem(.orders, icon: "shippingbox", filled: "shippingbox.fill", title: String(localized: "Orders"))
+            tabItem(.home, icon: "house", title: String(localized: "Home"))
+            tabItem(.orders, icon: "shippingbox", title: String(localized: "Orders"))
             scanItem
-            tabItem(.learn, icon: "graduationcap", filled: "graduationcap.fill", title: String(localized: "Learn"))
-            tabItem(.account, icon: "person.circle", filled: "person.circle.fill", title: String(localized: "Account"))
+            tabItem(.learn, icon: "graduationcap", title: String(localized: "Learn"))
+            tabItem(.account, icon: "person.circle", title: String(localized: "Account"))
         }
         .frame(height: Self.totalHeight)
         // Nền mờ + đường kẻ chỉ phủ phần thanh `barHeight` DƯỚI CÙNG (ghim đáy). Vùng phía trên
@@ -126,20 +124,21 @@ struct CedarTabBar: View {
 
     /// Một nút thường. Tách thành HÀM (không phải biểu thức lặp trong body) vì CI của repo này
     /// từng chết vì "Swift type-check timeout" với biểu thức SwiftUI lớn.
-    private func tabItem(_ tab: RootTab, icon: String, filled: String, title: String) -> some View {
+    private func tabItem(_ tab: RootTab, icon: String, title: String) -> some View {
         let isOn = selection == tab
         return Button {
             selection = tab
         } label: {
             VStack(spacing: 3) {
-                Image(systemName: isOn ? filled : icon)
+                // Outline in both states; selection = color + label weight.
+                Image(systemName: icon)
                     .font(.system(size: 19, weight: .regular))
                 Text(title)
-                    .font(.system(size: 10, weight: isOn ? .semibold : .regular))
+                    .font(.system(size: 10, weight: isOn ? .semibold : .medium))
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
             }
-            .foregroundStyle(isOn ? Color.accentColor : Color.secondary)
+            .foregroundStyle(isOn ? Theme.accentText : Theme.inactive)
             // Cả ô đều bấm được, không chỉ đúng chữ/icon — ngón tay không bao giờ rơi đúng 19pt.
             // Nhưng ô chỉ cao `itemRowHeight` và ghim ĐÁY khung tổng: vùng chạm phải dừng ở mép
             // thanh nhìn thấy, không được leo lên dải trong suốt (xem chú ở `itemRowHeight`).
@@ -178,7 +177,7 @@ struct CedarTabBar: View {
                 scanCircle
                 Text("Scan")
                     .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(Color.accentColor)
+                    .foregroundStyle(Theme.scanLabel)
             }
             .padding(.bottom, 6)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
@@ -188,45 +187,22 @@ struct CedarTabBar: View {
         .accessibilityLabel(String(localized: "Scan a new space"))
     }
 
-    /// Chồng cao nhất ở đây là vòng "khoét lỗ" (`scanDiameter + 6` = 72) — nó quyết định bất
-    /// biến kích thước ghi ở `totalHeight`. Quầng sáng to hơn (76) nhưng nằm trong `.background`
-    /// nên KHÔNG ăn layout (blur mềm, tràn ra ngoài khung một chút là chấp nhận được).
+    /// Tallest stack is the punch-out ring (`scanDiameter + 6` = 72) — it drives the size
+    /// invariant at `totalHeight`. The shadow is not part of layout.
     private var scanCircle: some View {
         ZStack {
-            // Vòng nền: tách nút khỏi vật liệu của thanh, cho ra khuôn "nút khoét lỗ".
-            // `systemGroupedBackground` chứ KHÔNG phải `systemBackground` (review 2026-07-29):
-            // phần vòng nhô lên nay đứng trên NỀN LIST của các tab — List mặc định của app
-            // (Home/Orders/màn push) đều là insetGrouped nền #F2F2F7 ở light mode, vòng trắng
-            // tinh trên đó thành một vành trăng lệch màu ngay giữa thanh. Dark mode hai màu
-            // này trùng nhau nên không đổi gì.
-            //
-            // Quầng sáng đặt làm `.background` của vòng nền: CỐ Ý KHÔNG animation nhấp nháy —
-            // thanh tab sống suốt vòng đời app, một animation lặp vô hạn ở đây là thứ chạy cả lúc
-            // máy đang quét LiDAR (nóng + tốn pin), đổi lại chỉ được một hiệu ứng loè.
+            // Ring = Theme.bg (screen background token), ✗ white: the part above the bar sits
+            // on the list behind it, where a white ring reads as a pale crescent.
             Circle()
-                .fill(Color(uiColor: .systemGroupedBackground))
+                .fill(Theme.bg)
                 .frame(width: Self.scanDiameter + 6, height: Self.scanDiameter + 6)
-                .background(
-                    Circle()
-                        .fill(Color.accentColor.opacity(0.35))
-                        .frame(width: Self.scanDiameter + 10, height: Self.scanDiameter + 10)
-                        .blur(radius: 7)
-                )
+            // Flat disc, static shadow. ✗ looping animation: this bar lives while LiDAR runs.
             Circle()
-                .fill(
-                    LinearGradient(
-                        colors: [Color.accentColor, Color.accentColor.opacity(0.72)],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                )
+                .fill(Theme.accentFill)
                 .frame(width: Self.scanDiameter, height: Self.scanDiameter)
-                .overlay(
-                    Circle().stroke(Color.white.opacity(0.28), lineWidth: 1)
-                )
-                .shadow(color: Color.accentColor.opacity(0.45), radius: 7, y: 2)
-            Image(systemName: "viewfinder")
-                .font(.system(size: 30, weight: .semibold))
+                .shadow(color: Theme.scanShadow, radius: 7, y: 6)
+            Image(systemName: "plus.viewfinder")
+                .font(.system(size: 24, weight: .semibold))
                 .foregroundStyle(.white)
         }
     }

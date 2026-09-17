@@ -45,7 +45,7 @@ targets:
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         # Màu nhấn "cobalt" của app (chủ app chốt 2026-07-23) thay cho xanh dương MẶC ĐỊNH của
         # hệ thống — màu cũ nhạt quá. Định nghĩa ở Assets.xcassets/AccentColor.colorset, có HAI
-        # sắc độ: #1D4ED8 cho nền sáng, #5B9BFF cho nền tối (iOS tự đổi).
+        # sắc độ: #0056B3 cho nền sáng, #6AA9FF cho nền tối (iOS tự đổi) — "Apple Fog", 17/09.
         # 🔴 KHÔNG CÓ DÒNG NÀY THÌ MÀU KHÔNG ĂN. XcodeGen/Xcode không tự nhận asset tên
         # "AccentColor" làm màu nhấn toàn app; thiếu build setting này thì file màu vẫn nằm trong
         # catalog mà `Color.accentColor`/`.tint`/nút trong alert vẫn dùng xanh hệ thống — sai
@@ -63,7 +63,7 @@ targets:
         # tiếng, cùng hiện "1.0" → chủ app test trúng bản cũ mà không ai biết, báo "lỗi vẫn
         # nguyên" oan. AltStore (My Apps) và Cài đặt iOS đều hiện số này — nó là cách DUY NHẤT
         # xác minh từ xa máy ông đang chạy bản nào. Ghi số giao kèm vào SESSION-HANDOFF §STATE.
-        MARKETING_VERSION: "2.36"
+        MARKETING_VERSION: "2.37"
     info:
       path: Sources/Info.plist
       properties:
