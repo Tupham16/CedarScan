@@ -84,6 +84,10 @@ jobs:
       - name: Generate Xcode project
         run: xcodegen generate
 
+      # Its own step, so a package/network failure is not mistaken for a compile error.
+      - name: Resolve Swift packages
+        run: xcodebuild -resolvePackageDependencies -project CedarScan.xcodeproj -scheme CedarScan
+
       # altool tìm khoá ở `~/private_keys/AuthKey_<KEYID>.p8`; xcodebuild thì cần đường dẫn
       # TUYỆT ĐỐI. Ghi một chỗ, dùng cho cả hai. File nằm trên runner dùng-một-lần rồi biến mất
       # cùng máy ảo.

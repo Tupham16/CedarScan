@@ -6,6 +6,14 @@ options:
 settings:
   base:
     SWIFT_VERSION: "5.0"
+# First third-party dependency (in-app card payments, Stripe PaymentSheet).
+# URL = Stripe's official SPM mirror (~46 MB). ✗ github.com/stripe/stripe-ios: that repo is ~2.8 GB
+# and SPM clones it whole on every CI run. Pinned to the COMMIT of tag 26.11.0 (a tag can be moved,
+# a commit cannot). To upgrade: gh api "repos/stripe/stripe-ios-spm/tags?per_page=5".
+packages:
+  Stripe:
+    url: https://github.com/stripe/stripe-ios-spm
+    revision: 18508f5216629b2c100e8fc3a7f686e7d71aa498
 targets:
   CedarScan:
     type: application
@@ -28,6 +36,9 @@ targets:
         buildPhase: resources
         excludes:
           - translations.json
+    dependencies:
+      - package: Stripe
+        product: StripePaymentSheet
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.cedar247.cedarscan

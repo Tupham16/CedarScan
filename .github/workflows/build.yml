@@ -34,6 +34,10 @@ jobs:
       - name: Generate Xcode project
         run: xcodegen generate
 
+      # Its own step, so a package/network failure is not mistaken for a compile error.
+      - name: Resolve Swift packages
+        run: xcodebuild -resolvePackageDependencies -project CedarScan.xcodeproj -scheme CedarScan
+
       - name: Build (unsigned)
         run: |
           xcodebuild \
