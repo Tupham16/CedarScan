@@ -538,6 +538,7 @@ struct ScanAddressView: View {
     /// KHÔNG tự gộp khi trùng tên — chỉ nhắc một dòng ở footer rồi để người dùng chạm: gộp nhầm
     /// hai căn khác nhau vào một đơn tệ hơn tách nhầm, vì đội vẽ không có cách nào phát hiện.
     private func start() {
+        ScanStartProbe.begin("tap")
         let id: UUID?
         if let picked = pickedProjectId {
             id = picked

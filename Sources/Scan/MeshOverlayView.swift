@@ -315,6 +315,7 @@ final class MeshOverlayRenderer: NSObject {
         guard !hasCarvingMask else { return }
         hasCarvingMask = true
         refreshTintVisibility()
+        if !tintNode.isHidden { ScanStartProbe.mark("tint") }
     }
 
     /// Trả lại toàn bộ bộ nhớ hình học của lớp phủ, đưa về đúng trạng thái lúc mới dựng.
@@ -567,6 +568,7 @@ final class MeshOverlayRenderer: NSObject {
             }
             anchorSigs[id] = sig
             inFlight.insert(id)
+            ScanStartProbe.mark("queued", note: "(\(present.count)a)")
             if countingRebuild { rebuildBatch.insert(id) }
 
             // Copy NHANH trên main (ARKit tái dụng MTLBuffer nên phải copy ngay tại đây)…
@@ -624,6 +626,7 @@ final class MeshOverlayRenderer: NSObject {
                             built.wire.materials = [self.materialFor(id, recorded: recorded)]
                         }
                         node.geometry = built.wire
+                        ScanStartProbe.mark("drawn", note: "(\(vCount)v)")
                     }
                     self.maskNodes[id]?.geometry = built.mask
                     // NGOÀI một đợt dựng đang chờ: mask có hình học là mở cổng ngay. Ca này

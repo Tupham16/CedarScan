@@ -93,6 +93,8 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
         // arSession.run so the fragile first seconds of VIO init are captured.
         ScanPerfProfiler.start(session: arSession)
         arSession.run(config)
+        ScanStartProbe.mark("run")
+        ScanStartProbe.watch(arSession)
 
         // wholeHomePreset: hình học full mật độ ARKit, trần 2M chỉ là van an toàn RAM —
         // tier chỉ quyết định chất lượng MÀU. (Preset thường 120k là cho luồng RoomPlan.)
@@ -142,6 +144,7 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
                 }
             }
         }
+        ScanStartProbe.mark("started")
     }
 
     /// Dừng quét và xuất (video, mesh PLY). Pause session TRƯỚC khi export — giải phóng
@@ -232,6 +235,7 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
         // Both exits (Stop & Save, Cancel) funnel through here exactly once
         // (isStopped guard) — the scan phase is over, flush the perf report.
         ScanPerfProfiler.stop(reason: "scan-ended")
+        ScanStartProbe.end(arSession)
         qualityMonitor.stop()
         capPollTimer?.invalidate()
         capPollTimer = nil

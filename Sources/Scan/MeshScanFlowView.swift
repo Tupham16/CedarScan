@@ -199,6 +199,11 @@ struct MeshScanFlowView: View {
                 }
             }
 
+            // Measurement-only readout (branch build) — see `ScanStartProbe`.
+            if ScanStartProbe.enabled {
+                ScanStartProbeLabel()
+            }
+
             if showNaming {
                 namingOverlay
             }
@@ -210,6 +215,7 @@ struct MeshScanFlowView: View {
             }
         }
         .onAppear {
+            ScanStartProbe.mark("appear", note: showScanMesh ? "" : "(mesh off)")
             // Khoá việc dọn-sau-khi-giao suốt phiên quét. Chuỗi tai nạn nếu không khoá (đời
             // `.fullScreenCover`, trước 2.11): dọn chạy lúc app quay lại foreground → xoá dự án
             // → ProjectView tự dismiss → cover bị tháo theo → mất trắng 10–30 phút. Từ 2.11 cover

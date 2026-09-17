@@ -115,6 +115,7 @@ enum ScanCover {
         // thế hệ là đổi DANH TÍNH của cover ĐANG SỐNG ⇒ SwiftUI gỡ hẳn phiên quét đang chạy rồi
         // dựng lại từ đầu = mất trắng buổi quét.
         guard ScanCoverModel.shared.content == nil else { return }
+        ScanStartProbe.begin("show")
         // 🔴 ✗ GỠ. Hạ bàn phím TRƯỚC khi phủ. Ca thật, rất dễ đi vào: khách gõ vào ô tìm kiếm ở
         // Home rồi bấm thẳng nút SCAN — bàn phím VẪN ĐANG MỞ lúc cover trượt lên, mà lớp phủ không
         // cướp first responder của ai cả. Bàn phím đó vẫn đội vùng an toàn dưới của cả cây view
