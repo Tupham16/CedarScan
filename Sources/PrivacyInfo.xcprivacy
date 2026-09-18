@@ -38,9 +38,10 @@
      `MARKETING_VERSION`; (b) mọi câu viết ở đây đều đi tới Apple — đừng viết gì không dám để
      người ngoài đọc, và nhất là đừng để một câu SAI nằm trong chính file khai báo quyền riêng tư.
 
-  3. THÊM SDK BÊN THỨ BA = PHẢI QUAY LẠI ĐÂY. Hôm nay app KHÔNG có SDK nào (project.yml không
-     có khối `packages:`), nên không phải gom privacy manifest của ai cả. Ngày nào thêm thư viện
-     (đo đạc, crash report, quảng cáo…) thì nó mang nghĩa vụ riêng của nó.
+  3. THÊM SDK BÊN THỨ BA = PHẢI QUAY LẠI ĐÂY. First one: Stripe PaymentSheet (in-app card
+     payments) — its three data types are declared at the end of the list below, and the SDK
+     ships its own manifests inside its resource bundles. Any further library brings its own
+     obligations.
 
   KHỐI `NSPrivacyAccessedAPITypes` = các API Apple đòi khai LÝ DO. Đã soi cả `Sources/`, đúng ba
   loại; mỗi loại ghi kèm chỗ gọi thật để phiên sau kiểm lại được bằng grep, ✗ phải tin lời file
@@ -216,6 +217,51 @@
 		<dict>
 			<key>NSPrivacyCollectedDataType</key>
 			<string>NSPrivacyCollectedDataTypeOtherDataTypes</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+			</array>
+		</dict>
+		<!-- Stripe (in-app card payments, StripePaymentSheet SDK, from 2.40). Card details go from
+		     Stripe's form straight to Stripe; the app stores none of them. The SDK's own manifests
+		     (inside its resource bundles) declare the same two types; repeated here because the app
+		     presents the form and ties the payment to the customer's account. Only true when the SDK
+		     is in the build — tools/appstore-check.py compares this list with the IPA. -->
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypePaymentInfo</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+			</array>
+		</dict>
+		<!-- How the payment form is used: Stripe SDK telemetry (analytics + fraud prevention). -->
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeProductInteraction</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+				<string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
+			</array>
+		</dict>
+		<!-- Stripe customer id: saved cards live under it (customer id + ephemeral key are handed to
+		     the payment form). -->
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeUserID</string>
 			<key>NSPrivacyCollectedDataTypeLinked</key>
 			<true/>
 			<key>NSPrivacyCollectedDataTypeTracking</key>

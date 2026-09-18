@@ -129,7 +129,7 @@ Mở bằng nút **"Đặt làm mặt bằng"**. Form gồm:
 | **Gói dịch vụ** | Chọn một gói. Danh sách và giá lấy từ máy chủ |
 | **Dịch vụ thêm** | Ví dụ **Virtual Tour** (xem dưới) |
 | **Tùy chọn** | Đơn vị đo (mét/feet), ngôn ngữ bản vẽ, kiểu đặt tên tầng — **được lưu cho lần sau**. Riêng **ghi chú thêm thì KHÔNG lưu**, mỗi đơn phải gõ lại |
-| **Mã giảm giá** | Không bắt buộc, áp dụng ở trang thanh toán |
+| **Mã giảm giá** | Không bắt buộc, được trừ lúc thanh toán (nút Đặt hàng vẫn hiện giá đầy đủ) |
 
 Khách mới có thể được **miễn phí một số đơn đầu** — nếu còn lượt, app hiện băng "Đơn này MIỄN PHÍ"
 kèm số lượt còn lại.
@@ -143,8 +143,10 @@ kèm số lượt còn lại.
 > - **Từ nút "Đặt hàng ngay"** ngay sau khi quét xong: form mở ngay, bản quét được tải lên lúc bấm
 >   **"Đặt hàng"** — giống đường từ trang căn nhà.
 
-Bấm **"Đặt hàng"** để chốt. Sau khi đặt sẽ có link thanh toán (Stripe/PayPal); đội ngũ bắt đầu làm
-sau khi nhận thanh toán.
+Bấm **"Đặt hàng"** để chốt. Đơn có phí thì trả bằng thẻ qua Stripe: tuỳ thời điểm, app mở bảng nhập
+thẻ **ngay trong app** (có ô lưu thẻ cho lần sau) hoặc mở **trang thanh toán trên trình duyệt** (trang
+này có thể có thêm cách trả khác, ví dụ PayPal). Nút **"Thanh toán ngay"** nằm ở màn hình ngay sau khi
+đặt và ở tab **Đơn hàng**. Đội ngũ bắt đầu làm sau khi nhận thanh toán.
 
 ### Virtual Tour (dịch vụ thêm)
 
