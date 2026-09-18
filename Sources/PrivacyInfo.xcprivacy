@@ -39,9 +39,11 @@
      người ngoài đọc, và nhất là đừng để một câu SAI nằm trong chính file khai báo quyền riêng tư.
 
   3. THÊM SDK BÊN THỨ BA = PHẢI QUAY LẠI ĐÂY. First one: Stripe PaymentSheet (in-app card
-     payments) — its three data types are declared at the end of the list below, and the SDK
-     ships its own manifests inside its resource bundles. Any further library brings its own
-     obligations.
+     payments). It ships its own privacy manifests inside its resource bundles (Payment Info,
+     Product Interaction); Apple aggregates them with this file, so they are NOT repeated here,
+     and the App Store Connect privacy answers must list them for every build that carries the
+     SDK. This file adds only the customer identifier (User ID). Any further library brings its
+     own obligations.
 
   KHỐI `NSPrivacyAccessedAPITypes` = các API Apple đòi khai LÝ DO. Đã soi cả `Sources/`, đúng ba
   loại; mỗi loại ghi kèm chỗ gọi thật để phiên sau kiểm lại được bằng grep, ✗ phải tin lời file
@@ -50,7 +52,9 @@
 -->
 <plist version="1.0">
 <dict>
-	<!-- Không theo dõi, không quảng cáo, không chia sẻ dữ liệu cho bên thứ ba nào. -->
+	<!-- Không theo dõi, không quảng cáo, không bán hay chia sẻ cho môi giới dữ liệu. Bên thứ ba nhận
+	     dữ liệu để phục vụ dịch vụ: Apple (geocoding, bản đồ) và Stripe (thanh toán) — xem LegalView
+	     "Who sees your data". -->
 	<key>NSPrivacyTracking</key>
 	<false/>
 	<key>NSPrivacyTrackingDomains</key>
@@ -84,9 +88,10 @@
 				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
 			</array>
 		</dict>
-		<!-- Địa chỉ căn nhà cần vẽ mặt bằng: khách gõ tay ở màn địa chỉ HOẶC bấm "Dùng vị trí
-		     hiện tại" rồi app đổi toạ độ ra địa chỉ NGAY TRÊN MÁY. Đây là lý do app không khai
-		     Location — xem chú thích số 2 ở đầu file. -->
+		<!-- Địa chỉ căn nhà cần vẽ mặt bằng: khách gõ tay ở màn địa chỉ HOẶC bấm nút vị trí, khi đó
+		     toạ độ được gửi tới dịch vụ geocoding của APPLE và trả về CHỮ địa chỉ; Cedar247 chỉ nhận
+		     chữ địa chỉ, không bao giờ nhận toạ độ (chú thích số 2 ở đầu file). Vì vậy khai Physical
+		     Address, không khai Location. -->
 		<dict>
 			<key>NSPrivacyCollectedDataType</key>
 			<string>NSPrivacyCollectedDataTypePhysicalAddress</string>
@@ -226,39 +231,10 @@
 				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
 			</array>
 		</dict>
-		<!-- Stripe (in-app card payments, StripePaymentSheet SDK, from 2.40). Card details go from
-		     Stripe's form straight to Stripe; the app stores none of them. The SDK's own manifests
-		     (inside its resource bundles) declare the same two types; repeated here because the app
-		     presents the form and ties the payment to the customer's account. Only true when the SDK
-		     is in the build — tools/appstore-check.py compares this list with the IPA. -->
-		<dict>
-			<key>NSPrivacyCollectedDataType</key>
-			<string>NSPrivacyCollectedDataTypePaymentInfo</string>
-			<key>NSPrivacyCollectedDataTypeLinked</key>
-			<true/>
-			<key>NSPrivacyCollectedDataTypeTracking</key>
-			<false/>
-			<key>NSPrivacyCollectedDataTypePurposes</key>
-			<array>
-				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
-			</array>
-		</dict>
-		<!-- How the payment form is used: Stripe SDK telemetry (analytics + fraud prevention). -->
-		<dict>
-			<key>NSPrivacyCollectedDataType</key>
-			<string>NSPrivacyCollectedDataTypeProductInteraction</string>
-			<key>NSPrivacyCollectedDataTypeLinked</key>
-			<true/>
-			<key>NSPrivacyCollectedDataTypeTracking</key>
-			<false/>
-			<key>NSPrivacyCollectedDataTypePurposes</key>
-			<array>
-				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
-				<string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
-			</array>
-		</dict>
-		<!-- Stripe customer id: saved cards live under it (customer id + ephemeral key are handed to
-		     the payment form). -->
+		<!-- Mã tài khoản khách (server cấp khi đăng ký; AccountStore giữ trong UserDefaults) và, khi
+		     thanh toán trong app, Stripe customer id + ephemeral key được trao cho form thanh toán của
+		     Stripe (thẻ đã lưu treo dưới mã đó). Dữ liệu thẻ và cách dùng form do SDK Stripe khai
+		     trong manifest riêng của nó (chú thích số 3 ở đầu file). -->
 		<dict>
 			<key>NSPrivacyCollectedDataType</key>
 			<string>NSPrivacyCollectedDataTypeUserID</string>
