@@ -147,8 +147,9 @@ Bấm **"Đặt hàng"** để chốt. Với đơn có phí: khi Cedar247 bật 
 app bạn cài có hỗ trợ), bảng nhập thẻ của Stripe **tự mở ngay sau khi bấm Đặt hàng** (có ô lưu thẻ cho lần sau);
 đóng bảng thì bấm **"Thanh toán ngay"** để mở lại. Chưa bật — hoặc một đơn cụ thể app không mở được bảng — thì
 **"Thanh toán ngay"** mở **trang thanh toán trên trình duyệt** (trả bằng thẻ, hoặc cách trả khác trang đó có). Nút
-**"Thanh toán ngay"** nằm ở màn hình ngay sau khi đặt và ở tab **Đơn hàng**. Đội ngũ bắt đầu làm sau khi nhận
-thanh toán.
+**"Thanh toán ngay"** nằm ở màn hình ngay sau khi đặt và ở tab **Đơn hàng**. Nếu lúc đặt chưa tạo được link thanh
+toán, màn hình báo "Link thanh toán sẽ được gửi qua email trong ít phút." thay cho nút (bảng thẻ cũng không tự mở).
+Đội ngũ bắt đầu làm sau khi nhận thanh toán.
 
 ### Virtual Tour (dịch vụ thêm)
 

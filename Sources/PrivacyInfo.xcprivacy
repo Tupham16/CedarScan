@@ -39,13 +39,14 @@
      người ngoài đọc, và nhất là đừng để một câu SAI nằm trong chính file khai báo quyền riêng tư.
 
   3. THÊM SDK BÊN THỨ BA = PHẢI QUAY LẠI ĐÂY. First one, in the builds that carry it: Stripe
-     PaymentSheet (in-app card payments). The SDK ships its own privacy manifests inside its
-     resource bundles (Payment Info, Product Interaction). Apple says an app manifest need not
-     repeat what an SDK's manifest declares; Xcode's privacy report combines them, and Apple
-     says to refer to that report when answering the App Store Connect privacy questions — so
-     those two types are listed there, not here, for every build that carries the SDK. This
-     file adds only the customer identifier (User ID). Any further library brings its own
-     obligations.
+     PaymentSheet (in-app card payments). Apple: an app's privacy manifest "doesn't need to
+     cover data collected by third-party SDKs that your app links to". Stripe ships its own
+     manifests inside its resource bundles (Payment Info, Product Interaction); its SDK also
+     sends the iOS vendor identifier, which no Stripe manifest declares. So for builds that
+     carry the SDK the App Store Connect privacy answers list Payment Info and Product
+     Interaction and also give Device ID the Analytics purpose; Xcode's privacy report shows
+     the first two, not the third. This file adds only the customer identifier (User ID). Any
+     further library brings its own obligations.
 
   KHỐI `NSPrivacyAccessedAPITypes` = các API Apple đòi khai LÝ DO. Đã soi cả `Sources/`, đúng ba
   loại; mỗi loại ghi kèm chỗ gọi thật để phiên sau kiểm lại được bằng grep, ✗ phải tin lời file
@@ -235,9 +236,10 @@
 			</array>
 		</dict>
 		<!-- Mã tài khoản khách (server cấp khi đăng ký; AccountStore giữ trong UserDefaults). Ở bản
-		     build có SDK Stripe, khi thanh toán trong app, Stripe customer id + ephemeral key được
-		     trao cho form thanh toán của Stripe (thẻ đã lưu treo dưới mã đó); dữ liệu thẻ và cách
-		     dùng form khi đó do manifest riêng của SDK khai (chú thích số 3 ở đầu file). -->
+		     build có SDK Stripe, mỗi lần app chuẩn bị form thẻ của Stripe (tự mở ngay sau Place order
+		     khi kênh này bật cho tài khoản, và mỗi lần bấm Pay Now, dù khách có trả hay không),
+		     Stripe customer id + ephemeral key được trao cho form đó (thẻ đã lưu treo dưới mã đó);
+		     dữ liệu thẻ và cách dùng form khi đó do manifest riêng của SDK khai (chú thích số 3). -->
 		<dict>
 			<key>NSPrivacyCollectedDataType</key>
 			<string>NSPrivacyCollectedDataTypeUserID</string>
