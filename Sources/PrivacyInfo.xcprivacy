@@ -38,12 +38,13 @@
      `MARKETING_VERSION`; (b) mọi câu viết ở đây đều đi tới Apple — đừng viết gì không dám để
      người ngoài đọc, và nhất là đừng để một câu SAI nằm trong chính file khai báo quyền riêng tư.
 
-  3. THÊM SDK BÊN THỨ BA = PHẢI QUAY LẠI ĐÂY. First one: Stripe PaymentSheet (in-app card
-     payments). It ships its own privacy manifests inside its resource bundles (Payment Info,
-     Product Interaction); Apple aggregates them with this file, so they are NOT repeated here,
-     and the App Store Connect privacy answers must list them for every build that carries the
-     SDK. This file adds only the customer identifier (User ID). Any further library brings its
-     own obligations.
+  3. THÊM SDK BÊN THỨ BA = PHẢI QUAY LẠI ĐÂY. First one, in the builds that carry it: Stripe
+     PaymentSheet (in-app card payments). The SDK ships its own privacy manifests inside its
+     resource bundles (Payment Info, Product Interaction). Apple says an app manifest need not
+     repeat what an SDK's manifest declares; Xcode's privacy report combines them, and the App
+     Store Connect privacy answers are filled from that report — so those two types are listed
+     there, not here, for every build that carries the SDK. This file adds only the customer
+     identifier (User ID). Any further library brings its own obligations.
 
   KHỐI `NSPrivacyAccessedAPITypes` = các API Apple đòi khai LÝ DO. Đã soi cả `Sources/`, đúng ba
   loại; mỗi loại ghi kèm chỗ gọi thật để phiên sau kiểm lại được bằng grep, ✗ phải tin lời file
@@ -52,9 +53,9 @@
 -->
 <plist version="1.0">
 <dict>
-	<!-- Không theo dõi, không quảng cáo, không bán hay chia sẻ cho môi giới dữ liệu. Bên thứ ba nhận
-	     dữ liệu để phục vụ dịch vụ: Apple (geocoding, bản đồ) và Stripe (thanh toán) — xem LegalView
-	     "Who sees your data". -->
+	<!-- Không theo dõi, không quảng cáo, không bán hay chia sẻ cho môi giới dữ liệu. Bên nhận dữ liệu
+	     để phục vụ dịch vụ: hosting và lưu trữ, gửi email, Apple (geocoding, bản đồ), Stripe (thanh
+	     toán) — xem LegalView "Who sees your data". -->
 	<key>NSPrivacyTracking</key>
 	<false/>
 	<key>NSPrivacyTrackingDomains</key>
@@ -233,8 +234,8 @@
 		</dict>
 		<!-- Mã tài khoản khách (server cấp khi đăng ký; AccountStore giữ trong UserDefaults) và, khi
 		     thanh toán trong app, Stripe customer id + ephemeral key được trao cho form thanh toán của
-		     Stripe (thẻ đã lưu treo dưới mã đó). Dữ liệu thẻ và cách dùng form do SDK Stripe khai
-		     trong manifest riêng của nó (chú thích số 3 ở đầu file). -->
+		     Stripe (thẻ đã lưu treo dưới mã đó). Khi bản build có SDK, dữ liệu thẻ và cách dùng form
+		     do manifest riêng của SDK Stripe khai (chú thích số 3 ở đầu file). -->
 		<dict>
 			<key>NSPrivacyCollectedDataType</key>
 			<string>NSPrivacyCollectedDataTypeUserID</string>
