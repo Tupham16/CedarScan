@@ -129,7 +129,7 @@ Mở bằng nút **"Đặt làm mặt bằng"**. Form gồm:
 | **Gói dịch vụ** | Chọn một gói. Danh sách và giá lấy từ máy chủ |
 | **Dịch vụ thêm** | Ví dụ **Virtual Tour** (xem dưới) |
 | **Tùy chọn** | Đơn vị đo (mét/feet), ngôn ngữ bản vẽ, kiểu đặt tên tầng — **được lưu cho lần sau**. Riêng **ghi chú thêm thì KHÔNG lưu**, mỗi đơn phải gõ lại |
-| **Mã giảm giá** | Không bắt buộc. Nút Đặt hàng vẫn hiện giá đầy đủ; đặt xong, màn "Đã đặt hàng" hiện tổng đã giảm (làm tròn tới đô-la) và dòng "Đã áp mã giảm"; bảng/trang thanh toán thu đúng tổng đã giảm tới từng xu |
+| **Mã giảm giá** | Không bắt buộc. Nút Đặt hàng vẫn hiện giá đầy đủ; đặt xong, màn "Đã đặt hàng" hiện tổng đã giảm (làm tròn tới đô-la) và dòng "Đã áp mã giảm"; bảng/trang thanh toán thu đúng số tiền hiện trên bảng/trang đó, tính tới từng xu |
 
 Khách mới có thể được **miễn phí một số đơn đầu** — nếu còn lượt, app hiện băng "Đơn này MIỄN PHÍ"
 kèm số lượt còn lại.
@@ -143,12 +143,12 @@ kèm số lượt còn lại.
 > - **Từ nút "Đặt hàng ngay"** ngay sau khi quét xong: form mở ngay, bản quét được tải lên lúc bấm
 >   **"Đặt hàng"** — giống đường từ trang căn nhà.
 
-Bấm **"Đặt hàng"** để chốt. Đơn có phí thì trả bằng thẻ qua Stripe. Khi Cedar247 bật thanh toán trong app
-cho tài khoản của bạn (và bản app bạn cài có hỗ trợ), bảng nhập thẻ của Stripe **tự mở ngay sau khi bấm Đặt
-hàng** (có ô lưu thẻ cho lần sau); đóng bảng thì bấm **"Thanh toán ngay"** để mở lại. Chưa bật — hoặc một đơn
-cụ thể app không mở được bảng — thì **"Thanh toán ngay"** mở **trang thanh toán trên trình duyệt** (trang này
-có thể có thêm cách trả khác tuỳ Cedar247 bật). Nút **"Thanh toán ngay"** nằm ở màn hình ngay sau khi đặt và ở
-tab **Đơn hàng**. Đội ngũ bắt đầu làm sau khi nhận thanh toán.
+Bấm **"Đặt hàng"** để chốt. Với đơn có phí: khi Cedar247 bật thanh toán trong app cho tài khoản của bạn (và bản
+app bạn cài có hỗ trợ), bảng nhập thẻ của Stripe **tự mở ngay sau khi bấm Đặt hàng** (có ô lưu thẻ cho lần sau);
+đóng bảng thì bấm **"Thanh toán ngay"** để mở lại. Chưa bật — hoặc một đơn cụ thể app không mở được bảng — thì
+**"Thanh toán ngay"** mở **trang thanh toán trên trình duyệt** (trả bằng thẻ, hoặc cách trả khác trang đó có). Nút
+**"Thanh toán ngay"** nằm ở màn hình ngay sau khi đặt và ở tab **Đơn hàng**. Đội ngũ bắt đầu làm sau khi nhận
+thanh toán.
 
 ### Virtual Tour (dịch vụ thêm)
 

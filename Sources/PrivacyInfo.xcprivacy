@@ -56,7 +56,7 @@
 <dict>
 	<!-- Không theo dõi, không quảng cáo, không bán hay chia sẻ cho môi giới dữ liệu. Bên nhận dữ liệu
 	     để phục vụ dịch vụ: hosting và lưu trữ, gửi email, Apple (geocoding, bản đồ), Stripe (thanh
-	     toán) — xem LegalView "Who sees your data". -->
+	     toán) — xem LegalView "Who sees your data" và "Address look-up uses Apple". -->
 	<key>NSPrivacyTracking</key>
 	<false/>
 	<key>NSPrivacyTrackingDomains</key>
@@ -109,7 +109,8 @@
 		<!-- `DeviceID.current` gửi ở BA chỗ: đăng ký, xem giá, đặt đơn (APIClient.register /
 		     catalog / orderScan) — khớp câu khai trong LegalView: "when you create your account,
 		     when you view prices and when you place an order". Dùng cho hạn mức suất quét miễn
-		     phí, không dùng cho quảng cáo/theo dõi. -->
+		     phí, không dùng cho quảng cáo/theo dõi. Ở bản build có SDK Stripe, form thanh toán
+		     của Stripe cũng gửi chính giá trị này cho Stripe (LegalView "Device identifier"). -->
 		<dict>
 			<key>NSPrivacyCollectedDataType</key>
 			<string>NSPrivacyCollectedDataTypeDeviceID</string>
