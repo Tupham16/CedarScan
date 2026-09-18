@@ -219,8 +219,9 @@ Xoá dự án là **xoá luôn các bản quét bên trong khỏi iPhone**, và 
 > ⚠ **Nguyên liệu gốc (mô hình 3D + video) hiện KHÔNG lấy ra khỏi máy được.** Nút **Chia sẻ** ở
 > màn bản quét đã ẩn từ bản 2.28 (nó không còn cần cho việc gửi bổ sung — nay đã có nút **Gửi bổ
 > sung bản quét** ngay trong app). Nghĩa là xoá dự án là **mất hẳn** phần nguyên liệu gốc trên
-> máy bạn. Bản quét nào đã gửi lên cùng một đơn thì Cedar247 vẫn giữ bản sao — chỉ những bản quét
-> **chưa từng gửi lên** mới thật sự mất. Cân nhắc trước khi xoá.
+> máy bạn. Bản quét nào đã tải lên Cedar247 (cùng một đơn, hoặc khi bạn mở form đặt hàng từ bản quét đó dù
+> không đặt) thì Cedar247 vẫn giữ bản sao — chỉ những bản quét **chưa từng tải lên** mới thật sự mất. Cân nhắc trước
+> khi xoá.
 
 ---
 
