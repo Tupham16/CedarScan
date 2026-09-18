@@ -56,8 +56,9 @@
 <plist version="1.0">
 <dict>
 	<!-- Không theo dõi, không quảng cáo, không bán hay chia sẻ cho môi giới dữ liệu. Bên nhận dữ liệu
-	     để phục vụ dịch vụ: hosting và lưu trữ, gửi email, Apple (geocoding, bản đồ), Stripe (thanh
-	     toán) — xem LegalView "Who sees your data" và "Address look-up uses Apple". -->
+	     để phục vụ dịch vụ: đội vẽ (có cam kết bảo mật), hosting và lưu trữ, gửi email, Apple
+	     (geocoding, bản đồ), Stripe (thanh toán) — xem LegalView "Who sees your data" và "Address
+	     look-up uses Apple". -->
 	<key>NSPrivacyTracking</key>
 	<false/>
 	<key>NSPrivacyTrackingDomains</key>

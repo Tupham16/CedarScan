@@ -151,7 +151,8 @@ app bạn cài có hỗ trợ), bảng nhập thẻ của Stripe **tự mở nga
 toán, màn hình báo "Link thanh toán sẽ được gửi qua email trong ít phút." thay cho nút và hiện giá đầy đủ, chưa trừ mã
 giảm giá; nếu có gõ mã, màn hình còn báo "Mã giảm giá không hợp lệ — tính giá đầy đủ." dù mã chưa được kiểm, nên hãy
 báo Cedar247 mã bạn đã dùng. Đơn đó không tự mở bảng thẻ và tab **Đơn hàng** cũng không có nút cho nó: đội ngũ Cedar247
-gửi link qua email. Đội ngũ bắt đầu làm sau khi nhận thanh toán.
+gửi link qua email — việc này làm tay nên có thể lâu hơn vài phút; chưa nhận được thì hãy liên hệ Cedar247. Đội ngũ
+bắt đầu làm sau khi nhận thanh toán.
 
 ### Virtual Tour (dịch vụ thêm)
 
