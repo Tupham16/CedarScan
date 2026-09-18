@@ -213,7 +213,7 @@ căn đó:
 Xoá dự án là **xoá luôn các bản quét bên trong khỏi iPhone**, và **không lấy lại được**.
 
 > ✅ **Đơn đã đặt và file thành phẩm KHÔNG bị ảnh hưởng.** Bản vẽ nằm trên máy chủ Cedar247, tải
-> lại bất cứ lúc nào ở tab **Đơn hàng**. Thứ bị xoá chỉ là **nguyên liệu gốc trên máy bạn**: mô
+> lại ở tab **Đơn hàng** trong ít nhất 365 ngày kể từ khi giao (nên tự giữ một bản). Thứ bị xoá chỉ là **nguyên liệu gốc trên máy bạn**: mô
 > hình 3D và video walkthrough.
 
 > ⚠ **Nguyên liệu gốc (mô hình 3D + video) hiện KHÔNG lấy ra khỏi máy được.** Nút **Chia sẻ** ở
