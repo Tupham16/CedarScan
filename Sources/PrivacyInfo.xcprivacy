@@ -42,11 +42,12 @@
      PaymentSheet (in-app card payments). Apple: an app's privacy manifest "doesn't need to
      cover data collected by third-party SDKs that your app links to". Stripe ships its own
      manifests inside its resource bundles (Payment Info, Product Interaction); its SDK also
-     sends the iOS vendor identifier, which no Stripe manifest declares. So for builds that
-     carry the SDK the App Store Connect privacy answers list Payment Info and Product
-     Interaction and also give Device ID the Analytics purpose; Xcode's privacy report shows
-     the first two, not the third. This file adds only the customer identifier (User ID). Any
-     further library brings its own obligations.
+     sends the iOS vendor identifier, and the network address reaches Stripe; no Stripe
+     manifest declares either. So for builds that carry the SDK the App Store Connect privacy
+     answers list Payment Info and Product Interaction and also give Device ID and Other Data
+     Types the Analytics purpose; Xcode's privacy report shows the first two, not the last
+     two. This file adds only the customer identifier (User ID). Any further library brings
+     its own obligations.
 
   KHỐI `NSPrivacyAccessedAPITypes` = các API Apple đòi khai LÝ DO. Đã soi cả `Sources/`, đúng ba
   loại; mỗi loại ghi kèm chỗ gọi thật để phiên sau kiểm lại được bằng grep, ✗ phải tin lời file
