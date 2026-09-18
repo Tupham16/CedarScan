@@ -129,7 +129,7 @@ Mở bằng nút **"Đặt làm mặt bằng"**. Form gồm:
 | **Gói dịch vụ** | Chọn một gói. Danh sách và giá lấy từ máy chủ |
 | **Dịch vụ thêm** | Ví dụ **Virtual Tour** (xem dưới) |
 | **Tùy chọn** | Đơn vị đo (mét/feet), ngôn ngữ bản vẽ, kiểu đặt tên tầng — **được lưu cho lần sau**. Riêng **ghi chú thêm thì KHÔNG lưu**, mỗi đơn phải gõ lại |
-| **Mã giảm giá** | Không bắt buộc. Nút Đặt hàng vẫn hiện giá đầy đủ; đặt xong, màn "Đã đặt hàng" hiện tổng đã giảm và dòng "Đã áp mã giảm", bảng/trang thanh toán thu đúng số đã giảm |
+| **Mã giảm giá** | Không bắt buộc. Nút Đặt hàng vẫn hiện giá đầy đủ; đặt xong, màn "Đã đặt hàng" hiện tổng đã giảm (làm tròn tới đô-la) và dòng "Đã áp mã giảm"; bảng/trang thanh toán thu đúng tổng đã giảm tới từng xu |
 
 Khách mới có thể được **miễn phí một số đơn đầu** — nếu còn lượt, app hiện băng "Đơn này MIỄN PHÍ"
 kèm số lượt còn lại.
