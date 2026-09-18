@@ -236,8 +236,8 @@
 			</array>
 		</dict>
 		<!-- Mã tài khoản khách (server cấp khi đăng ký; AccountStore giữ trong UserDefaults). Ở bản
-		     build có SDK Stripe, mỗi lần app chuẩn bị form thẻ của Stripe (tự mở ngay sau Place order
-		     khi kênh này bật cho tài khoản, và mỗi lần bấm Pay Now, dù khách có trả hay không),
+		     build có SDK Stripe, mỗi lần app chuẩn bị form thẻ của Stripe (khi kênh này bật cho tài
+		     khoản: tự mở ngay sau Place order, và mỗi lần bấm Pay Now, dù khách có trả hay không),
 		     Stripe customer id + ephemeral key được trao cho form đó (thẻ đã lưu treo dưới mã đó);
 		     dữ liệu thẻ và cách dùng form khi đó do manifest riêng của SDK khai (chú thích số 3). -->
 		<dict>
