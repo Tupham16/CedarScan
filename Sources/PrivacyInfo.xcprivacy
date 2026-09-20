@@ -72,27 +72,26 @@
 	<array>
 		<!-- Email + tên: tài khoản khách (APIClient.register/login). "Linked" = gắn với danh
 		     tính vì khách có tài khoản thật trên app.cedar247.com.
-		     🔴 THÊM 20/09 — mục đích **Analytics** ở SÁU mục: Email Address, Name, Purchase History,
-		     User ID, Other User Content, Other Usage Data. Báo cáo khách hàng chạy tay
-		     (`order-webapp/scripts/customer-report.ts`) đọc DB app + WooCommerce rồi phân tích theo
-		     từng tài khoản: email, tên, ngày đăng ký (`appCustomer`), đơn hàng bên WooCommerce (dữ liệu
-		     của website), VÀ từng bản quét
-		     (`scan`: NHÃN bản quét do khách gõ — tầng/khu, ví dụ "Attic", để trống thì app tự đặt
-		     "Scan (ngày giờ)" — kiểu quét, trạng thái, ngày, đã thành đơn hay chưa). Con số "ai bỏ
-		     giữa chừng" tính từ bản quét chưa thành đơn, nên hai mục của bản quét (Other User Content
-		     cho cái nhãn, Other Usage Data cho trạng thái + ngày) cũng phải mang Analytics. Purchase
-		     History mang Analytics vì thứ CHÍNH APP thu: cột `orderId` + trạng thái `ordered` của từng
-		     bản quét là cái báo cáo đếm "đã thành đơn / chưa đặt đơn" cho mỗi tài khoản.
-		     ✗ Physical Address: ĐỊA CHỈ CĂN NHÀ KHÔNG NẰM TRONG BẢN QUÉT — nó là tên dự án, chỉ lên
-		     server lúc ĐẶT ĐƠN (`projectName`), và báo cáo không đọc bảng đơn của app; mấy cột địa
-		     chỉ duy nhất trong báo cáo là quốc gia/thành phố thanh toán của WooCommerce, là dữ liệu
-		     của website chứ không phải app thu. Theo định nghĩa của Apple đó là Analytics trên dữ
-		     liệu gắn danh tính, nên file này, bảng App Privacy (`PLAN-LEN-APP-STORE.md` §4) và chính
-		     sách ("Why we use your data": "understanding how the service is used, for example who
-		     registers, who orders, and who stops before ordering") phải nói cùng một điều. Chỉ được
-		     bỏ Analytics ở sáu mục này khi báo cáo đó thôi chạy trên tài khoản app. Sáu mục còn lại
-		     (Physical Address, Device ID, Photos or Videos, Environment Scanning, Other Diagnostic
-		     Data, Other Data Types) báo cáo không đọc. -->
+		     🔴 THÊM 20/09 — mục đích **Analytics** ở BẢY mục: Email Address, Name, Physical Address,
+		     Purchase History, User ID, Other User Content, Other Usage Data. Báo cáo khách hàng chạy
+		     tay (`order-webapp/scripts/customer-report.ts`) đọc DB app + đơn WooCommerce (chính là đơn
+		     do app tạo ra, cột nguồn ghi "App CedarScan") rồi phân tích theo từng tài khoản: email,
+		     tên, ngày đăng ký (`appCustomer`); từng bản quét (`scan`: NHÃN bản quét do khách gõ —
+		     tầng/khu, ví dụ "Attic", để trống thì app tự đặt "Scan (ngày giờ)" — kiểu quét, trạng
+		     thái, ngày, đã thành đơn hay chưa); và tên dòng hàng của đơn Woo, TRONG ĐÓ CÓ ĐỊA CHỈ CĂN
+		     NHÀ khách gõ (lúc đặt đơn app nhét `projectName` vào mô tả đơn: route `scans/[id]/order`
+		     rồi `createWooPaymentOrder`). Vì vậy:
+		       · Other User Content ← cái nhãn bản quét;
+		       · Other Usage Data ← trạng thái + ngày + số bản quét (con số "ai bỏ giữa chừng");
+		       · Purchase History ← cột `orderId` + trạng thái `ordered` của bản quét, và đơn Woo;
+		       · Physical Address ← địa chỉ căn nhà in trong tên dòng hàng của đơn (đo trên chính file
+		         báo cáo: phần lớn dòng "App CedarScan" có địa chỉ ở đó).
+		     Theo định nghĩa của Apple đó là Analytics trên dữ liệu gắn danh tính, nên file này, bảng
+		     App Privacy (`PLAN-LEN-APP-STORE.md` §4) và chính sách ("Why we use your data":
+		     "understanding how the service is used, for example who registers, who orders, and who
+		     stops before ordering") phải nói cùng một điều. Chỉ được bỏ Analytics ở bảy mục này khi
+		     báo cáo đó thôi chạy trên tài khoản app. Năm mục còn lại (Device ID, Photos or Videos,
+		     Environment Scanning, Other Diagnostic Data, Other Data Types) báo cáo không đọc. -->
 		<dict>
 			<key>NSPrivacyCollectedDataType</key>
 			<string>NSPrivacyCollectedDataTypeEmailAddress</string>
@@ -133,6 +132,7 @@
 			<key>NSPrivacyCollectedDataTypePurposes</key>
 			<array>
 				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+				<string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
 			</array>
 		</dict>
 		<!-- `DeviceID.current` gửi ở BA chỗ: đăng ký, xem giá, đặt đơn (APIClient.register /
