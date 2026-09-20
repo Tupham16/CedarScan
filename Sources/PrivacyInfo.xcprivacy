@@ -221,7 +221,11 @@
 		       error messages                  → Other Diagnostic Data
 		       network address (địa chỉ IP)    → Other Data Types (Apple không có mục riêng cho IP)
 		     Đổi câu "Technical records" trong `LegalView` thì soi lại ba mục này — bối cảnh đầy
-		     đủ ở PRIVACY-NOTES.md (ghi chú nội bộ, không nằm trong bundle). -->
+		     đủ ở PRIVACY-NOTES.md (ghi chú nội bộ, không nằm trong bundle).
+		     🔴 TỪ 2.41 Other Usage Data CÓ THÊM LÝ DO THỨ HAI, không dính gì tới câu đó: báo cáo
+		     khách hàng đọc trạng thái + ngày của từng bản quét (chú thích đầu mảng). Sửa câu
+		     "Technical records" chỉ bỏ được Other Diagnostic Data và Other Data Types; Other Usage
+		     Data còn ở lại chừng nào báo cáo đó còn chạy, và nó mang cả mục đích Analytics. -->
 		<dict>
 			<key>NSPrivacyCollectedDataType</key>
 			<string>NSPrivacyCollectedDataTypeOtherUsageData</string>
