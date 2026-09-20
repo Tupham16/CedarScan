@@ -72,13 +72,19 @@
 	<array>
 		<!-- Email + tên: tài khoản khách (APIClient.register/login). "Linked" = gắn với danh
 		     tính vì khách có tài khoản thật trên app.cedar247.com.
-		     🔴 THÊM 20/09 — mục đích **Analytics** ở bốn mục (email, tên, lịch sử mua, mã tài khoản):
-		     báo cáo khách hàng chạy tay (`order-webapp/scripts/customer-report.ts`, đọc DB app + Woo)
-		     phân tích theo từng tài khoản — ai đăng ký, ai đặt, ai bỏ giữa chừng. Theo định nghĩa của
-		     Apple đó là Analytics trên dữ liệu gắn danh tính, nên file này, bảng App Privacy
+		     🔴 THÊM 20/09 — mục đích **Analytics** ở BẢY mục: Email Address, Name, Physical Address,
+		     Purchase History, User ID, Other User Content, Other Usage Data. Báo cáo khách hàng chạy
+		     tay (`order-webapp/scripts/customer-report.ts`) đọc DB app + WooCommerce rồi phân tích
+		     theo từng tài khoản: email, tên, ngày đăng ký (`appCustomer`), đơn hàng, VÀ từng bản quét
+		     (`scan`: tên bản quét — chính là địa chỉ khách gõ — kiểu quét, trạng thái, ngày, đã thành
+		     đơn hay chưa). Con số "ai bỏ giữa chừng" tính từ bản quét chưa thành đơn, nên ba mục của
+		     bản quét cũng phải mang Analytics, không chỉ email/tên/đơn/mã tài khoản. Theo định nghĩa
+		     của Apple đó là Analytics trên dữ liệu gắn danh tính, nên file này, bảng App Privacy
 		     (`PLAN-LEN-APP-STORE.md` §4) và chính sách ("Why we use your data": "understanding how the
-		     service is used") phải nói cùng một điều. Chỉ được bỏ Analytics ở bốn mục này khi báo cáo
-		     đó thôi chạy trên tài khoản app. -->
+		     service is used, for example who registers, who orders, and who stops before ordering")
+		     phải nói cùng một điều. Chỉ được bỏ Analytics ở bảy mục này khi báo cáo đó thôi chạy trên
+		     tài khoản app. Năm mục còn lại (Device ID, Photos or Videos, Environment Scanning, Other
+		     Diagnostic Data, Other Data Types) báo cáo không đọc. -->
 		<dict>
 			<key>NSPrivacyCollectedDataType</key>
 			<string>NSPrivacyCollectedDataTypeEmailAddress</string>
@@ -119,6 +125,7 @@
 			<key>NSPrivacyCollectedDataTypePurposes</key>
 			<array>
 				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+				<string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
 			</array>
 		</dict>
 		<!-- `DeviceID.current` gửi ở BA chỗ: đăng ký, xem giá, đặt đơn (APIClient.register /
@@ -185,6 +192,7 @@
 			<key>NSPrivacyCollectedDataTypePurposes</key>
 			<array>
 				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+				<string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
 			</array>
 		</dict>
 		<!-- Đơn hàng đã đặt (gói dịch vụ, add-on, trạng thái thanh toán) hiện ở tab Đơn hàng. -->
@@ -224,6 +232,7 @@
 			<key>NSPrivacyCollectedDataTypePurposes</key>
 			<array>
 				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+				<string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
 			</array>
 		</dict>
 		<dict>
