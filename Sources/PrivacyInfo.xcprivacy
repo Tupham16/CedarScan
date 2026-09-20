@@ -84,8 +84,10 @@
 		       · Other User Content ← cái nhãn bản quét;
 		       · Other Usage Data ← trạng thái + ngày + số bản quét (con số "ai bỏ giữa chừng");
 		       · Purchase History ← cột `orderId` + trạng thái `ordered` của bản quét, và đơn Woo;
-		       · Physical Address ← địa chỉ căn nhà in trong tên dòng hàng của đơn (đo trên chính file
-		         báo cáo: phần lớn dòng "App CedarScan" có địa chỉ ở đó).
+		       · Physical Address ← địa chỉ căn nhà in trong tên dòng hàng của đơn. Đo trên báo cáo
+		         08/09: khoảng 3/4 dòng "App CedarScan" có phần `projectName` trong tên dòng hàng,
+		         trong đó một số là địa chỉ đầy đủ, còn lại là nhãn ngắn — CHỈ CẦN MỘT dòng có địa
+		         chỉ là mục này phải mang Analytics.
 		     Theo định nghĩa của Apple đó là Analytics trên dữ liệu gắn danh tính, nên file này, bảng
 		     App Privacy (`PLAN-LEN-APP-STORE.md` §4) và chính sách ("Why we use your data":
 		     "understanding how the service is used, for example who registers, who orders, and who
