@@ -129,7 +129,7 @@ Mở bằng nút **"Đặt làm mặt bằng"**. Form gồm:
 | **Gói dịch vụ** | Chọn một gói. Danh sách và giá lấy từ máy chủ |
 | **Dịch vụ thêm** | Ví dụ **Virtual Tour** (xem dưới) |
 | **Tùy chọn** | Đơn vị đo (mét/feet), ngôn ngữ bản vẽ, kiểu đặt tên tầng — **được lưu cho lần sau**. Riêng **ghi chú thêm thì KHÔNG lưu**, mỗi đơn phải gõ lại |
-| **Mã giảm giá** | Không bắt buộc, áp dụng ở trang thanh toán |
+| **Mã giảm giá** | Không bắt buộc. Nút Đặt hàng vẫn hiện giá đầy đủ; đặt xong, màn "Đã đặt hàng" hiện tổng đã giảm (làm tròn tới đô-la) và dòng "Đã áp mã giảm"; bảng/trang thanh toán thu đúng số tiền hiện trên bảng/trang đó, tính tới từng xu (lúc đặt mà chưa tạo được link thanh toán thì khác — xem dưới) |
 
 Khách mới có thể được **miễn phí một số đơn đầu** — nếu còn lượt, app hiện băng "Đơn này MIỄN PHÍ"
 kèm số lượt còn lại.
@@ -143,8 +143,16 @@ kèm số lượt còn lại.
 > - **Từ nút "Đặt hàng ngay"** ngay sau khi quét xong: form mở ngay, bản quét được tải lên lúc bấm
 >   **"Đặt hàng"** — giống đường từ trang căn nhà.
 
-Bấm **"Đặt hàng"** để chốt. Sau khi đặt sẽ có link thanh toán (Stripe/PayPal); đội ngũ bắt đầu làm
-sau khi nhận thanh toán.
+Bấm **"Đặt hàng"** để chốt. Với đơn có phí: khi Cedar247 bật thanh toán trong app cho tài khoản của bạn (và bản
+app bạn cài có hỗ trợ), bảng nhập thẻ của Stripe **tự mở ngay sau khi bấm Đặt hàng** (có ô lưu thẻ cho lần sau);
+đóng bảng thì bấm **"Thanh toán ngay"** để mở lại. Chưa bật — hoặc một đơn cụ thể app không mở được bảng — thì
+**"Thanh toán ngay"** mở **trang thanh toán trên trình duyệt** (trả bằng thẻ, hoặc cách trả khác trang đó có). Nút
+**"Thanh toán ngay"** nằm ở màn hình ngay sau khi đặt và ở tab **Đơn hàng**. Nếu lúc đặt chưa tạo được link thanh
+toán, màn hình báo "Link thanh toán sẽ được gửi qua email trong ít phút." thay cho nút và hiện giá đầy đủ, chưa trừ mã
+giảm giá; nếu có gõ mã, màn hình còn báo "Mã giảm giá không hợp lệ — tính giá đầy đủ." dù mã chưa được kiểm, nên hãy
+báo Cedar247 mã bạn đã dùng. Đơn đó không tự mở bảng thẻ và tab **Đơn hàng** cũng không có nút cho nó: đội ngũ Cedar247
+gửi link qua email — việc này làm tay nên có thể lâu hơn vài phút; chưa nhận được thì hãy liên hệ Cedar247. Đội ngũ
+bắt đầu làm sau khi nhận thanh toán.
 
 ### Virtual Tour (dịch vụ thêm)
 
@@ -205,14 +213,15 @@ căn đó:
 Xoá dự án là **xoá luôn các bản quét bên trong khỏi iPhone**, và **không lấy lại được**.
 
 > ✅ **Đơn đã đặt và file thành phẩm KHÔNG bị ảnh hưởng.** Bản vẽ nằm trên máy chủ Cedar247, tải
-> lại bất cứ lúc nào ở tab **Đơn hàng**. Thứ bị xoá chỉ là **nguyên liệu gốc trên máy bạn**: mô
+> lại ở tab **Đơn hàng** trong ít nhất 365 ngày kể từ khi giao (nên tự giữ một bản). Thứ bị xoá chỉ là **nguyên liệu gốc trên máy bạn**: mô
 > hình 3D và video walkthrough.
 
 > ⚠ **Nguyên liệu gốc (mô hình 3D + video) hiện KHÔNG lấy ra khỏi máy được.** Nút **Chia sẻ** ở
 > màn bản quét đã ẩn từ bản 2.28 (nó không còn cần cho việc gửi bổ sung — nay đã có nút **Gửi bổ
 > sung bản quét** ngay trong app). Nghĩa là xoá dự án là **mất hẳn** phần nguyên liệu gốc trên
-> máy bạn. Bản quét nào đã gửi lên cùng một đơn thì Cedar247 vẫn giữ bản sao — chỉ những bản quét
-> **chưa từng gửi lên** mới thật sự mất. Cân nhắc trước khi xoá.
+> máy bạn. Bản quét nào đã tải lên Cedar247 (cùng một đơn, hoặc khi bạn mở form đặt hàng từ bản quét đó dù
+> không đặt) thì Cedar247 vẫn giữ bản sao — chỉ những bản quét **chưa từng tải lên** mới thật sự mất. Cân nhắc trước
+> khi xoá.
 
 ---
 

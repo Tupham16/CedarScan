@@ -38,9 +38,19 @@
      `MARKETING_VERSION`; (b) mọi câu viết ở đây đều đi tới Apple — đừng viết gì không dám để
      người ngoài đọc, và nhất là đừng để một câu SAI nằm trong chính file khai báo quyền riêng tư.
 
-  3. THÊM SDK BÊN THỨ BA = PHẢI QUAY LẠI ĐÂY. Hôm nay app KHÔNG có SDK nào (project.yml không
-     có khối `packages:`), nên không phải gom privacy manifest của ai cả. Ngày nào thêm thư viện
-     (đo đạc, crash report, quảng cáo…) thì nó mang nghĩa vụ riêng của nó.
+  3. THÊM SDK BÊN THỨ BA = PHẢI QUAY LẠI ĐÂY. First one, in the builds that carry it: Stripe
+     PaymentSheet (in-app card payments). Apple: an app's privacy manifest "doesn't need to
+     cover data collected by third-party SDKs that your app links to". Stripe ships its own
+     manifests inside its resource bundles (Payment Info, Product Interaction); its SDK also
+     sends the iOS vendor identifier, and the network address reaches Stripe; Stripe declares
+     neither. So for builds that carry the SDK the App Store Connect privacy answers list
+     Payment Info and Product Interaction and also give Device ID and Other Data Types the
+     Analytics purpose; Xcode's privacy report shows the first two but not the Analytics
+     purpose on the other two. The rest of the SDK's analytics (device model, error codes,
+     timings) counts as Product Interaction, the type Stripe's App Store guidance
+     (PRIVACY.md in stripe-ios) gives for the SDK's analytics and fraud checks. This file
+     adds only the customer identifier (User ID). Any further library brings its own
+     obligations.
 
   KHỐI `NSPrivacyAccessedAPITypes` = các API Apple đòi khai LÝ DO. Đã soi cả `Sources/`, đúng ba
   loại; mỗi loại ghi kèm chỗ gọi thật để phiên sau kiểm lại được bằng grep, ✗ phải tin lời file
@@ -49,7 +59,10 @@
 -->
 <plist version="1.0">
 <dict>
-	<!-- Không theo dõi, không quảng cáo, không chia sẻ dữ liệu cho bên thứ ba nào. -->
+	<!-- Không theo dõi, không quảng cáo, không bán hay chia sẻ cho môi giới dữ liệu. Bên nhận dữ liệu
+	     để phục vụ dịch vụ: đội vẽ (có cam kết bảo mật), hosting và lưu trữ, gửi email, Apple
+	     (geocoding, bản đồ), Stripe (thanh toán) — xem LegalView "Who sees your data" và "Address
+	     look-up uses Apple". -->
 	<key>NSPrivacyTracking</key>
 	<false/>
 	<key>NSPrivacyTrackingDomains</key>
@@ -58,7 +71,29 @@
 	<key>NSPrivacyCollectedDataTypes</key>
 	<array>
 		<!-- Email + tên: tài khoản khách (APIClient.register/login). "Linked" = gắn với danh
-		     tính vì khách có tài khoản thật trên app.cedar247.com. -->
+		     tính vì khách có tài khoản thật trên app.cedar247.com.
+		     🔴 THÊM 20/09 — mục đích **Analytics** ở BẢY mục: Email Address, Name, Physical Address,
+		     Purchase History, User ID, Other User Content, Other Usage Data. Báo cáo khách hàng chạy
+		     tay (`order-webapp/scripts/customer-report.ts`) đọc DB app + đơn WooCommerce (chính là đơn
+		     do app tạo ra, cột nguồn ghi "App CedarScan") rồi phân tích theo từng tài khoản: email,
+		     tên, ngày đăng ký (`appCustomer`); từng bản quét (`scan`: NHÃN bản quét do khách gõ —
+		     tầng/khu, ví dụ "Attic", để trống thì app tự đặt "Scan (ngày giờ)" — kiểu quét, trạng
+		     thái, ngày, đã thành đơn hay chưa); và tên dòng hàng của đơn Woo, TRONG ĐÓ CÓ ĐỊA CHỈ CĂN
+		     NHÀ khách gõ (lúc đặt đơn app nhét `projectName` vào mô tả đơn: route `scans/[id]/order`
+		     rồi `createWooPaymentOrder`). Vì vậy:
+		       · Other User Content ← cái nhãn bản quét;
+		       · Other Usage Data ← trạng thái + ngày + số bản quét (con số "ai bỏ giữa chừng");
+		       · Purchase History ← cột `orderId` + trạng thái `ordered` của bản quét, và đơn Woo;
+		       · Physical Address ← địa chỉ căn nhà in trong tên dòng hàng của đơn. Đo trên báo cáo
+		         08/09: khoảng 3/4 dòng "App CedarScan" có phần `projectName` trong tên dòng hàng,
+		         trong đó một số là địa chỉ đầy đủ, còn lại là nhãn ngắn — CHỈ CẦN MỘT dòng có địa
+		         chỉ là mục này phải mang Analytics.
+		     Theo định nghĩa của Apple đó là Analytics trên dữ liệu gắn danh tính, nên file này, bảng
+		     App Privacy (`PLAN-LEN-APP-STORE.md` §4) và chính sách ("Why we use your data":
+		     "understanding how the service is used, for example who registers, who orders, and who
+		     stops before ordering") phải nói cùng một điều. Chỉ được bỏ Analytics ở bảy mục này khi
+		     báo cáo đó thôi chạy trên tài khoản app. Năm mục còn lại (Device ID, Photos or Videos,
+		     Environment Scanning, Other Diagnostic Data, Other Data Types) báo cáo không đọc. -->
 		<dict>
 			<key>NSPrivacyCollectedDataType</key>
 			<string>NSPrivacyCollectedDataTypeEmailAddress</string>
@@ -69,6 +104,7 @@
 			<key>NSPrivacyCollectedDataTypePurposes</key>
 			<array>
 				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+				<string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
 			</array>
 		</dict>
 		<dict>
@@ -81,11 +117,13 @@
 			<key>NSPrivacyCollectedDataTypePurposes</key>
 			<array>
 				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+				<string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
 			</array>
 		</dict>
-		<!-- Địa chỉ căn nhà cần vẽ mặt bằng: khách gõ tay ở màn địa chỉ HOẶC bấm "Dùng vị trí
-		     hiện tại" rồi app đổi toạ độ ra địa chỉ NGAY TRÊN MÁY. Đây là lý do app không khai
-		     Location — xem chú thích số 2 ở đầu file. -->
+		<!-- Địa chỉ căn nhà cần vẽ mặt bằng: khách gõ tay ở màn địa chỉ HOẶC bấm nút vị trí, khi đó
+		     toạ độ được gửi tới dịch vụ geocoding của APPLE và trả về CHỮ địa chỉ; Cedar247 chỉ nhận
+		     chữ địa chỉ, không bao giờ nhận toạ độ (chú thích số 2 ở đầu file). Vì vậy khai Physical
+		     Address, không khai Location. -->
 		<dict>
 			<key>NSPrivacyCollectedDataType</key>
 			<string>NSPrivacyCollectedDataTypePhysicalAddress</string>
@@ -96,12 +134,14 @@
 			<key>NSPrivacyCollectedDataTypePurposes</key>
 			<array>
 				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+				<string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
 			</array>
 		</dict>
 		<!-- `DeviceID.current` gửi ở BA chỗ: đăng ký, xem giá, đặt đơn (APIClient.register /
 		     catalog / orderScan) — khớp câu khai trong LegalView: "when you create your account,
 		     when you view prices and when you place an order". Dùng cho hạn mức suất quét miễn
-		     phí, không dùng cho quảng cáo/theo dõi. -->
+		     phí, không dùng cho quảng cáo/theo dõi. Ở bản build có SDK Stripe, form thanh toán
+		     của Stripe cũng gửi chính giá trị này cho Stripe (LegalView "Device identifier"). -->
 		<dict>
 			<key>NSPrivacyCollectedDataType</key>
 			<string>NSPrivacyCollectedDataTypeDeviceID</string>
@@ -149,8 +189,10 @@
 				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
 			</array>
 		</dict>
-		<!-- Tên dự án (địa chỉ khách gõ), ghi chú trong đơn, file khách đính kèm (logo, bản vẽ
-		     cũ). Hình học 3D thì đã khai riêng ở `EnvironmentScanning` ngay trên. -->
+		<!-- Tên dự án (địa chỉ khách gõ), NHÃN của từng bản quét (tầng/khu khách tự gõ), ghi chú
+		     trong đơn, file khách đính kèm (logo, bản vẽ cũ). Hình học 3D thì đã khai riêng ở
+		     `EnvironmentScanning` ngay trên. Cái nhãn bản quét là thứ báo cáo khách hàng đọc, nên mục
+		     này mang cả **Analytics** từ 2.41 (chú thích đầu mảng). -->
 		<dict>
 			<key>NSPrivacyCollectedDataType</key>
 			<string>NSPrivacyCollectedDataTypeOtherUserContent</string>
@@ -161,9 +203,12 @@
 			<key>NSPrivacyCollectedDataTypePurposes</key>
 			<array>
 				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+				<string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
 			</array>
 		</dict>
-		<!-- Đơn hàng đã đặt (gói dịch vụ, add-on, trạng thái thanh toán) hiện ở tab Đơn hàng. -->
+		<!-- Đơn hàng đã đặt (gói dịch vụ, add-on, trạng thái thanh toán) hiện ở tab Đơn hàng. Báo cáo
+		     khách hàng đếm theo từng tài khoản bao nhiêu bản quét đã thành đơn, bao nhiêu chưa, nên mục
+		     này mang cả **Analytics** từ 2.41 (chú thích đầu mảng). -->
 		<dict>
 			<key>NSPrivacyCollectedDataType</key>
 			<string>NSPrivacyCollectedDataTypePurchaseHistory</string>
@@ -174,6 +219,7 @@
 			<key>NSPrivacyCollectedDataTypePurposes</key>
 			<array>
 				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+				<string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
 			</array>
 		</dict>
 		<!-- 🔴 BA MỤC DƯỚI ĐÂY THÊM 13/08 VÌ CHÍNH VĂN BẢN PHÁP LÝ CỦA APP KHAI CHÚNG, ✗ vì đọc
@@ -188,7 +234,11 @@
 		       error messages                  → Other Diagnostic Data
 		       network address (địa chỉ IP)    → Other Data Types (Apple không có mục riêng cho IP)
 		     Đổi câu "Technical records" trong `LegalView` thì soi lại ba mục này — bối cảnh đầy
-		     đủ ở PRIVACY-NOTES.md (ghi chú nội bộ, không nằm trong bundle). -->
+		     đủ ở PRIVACY-NOTES.md (ghi chú nội bộ, không nằm trong bundle).
+		     🔴 TỪ 2.41 Other Usage Data CÓ THÊM LÝ DO THỨ HAI, không dính gì tới câu đó: báo cáo
+		     khách hàng đọc trạng thái + ngày của từng bản quét (chú thích đầu mảng). Sửa câu
+		     "Technical records" chỉ bỏ được Other Diagnostic Data và Other Data Types; Other Usage
+		     Data còn ở lại chừng nào báo cáo đó còn chạy, và nó mang cả mục đích Analytics. -->
 		<dict>
 			<key>NSPrivacyCollectedDataType</key>
 			<string>NSPrivacyCollectedDataTypeOtherUsageData</string>
@@ -199,6 +249,7 @@
 			<key>NSPrivacyCollectedDataTypePurposes</key>
 			<array>
 				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+				<string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
 			</array>
 		</dict>
 		<dict>
@@ -223,6 +274,24 @@
 			<key>NSPrivacyCollectedDataTypePurposes</key>
 			<array>
 				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+			</array>
+		</dict>
+		<!-- Mã tài khoản khách (server cấp khi đăng ký; AccountStore giữ trong UserDefaults). Ở bản
+		     build có SDK Stripe, mỗi lần app chuẩn bị form thẻ của Stripe (khi kênh này bật cho tài
+		     khoản: tự mở ngay sau Place order, và mỗi lần bấm Pay Now, dù khách có trả hay không),
+		     Stripe customer id + ephemeral key được trao cho form đó (thẻ đã lưu treo dưới mã đó);
+		     dữ liệu thẻ và cách dùng form khi đó do manifest riêng của SDK khai (chú thích số 3). -->
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeUserID</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+				<string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
 			</array>
 		</dict>
 	</array>
