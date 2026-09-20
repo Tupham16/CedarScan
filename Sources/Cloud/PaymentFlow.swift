@@ -38,6 +38,17 @@ final class PaymentFlow: ObservableObject {
     /// Orders paid here during this run, plus the completed-but-unconfirmed ones from disk.
     @Published private(set) var paidOrderIds: Set<String> = []
 
+    /// The tab `RootView` is showing, which only `RootView` writes. The sheet must come up on the
+    /// tab that asked for it: every tab lives in ONE `UIHostingController`, so `topViewController()`
+    /// returns the same object after a tab switch and cannot see it on its own (measured on device
+    /// 20/09: Pay Now in Orders, switch tab at once, and the sheet rose over the new tab).
+    /// It is compared as a SNAPSHOT (value when asked == value now), so `nil` is safe only while it
+    /// STAYS `nil`: today nothing ever writes `nil` back, and at cold launch `RootView.onAppear`
+    /// runs before any Pay Now can exist. ✗ add a `nil` reset (an `.onDisappear` companion, a
+    /// per-scene rewrite for iPad windows) — a request in flight would then be cancelled for a
+    /// change that never happened.
+    static var visibleTab: RootTab?
+
     private struct Marker: Codable {
         let orderId: String
         /// The account that paid: the server answers 404 for anybody else's order.
@@ -71,7 +82,10 @@ final class PaymentFlow: ObservableObject {
 
     // MARK: Paying
 
-    func pay(orderId: String) async -> Outcome {
+    /// - Parameter tabWhenAsked: `PaymentFlow.visibleTab` as it was when the CUSTOMER asked. It is
+    ///   passed in rather than read here so that the sheet and the browser are both judged against
+    ///   the same moment — the tap — instead of against whenever this call happened to start.
+    func pay(orderId: String, tabWhenAsked: RootTab?) async -> Outcome {
         guard loadingOrderId == nil, settlingOrderIds.isEmpty else { return .canceled }
         // A keyboard left up (the Orders search field) would cover the lower half of the sheet.
         UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
@@ -94,6 +108,7 @@ final class PaymentFlow: ObservableObject {
         // Gone, covered, on its way out, or navigated away from while the request was out. (A cover
         // still animating away is skipped by `topViewController()` but not by Stripe's own guard.)
         guard !Task.isCancelled,
+              Self.visibleTab == tabWhenAsked,
               Self.topViewController() === presenter,
               presenter.presentedViewController == nil else { return .canceled }
 
@@ -286,20 +301,29 @@ struct PayNowButton<Content: View>: View {
     }
 
     private func start(tapped: Bool) {
+        // The tab this tap happened on. Nothing below may land on any other one: the same value
+        // guards the sheet (passed into `pay`) and the browser (here). Both are needed — `pay`
+        // answers "use the browser" from THREE places, two of which come back after a round trip.
+        let tabWhenAsked = PaymentFlow.visibleTab
         guard payInApp, !browserOnly else {
+            // Straight from the tap, no waiting in between: the tab cannot have changed yet.
             if tapped { openURL(payURL) }
             return
         }
         task = Task {
-            switch await flow.pay(orderId: orderId) {
+            switch await flow.pay(orderId: orderId, tabWhenAsked: tabWhenAsked) {
             case .paid:
                 onPaid()
             case .canceled:
                 break
             case .useBrowser:
                 browserOnly = true
-                // An unasked open stops here: the customer has not tapped anything yet.
-                if tapped, !Task.isCancelled { openURL(payURL) }
+                // An unasked open stops here: the customer has not tapped anything yet. A customer
+                // who left for another tab is not sent to Safari either — Pay Now still works, and
+                // from here on it opens the browser straight away.
+                if tapped, !Task.isCancelled, PaymentFlow.visibleTab == tabWhenAsked {
+                    openURL(payURL)
+                }
             }
         }
     }

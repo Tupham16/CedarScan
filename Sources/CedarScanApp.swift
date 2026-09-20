@@ -119,6 +119,11 @@ struct RootView: View {
                 // Thanh gốc của iOS nằm im dưới bàn phím — giữ đúng hành vi đó.
                 .ignoresSafeArea(.keyboard, edges: .bottom)
         }
+        // Bảng thẻ chỉ được bật trên ĐÚNG tab đã bấm Pay Now. Đây là nơi DUY NHẤT ghi giá trị này;
+        // `PaymentFlow` chỉ đọc. Lý do phải có: mọi tab nằm trong cùng một `UIHostingController`
+        // nên phép so "vẫn đúng màn hình đó chứ?" của `PaymentFlow` không thấy được cú đổi tab.
+        .onAppear { PaymentFlow.visibleTab = tab }
+        .onChange(of: tab) { _, newTab in PaymentFlow.visibleTab = newTab }
         .task(id: account.isSignedIn) {
             await confirmPendingPayments()
             await purgeDeliveredScans()

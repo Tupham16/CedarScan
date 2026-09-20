@@ -108,10 +108,7 @@ struct AccountView: View {
                         // hai lượt thử vì cài trúng bản main). `verbatim` = KHÔNG có khoá dịch:
                         // khoá ngắn kiểu "Version" có thể đụng khoá của Stripe (bẫy #42).
                         Section {
-                            Text(verbatim: "CedarScan \(Self.appVersion)")
-                                .font(.footnote)
-                                .foregroundStyle(.secondary)
-                                .frame(maxWidth: .infinity, alignment: .center)
+                            versionLine
                                 .listRowBackground(Color.clear)
                         }
                     }
@@ -129,6 +126,16 @@ struct AccountView: View {
         }
     }
 
+    /// Bản đang chạy, MỘT chỗ viết cho cả ba trạng thái tài khoản (danh sách khi đã đăng nhập,
+    /// hai màn chưa đăng nhập / chờ xác minh) — hai bản sao thì sớm muộn cũng lệch nhau, mà đây
+    /// đúng là dòng phải tin được.
+    private var versionLine: some View {
+        Text(verbatim: "CedarScan \(Self.appVersion)")
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+            .frame(maxWidth: .infinity, alignment: .center)
+    }
+
     /// Mục Legal & Privacy cho hai màn KHÔNG phải `List` (chưa đăng nhập / chờ xác minh).
     /// `LegalLinks` chỉ là mấy `NavigationLink` nên đặt trong `VStack` cũng chạy — chỉ cần tự vẽ
     /// tiêu đề và đường kẻ vì ở đây không có `Section` của List lo hộ.
@@ -142,6 +149,9 @@ struct AccountView: View {
             // là chuyện dễ đoán sai — spacing thì luôn đúng.
             LegalLinks()
                 .font(.subheadline)
+            // Số bản cũng phải đọc được TRƯỚC khi đăng nhập: máy vừa cài xong, chưa vào tài khoản,
+            // vẫn phải trả lời được "máy đang chạy bản nào" (cùng lý do như dòng ở cuối danh sách).
+            versionLine
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 20)
