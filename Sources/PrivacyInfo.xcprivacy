@@ -75,11 +75,14 @@
 		     🔴 THÊM 20/09 — mục đích **Analytics** ở SÁU mục: Email Address, Name, Purchase History,
 		     User ID, Other User Content, Other Usage Data. Báo cáo khách hàng chạy tay
 		     (`order-webapp/scripts/customer-report.ts`) đọc DB app + WooCommerce rồi phân tích theo
-		     từng tài khoản: email, tên, ngày đăng ký (`appCustomer`), đơn hàng, VÀ từng bản quét
+		     từng tài khoản: email, tên, ngày đăng ký (`appCustomer`), đơn hàng bên WooCommerce (dữ liệu
+		     của website), VÀ từng bản quét
 		     (`scan`: NHÃN bản quét do khách gõ — tầng/khu, ví dụ "Attic", để trống thì app tự đặt
 		     "Scan (ngày giờ)" — kiểu quét, trạng thái, ngày, đã thành đơn hay chưa). Con số "ai bỏ
 		     giữa chừng" tính từ bản quét chưa thành đơn, nên hai mục của bản quét (Other User Content
-		     cho cái nhãn, Other Usage Data cho trạng thái + ngày) cũng phải mang Analytics.
+		     cho cái nhãn, Other Usage Data cho trạng thái + ngày) cũng phải mang Analytics. Purchase
+		     History mang Analytics vì thứ CHÍNH APP thu: cột `orderId` + trạng thái `ordered` của từng
+		     bản quét là cái báo cáo đếm "đã thành đơn / chưa đặt đơn" cho mỗi tài khoản.
 		     ✗ Physical Address: ĐỊA CHỈ CĂN NHÀ KHÔNG NẰM TRONG BẢN QUÉT — nó là tên dự án, chỉ lên
 		     server lúc ĐẶT ĐƠN (`projectName`), và báo cáo không đọc bảng đơn của app; mấy cột địa
 		     chỉ duy nhất trong báo cáo là quốc gia/thành phố thanh toán của WooCommerce, là dữ liệu
@@ -201,7 +204,9 @@
 				<string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
 			</array>
 		</dict>
-		<!-- Đơn hàng đã đặt (gói dịch vụ, add-on, trạng thái thanh toán) hiện ở tab Đơn hàng. -->
+		<!-- Đơn hàng đã đặt (gói dịch vụ, add-on, trạng thái thanh toán) hiện ở tab Đơn hàng. Báo cáo
+		     khách hàng đếm theo từng tài khoản bao nhiêu bản quét đã thành đơn, bao nhiêu chưa, nên mục
+		     này mang cả **Analytics** từ 2.41 (chú thích đầu mảng). -->
 		<dict>
 			<key>NSPrivacyCollectedDataType</key>
 			<string>NSPrivacyCollectedDataTypePurchaseHistory</string>
