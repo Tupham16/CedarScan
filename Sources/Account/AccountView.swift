@@ -1,6 +1,10 @@
 import SwiftUI
 
 struct AccountView: View {
+    /// `CFBundleShortVersionString` của bản đang chạy ("2.41" trên main, "2.41.2" trên nhánh thử).
+    private static let appVersion =
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?"
+
     @EnvironmentObject private var account: AccountStore
     @State private var showDeleteAccount = false
     @AppStorage("scanCoachHaptics") private var scanCoachHaptics = true
@@ -98,6 +102,17 @@ struct AccountView: View {
                             // scans") mơ hồ giữa MÁY và SERVER: trên máy `submit()` chỉ gọi API rồi
                             // đăng xuất, thư mục `Documents/Scans` KHÔNG bị đụng.
                             Text(String(localized: "Deletes your account and the scans we hold in the cloud. Scans on this iPhone are not affected. This cannot be undone."))
+                        }
+                        // Bản đang chạy. Trước đây số bản chỉ xem được ở AltStore / Cài đặt iOS,
+                        // nên lúc thử bản nhánh không ai chắc máy đang chạy bản nào (20/09 đã mất
+                        // hai lượt thử vì cài trúng bản main). `verbatim` = KHÔNG có khoá dịch:
+                        // khoá ngắn kiểu "Version" có thể đụng khoá của Stripe (bẫy #42).
+                        Section {
+                            Text(verbatim: "CedarScan \(Self.appVersion)")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                                .frame(maxWidth: .infinity, alignment: .center)
+                                .listRowBackground(Color.clear)
                         }
                     }
                 } else {
