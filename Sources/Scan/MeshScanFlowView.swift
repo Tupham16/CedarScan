@@ -353,23 +353,17 @@ struct MeshScanFlowView: View {
     }
 
     /// Legend card (mockup): hint, the two colours, then the glass/windows note.
-    /// Texts keep their full height (`fixedSize`): a German render cut the note to "…kein…".
+    /// Texts sit in `SettledText` (full height, never cut — see there).
     private var legendCard: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text(String(localized: "Walk slowly and point at every surface"))
-                .font(.subheadline.weight(.semibold))
-                .fixedSize(horizontal: false, vertical: true)
-            // One row as in the mockup; long languages wrap inside each key.
-            HStack(alignment: .top, spacing: 16) {
-                legendKey(String(localized: "White mesh = saved")) {
-                    MeshSwatch()
-                }
-                legendKey(String(localized: "Red = not scanned yet")) {
-                    // Same red as the overlay (`UIColor.systemRed`).
-                    RoundedRectangle(cornerRadius: 3, style: .continuous)
-                        .fill(Color.red.opacity(0.85))
-                        .frame(width: 14, height: 14)
-                }
+            SettledText {
+                Text(String(localized: "Walk slowly and point at every surface"))
+                    .font(.subheadline.weight(.semibold))
+            }
+            // One row as in the mockup when both keys fit; stacked otherwise (long languages, big text).
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 16) { legendKeys }
+                VStack(alignment: .leading, spacing: 6) { legendKeys }
             }
             .font(.footnote)
             .padding(.top, 9)
@@ -377,12 +371,13 @@ struct MeshScanFlowView: View {
             // (có mesh nhưng builder chưa ghi) đều là "chưa vào bản quét". Kèm ngoại lệ kính:
             // LiDAR xuyên kính nên cửa sổ/cửa kính KHÔNG BAO GIỜ hết đỏ — không dặn trước là
             // khách đứng quét mãi một tấm kính chờ hết đỏ, rồi mất tin luôn vào màu đỏ.
-            Text(String(localized: "Glass and windows always stay red — skip them. Stairs and multiple floors are fine."))
-                .font(.caption)
-                // White 75%, not `.secondary` (60%): stays ≥ 4.5:1 over a white wall.
-                .foregroundStyle(Color.white.opacity(0.75))
-                .fixedSize(horizontal: false, vertical: true)
-                .padding(.top, 7)
+            SettledText {
+                Text(String(localized: "Glass and windows always stay red — skip them. Stairs and multiple floors are fine."))
+                    .font(.caption)
+                    // White 75%, not `.secondary` (60%): stays ≥ 4.5:1 over a white wall.
+                    .foregroundStyle(Color.white.opacity(0.75))
+            }
+            .padding(.top, 7)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 16)
@@ -393,11 +388,25 @@ struct MeshScanFlowView: View {
         .accessibilityElement(children: .combine)
     }
 
+    @ViewBuilder
+    private var legendKeys: some View {
+        legendKey(String(localized: "White mesh = saved")) {
+            MeshSwatch()
+        }
+        legendKey(String(localized: "Red = not scanned yet")) {
+            // Same red as the overlay (`UIColor.systemRed`).
+            RoundedRectangle(cornerRadius: 3, style: .continuous)
+                .fill(Color.red.opacity(0.85))
+                .frame(width: 14, height: 14)
+        }
+    }
+
     private func legendKey<Swatch: View>(_ text: String, @ViewBuilder swatch: () -> Swatch) -> some View {
         HStack(spacing: 7) {
             swatch()
-            Text(text)
-                .fixedSize(horizontal: false, vertical: true)
+            SettledText {
+                Text(text)
+            }
         }
     }
 
@@ -683,5 +692,32 @@ private struct MeshSwatch: View {
         .frame(width: 14, height: 14)
         .clipShape(shape)
         .overlay(shape.strokeBorder(Color.white, lineWidth: 1.4))
+    }
+}
+
+/// Hosts one multi-line Text at its full height. SwiftUI sizes a Text at the proposed width but
+/// draws it at its narrower reported width; a German hyphen that fits the first may not be used
+/// at the second (simulator probe: the glass note sized 320×2 lines at 326pt, then cut to
+/// "…kein…"). Re-measuring at the reported width until it stops changing makes both the same.
+private struct SettledText: Layout {
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        guard let text = subviews.first else { return .zero }
+        return settledSize(text, width: proposal.width)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        guard let text = subviews.first else { return }
+        let size = settledSize(text, width: proposal.width ?? bounds.width)
+        text.place(at: bounds.origin, proposal: ProposedViewSize(size))
+    }
+
+    private func settledSize(_ text: LayoutSubview, width: CGFloat?) -> CGSize {
+        var size = text.sizeThatFits(ProposedViewSize(width: width, height: nil))
+        for _ in 0..<4 {
+            let next = text.sizeThatFits(ProposedViewSize(width: size.width, height: nil))
+            if next == size { break }
+            size = next
+        }
+        return size
     }
 }
