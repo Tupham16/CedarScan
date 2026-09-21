@@ -662,8 +662,11 @@ private struct ScanTimer: View {
                 .frame(width: 8, height: 8)
                 .accessibilityHidden(true)
             TimelineView(.periodic(from: start, by: 1)) { context in
-                Text(Self.clock(context.date.timeIntervalSince(start)))
+                let s = Self.seconds(context.date.timeIntervalSince(start))
+                Text(String(format: "%02ld:%02ld", s / 60, s % 60))
                     .lineLimit(1)
+                    // Spoken as a duration ("4 minutes, 12 seconds"), not as a time of day.
+                    .accessibilityLabel(Duration.seconds(s).formatted(.units(allowed: [.minutes, .seconds], width: .wide)))
             }
         }
         .font(.subheadline.weight(.semibold).monospacedDigit())
@@ -676,11 +679,10 @@ private struct ScanTimer: View {
         .accessibilityElement(children: .combine)
     }
 
-    /// mm:ss; minutes keep counting past 59. Rounded: schedule dates are `start + n` and
-    /// float error could truncate to n − 1 (a skipped second).
-    private static func clock(_ seconds: TimeInterval) -> String {
-        let s = max(0, Int(seconds.rounded()))
-        return String(format: "%02ld:%02ld", s / 60, s % 60)
+    /// Whole seconds for mm:ss (minutes keep counting past 59). Rounded: schedule dates are
+    /// `start + n` and float error could truncate to n − 1 (a skipped second).
+    private static func seconds(_ interval: TimeInterval) -> Int {
+        max(0, Int(interval.rounded()))
     }
 }
 
