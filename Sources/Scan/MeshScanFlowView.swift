@@ -334,6 +334,8 @@ struct MeshScanFlowView: View {
             icon
                 .foregroundStyle(Color.black)
                 .background(Color.white.opacity(0.94), in: Circle())
+                // Faint ring: keeps the disc visible over a white ceiling or wall.
+                .overlay(Circle().strokeBorder(Color.black.opacity(0.12), lineWidth: 1))
         } else {
             icon
                 .foregroundStyle(Color.white)
@@ -401,7 +403,7 @@ struct MeshScanFlowView: View {
     private func legendKey<Swatch: View>(_ text: String, @ViewBuilder swatch: () -> Swatch) -> some View {
         HStack(spacing: 7) {
             swatch()
-            LegendLabel(text: text, style: .footnote)
+            LegendLabel(text: text, style: .footnote, alpha: 0.88)
         }
     }
 
@@ -412,8 +414,8 @@ struct MeshScanFlowView: View {
             HStack(spacing: 10) {
                 Image(systemName: "stop.fill")
                     .accessibilityHidden(true)
-                // One line, shrinks instead of wrapping (a wrapped label could hit the same
-                // measure/draw hyphenation cut as the legend: fr "Arrêter et enregistrer" at AX1).
+                // One line, shrinks instead of wrapping (a wrapped Text can be cut like the
+                // legend, trap #44: fr "Arrêter et enregistrer" at AX1).
                 Text(String(localized: "Stop & Save"))
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
@@ -693,12 +695,11 @@ private struct MeshSwatch: View {
     }
 }
 
-/// White label; wrapped text is measured 12pt narrower than it is drawn. iOS 26 laid the German
-/// glass note out in 2 lines when measuring and 3 when drawing, cut to "…kein…" — SwiftUI Text and
-/// UILabel alike. Simulator control renders at 326pt: fixedSize, full-width frames,
-/// minimumScaleFactor, a custom Layout, hyphenation off and no line-break strategy all still cut
-/// it; this slack showed it whole. One-line text is sized as usual (keeps the keys' one-row fit).
-/// Font = the text style at the (capped) Dynamic Type size.
+/// White label that never cuts wrapped text: it takes the full proposed width and its height is
+/// measured 12pt narrower. iOS 26 measured the German glass note as 2 lines and drew 3, cut to
+/// "…kein…", in SwiftUI Text and UILabel alike (simulator control renders; trap #44).
+/// One-line text keeps its natural size (the keys' one-row fit). Font = text style at the capped
+/// Dynamic Type size.
 private struct LegendLabel: UIViewRepresentable {
     let text: String
     let style: UIFont.TextStyle
@@ -708,7 +709,6 @@ private struct LegendLabel: UIViewRepresentable {
     func makeUIView(context: Context) -> UILabel {
         let label = UILabel()
         label.numberOfLines = 0
-        label.lineBreakStrategy = []
         label.isAccessibilityElement = false // the card reads all its texts as one element
         return label
     }
@@ -731,14 +731,8 @@ private struct LegendLabel: UIViewRepresentable {
     private func configure(_ label: UILabel, _ context: Context) {
         let traits = UITraitCollection(preferredContentSizeCategory: UIContentSizeCategory(context.environment.dynamicTypeSize))
         let base = UIFont.preferredFont(forTextStyle: style, compatibleWith: traits)
-        let paragraph = NSMutableParagraphStyle()
-        paragraph.lineBreakStrategy = []
-        paragraph.usesDefaultHyphenation = false
-        paragraph.hyphenationFactor = 0
-        label.attributedText = NSAttributedString(string: text, attributes: [
-            .font: weight == .regular ? base : UIFont.systemFont(ofSize: base.pointSize, weight: weight),
-            .foregroundColor: UIColor(white: 1, alpha: alpha),
-            .paragraphStyle: paragraph,
-        ])
+        label.font = weight == .regular ? base : UIFont.systemFont(ofSize: base.pointSize, weight: weight)
+        label.textColor = UIColor(white: 1, alpha: alpha)
+        label.text = text
     }
 }
