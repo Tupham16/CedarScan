@@ -43,6 +43,57 @@ enum Theme {
     }
 }
 
+/// Capsule badge, e.g. `FogBadge("1 new", .soft)`.
+struct FogBadge: View {
+    let text: String
+    let kind: Theme.Badge
+
+    init(_ text: String, _ kind: Theme.Badge) {
+        self.text = text
+        self.kind = kind
+    }
+
+    var body: some View {
+        Text(text)
+            .font(.caption.weight(.semibold))
+            .lineLimit(1)
+            .foregroundStyle(kind.fg)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 4)
+            .background(Capsule().fill(kind.bg))
+            .fixedSize()
+    }
+}
+
+/// Card behind a list row: radius 16 + hairline border.
+private struct FogCardBackground: View {
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: 16, style: .continuous)
+        return shape
+            .fill(Theme.card)
+            .overlay(shape.strokeBorder(Theme.hairline, lineWidth: 1))
+            .padding(.horizontal, 16)
+            .padding(.vertical, 6)
+    }
+}
+
+extension View {
+    /// Fog screen background; only the background ignores the safe area.
+    func fogScreen() -> some View {
+        self
+            .scrollContentBackground(.hidden)
+            .background(Theme.bg.ignoresSafeArea())
+    }
+
+    /// Plain-list row drawn as a card (16pt screen margin, 12pt gap between cards).
+    func fogCardRow() -> some View {
+        self
+            .listRowBackground(FogCardBackground())
+            .listRowSeparator(.hidden)
+            .listRowInsets(EdgeInsets(top: 17, leading: 32, bottom: 18, trailing: 20))
+    }
+}
+
 private func rgb(_ value: UInt32, alpha: CGFloat = 1) -> UIColor {
     let r = CGFloat((value >> 16) & 0xFF) / 255
     let g = CGFloat((value >> 8) & 0xFF) / 255

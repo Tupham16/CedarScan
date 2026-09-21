@@ -337,6 +337,18 @@
    }
   },
   {
+   "key": "%lld new",
+   "translations": {
+    "vi": "%lld mới",
+    "fr": "%lld nouveau(x)",
+    "de": "%lld neu",
+    "cs": "Nové: %lld",
+    "sk": "Nové: %lld",
+    "es": "%lld nuevo(s)",
+    "nl": "%lld nieuw"
+   }
+  },
+  {
    "key": "Ordered",
    "translations": {
     "vi": "Đã đặt",

@@ -424,6 +424,7 @@ struct HomeView: View {
                 .padding(.horizontal, 32)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Theme.bg.ignoresSafeArea())
     }
 
     /// Dự án khớp chữ đang tìm. Ô rỗng → trả về tất cả (`TextMatch.contains` tự lo).
@@ -456,33 +457,59 @@ struct HomeView: View {
                 Text(String(localized: "No homes or scans match \"\(searchText)\"."))
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
             }
             if !visibleProjects.isEmpty {
-                Section(String(localized: "Properties")) {
+                Section {
                     ForEach(visibleProjects) { project in
                         projectRow(project)
+                            .fogCardRow()
                     }
+                } header: {
+                    sectionHeader(String(localized: "Properties"))
                 }
+                .listSectionSeparator(.hidden)
             }
             if !visibleLooseScans.isEmpty {
-                Section(store.projects.isEmpty
-                        ? String(localized: "Scans")
-                        : String(localized: "Not in a property")) {
-                    ForEach(visibleLooseScans) { record in
-                        ScanRow(
-                            store: store,
-                            record: record,
-                            onRename: {
-                                renameText = record.name
-                                recordToRename = record
-                            }
-                        )
-                    }
-                }
+                looseScansSection
             }
         }
+        .listStyle(.plain)
+        .fogScreen()
         // `.searchable` KHÔNG nằm ở đây — nó đã được chuyển lên `body`, cùng cấp với
         // `.navigationTitle`. Xem chú thích 🔴 ở đó trước khi định đưa nó về lại.
+    }
+
+    /// Legacy scans outside any property (split out: type-check time).
+    private var looseScansSection: some View {
+        let title = store.projects.isEmpty
+            ? String(localized: "Scans")
+            : String(localized: "Not in a property")
+        return Section {
+            ForEach(visibleLooseScans) { record in
+                ScanRow(
+                    store: store,
+                    record: record,
+                    onRename: {
+                        renameText = record.name
+                        recordToRename = record
+                    }
+                )
+                .fogCardRow()
+            }
+        } header: {
+            sectionHeader(title)
+        }
+        .listSectionSeparator(.hidden)
+    }
+
+    /// Fog section title: 13pt semibold grey, sentence case.
+    private func sectionHeader(_ title: String) -> some View {
+        Text(title)
+            .font(.footnote.weight(.semibold))
+            .foregroundStyle(.secondary)
+            .textCase(nil)
     }
 
     /// Một dòng dự án. **KHÔNG còn là `NavigationLink` — chính đó là bản vá của mục 6.**
@@ -505,33 +532,33 @@ struct HomeView: View {
     private func projectRow(_ project: ScanProject) -> some View {
         // `let` cục bộ + `return` tường minh — khuôn bắt buộc, xem khối trên. Dòng đếm được dựng
         // Ở ĐÂY (String, ✗ View) để `Text(...)` bên dưới vẫn là một biểu thức tầm thường.
-        let countLine = Self.projectCountLine(store.scans(in: project))
+        let scans = store.scans(in: project)
+        let countLine = Self.projectCountLine(scans)
+        // "N new" = scans not ordered yet; same "ordered" rule as `projectCountLine`.
+        let newCount = scans.filter { $0.cloudOrderNumber == nil }.count
         let created = project.createdAt.formatted(date: .abbreviated, time: .omitted)
-        return HStack(spacing: 10) {
+        return HStack(spacing: 0) {
             Button {
                 path.append(project)
             } label: {
                 HStack(spacing: 10) {
-                    // `.tint` (màu nhấn của app) chứ KHÔNG phải `.blue` cứng: từ 2026-07-23 màu
-                    // nhấn là cobalt, để `.blue` hệ thống ở đây là một icon xanh NHẠT nằm ngay
-                    // cạnh thanh tab cobalt — trông như lỗi render. Cùng lý do cho nhãn "Đã đặt"
-                    // ở `ScanRow`.
-                    Image(systemName: "folder.fill")
-                        .foregroundStyle(.tint)
-                    VStack(alignment: .leading, spacing: 2) {
+                    VStack(alignment: .leading, spacing: 1) {
                         Text(project.name)
                             .font(.headline)
                         // Creation date — owner asked 17/09; a restyle must keep it.
                         Text(created)
-                            .font(.caption)
+                            .font(.footnote)
                             .foregroundStyle(.secondary)
                         Text(countLine)
-                            .font(.caption)
+                            .font(.footnote)
                             .foregroundStyle(.secondary)
                     }
                     // Nuốt hết chỗ trống giữa chữ và giỏ rác, và `contentShape` bên dưới biến nó
                     // thành vùng chạm — không thì chạm vào khoảng trắng giữa dòng là rơi tọt.
                     Spacer(minLength: 8)
+                    if newCount > 0 {
+                        FogBadge(String(localized: "\(newCount) new"), .soft)
+                    }
                 }
                 .contentShape(Rectangle())
             }
@@ -540,9 +567,8 @@ struct HomeView: View {
             // của nó — hai nút mặc định trong một dòng nghĩa là chạm chỗ nào cũng nổ CẢ HAI (vừa
             // mở dự án vừa hiện hộp xoá). `.plain` tắt hành vi đó: mỗi nút chỉ ăn vùng của chính
             // nó. Chọn `.plain` chứ ✗ `.borderless` cho cả hai vì `.plain` KHÔNG nhuộm nhãn theo
-            // accent — dòng này cần đúng ba màu riêng (`.tint` cho thư mục, primary/secondary cho
-            // chữ, xám cho giỏ rác — ĐỎ cho tới 13/08), một kiểu có nhuộm là thêm một tầng phải
-            // cãi nhau.
+            // accent — the row sets its own colours (primary/secondary text, soft badge, grey
+            // trash), a tinting style would fight them.
             // ⚠ Giá phải trả, chấp nhận: không còn dải xám nhấn-cả-dòng như `NavigationLink`.
             // Khách vẫn thấy phản hồi ngay vì màn được đẩy tức thì.
             .buttonStyle(.plain)
@@ -551,14 +577,10 @@ struct HomeView: View {
                 projectToDelete = project
             } label: {
                 Image(systemName: "trash")
-                    // XÁM (`.secondary`), ✗ ĐỎ — chủ app chốt 2026-08-13: *"biểu tượng giỏ rác nên
-                    // để màu như các biểu tượng ở bottom, đừng để màu đỏ"*. `.secondary` là đúng
-                    // màu 4 icon thường của `CedarTabBar` (`isOn ? accentColor : .secondary`).
-                    // ✗ đổi sang `.tint`: ngay bên trái là icon thư mục vốn đã `.tint`, hai icon
-                    // cùng màu nhấn trong một dòng thì không còn phân biệt được cái nào mở cái nào
-                    // xoá. Việc xoá vẫn có lưới an toàn riêng — nút này chỉ mở hộp xác nhận
-                    // (`projectToDelete`), không xoá thẳng.
-                    .foregroundStyle(.secondary)
+                    // GREY, never red — owner 13/08: same colour as the unselected tab icons
+                    // (`Theme.inactive`, see `CedarTabBar`). ✗ `.tint`: an accent trash reads as
+                    // a primary action. It only opens the confirm alert (`projectToDelete`).
+                    .foregroundStyle(Theme.inactive)
                     // Ô chạm 44pt (mức tối thiểu của Apple) — icon thùng rác chỉ ~17pt, để trần
                     // thì phải chạm rất chính xác, mà ngay bên trái nó là nút MỞ dự án: chạm
                     // trượt ở đây không phải "bấm hụt" mà là "đi nhầm màn".
@@ -568,7 +590,6 @@ struct HomeView: View {
             .buttonStyle(.plain) // cùng lý do với nút trên — xem khối 🔴 ở đó
             .accessibilityLabel(String(localized: "Delete property"))
         }
-        .padding(.vertical, 2)
     }
 
     /// Dòng phụ của một dự án ở trang chủ: **tổng · đã đặt · chưa đặt** — chủ app chốt 19/08
