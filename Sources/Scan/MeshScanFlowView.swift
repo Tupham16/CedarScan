@@ -412,10 +412,13 @@ struct MeshScanFlowView: View {
             HStack(spacing: 10) {
                 Image(systemName: "stop.fill")
                     .accessibilityHidden(true)
+                // One line, shrinks instead of wrapping (a wrapped label could hit the same
+                // measure/draw hyphenation cut as the legend: fr "Arrêter et enregistrer" at AX1).
                 Text(String(localized: "Stop & Save"))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
             }
             .font(.headline)
-            .multilineTextAlignment(.center)
             .padding(.horizontal, 16)
             .padding(.vertical, 8)
             .frame(maxWidth: .infinity, minHeight: 56)
