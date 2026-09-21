@@ -157,16 +157,6 @@ struct MeshScanFlowView: View {
             // ✗ nối lại khi chưa sửa GỐC sổ-theo-anchor và chưa hỏi chủ app.
             // Tắt lưới khi đã sang màn preview: nhịp cập nhật dừng hẳn nên CADisplayLink 30Hz
             // không quay không tải suốt lúc khách ngồi xem lại video.
-            if Fog5.on {
-                Color.black
-                    .overlay {
-                        Image(Fog5.white ? "Fog5White" : "Fog5Room")
-                            .resizable()
-                            .scaledToFill()
-                    }
-                    .clipped()
-                    .ignoresSafeArea()
-            } else {
             ARCameraViewRepresentable(
                 arSession: controller.arSession,
                 sessionDelegate: controller,
@@ -184,7 +174,6 @@ struct MeshScanFlowView: View {
                 // photoCoverage CỐ Ý không truyền (default nil) — đọc chú thích 🔴 ở trên.
             )
             .ignoresSafeArea()
-            }
 
             if !isSaving && !showNaming && savedRecord == nil {
                 QualityAlertOverlay(monitor: controller.qualityMonitor)
@@ -233,10 +222,6 @@ struct MeshScanFlowView: View {
             // khoá VẪN BẮT BUỘC: dọn giữa buổi là `saveMeshScan` ghi vào dự án đã xoá, và pop
             // ProjectView là gỡ mất cái `.onChange` đang cầm đường ĐÓNG cover của phiên này.
             store.beginBusy()
-            if Fog5.on {
-                controller.fog5Fake()
-                return
-            }
             guard controller.isSupported else {
                 showUnsupported = true
                 return
@@ -388,7 +373,6 @@ struct MeshScanFlowView: View {
             .padding(.top, 9)
             // White 75%, not `.secondary` (60%): stays ≥ 4.5:1 over a white wall.
             LegendLabel(text: note, style: .caption1, alpha: 0.75)
-                .modifier(Fog5Probe(tag: "N", corner: .bottomTrailing))
                 .padding(.top, 7)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -709,11 +693,12 @@ private struct MeshSwatch: View {
     }
 }
 
-/// White multi-line label with hyphenation OFF. iOS 26 measured the German glass note with an
-/// automatic hyphen ("übersprin-", 2 lines) but drew it without, cut to "…kein…" — SwiftUI Text
-/// and plain UILabel alike (simulator renders at 390 and 402pt; fixedSize, a full-width frame,
-/// minimumScaleFactor and a custom Layout rendered the same cut). SwiftUI Text cannot turn
-/// hyphenation off, a paragraph style can. Font = the text style at the (capped) Dynamic Type size.
+/// White multi-line label with the system line-break strategy (orphan push-out) and hyphenation
+/// OFF. iOS 26 measured the German glass note as 2 lines — hyphenating "übersprin-gen" to pull the
+/// lone last word "Problem." up — but drew 3 lines, cut to "…kein…": SwiftUI Text and plain
+/// UILabel alike (simulator renders at 390 and 402pt; fixedSize, a full-width frame,
+/// minimumScaleFactor, a custom Layout and hyphenation-off alone all rendered the same cut).
+/// SwiftUI Text cannot change either setting. Font = the text style at the (capped) Dynamic Type size.
 private struct LegendLabel: UIViewRepresentable {
     let text: String
     let style: UIFont.TextStyle
@@ -723,6 +708,7 @@ private struct LegendLabel: UIViewRepresentable {
     func makeUIView(context: Context) -> UILabel {
         let label = UILabel()
         label.numberOfLines = 0
+        label.lineBreakStrategy = []
         label.isAccessibilityElement = false // the card reads all its texts as one element
         return label
     }
@@ -742,6 +728,7 @@ private struct LegendLabel: UIViewRepresentable {
         let traits = UITraitCollection(preferredContentSizeCategory: UIContentSizeCategory(context.environment.dynamicTypeSize))
         let base = UIFont.preferredFont(forTextStyle: style, compatibleWith: traits)
         let paragraph = NSMutableParagraphStyle()
+        paragraph.lineBreakStrategy = []
         paragraph.usesDefaultHyphenation = false
         paragraph.hyphenationFactor = 0
         label.attributedText = NSAttributedString(string: text, attributes: [
