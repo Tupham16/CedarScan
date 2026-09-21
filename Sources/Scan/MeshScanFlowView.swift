@@ -374,6 +374,7 @@ struct MeshScanFlowView: View {
             Text(String(localized: "Walk slowly and point at every surface"))
                 .font(.subheadline.weight(.semibold))
                 .fixedSize(horizontal: false, vertical: true)
+                .modifier(Fog5Probe(tag: "H", corner: .topTrailing))
             // One row as in the mockup; long languages wrap inside each key.
             HStack(alignment: .top, spacing: 16) {
                 legendKey(String(localized: "White mesh = saved")) {
@@ -387,6 +388,7 @@ struct MeshScanFlowView: View {
                 }
             }
             .font(.footnote)
+            .modifier(Fog5Probe(tag: "K", corner: .bottomTrailing))
             .padding(.top, 9)
             // MỘT nghĩa cho màu đỏ, đúng cho cả hai dạng: phủ đỏ (chưa có mesh) lẫn lưới đỏ
             // (có mesh nhưng builder chưa ghi) đều là "chưa vào bản quét". Kèm ngoại lệ kính:
@@ -397,9 +399,12 @@ struct MeshScanFlowView: View {
                 // White 75%, not `.secondary` (60%): stays ≥ 4.5:1 over a white wall.
                 .foregroundStyle(Color.white.opacity(0.75))
                 .fixedSize(horizontal: false, vertical: true)
+                .modifier(Fog5NoteVariant())
+                .modifier(Fog5Probe(tag: "N", corner: .bottomTrailing))
                 .padding(.top, 7)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .modifier(Fog5Probe(tag: "V", corner: .topLeading))
         .padding(.horizontal, 16)
         .padding(.top, 14)
         .padding(.bottom, 13)

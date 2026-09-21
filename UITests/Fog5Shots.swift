@@ -6,25 +6,14 @@ final class Fog5Shots: XCTestCase {
 
     func testShots() {
         continueAfterFailure = true
-        let on = ["-showScanMesh", "YES"]
-        capture(on, "en-on") { app in
-            for line in app.debugDescription.split(separator: "\n") {
-                print("FOG5TREE", line)
-            }
-        }
-        capture(["-showScanMesh", "NO"], "en-off")
-        capture(on + ["-fog5white"], "en-white")
-        capture(on + ["-fog5banner"], "en-banner")
-        capture(on + ["-AppleLanguages", "(de)", "-AppleLocale", "de_DE"], "de")
-        capture(on + ["-AppleLanguages", "(cs)", "-AppleLocale", "cs_CZ"], "cs")
-        capture(on + ["-AppleLanguages", "(sk)", "-AppleLocale", "sk_SK"], "sk")
-        capture(on + ["-AppleLanguages", "(vi)", "-AppleLocale", "vi_VN"], "vi")
-        capture(on + ["-AppleLanguages", "(fr)", "-AppleLocale", "fr_FR"], "fr")
-        capture(on + ["-AppleLanguages", "(nl)", "-AppleLocale", "nl_NL"], "nl")
-        capture(on + ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"], "es")
-        capture(on + ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityL"], "en-axL")
-        capture(on + ["-fog5banner", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL",
-                      "-AppleLanguages", "(de)", "-AppleLocale", "de_DE"], "de-banner-axXXXL")
+        let on = ["-showScanMesh", "YES", "-fog5probe"]
+        let de = ["-AppleLanguages", "(de)", "-AppleLocale", "de_DE"]
+        capture(on, "probe-en")
+        capture(on + de, "probe-de")
+        capture(on + de + ["-fog5v1"], "probe-de-v1-fullwidth")
+        capture(on + de + ["-fog5v2"], "probe-de-v2-scale")
+        capture(on + ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"], "probe-es")
+        capture(on + de + ["-fog5banner", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"], "probe-de-ax")
     }
 
     private func capture(_ args: [String], _ name: String, then: ((XCUIApplication) -> Void)? = nil) {
