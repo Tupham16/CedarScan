@@ -706,11 +706,11 @@ private struct MeshSwatch: View {
     }
 }
 
-/// White multi-line label drawn by UIKit. On iOS 26 SwiftUI Text measured the German glass note
-/// WITH a hyphen ("übersprin-", 2 lines) and drew it without, cut to "…kein…" (simulator renders
-/// at 390 and 402pt; fixedSize, a full-width frame, minimumScaleFactor and a custom Layout all
-/// rendered the same cut). UILabel measures and draws with one layout. Font = the text style at
-/// the environment's (capped) Dynamic Type size.
+/// White multi-line label with hyphenation OFF. iOS 26 measured the German glass note with an
+/// automatic hyphen ("übersprin-", 2 lines) but drew it without, cut to "…kein…" — SwiftUI Text
+/// and plain UILabel alike (simulator renders at 390 and 402pt; fixedSize, a full-width frame,
+/// minimumScaleFactor and a custom Layout rendered the same cut). SwiftUI Text cannot turn
+/// hyphenation off, a paragraph style can. Font = the text style at the (capped) Dynamic Type size.
 private struct LegendLabel: UIViewRepresentable {
     let text: String
     let style: UIFont.TextStyle
@@ -738,8 +738,13 @@ private struct LegendLabel: UIViewRepresentable {
     private func configure(_ label: UILabel, _ context: Context) {
         let traits = UITraitCollection(preferredContentSizeCategory: UIContentSizeCategory(context.environment.dynamicTypeSize))
         let base = UIFont.preferredFont(forTextStyle: style, compatibleWith: traits)
-        label.font = weight == .regular ? base : UIFont.systemFont(ofSize: base.pointSize, weight: weight)
-        label.textColor = UIColor(white: 1, alpha: alpha)
-        label.text = text
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.usesDefaultHyphenation = false
+        paragraph.hyphenationFactor = 0
+        label.attributedText = NSAttributedString(string: text, attributes: [
+            .font: weight == .regular ? base : UIFont.systemFont(ofSize: base.pointSize, weight: weight),
+            .foregroundColor: UIColor(white: 1, alpha: alpha),
+            .paragraphStyle: paragraph,
+        ])
     }
 }
