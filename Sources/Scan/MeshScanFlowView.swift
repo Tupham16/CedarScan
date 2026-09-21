@@ -368,48 +368,45 @@ struct MeshScanFlowView: View {
     }
 
     /// Legend card (mockup): hint, the two colours, then the glass/windows note.
-    /// Texts sit in `SettledText` (full height, never cut — see there).
+    /// Texts are `LegendLabel`s (UILabel) — see there why not SwiftUI Text.
     private var legendCard: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            SettledText {
-                Text(String(localized: "Walk slowly and point at every surface"))
-                    .font(.subheadline.weight(.semibold))
-            }
+        let hint = String(localized: "Walk slowly and point at every surface")
+        let meshKey = String(localized: "White mesh = saved")
+        let redKey = String(localized: "Red = not scanned yet")
+        // MỘT nghĩa cho màu đỏ, đúng cho cả hai dạng: phủ đỏ (chưa có mesh) lẫn lưới đỏ
+        // (có mesh nhưng builder chưa ghi) đều là "chưa vào bản quét". Kèm ngoại lệ kính:
+        // LiDAR xuyên kính nên cửa sổ/cửa kính KHÔNG BAO GIỜ hết đỏ — không dặn trước là
+        // khách đứng quét mãi một tấm kính chờ hết đỏ, rồi mất tin luôn vào màu đỏ.
+        let note = String(localized: "Glass and windows always stay red — skip them. Stairs and multiple floors are fine.")
+        return VStack(alignment: .leading, spacing: 0) {
+            LegendLabel(text: hint, style: .subheadline, weight: .semibold)
             // One row as in the mockup when both keys fit; stacked otherwise (long languages, big text).
             ViewThatFits(in: .horizontal) {
-                HStack(spacing: 16) { legendKeys }
-                VStack(alignment: .leading, spacing: 6) { legendKeys }
+                HStack(spacing: 16) { legendKeys(meshKey, redKey) }
+                VStack(alignment: .leading, spacing: 6) { legendKeys(meshKey, redKey) }
             }
-            .font(.footnote)
             .padding(.top, 9)
-            // MỘT nghĩa cho màu đỏ, đúng cho cả hai dạng: phủ đỏ (chưa có mesh) lẫn lưới đỏ
-            // (có mesh nhưng builder chưa ghi) đều là "chưa vào bản quét". Kèm ngoại lệ kính:
-            // LiDAR xuyên kính nên cửa sổ/cửa kính KHÔNG BAO GIỜ hết đỏ — không dặn trước là
-            // khách đứng quét mãi một tấm kính chờ hết đỏ, rồi mất tin luôn vào màu đỏ.
-            SettledText {
-                Text(String(localized: "Glass and windows always stay red — skip them. Stairs and multiple floors are fine."))
-                    .font(.caption)
-                    // White 75%, not `.secondary` (60%): stays ≥ 4.5:1 over a white wall.
-                    .foregroundStyle(Color.white.opacity(0.75))
-            }
-            .modifier(Fog5Probe(tag: "N", corner: .bottomTrailing))
-            .padding(.top, 7)
+            // White 75%, not `.secondary` (60%): stays ≥ 4.5:1 over a white wall.
+            LegendLabel(text: note, style: .caption1, alpha: 0.75)
+                .modifier(Fog5Probe(tag: "N", corner: .bottomTrailing))
+                .padding(.top, 7)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 16)
         .padding(.top, 14)
         .padding(.bottom, 13)
         .fogGlass(RoundedRectangle(cornerRadius: 18, style: .continuous))
-        // One VoiceOver stop, like the old single caption.
-        .accessibilityElement(children: .combine)
+        // One VoiceOver stop, like the old single caption (the labels are not elements).
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel([hint, meshKey, redKey, note].joined(separator: ", "))
     }
 
     @ViewBuilder
-    private var legendKeys: some View {
-        legendKey(String(localized: "White mesh = saved")) {
+    private func legendKeys(_ meshKey: String, _ redKey: String) -> some View {
+        legendKey(meshKey) {
             MeshSwatch()
         }
-        legendKey(String(localized: "Red = not scanned yet")) {
+        legendKey(redKey) {
             // Same red as the overlay (`UIColor.systemRed`).
             RoundedRectangle(cornerRadius: 3, style: .continuous)
                 .fill(Color.red.opacity(0.85))
@@ -420,9 +417,7 @@ struct MeshScanFlowView: View {
     private func legendKey<Swatch: View>(_ text: String, @ViewBuilder swatch: () -> Swatch) -> some View {
         HStack(spacing: 7) {
             swatch()
-            SettledText {
-                Text(text)
-            }
+            LegendLabel(text: text, style: .footnote)
         }
     }
 
@@ -711,18 +706,40 @@ private struct MeshSwatch: View {
     }
 }
 
-/// Hosts one multi-line Text at its full height, measured AND placed with no height limit.
-/// Stacks place a Text with its measured height, and that height-limited layout can break German
-/// lines differently from the unlimited measurement (simulator probe: the glass note measured
-/// 2 lines at 320pt with a hyphen, then drawn cut to "…kein…"; fixedSize, a full-width frame and
-/// minimumScaleFactor all rendered the same cut).
-private struct SettledText: Layout {
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        subviews.first?.sizeThatFits(ProposedViewSize(width: proposal.width, height: nil)) ?? .zero
+/// White multi-line label drawn by UIKit. On iOS 26 SwiftUI Text measured the German glass note
+/// WITH a hyphen ("übersprin-", 2 lines) and drew it without, cut to "…kein…" (simulator renders
+/// at 390 and 402pt; fixedSize, a full-width frame, minimumScaleFactor and a custom Layout all
+/// rendered the same cut). UILabel measures and draws with one layout. Font = the text style at
+/// the environment's (capped) Dynamic Type size.
+private struct LegendLabel: UIViewRepresentable {
+    let text: String
+    let style: UIFont.TextStyle
+    var weight: UIFont.Weight = .regular
+    var alpha: CGFloat = 1
+
+    func makeUIView(context: Context) -> UILabel {
+        let label = UILabel()
+        label.numberOfLines = 0
+        label.isAccessibilityElement = false // the card reads all its texts as one element
+        return label
     }
 
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        let width = proposal.width ?? bounds.width
-        subviews.first?.place(at: bounds.origin, proposal: ProposedViewSize(width: width, height: nil))
+    func updateUIView(_ label: UILabel, context: Context) {
+        configure(label, context)
+    }
+
+    func sizeThatFits(_ proposal: ProposedViewSize, uiView label: UILabel, context: Context) -> CGSize? {
+        configure(label, context)
+        let width = min(proposal.width ?? .greatestFiniteMagnitude, .greatestFiniteMagnitude)
+        let size = label.sizeThatFits(CGSize(width: width, height: .greatestFiniteMagnitude))
+        return CGSize(width: min(ceil(size.width), width), height: ceil(size.height))
+    }
+
+    private func configure(_ label: UILabel, _ context: Context) {
+        let traits = UITraitCollection(preferredContentSizeCategory: UIContentSizeCategory(context.environment.dynamicTypeSize))
+        let base = UIFont.preferredFont(forTextStyle: style, compatibleWith: traits)
+        label.font = weight == .regular ? base : UIFont.systemFont(ofSize: base.pointSize, weight: weight)
+        label.textColor = UIColor(white: 1, alpha: alpha)
+        label.text = text
     }
 }

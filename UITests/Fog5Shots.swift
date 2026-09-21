@@ -21,7 +21,7 @@ final class Fog5Shots: XCTestCase {
         capture(on + ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"], "es")
         capture(on + ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityL"], "en-axL")
         capture(on + de + ["-fog5banner", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"], "de-banner-axXXXL")
-        capture(on + de + ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryExtraExtraExtraLarge"], "de-xxxL")
+        capture(on + de + ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryXXXL"], "de-xxxL")
     }
 
     private func capture(_ args: [String], _ name: String, then: ((XCUIApplication) -> Void)? = nil) {
