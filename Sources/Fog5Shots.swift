@@ -49,33 +49,32 @@ struct Fog5NoteVariant: ViewModifier {
     }
 }
 
-/// THROWAWAY: the German note in four isolated setups at exactly 326pt.
+
+/// THROWAWAY: the German note in isolated setups at exactly 326pt (green border = frame).
 struct Fog5ControlPanel: View {
     let note: String
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 3) {
             tag("A SwiftUI Text")
-            Text(note).font(.caption).foregroundStyle(Color.white)
-                .frame(width: 326, alignment: .leading)
-                .fixedSize(horizontal: false, vertical: true)
-                .modifier(Fog5Probe(tag: "A", corner: .bottomTrailing))
+            box(Text(note).font(.caption).foregroundStyle(Color.white).fixedSize(horizontal: false, vertical: true))
             tag("B UILabel default")
-            Fog5PlainLabel(text: note, strategy: .standard)
-                .frame(width: 326, alignment: .leading)
-                .modifier(Fog5Probe(tag: "B", corner: .bottomTrailing))
-            tag("C UILabel strategy []")
-            Fog5PlainLabel(text: note, strategy: [])
-                .frame(width: 326, alignment: .leading)
-                .modifier(Fog5Probe(tag: "C", corner: .bottomTrailing))
+            box(Fog5PlainLabel(text: note, strategy: .standard, plain: true, slack: 0))
+            tag("C UILabel strategy [] + no hyphenation")
+            box(Fog5PlainLabel(text: note, strategy: [], plain: false, slack: 0))
             tag("D SwiftUI Text, NBSP before last word")
-            Text(nbspLast(note)).font(.caption).foregroundStyle(Color.white)
-                .frame(width: 326, alignment: .leading)
-                .fixedSize(horizontal: false, vertical: true)
-                .modifier(Fog5Probe(tag: "D", corner: .bottomTrailing))
+            box(Text(nbspLast(note)).font(.caption).foregroundStyle(Color.white).fixedSize(horizontal: false, vertical: true))
+            tag("E = C measured 12pt narrower than drawn")
+            box(Fog5PlainLabel(text: note, strategy: [], plain: false, slack: 12))
+            tag("F SwiftUI Text, dash -> comma")
+            box(Text(note.replacingOccurrences(of: " \u{2014}", with: ",")).font(.caption).foregroundStyle(Color.white).fixedSize(horizontal: false, vertical: true))
         }
         .padding(8)
-        .background(Color.black.opacity(0.75))
+        .background(Color.black.opacity(0.8))
+    }
+
+    private func box<V: View>(_ v: V) -> some View {
+        v.frame(width: 326, alignment: .leading).border(Color.green, width: 0.5)
     }
 
     private func tag(_ s: String) -> some View {
@@ -88,18 +87,32 @@ struct Fog5ControlPanel: View {
     }
 }
 
-/// THROWAWAY: plain UILabel with a given line-break strategy.
+/// THROWAWAY: UILabel variants.
 struct Fog5PlainLabel: UIViewRepresentable {
     let text: String
     let strategy: NSParagraphStyle.LineBreakStrategy
+    let plain: Bool
+    let slack: CGFloat
 
     func makeUIView(context: Context) -> UILabel {
         let l = UILabel()
         l.numberOfLines = 0
         l.lineBreakStrategy = strategy
-        l.font = UIFont.preferredFont(forTextStyle: .caption1)
-        l.textColor = .white
-        l.text = text
+        if plain {
+            l.font = UIFont.preferredFont(forTextStyle: .caption1)
+            l.textColor = .white
+            l.text = text
+        } else {
+            let p = NSMutableParagraphStyle()
+            p.lineBreakStrategy = strategy
+            p.usesDefaultHyphenation = false
+            p.hyphenationFactor = 0
+            l.attributedText = NSAttributedString(string: text, attributes: [
+                .font: UIFont.preferredFont(forTextStyle: .caption1),
+                .foregroundColor: UIColor.white,
+                .paragraphStyle: p,
+            ])
+        }
         return l
     }
 
@@ -107,7 +120,7 @@ struct Fog5PlainLabel: UIViewRepresentable {
 
     func sizeThatFits(_ proposal: ProposedViewSize, uiView: UILabel, context: Context) -> CGSize? {
         let w = min(proposal.width ?? .greatestFiniteMagnitude, .greatestFiniteMagnitude)
-        let s = uiView.sizeThatFits(CGSize(width: w, height: .greatestFiniteMagnitude))
-        return CGSize(width: min(ceil(s.width), w), height: ceil(s.height))
+        let s = uiView.sizeThatFits(CGSize(width: max(w - slack, 1), height: .greatestFiniteMagnitude))
+        return CGSize(width: min(ceil(s.width) + slack, w), height: ceil(s.height))
     }
 }

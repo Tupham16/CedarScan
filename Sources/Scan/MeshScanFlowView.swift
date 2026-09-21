@@ -392,7 +392,6 @@ struct MeshScanFlowView: View {
             .padding(.top, 9)
             // White 75%, not `.secondary` (60%): stays ≥ 4.5:1 over a white wall.
             LegendLabel(text: note, style: .caption1, alpha: 0.75)
-                .modifier(Fog5Probe(tag: "N", corner: .bottomTrailing))
                 .padding(.top, 7)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
