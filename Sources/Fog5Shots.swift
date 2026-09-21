@@ -48,3 +48,66 @@ struct Fog5NoteVariant: ViewModifier {
         }
     }
 }
+
+/// THROWAWAY: the German note in four isolated setups at exactly 326pt.
+struct Fog5ControlPanel: View {
+    let note: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            tag("A SwiftUI Text")
+            Text(note).font(.caption).foregroundStyle(Color.white)
+                .frame(width: 326, alignment: .leading)
+                .fixedSize(horizontal: false, vertical: true)
+                .modifier(Fog5Probe(tag: "A", corner: .bottomTrailing))
+            tag("B UILabel default")
+            Fog5PlainLabel(text: note, strategy: .standard)
+                .frame(width: 326, alignment: .leading)
+                .modifier(Fog5Probe(tag: "B", corner: .bottomTrailing))
+            tag("C UILabel strategy []")
+            Fog5PlainLabel(text: note, strategy: [])
+                .frame(width: 326, alignment: .leading)
+                .modifier(Fog5Probe(tag: "C", corner: .bottomTrailing))
+            tag("D SwiftUI Text, NBSP before last word")
+            Text(nbspLast(note)).font(.caption).foregroundStyle(Color.white)
+                .frame(width: 326, alignment: .leading)
+                .fixedSize(horizontal: false, vertical: true)
+                .modifier(Fog5Probe(tag: "D", corner: .bottomTrailing))
+        }
+        .padding(8)
+        .background(Color.black.opacity(0.75))
+    }
+
+    private func tag(_ s: String) -> some View {
+        Text(s).font(.system(size: 9, weight: .bold)).foregroundStyle(Color.green)
+    }
+
+    private func nbspLast(_ s: String) -> String {
+        guard let r = s.range(of: " ", options: .backwards) else { return s }
+        return s.replacingCharacters(in: r, with: "\u{00A0}")
+    }
+}
+
+/// THROWAWAY: plain UILabel with a given line-break strategy.
+struct Fog5PlainLabel: UIViewRepresentable {
+    let text: String
+    let strategy: NSParagraphStyle.LineBreakStrategy
+
+    func makeUIView(context: Context) -> UILabel {
+        let l = UILabel()
+        l.numberOfLines = 0
+        l.lineBreakStrategy = strategy
+        l.font = UIFont.preferredFont(forTextStyle: .caption1)
+        l.textColor = .white
+        l.text = text
+        return l
+    }
+
+    func updateUIView(_ l: UILabel, context: Context) {}
+
+    func sizeThatFits(_ proposal: ProposedViewSize, uiView: UILabel, context: Context) -> CGSize? {
+        let w = min(proposal.width ?? .greatestFiniteMagnitude, .greatestFiniteMagnitude)
+        let s = uiView.sizeThatFits(CGSize(width: w, height: .greatestFiniteMagnitude))
+        return CGSize(width: min(ceil(s.width), w), height: ceil(s.height))
+    }
+}
