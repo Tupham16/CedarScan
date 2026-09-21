@@ -199,6 +199,9 @@ struct MeshScanFlowView: View {
                 }
                 // Dark glass + white labels in light mode too; Theme tokens resolve dark here.
                 .environment(\.colorScheme, .dark)
+                // Capped so the bar and the legend still fit a 390×844 phone in German
+                // (measured on simulator renders: at AX3 the bar wrapped "Can-cel", "04:1/7").
+                .dynamicTypeSize(...DynamicTypeSize.accessibility1)
             }
 
             if showNaming {
@@ -293,9 +296,12 @@ struct MeshScanFlowView: View {
                 controller.cancel()
                 dismiss()
             } label: {
+                // Explicit white: `.primary` inside a Button resolves to the tint (rendered blue).
                 Text(String(localized: "Cancel"))
                     .font(.callout.weight(.semibold))
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(Color.white)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
                     .padding(.horizontal, 17)
                     .padding(.vertical, 10)
                     .fogGlass(Capsule())
@@ -330,7 +336,7 @@ struct MeshScanFlowView: View {
                 .background(Color.white.opacity(0.94), in: Circle())
         } else {
             icon
-                .foregroundStyle(.primary)
+                .foregroundStyle(Color.white)
                 .fogGlass(Circle())
         }
     }
@@ -347,14 +353,23 @@ struct MeshScanFlowView: View {
     }
 
     /// Legend card (mockup): hint, the two colours, then the glass/windows note.
+    /// Texts keep their full height (`fixedSize`): a German render cut the note to "…kein…".
     private var legendCard: some View {
         VStack(alignment: .leading, spacing: 0) {
             Text(String(localized: "Walk slowly and point at every surface"))
                 .font(.subheadline.weight(.semibold))
-            // Both keys on one line when they fit, stacked otherwise (long languages, big text).
-            ViewThatFits(in: .horizontal) {
-                HStack(spacing: 16) { legendKeys }
-                VStack(alignment: .leading, spacing: 6) { legendKeys }
+                .fixedSize(horizontal: false, vertical: true)
+            // One row as in the mockup; long languages wrap inside each key.
+            HStack(alignment: .top, spacing: 16) {
+                legendKey(String(localized: "White mesh = saved")) {
+                    MeshSwatch()
+                }
+                legendKey(String(localized: "Red = not scanned yet")) {
+                    // Same red as the overlay (`UIColor.systemRed`).
+                    RoundedRectangle(cornerRadius: 3, style: .continuous)
+                        .fill(Color.red.opacity(0.85))
+                        .frame(width: 14, height: 14)
+                }
             }
             .font(.footnote)
             .padding(.top, 9)
@@ -364,7 +379,9 @@ struct MeshScanFlowView: View {
             // khách đứng quét mãi một tấm kính chờ hết đỏ, rồi mất tin luôn vào màu đỏ.
             Text(String(localized: "Glass and windows always stay red — skip them. Stairs and multiple floors are fine."))
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                // White 75%, not `.secondary` (60%): stays ≥ 4.5:1 over a white wall.
+                .foregroundStyle(Color.white.opacity(0.75))
+                .fixedSize(horizontal: false, vertical: true)
                 .padding(.top, 7)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -376,18 +393,11 @@ struct MeshScanFlowView: View {
         .accessibilityElement(children: .combine)
     }
 
-    @ViewBuilder
-    private var legendKeys: some View {
+    private func legendKey<Swatch: View>(_ text: String, @ViewBuilder swatch: () -> Swatch) -> some View {
         HStack(spacing: 7) {
-            MeshSwatch()
-            Text(String(localized: "White mesh = saved"))
-        }
-        HStack(spacing: 7) {
-            // Same red as the overlay (`UIColor.systemRed`).
-            RoundedRectangle(cornerRadius: 3, style: .continuous)
-                .fill(Color.red.opacity(0.85))
-                .frame(width: 14, height: 14)
-            Text(String(localized: "Red = not scanned yet"))
+            swatch()
+            Text(text)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 
@@ -401,6 +411,9 @@ struct MeshScanFlowView: View {
                 Text(String(localized: "Stop & Save"))
             }
             .font(.headline)
+            .multilineTextAlignment(.center)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
             .frame(maxWidth: .infinity, minHeight: 56)
         }
         .buttonStyle(FogPrimary(radius: 28))
@@ -635,6 +648,7 @@ private struct ScanTimer: View {
                 .accessibilityHidden(true)
             TimelineView(.periodic(from: start, by: 1)) { context in
                 Text(Self.clock(context.date.timeIntervalSince(start)))
+                    .lineLimit(1)
             }
         }
         .font(.subheadline.weight(.semibold).monospacedDigit())
@@ -642,6 +656,8 @@ private struct ScanTimer: View {
         .padding(.horizontal, 13)
         .padding(.vertical, 7)
         .fogGlass(Capsule())
+        // Never squeezed by the side columns (a render wrapped it to "04:1/7").
+        .fixedSize()
         .accessibilityElement(children: .combine)
     }
 
