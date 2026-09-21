@@ -383,6 +383,7 @@ struct OrdersView: View {
                     .frame(maxWidth: .infinity, minHeight: 44)
             }
             .buttonStyle(FogPrimary(radius: 12))
+            .tint(.white) // loading spinner on the blue fill
         }
     }
 
