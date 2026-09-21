@@ -337,7 +337,8 @@ struct OrdersView: View {
             orderHeader(order)
             payNow(order)
             deliverables(order)
-            tour(order)
+            ruledRows(order)
+            tourPhotos(order)
             followUps(order)
         }
         .padding(.vertical, 3)
@@ -392,23 +393,41 @@ struct OrdersView: View {
     @ViewBuilder
     private func deliverables(_ order: OrderDTO) -> some View {
         if order.status == "delivered" {
-            VStack(alignment: .leading, spacing: 0) {
-                if let url = httpsURL(order.deliveredUrl) {
-                    Link(destination: url) {
-                        Label(String(localized: "Download deliverables"), systemImage: "arrow.down.circle")
-                            .font(.subheadline.weight(.semibold))
-                            .frame(maxWidth: .infinity, minHeight: 44)
-                    }
-                    .buttonStyle(FogTint(radius: 12))
-                    .padding(.bottom, 10)
+            if let url = httpsURL(order.deliveredUrl) {
+                Link(destination: url) {
+                    Label(String(localized: "Download deliverables"), systemImage: "arrow.down.circle")
+                        .font(.subheadline.weight(.semibold))
+                        .frame(maxWidth: .infinity, minHeight: 44)
                 }
-                ForEach(order.files, id: \.self) { file in
-                    if let url = httpsURL(file.url) {
-                        fileLink(file, url: url)
-                    }
-                }
+                .buttonStyle(FogTint(radius: 12))
             }
         }
+    }
+
+    /// Delivered files + tour link as one ruled list (mockup). The outer `if` only skips an
+    /// empty block (stray line and spacing); each row keeps its pre-Fog condition.
+    @ViewBuilder
+    private func ruledRows(_ order: OrderDTO) -> some View {
+        if hasFileRows(order) || (order.hasTour == true && httpsURL(order.tourUrl) != nil) {
+            VStack(spacing: 0) {
+                if order.status == "delivered" {
+                    ForEach(order.files, id: \.self) { file in
+                        if let url = httpsURL(file.url) {
+                            fileLink(file, url: url)
+                        }
+                    }
+                }
+                // Virtual Tour: trước khi giao = thêm ảnh phòng; sau khi giao = link tour chia sẻ được
+                if order.hasTour == true, let tourURL = httpsURL(order.tourUrl) {
+                    tourLink(tourURL)
+                }
+            }
+            .overlay(alignment: .bottom) { Self.hairline }
+        }
+    }
+
+    private func hasFileRows(_ order: OrderDTO) -> Bool {
+        order.status == "delivered" && order.files.contains { httpsURL($0.url) != nil }
     }
 
     private func fileLink(_ file: DeliveryFileDTO, url: URL) -> some View {
@@ -433,28 +452,29 @@ struct OrdersView: View {
         .overlay(alignment: .top) { Self.hairline }
     }
 
-    // Virtual Tour: trước khi giao = thêm ảnh phòng; sau khi giao = link tour chia sẻ được
+    private func tourLink(_ tourURL: URL) -> some View {
+        HStack(spacing: 12) {
+            Link(destination: tourURL) {
+                Label(String(localized: "View Virtual Tour"), systemImage: "house")
+                    .font(.subheadline.weight(.semibold))
+            }
+            Spacer()
+            ShareLink(item: tourURL) {
+                Image(systemName: "square.and.arrow.up")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .buttonStyle(.borderless)
+        .frame(minHeight: 40)
+        .overlay(alignment: .top) { Self.hairline }
+    }
+
+    /// The pre-Fog `else if` branch of the tour block: tour ordered, no tour link yet.
     @ViewBuilder
-    private func tour(_ order: OrderDTO) -> some View {
-        if order.hasTour == true {
-            if let tourURL = httpsURL(order.tourUrl) {
-                HStack(spacing: 12) {
-                    Link(destination: tourURL) {
-                        Label(String(localized: "View Virtual Tour"), systemImage: "house")
-                            .font(.subheadline.weight(.semibold))
-                    }
-                    Spacer()
-                    ShareLink(item: tourURL) {
-                        Image(systemName: "square.and.arrow.up")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                .buttonStyle(.borderless)
-                .frame(minHeight: 40)
-                .overlay(alignment: .top) { Self.hairline }
-                .overlay(alignment: .bottom) { Self.hairline }
-            } else if order.status != "refunded" {
+    private func tourPhotos(_ order: OrderDTO) -> some View {
+        if order.hasTour == true, httpsURL(order.tourUrl) == nil {
+            if order.status != "refunded" {
                 Button {
                     tourOrder = order
                 } label: {
@@ -520,7 +540,12 @@ struct OrdersView: View {
     }
 
     private func ghostLabel(_ title: String, systemImage: String) -> some View {
-        Label(title, systemImage: systemImage)
+        Label {
+            Text(title)
+        } icon: {
+            Image(systemName: systemImage)
+                .foregroundStyle(.secondary)
+        }
             .font(.footnote.weight(.semibold))
             .multilineTextAlignment(.center)
             .padding(.horizontal, 8)
