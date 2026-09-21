@@ -693,12 +693,12 @@ private struct MeshSwatch: View {
     }
 }
 
-/// White multi-line label with the system line-break strategy (orphan push-out) and hyphenation
-/// OFF. iOS 26 measured the German glass note as 2 lines — hyphenating "übersprin-gen" to pull the
-/// lone last word "Problem." up — but drew 3 lines, cut to "…kein…": SwiftUI Text and plain
-/// UILabel alike (simulator renders at 390 and 402pt; fixedSize, a full-width frame,
-/// minimumScaleFactor, a custom Layout and hyphenation-off alone all rendered the same cut).
-/// SwiftUI Text cannot change either setting. Font = the text style at the (capped) Dynamic Type size.
+/// White label; wrapped text is measured 12pt narrower than it is drawn. iOS 26 laid the German
+/// glass note out in 2 lines when measuring and 3 when drawing, cut to "…kein…" — SwiftUI Text and
+/// UILabel alike. Simulator control renders at 326pt: fixedSize, full-width frames,
+/// minimumScaleFactor, a custom Layout, hyphenation off and no line-break strategy all still cut
+/// it; this slack showed it whole. One-line text is sized as usual (keeps the keys' one-row fit).
+/// Font = the text style at the (capped) Dynamic Type size.
 private struct LegendLabel: UIViewRepresentable {
     let text: String
     let style: UIFont.TextStyle
@@ -720,8 +720,12 @@ private struct LegendLabel: UIViewRepresentable {
     func sizeThatFits(_ proposal: ProposedViewSize, uiView label: UILabel, context: Context) -> CGSize? {
         configure(label, context)
         let width = min(proposal.width ?? .greatestFiniteMagnitude, .greatestFiniteMagnitude)
-        let size = label.sizeThatFits(CGSize(width: width, height: .greatestFiniteMagnitude))
-        return CGSize(width: min(ceil(size.width), width), height: ceil(size.height))
+        let line = label.sizeThatFits(CGSize(width: CGFloat.greatestFiniteMagnitude, height: .greatestFiniteMagnitude))
+        if line.width <= width {
+            return CGSize(width: ceil(line.width), height: ceil(line.height))
+        }
+        let wrapped = label.sizeThatFits(CGSize(width: max(width - 12, 1), height: .greatestFiniteMagnitude))
+        return CGSize(width: width, height: ceil(wrapped.height))
     }
 
     private func configure(_ label: UILabel, _ context: Context) {
