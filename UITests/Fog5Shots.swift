@@ -7,21 +7,26 @@ final class Fog5Shots: XCTestCase {
     func testShots() {
         continueAfterFailure = true
         let on = ["-showScanMesh", "YES"]
-        let de = ["-AppleLanguages", "(de)", "-AppleLocale", "de_DE"]
-        capture(on + de + ["-fog5probe"], "de-probe")
+        func lang(_ l: String, _ r: String) -> [String] { ["-AppleLanguages", "(\(l))", "-AppleLocale", "\(l)_\(r)"] }
+        let ax5 = ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
+        capture(on + lang("de", "DE") + ["-fog5probe"], "de-probe")
         capture(on, "en-on")
         capture(["-showScanMesh", "NO"], "en-off")
         capture(on + ["-fog5white"], "en-white")
-        capture(on + de, "de")
-        capture(on + ["-AppleLanguages", "(cs)", "-AppleLocale", "cs_CZ"], "cs")
-        capture(on + ["-AppleLanguages", "(sk)", "-AppleLocale", "sk_SK"], "sk")
-        capture(on + ["-AppleLanguages", "(vi)", "-AppleLocale", "vi_VN"], "vi")
-        capture(on + ["-AppleLanguages", "(fr)", "-AppleLocale", "fr_FR"], "fr")
-        capture(on + ["-AppleLanguages", "(nl)", "-AppleLocale", "nl_NL"], "nl")
-        capture(on + ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"], "es")
-        capture(on + ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityL"], "en-axL")
-        capture(on + de + ["-fog5banner", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"], "de-banner-axXXXL")
-        capture(on + de + ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryXXXL"], "de-xxxL")
+        capture(on + ["-fog5banner"], "en-banner")
+        capture(on + lang("de", "DE"), "de")
+        capture(on + lang("cs", "CZ"), "cs")
+        capture(on + lang("sk", "SK"), "sk")
+        capture(on + lang("vi", "VN"), "vi")
+        capture(on + lang("fr", "FR"), "fr")
+        capture(on + lang("nl", "NL"), "nl")
+        capture(on + lang("es", "ES"), "es")
+        capture(on + ax5, "en-ax")
+        capture(on + lang("de", "DE") + ["-fog5banner"] + ax5, "de-banner-ax")
+        capture(on + lang("fr", "FR") + ax5, "fr-ax")
+        capture(on + lang("es", "ES") + ax5, "es-ax")
+        capture(on + lang("nl", "NL") + ax5, "nl-ax")
+        capture(on + lang("de", "DE") + ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryXXXL"], "de-xxxl")
     }
 
     private func capture(_ args: [String], _ name: String, then: ((XCUIApplication) -> Void)? = nil) {
