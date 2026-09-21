@@ -47,7 +47,7 @@ jobs:
       - name: Sweep
         env:
           TEST_RUNNER_TEXTCUT_STEP: '1'
-          TEST_RUNNER_TEXTCUT_BUDGET: '9000'
+          TEST_RUNNER_TEXTCUT_BUDGET: '480'
         run: |
           set -o pipefail
           xcodebuild test \
