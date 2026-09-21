@@ -8,6 +8,10 @@ on:
 jobs:
   shots:
     runs-on: macos-15
+    strategy:
+      fail-fast: false
+      matrix:
+        device: [iPhone-13-Pro, iPhone-16-Pro]
     steps:
       - uses: actions/checkout@v4
 
@@ -34,7 +38,7 @@ jobs:
           r = [x for x in json.load(sys.stdin)['runtimes'] if x['identifier'].startswith('com.apple.CoreSimulator.SimRuntime.iOS-26') and x.get('isAvailable')]
           print(sorted(r, key=lambda x: x['version'])[-1]['identifier'])
           ")
-          UDID=$(xcrun simctl create "Fog5 13 Pro" "com.apple.CoreSimulator.SimDeviceType.iPhone-13-Pro" "$RT")
+          UDID=$(xcrun simctl create "Fog5 ${{ matrix.device }}" "com.apple.CoreSimulator.SimDeviceType.${{ matrix.device }}" "$RT")
           echo "Created $UDID on $RT"
           echo "udid=$UDID" >> "$GITHUB_OUTPUT"
 
@@ -84,7 +88,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: fog5-shots
+          name: fog5-shots-${{ matrix.device }}
           path: |
             shots
             light.log
