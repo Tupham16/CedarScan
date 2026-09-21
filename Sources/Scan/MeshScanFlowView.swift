@@ -695,29 +695,18 @@ private struct MeshSwatch: View {
     }
 }
 
-/// Hosts one multi-line Text at its full height. SwiftUI sizes a Text at the proposed width but
-/// draws it at its narrower reported width; a German hyphen that fits the first may not be used
-/// at the second (simulator probe: the glass note sized 320×2 lines at 326pt, then cut to
-/// "…kein…"). Re-measuring at the reported width until it stops changing makes both the same.
+/// Hosts one multi-line Text at its full height, measured AND placed with no height limit.
+/// Stacks place a Text with its measured height, and that height-limited layout can break German
+/// lines differently from the unlimited measurement (simulator probe: the glass note measured
+/// 2 lines at 320pt with a hyphen, then drawn cut to "…kein…"; fixedSize, a full-width frame and
+/// minimumScaleFactor all rendered the same cut).
 private struct SettledText: Layout {
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        guard let text = subviews.first else { return .zero }
-        return settledSize(text, width: proposal.width)
+        subviews.first?.sizeThatFits(ProposedViewSize(width: proposal.width, height: nil)) ?? .zero
     }
 
     func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        guard let text = subviews.first else { return }
-        let size = settledSize(text, width: proposal.width ?? bounds.width)
-        text.place(at: bounds.origin, proposal: ProposedViewSize(size))
-    }
-
-    private func settledSize(_ text: LayoutSubview, width: CGFloat?) -> CGSize {
-        var size = text.sizeThatFits(ProposedViewSize(width: width, height: nil))
-        for _ in 0..<4 {
-            let next = text.sizeThatFits(ProposedViewSize(width: size.width, height: nil))
-            if next == size { break }
-            size = next
-        }
-        return size
+        let width = proposal.width ?? bounds.width
+        subviews.first?.place(at: bounds.origin, proposal: ProposedViewSize(width: width, height: nil))
     }
 }
