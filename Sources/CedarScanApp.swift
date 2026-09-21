@@ -5,8 +5,15 @@ struct CedarScanApp: App {
     @StateObject private var store = ScanStore()
     @StateObject private var account = AccountStore()
 
+    init() { TextShots.seed() } // THROWAWAY harness
+
     var body: some Scene {
         WindowGroup {
+            if TextShots.screen != nil {
+                TextShotRoot()
+                    .environmentObject(store)
+                    .environmentObject(account)
+            } else {
             RootView()
                 // 🔴🔴 LỚP PHỦ COVER QUÉT (bản 2.13) — ✗ DỜI XUỐNG THẤP HƠN, ✗ GẮN THÊM CHỖ NÀO
                 // NỮA. Đây là bản vá của lỗi "lề SwiftUI đông cứng sau khi mở màn quét": màn quét
@@ -21,6 +28,7 @@ struct CedarScanApp: App {
                 .scanCoverLayer()
                 .environmentObject(store)
                 .environmentObject(account)
+            }
         }
     }
 }

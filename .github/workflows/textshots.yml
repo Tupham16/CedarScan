@@ -1,0 +1,77 @@
+# THROWAWAY (branch claude/textcut-shots, never main): screenshots of screens with long content.
+name: Text-cut screen shots (throwaway)
+
+on:
+  push:
+    branches: ['claude/textcut-shots']
+
+jobs:
+  shots:
+    runs-on: macos-15
+    strategy:
+      fail-fast: false
+      matrix:
+        device: [iPhone-13-Pro, iPhone-16-Pro]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode 26.3
+        run: |
+          sudo xcode-select -s /Applications/Xcode_26.3.app
+          xcodebuild -version
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Resolve Swift packages
+        run: xcodebuild -resolvePackageDependencies -project CedarScan.xcodeproj -scheme CedarScan
+
+      - name: Create simulator (iOS 26)
+        id: sim
+        run: |
+          set -euo pipefail
+          RT=$(xcrun simctl list runtimes -j | python3 -c "
+          import json, sys
+          r = [x for x in json.load(sys.stdin)['runtimes'] if x['identifier'].startswith('com.apple.CoreSimulator.SimRuntime.iOS-26') and x.get('isAvailable')]
+          print(sorted(r, key=lambda x: x['version'])[-1]['identifier'])
+          ")
+          UDID=$(xcrun simctl create "Textshots" "com.apple.CoreSimulator.SimDeviceType.${{ matrix.device }}" "$RT")
+          echo "Created $UDID on $RT"
+          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
+          xcrun simctl boot "$UDID" || true
+          xcrun simctl bootstatus "$UDID" -b
+          xcrun simctl ui "$UDID" appearance light
+
+      - name: Shots
+        env:
+          TEST_RUNNER_SHOTS_LANGS: 'de,fr,es,nl,cs,sk'
+          TEST_RUNNER_SHOTS_SIZES: 'default,xxxl'
+          TEST_RUNNER_SHOTS_SCREENS: 'legal-privacy,legal-terms,legal-eula,guide,learn,faq,account,forgot,delete,home,home-empty,project,project-empty,detail,supplement,orders,preview,name,alert-part,alert-delete,dialog-lowquality,dialog-scanquality'
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -project CedarScan.xcodeproj \
+            -scheme CedarScan \
+            -destination "id=${{ steps.sim.outputs.udid }}" \
+            -only-testing:CedarScanUITests \
+            -resultBundlePath shots.xcresult \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            | tee shots.log | grep -E "Test Case|error:|\*\* TEST" || true
+
+      - name: Export screenshots
+        if: always()
+        run: |
+          xcrun xcresulttool export attachments --path shots.xcresult --output-path shots || true
+          ls shots | head -50 || true
+
+      - name: Upload
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: textshots-${{ matrix.device }}
+          path: |
+            shots
+            shots.log
