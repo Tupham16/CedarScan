@@ -104,6 +104,8 @@ struct OrdersView: View {
                 .multilineTextAlignment(.center)
         }
         .padding(32)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Theme.bg.ignoresSafeArea())
     }
 
     private var emptyState: some View {
@@ -131,6 +133,8 @@ struct OrdersView: View {
             }
         }
         .padding(32)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Theme.bg.ignoresSafeArea())
     }
 
     /// Đơn khớp ô TÌM KIẾM (chưa áp bộ lọc trạng thái).
@@ -253,18 +257,18 @@ struct OrdersView: View {
     private func filterChip(_ f: OrderFilter) -> some View {
         let count = searchedOrders.filter { f.matches($0.status) }.count
         let isOn = filter == f
+        // Fog chip: selected = soft badge colours; others = card + hairline.
+        let chip = Capsule()
         return Button {
             filter = f
         } label: {
             Text("\(f.title) (\(count))")
-                .font(.subheadline.weight(isOn ? .semibold : .regular))
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
-                .background(
-                    isOn ? Color.accentColor.opacity(0.18) : Color.secondary.opacity(0.12),
-                    in: Capsule()
-                )
-                .foregroundStyle(isOn ? Color.accentColor : Color.primary)
+                .font(.subheadline.weight(isOn ? .semibold : .medium))
+                .padding(.horizontal, 13)
+                .padding(.vertical, 7)
+                .background(chip.fill(isOn ? Theme.Badge.soft.bg : Theme.card))
+                .overlay(chip.strokeBorder(isOn ? Color.clear : Theme.hairline, lineWidth: 1))
+                .foregroundStyle(isOn ? Theme.Badge.soft.fg : Color.primary)
         }
         .buttonStyle(.plain)
     }
@@ -289,105 +293,191 @@ struct OrdersView: View {
                         Button(String(localized: "Retry")) { Task { await load() } }
                             .font(.footnote.weight(.semibold))
                     }
+                    .fogCardRow(trailing: 32)
                 }
+                .listSectionSeparator(.hidden)
             }
             if filteredOrders.isEmpty {
                 Text(emptyListNote)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
             }
             ForEach(filteredOrders) { order in
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Text(title(of: order))
-                        .font(.headline)
-                    Spacer()
-                    StatusBadge(status: order.status)
-                }
-                HStack(spacing: 6) {
-                    Text("\(order.orderNumber) · \(Self.formatDate(order.placedAt))")
-                    if let total = order.total, total > 0 {
-                        Text("· $\(total)")
-                        if order.paid == true {
-                            Label(String(localized: "Paid"), systemImage: "checkmark.seal.fill")
-                                .foregroundStyle(.green)
-                        }
+                orderCard(order)
+                    .fogCardRow(trailing: 32)
+            }
+            }
+            .listStyle(.plain)
+        }
+        .fogScreen()
+        // Ô tìm kiếm nằm ở NHÁNH CÓ ĐƠN (`ordersList`), không gắn cho màn trống/chưa đăng nhập:
+        // chưa có đơn nào mà vẫn bày ô tìm kiếm là mời khách đi tìm thứ không tồn tại.
+        //
+        // ⚠ CỐ Ý KHÁC `HomeView` — đừng "sửa cho nhất quán". Ở `HomeView`, `.searchable` đã phải
+        // chuyển RA KHỎI nhánh điều kiện vì tab đó có `navigationDestination` và PUSH màn mới:
+        // search controller bị tháo/cắm lại đúng lúc `UINavigationController` đang push là cách
+        // làm UIKit mất đồng bộ (xem chú thích 🔴 ở `HomeView.body`). Tab này KHÔNG push gì cả —
+        // mọi thứ mở bằng `.sheet` — nên cơ chế đó không với tới được, và đổi lại thì màn "Đăng
+        // nhập để xem đơn hàng" sẽ mọc một ô tìm kiếm vô nghĩa. Nếu pha sau THÊM
+        // `navigationDestination` vào tab này thì phải chuyển `.searchable` lên ngang
+        // `.navigationTitle` NGAY, giống HomeView.
+        .searchable(
+            text: $searchText,
+            placement: .navigationBarDrawer(displayMode: .always),
+            prompt: String(localized: "Search property or order #")
+        )
+    }
+
+    /// One order as a Fog card. Every condition is the pre-Fog row's, copied verbatim; only the
+    /// look and the block order (tour after the files, as in the mockup) changed.
+    private func orderCard(_ order: OrderDTO) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            orderHeader(order)
+            payNow(order)
+            deliverables(order)
+            tour(order)
+            followUps(order)
+        }
+        .padding(.vertical, 3)
+    }
+
+    private func orderHeader(_ order: OrderDTO) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 8) {
+                Text(title(of: order))
+                    .font(.headline)
+                Spacer()
+                StatusBadge(status: order.status)
+            }
+            HStack(spacing: 6) {
+                Text("\(order.orderNumber) · \(Self.formatDate(order.placedAt))")
+                if let total = order.total, total > 0 {
+                    Text("· $\(total)")
+                    if order.paid == true {
+                        Label(String(localized: "Paid"), systemImage: "checkmark.seal.fill")
+                            .foregroundStyle(Theme.Badge.ok.fg)
                     }
                 }
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            }
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+        }
+    }
 
-                // In-app card sheet when the server offers it, else the browser — see `PaymentFlow`.
-                if order.paid != true, let payURL = httpsURL(order.paymentUrl) {
-                    PayNowButton(
-                        orderId: order.orderId,
-                        payURL: payURL,
-                        payInApp: order.payInApp == true,
-                        onPaid: { Task { await load() } }
-                    ) {
-                        Label(String(localized: "Pay Now"), systemImage: "creditcard.fill")
+    /// In-app card sheet when the server offers it, else the browser — see `PaymentFlow`.
+    /// Restyled here at the call site only; ✗ edit `PaymentFlow.swift`.
+    @ViewBuilder
+    private func payNow(_ order: OrderDTO) -> some View {
+        if order.paid != true, let payURL = httpsURL(order.paymentUrl) {
+            PayNowButton(
+                orderId: order.orderId,
+                payURL: payURL,
+                payInApp: order.payInApp == true,
+                onPaid: { Task { await load() } }
+            ) {
+                Label(String(localized: "Pay Now"), systemImage: "creditcard")
+                    .font(.subheadline.weight(.semibold))
+                    .frame(maxWidth: .infinity, minHeight: 44)
+            }
+            .buttonStyle(FogPrimary(radius: 12))
+        }
+    }
+
+    // 🔴 KHỐI NÀY GÁC `status == "delivered"`, tức FILE THÀNH PHẨM — đúng, vì server
+    // chỉ trả `deliveryFiles` khi `stage === "done"`. Nút "Yêu cầu sửa" thì TÁCH RA
+    // khối riêng bên dưới: nó phải sống lâu hơn thế.
+    // Downloads stay `Link`s to the browser (App Store rule: no in-app viewer).
+    @ViewBuilder
+    private func deliverables(_ order: OrderDTO) -> some View {
+        if order.status == "delivered" {
+            VStack(alignment: .leading, spacing: 0) {
+                if let url = httpsURL(order.deliveredUrl) {
+                    Link(destination: url) {
+                        Label(String(localized: "Download deliverables"), systemImage: "arrow.down.circle")
+                            .font(.subheadline.weight(.semibold))
+                            .frame(maxWidth: .infinity, minHeight: 44)
+                    }
+                    .buttonStyle(FogTint(radius: 12))
+                    .padding(.bottom, 10)
+                }
+                ForEach(order.files, id: \.self) { file in
+                    if let url = httpsURL(file.url) {
+                        fileLink(file, url: url)
+                    }
+                }
+            }
+        }
+    }
+
+    private func fileLink(_ file: DeliveryFileDTO, url: URL) -> some View {
+        Link(destination: url) {
+            HStack(spacing: 8) {
+                Image(systemName: "doc")
+                    .foregroundStyle(Theme.inactive)
+                Text(file.fileName)
+                    .lineLimit(1)
+                    .foregroundStyle(.primary)
+                Spacer(minLength: 8)
+                if let size = file.sizeLabel {
+                    Text(size)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .font(.footnote)
+            .frame(minHeight: 34)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.borderless)
+        .overlay(alignment: .top) { Self.hairline }
+    }
+
+    // Virtual Tour: trước khi giao = thêm ảnh phòng; sau khi giao = link tour chia sẻ được
+    @ViewBuilder
+    private func tour(_ order: OrderDTO) -> some View {
+        if order.hasTour == true {
+            if let tourURL = httpsURL(order.tourUrl) {
+                HStack(spacing: 12) {
+                    Link(destination: tourURL) {
+                        Label(String(localized: "View Virtual Tour"), systemImage: "house")
                             .font(.subheadline.weight(.semibold))
                     }
-                    .buttonStyle(.borderless)
+                    Spacer()
+                    ShareLink(item: tourURL) {
+                        Image(systemName: "square.and.arrow.up")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
                 }
+                .buttonStyle(.borderless)
+                .frame(minHeight: 40)
+                .overlay(alignment: .top) { Self.hairline }
+                .overlay(alignment: .bottom) { Self.hairline }
+            } else if order.status != "refunded" {
+                Button {
+                    tourOrder = order
+                } label: {
+                    Label(
+                        (order.tourPhotoCount ?? 0) > 0
+                            ? String(localized: "Tour photos: \(order.tourPhotoCount ?? 0) — add more")
+                            : String(localized: "Add tour photos"),
+                        systemImage: "photo.on.rectangle.angled"
+                    )
+                    .font(.subheadline.weight(.semibold))
+                    .frame(maxWidth: .infinity, minHeight: 44)
+                }
+                .buttonStyle(FogTint(radius: 12))
+            }
+        }
+    }
 
-                // Virtual Tour: trước khi giao = thêm ảnh phòng; sau khi giao = link tour chia sẻ được
-                if order.hasTour == true {
-                    if let tourURL = httpsURL(order.tourUrl) {
-                        HStack(spacing: 12) {
-                            Link(destination: tourURL) {
-                                Label(String(localized: "View Virtual Tour"), systemImage: "house.fill")
-                                    .font(.subheadline.weight(.semibold))
-                            }
-                            ShareLink(item: tourURL) {
-                                Image(systemName: "square.and.arrow.up")
-                                    .font(.subheadline)
-                            }
-                        }
-                    } else if order.status != "refunded" {
-                        Button {
-                            tourOrder = order
-                        } label: {
-                            Label(
-                                (order.tourPhotoCount ?? 0) > 0
-                                    ? String(localized: "Tour photos: \(order.tourPhotoCount ?? 0) — add more")
-                                    : String(localized: "Add tour photos"),
-                                systemImage: "photo.on.rectangle.angled"
-                            )
-                            .font(.caption.weight(.semibold))
-                        }
-                        .buttonStyle(.bordered)
-                        .tint(.indigo)
-                    }
-                }
-
-                // 🔴 KHỐI NÀY GÁC `status == "delivered"`, tức FILE THÀNH PHẨM — đúng, vì server
-                // chỉ trả `deliveryFiles` khi `stage === "done"`. Nút "Yêu cầu sửa" thì TÁCH RA
-                // khối riêng bên dưới: nó phải sống lâu hơn thế.
-                if order.status == "delivered" {
-                    if let url = httpsURL(order.deliveredUrl) {
-                        Link(destination: url) {
-                            Label(String(localized: "Download deliverables"), systemImage: "arrow.down.circle.fill")
-                                .font(.subheadline.weight(.semibold))
-                        }
-                    }
-                    ForEach(order.files, id: \.self) { file in
-                        if let url = httpsURL(file.url) {
-                            Link(destination: url) {
-                                HStack {
-                                    Image(systemName: "doc.fill")
-                                    Text(file.fileName)
-                                        .lineLimit(1)
-                                    if let size = file.sizeLabel {
-                                        Text(size)
-                                            .foregroundStyle(.secondary)
-                                    }
-                                }
-                                .font(.caption)
-                            }
-                        }
-                    }
-                }
+    /// "Request a revision" + "Add a scan", side by side when both show. The outer `if` only
+    /// avoids an empty row (stray spacing); each button keeps its own condition.
+    @ViewBuilder
+    private func followUps(_ order: OrderDTO) -> some View {
+        if order.deliveredAt != nil || supplementProject(for: order) != nil {
+            HStack(spacing: 8) {
                 // 🔴 "YÊU CẦU SỬA" GÁC THEO `deliveredAt`, ✗ theo `status == "delivered"` —
                 // sửa 19/08, vòng soi đối kháng bắt.
                 //
@@ -405,10 +495,9 @@ struct OrdersView: View {
                     Button {
                         revisionOrder = order
                     } label: {
-                        Label(String(localized: "Request a revision"), systemImage: "pencil.and.outline")
-                            .font(.caption.weight(.semibold))
+                        ghostLabel(String(localized: "Request a revision"), systemImage: "pencil.and.outline")
                     }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(FogGhost())
                 }
                 // 🆕 "THÊM BẢN QUÉT" — chủ app đặt 19/08: *"thêm nút thêm bản quét, khi kích vào
                 // đó nó nhảy qua dự án đó"*. Nó chữa một lỗ THẬT: khách nhận bản vẽ, thấy thiếu
@@ -422,32 +511,26 @@ struct OrdersView: View {
                     Button {
                         onOpenProject(project)
                     } label: {
-                        Label(String(localized: "Add a scan"), systemImage: "plus.viewfinder")
-                            .font(.caption.weight(.semibold))
+                        ghostLabel(String(localized: "Add a scan"), systemImage: "plus.viewfinder")
                     }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(FogGhost())
                 }
             }
-            .padding(.vertical, 4)
-            }
-            }
         }
-        // Ô tìm kiếm nằm ở NHÁNH CÓ ĐƠN (`ordersList`), không gắn cho màn trống/chưa đăng nhập:
-        // chưa có đơn nào mà vẫn bày ô tìm kiếm là mời khách đi tìm thứ không tồn tại.
-        //
-        // ⚠ CỐ Ý KHÁC `HomeView` — đừng "sửa cho nhất quán". Ở `HomeView`, `.searchable` đã phải
-        // chuyển RA KHỎI nhánh điều kiện vì tab đó có `navigationDestination` và PUSH màn mới:
-        // search controller bị tháo/cắm lại đúng lúc `UINavigationController` đang push là cách
-        // làm UIKit mất đồng bộ (xem chú thích 🔴 ở `HomeView.body`). Tab này KHÔNG push gì cả —
-        // mọi thứ mở bằng `.sheet` — nên cơ chế đó không với tới được, và đổi lại thì màn "Đăng
-        // nhập để xem đơn hàng" sẽ mọc một ô tìm kiếm vô nghĩa. Nếu pha sau THÊM
-        // `navigationDestination` vào tab này thì phải chuyển `.searchable` lên ngang
-        // `.navigationTitle` NGAY, giống HomeView.
-        .searchable(
-            text: $searchText,
-            placement: .navigationBarDrawer(displayMode: .always),
-            prompt: String(localized: "Search property or order #")
-        )
+    }
+
+    private func ghostLabel(_ title: String, systemImage: String) -> some View {
+        Label(title, systemImage: systemImage)
+            .font(.footnote.weight(.semibold))
+            .multilineTextAlignment(.center)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 8)
+            .frame(maxWidth: .infinity, minHeight: 36)
+    }
+
+    /// 1px divider inside a card.
+    private static var hairline: some View {
+        Theme.hairline.frame(height: 1)
     }
 
     private static func formatDate(_ iso: String) -> String {
@@ -703,32 +786,24 @@ enum OrderFilter: String, CaseIterable, Identifiable {
 struct StatusBadge: View {
     let status: String
 
-    private var info: (String, Color) {
+    private var info: (String, Theme.Badge) {
         switch status {
         case "delivered":
-            return (String(localized: "Delivered"), .green)
+            return (String(localized: "Delivered"), .ok)
         case "on_hold":
-            return (String(localized: "On hold"), .orange)
+            return (String(localized: "On hold"), .warn)
         case "refunded":
-            return (String(localized: "Refunded"), .red)
+            return (String(localized: "Refunded"), .danger)
         // "in_production" VÀ "received"/mặc định đều hiện "Đang xử lý" — chủ app chốt bỏ nhãn
         // "Đã nhận" (khiến khách nôn nóng), gộp vào "đang xử lý".
         //
-        // Dùng MÀU NHẤN của app (cobalt) chứ không phải `.blue` hệ thống: nhãn này nằm cùng màn
-        // với hàng chip lọc vốn đã tô `Color.accentColor`. Để `.blue` ở đây là hai sắc xanh khác
-        // nhau cạnh nhau trên một màn hình — đọc thành lỗi render chứ không thành hai ý nghĩa.
-        // Xanh lá/cam/đỏ ở trên thì GIỮ NGUYÊN: chúng là bộ màu ngữ nghĩa, đọc theo nhau.
+        // Fog `soft` = the selected filter chip's colours. Green/amber/red above keep their meaning.
         default:
-            return (String(localized: "Processing"), .accentColor)
+            return (String(localized: "Processing"), .soft)
         }
     }
 
     var body: some View {
-        Text(info.0)
-            .font(.caption.weight(.semibold))
-            .padding(.horizontal, 8)
-            .padding(.vertical, 3)
-            .background(info.1.opacity(0.15), in: Capsule())
-            .foregroundStyle(info.1)
+        FogBadge(info.0, info.1)
     }
 }

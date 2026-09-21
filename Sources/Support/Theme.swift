@@ -43,25 +43,97 @@ enum Theme {
     }
 }
 
-/// Capsule badge, e.g. `FogBadge("1 new", .soft)`.
+/// Capsule badge, e.g. `FogBadge("1 new", .soft)`. `compact` = the small one next to a scan name.
 struct FogBadge: View {
     let text: String
     let kind: Theme.Badge
+    let compact: Bool
 
-    init(_ text: String, _ kind: Theme.Badge) {
+    init(_ text: String, _ kind: Theme.Badge, compact: Bool = false) {
         self.text = text
         self.kind = kind
+        self.compact = compact
     }
 
     var body: some View {
         Text(text)
-            .font(.caption.weight(.semibold))
+            .font(compact ? .caption2.weight(.semibold) : .caption.weight(.semibold))
             .lineLimit(1)
             .foregroundStyle(kind.fg)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 4)
+            .padding(.horizontal, compact ? 8 : 10)
+            .padding(.vertical, compact ? 2 : 4)
             .background(Capsule().fill(kind.bg))
             .fixedSize()
+    }
+}
+
+/// Solid button (`accentFill`, white label). The label sets its own font, frame and padding.
+struct FogPrimary: ButtonStyle {
+    var radius: CGFloat = 14
+
+    func makeBody(configuration: Configuration) -> some View {
+        FogButtonBody(configuration: configuration, kind: .primary, radius: radius)
+    }
+}
+
+/// Light button (`accentTint`, `accentText` label).
+struct FogTint: ButtonStyle {
+    var radius: CGFloat = 14
+
+    func makeBody(configuration: Configuration) -> some View {
+        FogButtonBody(configuration: configuration, kind: .tint, radius: radius)
+    }
+}
+
+/// Outline button (`ghostBorder`, primary label).
+struct FogGhost: ButtonStyle {
+    var radius: CGFloat = 10
+
+    func makeBody(configuration: Configuration) -> some View {
+        FogButtonBody(configuration: configuration, kind: .ghost, radius: radius)
+    }
+}
+
+private enum FogButtonKind {
+    case primary, tint, ghost
+}
+
+/// A view, not the style itself, so it can read `isEnabled`: a disabled button is grey.
+private struct FogButtonBody: View {
+    let configuration: ButtonStyleConfiguration
+    let kind: FogButtonKind
+    let radius: CGFloat
+    @Environment(\.isEnabled) private var isEnabled
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
+        return configuration.label
+            .foregroundStyle(foreground)
+            .background(shape.fill(fill))
+            .overlay {
+                if kind == .ghost {
+                    shape.strokeBorder(Theme.ghostBorder, lineWidth: 1)
+                }
+            }
+            .contentShape(shape)
+            .opacity(configuration.isPressed ? 0.7 : 1)
+    }
+
+    private var foreground: Color {
+        guard isEnabled else { return Theme.inactive }
+        switch kind {
+        case .primary: return .white
+        case .tint: return Theme.accentText
+        case .ghost: return .primary
+        }
+    }
+
+    private var fill: Color {
+        switch kind {
+        case .primary: return isEnabled ? Theme.accentFill : Theme.Badge.neutral.bg
+        case .tint: return isEnabled ? Theme.accentTint : Theme.Badge.neutral.bg
+        case .ghost: return .clear
+        }
     }
 }
 
@@ -86,11 +158,12 @@ extension View {
     }
 
     /// Plain-list row drawn as a card (16pt screen margin, 12pt gap between cards).
-    func fogCardRow() -> some View {
+    /// `trailing` 20 suits Home's 44pt trash button; 32 = 16pt inside the card.
+    func fogCardRow(trailing: CGFloat = 20) -> some View {
         self
             .listRowBackground(FogCardBackground())
             .listRowSeparator(.hidden)
-            .listRowInsets(EdgeInsets(top: 17, leading: 32, bottom: 18, trailing: 20))
+            .listRowInsets(EdgeInsets(top: 17, leading: 32, bottom: 18, trailing: trailing))
     }
 }
 

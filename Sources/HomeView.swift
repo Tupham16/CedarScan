@@ -718,26 +718,19 @@ struct ScanRow: View {
 
     var body: some View {
         NavigationLink(value: record) {
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 6) {
-                    Text(record.name)
-                        .font(.headline)
-                    // Nhãn CHỮ chứ không chỉ icon: mở dự án ra phải đọc được NGAY tầng nào đã đặt
-                    // rồi, để biết căn nhà còn thiếu tầng nào mà quét thêm. Một icon nhỏ màu xanh
-                    // không nói được điều đó.
-                    if record.cloudOrderNumber != nil {
-                        Label(String(localized: "Ordered"), systemImage: "shippingbox.fill")
-                            .font(.caption)
-                            .foregroundStyle(.tint)
-                    } else if record.cloudScanId != nil {
-                        Image(systemName: "checkmark.icloud.fill")
-                            .font(.caption)
-                            .foregroundStyle(.green)
-                    }
+            HStack(spacing: 12) {
+                // Fog icon tile: 3D block on `thumbBg`.
+                Image(systemName: "cube")
+                    .font(.system(size: 20))
+                    .foregroundStyle(Theme.thumbLine)
+                    .frame(width: 40, height: 40)
+                    .background(Theme.thumbBg, in: RoundedRectangle(cornerRadius: 11, style: .continuous))
+                VStack(alignment: .leading, spacing: 2) {
+                    nameLine
+                    Text(subtitle)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
                 }
-                Text(subtitle)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
             }
             .padding(.vertical, 4)
         }
@@ -776,6 +769,27 @@ struct ScanRow: View {
                 onRename()
             } label: {
                 Label(String(localized: "Rename"), systemImage: "pencil")
+            }
+        }
+    }
+
+    private var nameLine: some View {
+        HStack(spacing: 8) {
+            Text(record.name)
+                .font(.callout.weight(.semibold))
+            // Nhãn CHỮ chứ không chỉ icon: mở dự án ra phải đọc được NGAY tầng nào đã đặt
+            // rồi, để biết căn nhà còn thiếu tầng nào mà quét thêm. Một icon nhỏ màu xanh
+            // không nói được điều đó.
+            // "Ordered" = `cloudOrderNumber != nil`, the app-wide rule; every other scan is "New".
+            if record.cloudOrderNumber != nil {
+                FogBadge(String(localized: "Ordered"), .neutral, compact: true)
+            } else {
+                FogBadge(String(localized: "New"), .soft, compact: true)
+                if record.cloudScanId != nil {
+                    Image(systemName: "checkmark.icloud.fill")
+                        .font(.caption)
+                        .foregroundStyle(.green)
+                }
             }
         }
     }

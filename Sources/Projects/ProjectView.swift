@@ -296,8 +296,10 @@ struct ProjectView: View {
                                 recordToRename = record
                             }
                         )
+                        .listRowBackground(Theme.card)
                     }
                 }
+                .fogScreen()
             }
         }
         // `displayTitle` = `let` + `@State`, không tra `store`. Dòng này từng là
@@ -628,6 +630,7 @@ struct ProjectView: View {
             .padding(.horizontal, 28)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Theme.bg.ignoresSafeArea())
     }
 
     /// Tách khỏi thân nút để guide gọi lại được từ onDismiss.
@@ -712,9 +715,9 @@ struct ProjectView: View {
                 Label(String(localized: "Scan more"), systemImage: "viewfinder")
                     .font(.headline)
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
+                    .padding(.vertical, 14)
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(FogPrimary())
             // Máy không LiDAR: khoá nút (luồng quay video đã gỡ 2026-07-19).
             .disabled(!isSupported)
 
@@ -761,13 +764,13 @@ struct ProjectView: View {
                         projectOrderNumber != nil
                             ? String(localized: "Send extra scan (\(orderableScans.count))")
                             : String(localized: "Order Floor Plan (\(orderableScans.count) scan(s))"),
-                        systemImage: "paperplane.fill"
+                        systemImage: "paperplane"
                     )
                     .font(.headline)
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
+                    .padding(.vertical, 14)
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(FogTint())
                 .confirmationDialog(
                     String(localized: "Some scans have low quality"),
                     isPresented: $showLowQualityConfirm,
