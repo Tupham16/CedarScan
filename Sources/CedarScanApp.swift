@@ -7,6 +7,15 @@ struct CedarScanApp: App {
 
     var body: some Scene {
         WindowGroup {
+            if Fog5.on {
+                MeshScanFlowView(
+                    quality: .storageDefault,
+                    onOrderNow: { _ in },
+                    onScanMore: {},
+                    dismiss: {}
+                ) { _, _ in nil }
+                .environmentObject(store)
+            } else {
             RootView()
                 // 🔴🔴 LỚP PHỦ COVER QUÉT (bản 2.13) — ✗ DỜI XUỐNG THẤP HƠN, ✗ GẮN THÊM CHỖ NÀO
                 // NỮA. Đây là bản vá của lỗi "lề SwiftUI đông cứng sau khi mở màn quét": màn quét
@@ -21,6 +30,7 @@ struct CedarScanApp: App {
                 .scanCoverLayer()
                 .environmentObject(store)
                 .environmentObject(account)
+            }
         }
     }
 }
