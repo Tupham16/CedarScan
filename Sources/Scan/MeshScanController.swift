@@ -23,6 +23,8 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
     /// camera ĐEN (sai hẳn bản chất), khách bấm Dừng & Lưu ra 0 vertex → "Lỗi khi lưu" → quét lại
     /// y hệt, KHÔNG câu nào nhắc Settings. Cờ này để MeshScanFlowView mở alert riêng có nút Cài đặt.
     @Published private(set) var cameraDenied = false
+    /// When `startSession()` ran; the scan screen's timer counts from here. nil = not started.
+    @Published private(set) var startedAt: Date?
 
     /// Số ảnh texture TỐI THIỂU để tin rằng MÁY TRẠM bake được → cho phép đường LƯU NHANH
     /// (mesh xám, bỏ bake màu-đỉnh). Buổi quét thật cho 200–480 ảnh (recorder 3Hz, cổng giãn
@@ -79,6 +81,7 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
     func startSession() {
         guard !hasStarted, isSupported else { return }
         hasStarted = true
+        startedAt = Date()
         arSession.delegate = self
         let config = ARWorldTrackingConfiguration()
         config.sceneReconstruction = .mesh

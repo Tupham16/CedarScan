@@ -3121,15 +3121,51 @@
    }
   },
   {
-   "key": "Walk slowly and point the camera at every surface — stairs and multiple floors are fine. Red = not in your scan yet (glass and windows always stay red — skip them). White mesh = saved.",
+   "key": "Walk slowly and point at every surface",
    "translations": {
-    "vi": "Đi chậm, hướng camera vào mọi bề mặt — cầu thang/nhiều tầng thoải mái. Màu ĐỎ = chưa vào bản quét (kính/cửa sổ luôn đỏ — bỏ qua). Lưới TRẮNG = đã lưu.",
-    "fr": "Marchez lentement et pointez la caméra vers chaque surface — escaliers et étages multiples, aucun problème. Rouge = pas encore dans votre numérisation (le verre et les fenêtres restent toujours rouges — ignorez-les). Maillage blanc = enregistré.",
-    "de": "Gehen Sie langsam und richten Sie die Kamera auf jede Oberfläche — Treppen und mehrere Etagen sind kein Problem. Rot = noch nicht im Scan (Glas und Fenster bleiben immer rot — einfach überspringen). Weißes Mesh = gespeichert.",
-    "cs": "Choďte pomalu a miřte fotoaparátem na každý povrch — schody i více podlaží jsou v pořádku. Červená = zatím není ve skenu (sklo a okna zůstávají vždy červená — přeskočte je). Bílá síť = uloženo.",
-    "sk": "Kráčajte pomaly a mierte fotoaparátom na každý povrch — schody aj viaceré podlažia sú v poriadku. Červená = zatiaľ nie je v skene (sklo a okná zostávajú vždy červené — preskočte ich). Biela sieť = uložené.",
-    "es": "Camina despacio y apunta la cámara a todas las superficies — las escaleras y varias plantas no son problema. Rojo = aún no está en tu escaneo (el vidrio y las ventanas siempre quedan en rojo — ignóralos). Malla blanca = guardado.",
-    "nl": "Loop langzaam en richt de camera op elk oppervlak — trappen en meerdere verdiepingen zijn prima. Rood = nog niet in je scan (glas en ramen blijven altijd rood — sla die over). Witte mesh = opgeslagen."
+    "vi": "Đi chậm, hướng camera vào mọi bề mặt",
+    "fr": "Marchez lentement et visez chaque surface",
+    "de": "Gehen Sie langsam und richten Sie die Kamera auf jede Oberfläche",
+    "cs": "Choďte pomalu a miřte na každý povrch",
+    "sk": "Kráčajte pomaly a mierte na každý povrch",
+    "es": "Camina despacio y apunta a todas las superficies",
+    "nl": "Loop langzaam en richt op elk oppervlak"
+   }
+  },
+  {
+   "key": "White mesh = saved",
+   "translations": {
+    "vi": "Lưới trắng = đã lưu",
+    "fr": "Maillage blanc = enregistré",
+    "de": "Weißes Mesh = gespeichert",
+    "cs": "Bílá síť = uloženo",
+    "sk": "Biela sieť = uložené",
+    "es": "Malla blanca = guardado",
+    "nl": "Witte mesh = opgeslagen"
+   }
+  },
+  {
+   "key": "Red = not scanned yet",
+   "translations": {
+    "vi": "Màu đỏ = chưa quét",
+    "fr": "Rouge = pas encore numérisé",
+    "de": "Rot = noch nicht gescannt",
+    "cs": "Červená = zatím nenaskenováno",
+    "sk": "Červená = zatiaľ nenaskenované",
+    "es": "Rojo = aún sin escanear",
+    "nl": "Rood = nog niet gescand"
+   }
+  },
+  {
+   "key": "Glass and windows always stay red — skip them. Stairs and multiple floors are fine.",
+   "translations": {
+    "vi": "Kính/cửa sổ luôn đỏ — bỏ qua. Cầu thang/nhiều tầng thoải mái.",
+    "fr": "Le verre et les fenêtres restent toujours rouges — ignorez-les. Escaliers et étages multiples, aucun problème.",
+    "de": "Glas und Fenster bleiben immer rot — einfach überspringen. Treppen und mehrere Etagen sind kein Problem.",
+    "cs": "Sklo a okna zůstávají vždy červená — přeskočte je. Schody i více podlaží jsou v pořádku.",
+    "sk": "Sklo a okná zostávajú vždy červené — preskočte ich. Schody aj viaceré podlažia sú v poriadku.",
+    "es": "El vidrio y las ventanas siempre quedan en rojo — ignóralos. Las escaleras y varias plantas no son problema.",
+    "nl": "Glas en ramen blijven altijd rood — sla die over. Trappen en meerdere verdiepingen zijn prima."
    }
   },
   {

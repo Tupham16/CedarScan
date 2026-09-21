@@ -4795,6 +4795,53 @@
         }
       }
     },
+    "Glass and windows always stay red — skip them. Stairs and multiple floors are fine.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sklo a okna zůstávají vždy červená — přeskočte je. Schody i více podlaží jsou v pořádku."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Glas und Fenster bleiben immer rot — einfach überspringen. Treppen und mehrere Etagen sind kein Problem."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El vidrio y las ventanas siempre quedan en rojo — ignóralos. Las escaleras y varias plantas no son problema."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le verre et les fenêtres restent toujours rouges — ignorez-les. Escaliers et étages multiples, aucun problème."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Glas en ramen blijven altijd rood — sla die over. Trappen en meerdere verdiepingen zijn prima."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sklo a okná zostávajú vždy červené — preskočte ich. Schody aj viaceré podlažia sú v poriadku."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kính/cửa sổ luôn đỏ — bỏ qua. Cầu thang/nhiều tầng thoải mái."
+          }
+        }
+      }
+    },
     "Go to the Account tab to sign in or create an account.": {
       "extractionState": "manual",
       "localizations": {
@@ -10196,6 +10243,53 @@
           "stringUnit": {
             "state": "translated",
             "value": "Đã giao"
+          }
+        }
+      }
+    },
+    "Red = not scanned yet": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Červená = zatím nenaskenováno"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rot = noch nicht gescannt"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rojo = aún sin escanear"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rouge = pas encore numérisé"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rood = nog niet gescand"
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Červená = zatiaľ nenaskenované"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Màu đỏ = chưa quét"
           }
         }
       }
@@ -15934,49 +16028,49 @@
         }
       }
     },
-    "Walk slowly and point the camera at every surface — stairs and multiple floors are fine. Red = not in your scan yet (glass and windows always stay red — skip them). White mesh = saved.": {
+    "Walk slowly and point at every surface": {
       "extractionState": "manual",
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Choďte pomalu a miřte fotoaparátem na každý povrch — schody i více podlaží jsou v pořádku. Červená = zatím není ve skenu (sklo a okna zůstávají vždy červená — přeskočte je). Bílá síť = uloženo."
+            "value": "Choďte pomalu a miřte na každý povrch"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Gehen Sie langsam und richten Sie die Kamera auf jede Oberfläche — Treppen und mehrere Etagen sind kein Problem. Rot = noch nicht im Scan (Glas und Fenster bleiben immer rot — einfach überspringen). Weißes Mesh = gespeichert."
+            "value": "Gehen Sie langsam und richten Sie die Kamera auf jede Oberfläche"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Camina despacio y apunta la cámara a todas las superficies — las escaleras y varias plantas no son problema. Rojo = aún no está en tu escaneo (el vidrio y las ventanas siempre quedan en rojo — ignóralos). Malla blanca = guardado."
+            "value": "Camina despacio y apunta a todas las superficies"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Marchez lentement et pointez la caméra vers chaque surface — escaliers et étages multiples, aucun problème. Rouge = pas encore dans votre numérisation (le verre et les fenêtres restent toujours rouges — ignorez-les). Maillage blanc = enregistré."
+            "value": "Marchez lentement et visez chaque surface"
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Loop langzaam en richt de camera op elk oppervlak — trappen en meerdere verdiepingen zijn prima. Rood = nog niet in je scan (glas en ramen blijven altijd rood — sla die over). Witte mesh = opgeslagen."
+            "value": "Loop langzaam en richt op elk oppervlak"
           }
         },
         "sk": {
           "stringUnit": {
             "state": "translated",
-            "value": "Kráčajte pomaly a mierte fotoaparátom na každý povrch — schody aj viaceré podlažia sú v poriadku. Červená = zatiaľ nie je v skene (sklo a okná zostávajú vždy červené — preskočte ich). Biela sieť = uložené."
+            "value": "Kráčajte pomaly a mierte na každý povrch"
           }
         },
         "vi": {
           "stringUnit": {
             "state": "translated",
-            "value": "Đi chậm, hướng camera vào mọi bề mặt — cầu thang/nhiều tầng thoải mái. Màu ĐỎ = chưa vào bản quét (kính/cửa sổ luôn đỏ — bỏ qua). Lưới TRẮNG = đã lưu."
+            "value": "Đi chậm, hướng camera vào mọi bề mặt"
           }
         }
       }
@@ -16541,6 +16635,53 @@
           "stringUnit": {
             "state": "translated",
             "value": "Trong lúc quét"
+          }
+        }
+      }
+    },
+    "White mesh = saved": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bílá síť = uloženo"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Weißes Mesh = gespeichert"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Malla blanca = guardado"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Maillage blanc = enregistré"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Witte mesh = opgeslagen"
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Biela sieť = uložené"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lưới trắng = đã lưu"
           }
         }
       }

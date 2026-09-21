@@ -165,6 +165,16 @@ extension View {
             .listRowSeparator(.hidden)
             .listRowInsets(EdgeInsets(top: 17, leading: 32, bottom: 18, trailing: trailing))
     }
+
+    /// Dark glass behind controls over the camera (scan screen): blur + 1pt white 16% border,
+    /// dark in light mode too. Labels on it need a dark `colorScheme` to turn white.
+    func fogGlass<S: InsettableShape>(_ shape: S) -> some View {
+        background {
+            shape.fill(.thinMaterial)
+                .overlay(shape.strokeBorder(Color.white.opacity(0.16), lineWidth: 1))
+                .environment(\.colorScheme, .dark)
+        }
+    }
 }
 
 private func rgb(_ value: UInt32, alpha: CGFloat = 1) -> UIColor {

@@ -197,6 +197,8 @@ struct MeshScanFlowView: View {
                     Spacer()
                     bottomControls
                 }
+                // Dark glass + white labels in light mode too; Theme tokens resolve dark here.
+                .environment(\.colorScheme, .dark)
             }
 
             if showNaming {
@@ -281,64 +283,130 @@ struct MeshScanFlowView: View {
         }
     }
 
-    // MARK: - Thanh trên (Hủy + bật/tắt lưới)
+    // MARK: - Top bar (Cancel + timer + mesh toggle)
 
+    /// Cancel · timer · mesh toggle. The two side frames share the width equally, so the
+    /// timer sits in the middle of the screen (mockup).
     private var topBar: some View {
-        HStack {
+        HStack(spacing: 8) {
             Button {
                 controller.cancel()
                 dismiss()
             } label: {
                 Text(String(localized: "Cancel"))
-                    .font(.headline)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
-                    .background(.ultraThinMaterial, in: Capsule())
+                    .font(.callout.weight(.semibold))
+                    .foregroundStyle(.primary)
+                    .padding(.horizontal, 17)
+                    .padding(.vertical, 10)
+                    .fogGlass(Capsule())
             }
-            Spacer()
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            if let startedAt = controller.startedAt {
+                ScanTimer(start: startedAt)
+            }
+
             Button {
                 showScanMesh.toggle()
             } label: {
-                // Accent chứ không phải xanh lá: từ 2026-07-28 lưới màu TRẮNG, giữ icon xanh
-                // lá là chỉ vào một màu không còn tồn tại trên màn quét.
-                Image(systemName: showScanMesh ? "square.grid.3x3.fill" : "square.grid.3x3")
-                    .font(.title3)
-                    .foregroundStyle(showScanMesh ? Color.accentColor : Color.primary)
-                    .padding(10)
-                    .background(.ultraThinMaterial, in: Circle())
+                meshToggleIcon
             }
             .accessibilityLabel(String(localized: "Toggle scan mesh"))
+            .accessibilityAddTraits(showScanMesh ? .isSelected : [])
+            .frame(maxWidth: .infinity, alignment: .trailing)
         }
         .padding()
     }
 
-    // MARK: - Điều khiển dưới (banner + Dừng & Lưu)
+    /// White disc = mesh shown (mockup), dark glass = hidden.
+    @ViewBuilder
+    private var meshToggleIcon: some View {
+        let icon = Image(systemName: "squareshape.split.3x3")
+            .font(.title3)
+            .padding(10)
+        if showScanMesh {
+            icon
+                .foregroundStyle(Color.black)
+                .background(Color.white.opacity(0.94), in: Circle())
+        } else {
+            icon
+                .foregroundStyle(.primary)
+                .fogGlass(Circle())
+        }
+    }
+
+    // MARK: - Bottom (banner + legend + Stop & Save)
 
     private var bottomControls: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: 16) {
             warningBanner
+            legendCard
+            stopButton
+        }
+        .padding()
+    }
+
+    /// Legend card (mockup): hint, the two colours, then the glass/windows note.
+    private var legendCard: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text(String(localized: "Walk slowly and point at every surface"))
+                .font(.subheadline.weight(.semibold))
+            // Both keys on one line when they fit, stacked otherwise (long languages, big text).
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 16) { legendKeys }
+                VStack(alignment: .leading, spacing: 6) { legendKeys }
+            }
+            .font(.footnote)
+            .padding(.top, 9)
             // MỘT nghĩa cho màu đỏ, đúng cho cả hai dạng: phủ đỏ (chưa có mesh) lẫn lưới đỏ
             // (có mesh nhưng builder chưa ghi) đều là "chưa vào bản quét". Kèm ngoại lệ kính:
             // LiDAR xuyên kính nên cửa sổ/cửa kính KHÔNG BAO GIỜ hết đỏ — không dặn trước là
             // khách đứng quét mãi một tấm kính chờ hết đỏ, rồi mất tin luôn vào màu đỏ.
-            Text(String(localized: "Walk slowly and point the camera at every surface — stairs and multiple floors are fine. Red = not in your scan yet (glass and windows always stay red — skip them). White mesh = saved."))
-            .font(.footnote)
-            .multilineTextAlignment(.center)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
-            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10))
-
-            Button {
-                stopTapped()
-            } label: {
-                Text(String(localized: "Stop & Save"))
-                    .font(.headline)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
-            }
-            .buttonStyle(.borderedProminent)
+            Text(String(localized: "Glass and windows always stay red — skip them. Stairs and multiple floors are fine."))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .padding(.top, 7)
         }
-        .padding()
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 16)
+        .padding(.top, 14)
+        .padding(.bottom, 13)
+        .fogGlass(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        // One VoiceOver stop, like the old single caption.
+        .accessibilityElement(children: .combine)
+    }
+
+    @ViewBuilder
+    private var legendKeys: some View {
+        HStack(spacing: 7) {
+            MeshSwatch()
+            Text(String(localized: "White mesh = saved"))
+        }
+        HStack(spacing: 7) {
+            // Same red as the overlay (`UIColor.systemRed`).
+            RoundedRectangle(cornerRadius: 3, style: .continuous)
+                .fill(Color.red.opacity(0.85))
+                .frame(width: 14, height: 14)
+            Text(String(localized: "Red = not scanned yet"))
+        }
+    }
+
+    private var stopButton: some View {
+        Button {
+            stopTapped()
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: "stop.fill")
+                    .accessibilityHidden(true)
+                Text(String(localized: "Stop & Save"))
+            }
+            .font(.headline)
+            .frame(maxWidth: .infinity, minHeight: 56)
+        }
+        .buttonStyle(FogPrimary(radius: 28))
+        // Composited so only the pill casts the shadow, not the label.
+        .compositingGroup()
+        .shadow(color: .black.opacity(0.35), radius: 12, y: 10)
     }
 
     @ViewBuilder
@@ -552,5 +620,50 @@ struct MeshScanFlowView: View {
             savedRecord = saved
             isSaving = false
         }
+    }
+}
+
+/// `● 04:12` since the scan started. The dot is static: no looping animation on a hot phone.
+private struct ScanTimer: View {
+    let start: Date
+
+    var body: some View {
+        HStack(spacing: 7) {
+            Circle()
+                .fill(Color.red)
+                .frame(width: 8, height: 8)
+                .accessibilityHidden(true)
+            TimelineView(.periodic(from: start, by: 1)) { context in
+                Text(Self.clock(context.date.timeIntervalSince(start)))
+            }
+        }
+        .font(.subheadline.weight(.semibold).monospacedDigit())
+        .foregroundStyle(.primary)
+        .padding(.horizontal, 13)
+        .padding(.vertical, 7)
+        .fogGlass(Capsule())
+        .accessibilityElement(children: .combine)
+    }
+
+    /// mm:ss; minutes keep counting past 59. Rounded: schedule dates are `start + n` and
+    /// float error could truncate to n − 1 (a skipped second).
+    private static func clock(_ seconds: TimeInterval) -> String {
+        let s = max(0, Int(seconds.rounded()))
+        return String(format: "%02ld:%02ld", s / 60, s % 60)
+    }
+}
+
+/// Legend key for the white mesh: outlined square cut by a diagonal.
+private struct MeshSwatch: View {
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: 3, style: .continuous)
+        return Path { p in
+            p.move(to: CGPoint(x: 0, y: 14))
+            p.addLine(to: CGPoint(x: 14, y: 0))
+        }
+        .stroke(Color.white, lineWidth: 1.2)
+        .frame(width: 14, height: 14)
+        .clipShape(shape)
+        .overlay(shape.strokeBorder(Color.white, lineWidth: 1.4))
     }
 }
