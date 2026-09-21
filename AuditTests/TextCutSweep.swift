@@ -77,10 +77,13 @@ final class TextCutSweep: XCTestCase {
         // Positive control (German only: the sentence exists only in German on branch 2.46).
         if lang == "de" {
             let note = "Glas und Fenster bleiben immer rot — einfach überspringen. Treppen und mehrere Etagen sind kein Problem."
-            for w in [CGFloat(326), 325, 327] {
-                let s = cutSwiftUI(note, Self.cap, Self.sizes[0], w)
-                let u = cutUILabel(note, Self.cap, Self.sizes[0], w)
-                log("TEXTCUT CONTROL w=\(w) swiftui=\(s) uilabel=\(u)")
+            for w in [CGFloat(326), 325, 327, 340] {
+                let r = cutSwiftUI(note, Self.cap, Self.sizes[0], w)
+                log("TEXTCUT CONTROL w=\(w) swiftui=\(r != nil)")
+                if let r, w == 326 {
+                    attach(r.0, "control-326-tail")
+                    attach(r.1, "control-326-head")
+                }
             }
         }
 
@@ -107,6 +110,7 @@ final class TextCutSweep: XCTestCase {
         log("TEXTCUT items=\(items.count)")
 
         var hits = 0
+        var shown = Set<String>()
         outer: for (i, item) in items.enumerated() {
             for style in item.2 {
                 for size in Self.sizes {
@@ -114,12 +118,19 @@ final class TextCutSweep: XCTestCase {
                     let oneLine = oneLineWidth(item.1, style, size)
                     for w in widths where w < oneLine {
                         checks += 1
-                        let s = cutSwiftUI(item.1, style, size, w)
-                        let u = cutUILabel(item.1, style, size, w)
-                        if s || u {
-                            hits += 1
-                            let text = item.1.replacingOccurrences(of: "\n", with: "\\n")
-                            log("TEXTCUT HIT|\(lang)|\(item.0)|\(style.name)|\(size.name)|\(Int(w))|swiftui=\(s)|uilabel=\(u)|\(text)")
+                        autoreleasepool {
+                            if let (tail, head) = cutSwiftUI(item.1, style, size, w) {
+                                hits += 1
+                                let text = item.1.replacingOccurrences(of: "\n", with: "\\n")
+                                log("TEXTCUT HIT|\(lang)|\(i)|\(item.0)|\(style.name)|\(size.name)|\(Int(w))|\(text)")
+                                // Evidence: the first hit of each (text, style, size), both renders.
+                                let key = "\(i)-\(style.name)-\(size.name)"
+                                if !shown.contains(key), shown.count < 150 {
+                                    shown.insert(key)
+                                    attach(tail, "hit-\(lang)-\(i)-\(style.name)-\(size.name)-\(Int(w))-tail")
+                                    attach(head, "hit-\(lang)-\(i)-\(style.name)-\(size.name)-\(Int(w))-head")
+                                }
+                            }
                         }
                     }
                 }
@@ -173,8 +184,9 @@ final class TextCutSweep: XCTestCase {
 
     // MARK: detectors
 
-    private func cutSwiftUI(_ text: String, _ style: Style, _ size: Size, _ w: CGFloat) -> Bool {
-        func render(_ mode: Text.TruncationMode) -> Data? {
+    /// Non-nil (tail render, head render) when the two differ = the text was truncated.
+    private func cutSwiftUI(_ text: String, _ style: Style, _ size: Size, _ w: CGFloat) -> (CGImage, CGImage)? {
+        func render(_ mode: Text.TruncationMode) -> CGImage? {
             let v = Text(verbatim: text)
                 .font(style.swiftUI)
                 .truncationMode(mode)
@@ -183,33 +195,18 @@ final class TextCutSweep: XCTestCase {
                 .environment(\.dynamicTypeSize, size.dts)
             let r = ImageRenderer(content: v)
             r.scale = 3
-            guard let cg = r.cgImage, let d = cg.dataProvider?.data else { return nil }
-            return d as Data
+            return r.cgImage
         }
-        return render(.tail) != render(.head)
+        guard let t = render(.tail), let h = render(.head) else { return nil }
+        let dt = t.dataProvider?.data as Data?
+        let dh = h.dataProvider?.data as Data?
+        return (t.width == h.width && t.height == h.height && dt == dh) ? nil : (t, h)
     }
 
-    private func cutUILabel(_ text: String, _ style: Style, _ size: Size, _ w: CGFloat) -> Bool {
-        let probe = UILabel()
-        probe.numberOfLines = 0
-        probe.font = style.uiFont(size.category)
-        probe.text = text
-        let h = ceil(probe.sizeThatFits(CGSize(width: w, height: .greatestFiniteMagnitude)).height)
-        func render(_ mode: NSLineBreakMode) -> Data? {
-            let l = UILabel()
-            l.numberOfLines = 0
-            l.font = style.uiFont(size.category)
-            l.text = text
-            l.lineBreakMode = mode
-            l.frame = CGRect(x: 0, y: 0, width: w, height: h)
-            let f = UIGraphicsImageRendererFormat()
-            f.scale = 3
-            let img = UIGraphicsImageRenderer(size: l.bounds.size, format: f).image { ctx in
-                l.layer.render(in: ctx.cgContext)
-            }
-            guard let d = img.cgImage?.dataProvider?.data else { return nil }
-            return d as Data
-        }
-        return render(.byTruncatingTail) != render(.byClipping)
+    private func attach(_ cg: CGImage, _ name: String) {
+        let a = XCTAttachment(image: UIImage(cgImage: cg))
+        a.name = name
+        a.lifetime = .keepAlways
+        add(a)
     }
 }

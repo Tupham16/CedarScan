@@ -11,7 +11,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        lang: [de]
+        lang: [de, fr, es, nl, cs, sk, vi, en]
     steps:
       - uses: actions/checkout@v4
 
@@ -47,7 +47,7 @@ jobs:
       - name: Sweep
         env:
           TEST_RUNNER_TEXTCUT_STEP: '1'
-          TEST_RUNNER_TEXTCUT_BUDGET: '480'
+          TEST_RUNNER_TEXTCUT_BUDGET: '12000'
         run: |
           set -o pipefail
           xcodebuild test \
