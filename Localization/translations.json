@@ -4359,13 +4359,13 @@
  ],
  "infoplist": {
   "NSCameraUsageDescription": {
-   "vi": "CedarScan dùng camera và cảm biến LiDAR để quét các phòng trong ngôi nhà của bạn và dựng mô hình 3D làm gốc vẽ bản mặt bằng.",
-   "fr": "CedarScan utilise la caméra et le capteur LiDAR pour numériser les pièces de votre propriété et construire le modèle 3D à partir duquel votre plan d'étage est dessiné.",
-   "de": "CedarScan verwendet die Kamera und den LiDAR-Sensor, um die Räume Ihrer Immobilie zu scannen und das 3D-Modell zu erstellen, aus dem Ihr Grundriss gezeichnet wird.",
-   "cs": "CedarScan používá kameru a senzor LiDAR ke skenování místností vaší nemovitosti a k vytvoření 3D modelu, podle kterého se kreslí váš půdorys.",
-   "sk": "CedarScan používa kameru a senzor LiDAR na skenovanie miestností vašej nehnuteľnosti a vytvorenie 3D modelu, podľa ktorého sa kreslí váš pôdorys.",
-   "es": "CedarScan usa la cámara y el sensor LiDAR para escanear las habitaciones de tu propiedad y crear el modelo 3D a partir del cual se dibuja tu plano.",
-   "nl": "CedarScan gebruikt de camera en de LiDAR-sensor om de kamers van je pand te scannen en het 3D-model te bouwen op basis waarvan je plattegrond wordt getekend."
+   "vi": "CedarScan dùng camera và cảm biến LiDAR để quét các phòng trong ngôi nhà của bạn và dựng mô hình 3D làm gốc vẽ bản mặt bằng. Khi bạn thanh toán trong app, camera cũng có thể đọc số thẻ và ngày hết hạn để bạn khỏi phải gõ.",
+   "fr": "CedarScan utilise la caméra et le capteur LiDAR pour numériser les pièces de votre propriété et construire le modèle 3D à partir duquel votre plan d'étage est dessiné. Lorsque vous payez dans l'app, la caméra peut aussi lire le numéro et la date d'expiration de votre carte pour que vous n'ayez pas à les saisir.",
+   "de": "CedarScan verwendet die Kamera und den LiDAR-Sensor, um die Räume Ihrer Immobilie zu scannen und das 3D-Modell zu erstellen, aus dem Ihr Grundriss gezeichnet wird. Wenn Sie in der App bezahlen, kann die Kamera auch Ihre Kartennummer und das Ablaufdatum lesen, damit Sie sie nicht eintippen müssen.",
+   "cs": "CedarScan používá kameru a senzor LiDAR ke skenování místností vaší nemovitosti a k vytvoření 3D modelu, podle kterého se kreslí váš půdorys. Když platíte v aplikaci, kamera může také přečíst číslo vaší karty a datum platnosti, abyste je nemuseli opisovat.",
+   "sk": "CedarScan používa kameru a senzor LiDAR na skenovanie miestností vašej nehnuteľnosti a vytvorenie 3D modelu, podľa ktorého sa kreslí váš pôdorys. Keď platíte v aplikácii, kamera môže tiež prečítať číslo vašej karty a dátum platnosti, aby ste ich nemuseli prepisovať.",
+   "es": "CedarScan usa la cámara y el sensor LiDAR para escanear las habitaciones de tu propiedad y crear el modelo 3D a partir del cual se dibuja tu plano. Cuando pagas en la app, la cámara también puede leer el número y la fecha de caducidad de tu tarjeta para que no tengas que escribirlos.",
+   "nl": "CedarScan gebruikt de camera en de LiDAR-sensor om de kamers van je pand te scannen en het 3D-model te bouwen op basis waarvan je plattegrond wordt getekend. Als je in de app betaalt, kan de camera ook het nummer en de vervaldatum van je kaart lezen, zodat je die niet hoeft in te typen."
   },
   "NSLocationWhenInUseUsageDescription": {
    "vi": "CedarScan chỉ dùng vị trí của bạn để điền địa chỉ ngôi nhà sắp quét. Bạn luôn có thể tự gõ địa chỉ thay vào đó.",
