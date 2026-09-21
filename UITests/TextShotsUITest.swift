@@ -33,6 +33,7 @@ final class TextShotsUITest: XCTestCase {
         app.launchArguments = args
         app.launch()
         sleep(3)
+        if args.contains("faq") { expandAll(app) }
         var last: Data?
         for page in 0..<40 {
             let s = XCUIScreen.main.screenshot()
@@ -59,5 +60,29 @@ final class TextShotsUITest: XCTestCase {
             sleep(1)
         }
         app.terminate()
+    }
+
+    /// FAQ: open every question (DisclosureGroup), then scroll back to the top.
+    private func expandAll(_ app: XCUIApplication) {
+        var tapped = Set<String>()
+        var idle = 0
+        for _ in 0..<120 {
+            let buttons = app.collectionViews.buttons.allElementsBoundByIndex
+            if let b = buttons.first(where: { !$0.label.isEmpty && !tapped.contains($0.label) && $0.isHittable }) {
+                tapped.insert(b.label)
+                b.tap()
+                usleep(400_000)
+                idle = 0
+                continue
+            }
+            idle += 1
+            if idle > 3 { break }
+            let top = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.25))
+            let bottom = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.8))
+            bottom.press(forDuration: 0.05, thenDragTo: top, withVelocity: 600, thenHoldForDuration: 0.3)
+            sleep(1)
+        }
+        for _ in 0..<25 { app.collectionViews.firstMatch.swipeDown(velocity: .fast) }
+        sleep(1)
     }
 }

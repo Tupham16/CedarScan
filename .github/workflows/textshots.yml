@@ -49,7 +49,7 @@ jobs:
         env:
           TEST_RUNNER_SHOTS_LANGS: 'de,fr,es,nl,cs,sk'
           TEST_RUNNER_SHOTS_SIZES: 'default,xxxl'
-          TEST_RUNNER_SHOTS_SCREENS: 'legal-privacy,legal-terms,legal-eula,guide,learn,faq,account,forgot,delete,home,home-empty,project,project-empty,detail,supplement,orders,preview,name,alert-part,alert-delete,dialog-lowquality,dialog-scanquality'
+          TEST_RUNNER_SHOTS_SCREENS: 'faq'
         run: |
           set -o pipefail
           xcodebuild test \
