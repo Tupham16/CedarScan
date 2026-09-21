@@ -166,11 +166,13 @@ extension View {
             .listRowInsets(EdgeInsets(top: 17, leading: 32, bottom: 18, trailing: trailing))
     }
 
-    /// Dark glass behind controls over the camera (scan screen): blur + 1pt white 16% border,
-    /// dark in light mode too. Labels on it need a dark `colorScheme` to turn white.
+    /// Dark glass behind controls over the camera (scan screen), dark in light mode too:
+    /// blur + black 30% + 1pt white 16% border. Measured on simulator renders: ≈ the mockup's
+    /// tone over a room, and white text stays ≥ 7:1 over a white wall (thin material alone: 4.4:1).
     func fogGlass<S: InsettableShape>(_ shape: S) -> some View {
         background {
             shape.fill(.thinMaterial)
+                .overlay(shape.fill(Color.black.opacity(0.3)))
                 .overlay(shape.strokeBorder(Color.white.opacity(0.16), lineWidth: 1))
                 .environment(\.colorScheme, .dark)
         }
