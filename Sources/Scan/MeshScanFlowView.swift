@@ -693,11 +693,12 @@ private struct MeshSwatch: View {
     }
 }
 
-/// White multi-line label with hyphenation OFF. iOS 26 measured the German glass note with an
-/// automatic hyphen ("übersprin-", 2 lines) but drew it without, cut to "…kein…" — SwiftUI Text
-/// and plain UILabel alike (simulator renders at 390 and 402pt; fixedSize, a full-width frame,
-/// minimumScaleFactor and a custom Layout rendered the same cut). SwiftUI Text cannot turn
-/// hyphenation off, a paragraph style can. Font = the text style at the (capped) Dynamic Type size.
+/// White multi-line label with the system line-break strategy (orphan push-out) and hyphenation
+/// OFF. iOS 26 measured the German glass note as 2 lines — hyphenating "übersprin-gen" to pull the
+/// lone last word "Problem." up — but drew 3 lines, cut to "…kein…": SwiftUI Text and plain
+/// UILabel alike (simulator renders at 390 and 402pt; fixedSize, a full-width frame,
+/// minimumScaleFactor, a custom Layout and hyphenation-off alone all rendered the same cut).
+/// SwiftUI Text cannot change either setting. Font = the text style at the (capped) Dynamic Type size.
 private struct LegendLabel: UIViewRepresentable {
     let text: String
     let style: UIFont.TextStyle
@@ -707,6 +708,7 @@ private struct LegendLabel: UIViewRepresentable {
     func makeUIView(context: Context) -> UILabel {
         let label = UILabel()
         label.numberOfLines = 0
+        label.lineBreakStrategy = []
         label.isAccessibilityElement = false // the card reads all its texts as one element
         return label
     }
@@ -726,6 +728,7 @@ private struct LegendLabel: UIViewRepresentable {
         let traits = UITraitCollection(preferredContentSizeCategory: UIContentSizeCategory(context.environment.dynamicTypeSize))
         let base = UIFont.preferredFont(forTextStyle: style, compatibleWith: traits)
         let paragraph = NSMutableParagraphStyle()
+        paragraph.lineBreakStrategy = []
         paragraph.usesDefaultHyphenation = false
         paragraph.hyphenationFactor = 0
         label.attributedText = NSAttributedString(string: text, attributes: [
