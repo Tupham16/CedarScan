@@ -130,12 +130,14 @@ private struct SuggestionChip: View {
     let action: () -> Void
 
     var body: some View {
-        // Fog: `thumbBg` pill; selected = soft badge.
+        // Fog: `thumbBg` pill; selected = soft badge. Same weight in both states: a bolder label
+        // broke one-word names mid-word at the largest text sizes (3-column grid on Pro Max).
         let background: Color = isSelected ? Theme.Badge.soft.bg : Theme.thumbBg
         let foreground: Color = isSelected ? Theme.Badge.soft.fg : Color.primary
         return Button(action: action) {
             Text(title)
-                .font(.subheadline.weight(isSelected ? .semibold : .regular))
+                .font(.subheadline)
+                .multilineTextAlignment(.center)
                 .foregroundStyle(foreground)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)

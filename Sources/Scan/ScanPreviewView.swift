@@ -98,14 +98,19 @@ struct ScanPreviewView: View {
 
     private var header: some View {
         VStack(spacing: 4) {
-            // Fog: `ok` pill.
-            Label(String(localized: "Scan saved"), systemImage: "checkmark")
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(Theme.Badge.ok.fg)
-                .padding(.leading, 8)
-                .padding(.trailing, 11)
-                .padding(.vertical, 4)
-                .background(Theme.Badge.ok.bg, in: Capsule())
+            // Fog: `ok` pill, small tick close to the text (mockup).
+            HStack(spacing: 5) {
+                Image(systemName: "checkmark")
+                    .font(.caption.weight(.bold))
+                    .accessibilityHidden(true)
+                Text(String(localized: "Scan saved"))
+                    .font(.footnote.weight(.semibold))
+            }
+            .foregroundStyle(Theme.Badge.ok.fg)
+            .padding(.leading, 8)
+            .padding(.trailing, 11)
+            .padding(.vertical, 4)
+            .background(Theme.Badge.ok.bg, in: Capsule())
             // Địa chỉ là thứ khách cần đối chiếu nhất ("mình vừa quét đúng căn chưa?") nên nó là
             // dòng TO. Thiếu địa chỉ thì tên bản quét lên thay — không bao giờ để tiêu đề rỗng.
             Text(addressName ?? scanName)
