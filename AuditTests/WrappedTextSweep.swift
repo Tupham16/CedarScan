@@ -22,6 +22,8 @@ final class WrappedTextSweep: XCTestCase {
     var env: [String: String] { ProcessInfo.processInfo.environment }
     var lang: String { Bundle.main.preferredLocalizations.first ?? "en" }
     var lines: [String] = []
+    /// One text view for every check (a new one per check grew memory until the runner died).
+    lazy var probe = WrappedTextView.makeTextView()
 
     func testSweep() throws {
         let t0 = Date()
@@ -29,9 +31,11 @@ final class WrappedTextSweep: XCTestCase {
         let maxW = CGFloat(Double(env["SWEEP_MAX"] ?? "410") ?? 410)
         let budget = Double(env["SWEEP_BUDGET"] ?? "7000") ?? 7000
         let widths = Array(stride(from: minW, through: maxW, by: 1))
-        log("WRAP START lang=\(lang) widths=\(minW)...\(maxW)")
+        let shard = (env["SWEEP_SHARD"] ?? "0/1").split(separator: "/").compactMap { Int($0) }
+        let (part, parts) = shard.count == 2 ? (shard[0], max(shard[1], 1)) : (0, 1)
+        log("WRAP START lang=\(lang) widths=\(minW)...\(maxW) shard=\(part)/\(parts)")
 
-        if lang == "de" {
+        if lang == "de", part == 0 {
             let note = "Glas und Fenster bleiben immer rot — einfach überspringen. Treppen und mehrere Etagen sind kein Problem."
             log("WRAP CONTROL swiftui-text-cut-at-326=\(swiftUICut(note, .caption, 326))")
             log("WRAP CONTROL wrapped-hit-at-326=\(wrappedHit(note, .caption1, .large, 326, short: 0) != nil)")
@@ -47,7 +51,7 @@ final class WrappedTextSweep: XCTestCase {
         log("WRAP items=\(items.count)")
         var checks = 0
         var hits = 0
-        outer: for (i, text) in items.enumerated() {
+        outer: for (i, text) in items.enumerated() where i % parts == part {
             for (sname, style) in Self.styles {
                 for (zname, size) in Self.sizes {
                     let one = oneLineWidth(text, style, size)
@@ -89,14 +93,14 @@ final class WrappedTextSweep: XCTestCase {
     }
 
     private func oneLineWidth(_ text: String, _ style: UIFont.TextStyle, _ size: DynamicTypeSize) -> CGFloat {
-        let view = WrappedTextView.makeTextView()
+        let view = probe
         WrappedTextView.configure(view, text: text, font: WrappedTextView.font(style, environment(size)))
         return WrappedTextView.fittingSize(view, width: nil).width + 1
     }
 
     /// nil = whole. Otherwise why it is cut: "ink" (pixels below the height) and/or "used" (TextKit).
     private func wrappedHit(_ text: String, _ style: UIFont.TextStyle, _ size: DynamicTypeSize, _ w: CGFloat, short: CGFloat) -> String? {
-        let view = WrappedTextView.makeTextView()
+        let view = probe
         WrappedTextView.configure(view, text: text, font: WrappedTextView.font(style, environment(size)))
         let fit = WrappedTextView.fittingSize(view, width: w)
         let h = fit.height - short

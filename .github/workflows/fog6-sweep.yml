@@ -11,6 +11,7 @@ jobs:
       fail-fast: false
       matrix:
         lang: [de]
+        shard: ['0/3', '1/3', '2/3']
     steps:
       - uses: actions/checkout@v4
 
@@ -46,6 +47,7 @@ jobs:
       - name: Sweep
         env:
           TEST_RUNNER_SWEEP_BUDGET: '9000'
+          TEST_RUNNER_SWEEP_SHARD: ${{ matrix.shard }}
         run: |
           set -o pipefail
           xcodebuild test \
@@ -61,14 +63,14 @@ jobs:
       - name: Export
         if: always()
         run: |
-          grep "WRAP" sweep.log > wrap-${{ matrix.lang }}.txt || true
+          grep "WRAP" sweep.log > wrap-${{ matrix.lang }}-${{ strategy.job-index }}.txt || true
           xcrun xcresulttool export attachments --path sweep.xcresult --output-path att || true
 
       - name: Upload
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: wrap-${{ matrix.lang }}
+          name: wrap-${{ matrix.lang }}-${{ strategy.job-index }}
           path: |
             wrap-*.txt
             att
