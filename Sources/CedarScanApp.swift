@@ -58,7 +58,7 @@ struct RootView: View {
             // ở khối 🔴🔴 tại `ProjectView.store`.
             // ⚠ Đọc `@EnvironmentObject` Ở ĐÂY thì AN TOÀN: `RootView` là gốc cây view, không bao
             // giờ bị push, environment của nó luôn nối. `.environmentObject(...)` ở trên GIỮ
-            // NGUYÊN — mọi màn còn lại (OrdersView, AccountView, các sheet…) vẫn dùng nó.
+            // NGUYÊN — mọi màn còn lại (AccountView, các sheet…) vẫn dùng nó.
             HomeView(
                 scanRequest: scanRequest,
                 openProjectRequest: openProjectRequest,
@@ -70,10 +70,9 @@ struct RootView: View {
                 }
                 .tag(RootTab.home)
                 .toolbar(.hidden, for: .tabBar)
-            // `store` TRUYỀN TAY, cùng khuôn HomeView. Tab này KHÔNG push màn nào (chú thích ở
-            // `.searchable` của nó nói rõ) nên `@EnvironmentObject` ở đây vốn AN TOÀN — truyền tay
-            // là để hai tab đọc store theo MỘT cách, khỏi phải cãi nhau lần sau xem cách nào đúng.
-            OrdersView(store: store, onOpenProject: requestOpenProject)
+            // `store`/`account` TRUYỀN TAY, cùng khuôn HomeView — since Orders v2 this tab PUSHES
+            // (`OrderDetailView`), so the reason in `ProjectView.store` applies here too.
+            OrdersView(store: store, account: account, onOpenProject: requestOpenProject)
                 .tabItem {
                     Label(String(localized: "Orders"), systemImage: "shippingbox")
                 }

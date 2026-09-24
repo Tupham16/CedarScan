@@ -4415,6 +4415,30 @@
     "es": "Al hacer este pedido, aceptas los Términos y condiciones.",
     "nl": "Door deze bestelling te plaatsen ga je akkoord met de Algemene voorwaarden."
    }
+  },
+  {
+   "key": "Files",
+   "translations": {
+    "vi": "File",
+    "fr": "Fichiers",
+    "de": "Dateien",
+    "cs": "Soubory",
+    "sk": "Súbory",
+    "es": "Archivos",
+    "nl": "Bestanden"
+   }
+  },
+  {
+   "key": "What you ordered",
+   "translations": {
+    "vi": "Dịch vụ đã đặt",
+    "fr": "Ce que vous avez commandé",
+    "de": "Bestellte Leistungen",
+    "cs": "Objednané služby",
+    "sk": "Objednané služby",
+    "es": "Lo que pediste",
+    "nl": "Wat je hebt besteld"
+   }
   }
  ],
  "infoplist": {
