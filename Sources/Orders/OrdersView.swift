@@ -22,9 +22,11 @@ struct OrdersView: View {
     /// xoá trên mỗi lần `.task` chạy lại (tránh chớp trắng + giữ được banner "dữ liệu cũ" của [17]).
     @State private var loadedCustomerId: String?
     @State private var isLoading = false
-    /// The last load started, and the last one whose answer is on screen (see `load()`).
+    /// The last load started, the last one whose answer is on screen, and the last failure shown
+    /// (see `load()`).
     @State private var loadSeq = 0
     @State private var appliedSeq = 0
+    @State private var failedSeq = 0
     @State private var errorMessage: String?
     @State private var filter: OrderFilter = .all
     @Environment(\.dynamicTypeSize) private var typeSize
@@ -150,13 +152,15 @@ struct OrdersView: View {
         switch answer {
         case .success(let fresh):
             orders = fresh
-            errorMessage = nil
+            // An answer older than the failure shown is not the refresh that failed.
+            if seq > failedSeq { errorMessage = nil }
             appliedSeq = seq
         case .failure(let error):
             // Only the newest load may say "Couldn't refresh": an older one is still followed by
             // an answer. A cancelled load (tab switched away) brought no answer at all.
             if newest, !Self.isCancellation(error) {
                 errorMessage = error.localizedDescription
+                failedSeq = seq
             }
         }
         if newest { isLoading = false }
