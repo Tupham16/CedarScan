@@ -223,6 +223,8 @@ struct WrappedTextView: UIViewRepresentable {
         view.isEditable = false
         view.isSelectable = false
         view.isScrollEnabled = false
+        // Leave the status-bar tap to the screen's own scroll view.
+        view.scrollsToTop = false
         view.isUserInteractionEnabled = false
         view.isAccessibilityElement = false
         view.backgroundColor = .clear

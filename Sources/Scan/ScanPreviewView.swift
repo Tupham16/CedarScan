@@ -229,6 +229,7 @@ struct ScanPreviewView: View {
                         .font(.headline)
                         .lineLimit(1)
                         .minimumScaleFactor(0.7)
+                        .padding(.horizontal, 12)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
                 }
@@ -244,6 +245,8 @@ struct ScanPreviewView: View {
                         .font(.headline)
                         .lineLimit(1)
                         .minimumScaleFactor(0.7)
+                        // The Fog styles add no inset of their own: keep shrunk text off the edges.
+                        .padding(.horizontal, 12)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
                 }

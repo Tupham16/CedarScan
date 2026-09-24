@@ -70,6 +70,7 @@ struct ScanNameOverlay: View {
                 Button(action: onSave) {
                     Text(String(localized: "Save scan"))
                         .font(.headline)
+                        .padding(.horizontal, 12)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
                 }
