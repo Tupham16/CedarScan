@@ -77,7 +77,7 @@ struct OrdersView: View {
                 orders = Orders2Shots.orders
                 if Orders2Shots.error { errorMessage = "offline" }
                 if let id = Orders2Shots.openId, let o = orders.first(where: { $0.orderId == id }) {
-                    path = [OrderRoute(orderId: id, title: title(of: o))]
+                    path = [OrderRoute(orderId: id, title: title(of: o), customerId: account.customer?.id)]
                 }
                 return
             }
