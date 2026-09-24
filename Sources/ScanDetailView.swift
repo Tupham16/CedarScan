@@ -266,7 +266,7 @@ struct ScanDetailView: View {
         // Home hay từ Dự án) thì đúng. Số học khớp với đúng MỘT chẩn đoán: vùng an toàn ĐÁY của
         // màn này bằng **0 thay vì 34pt** trên đường hỏng. Tính từ đáy MÀN HÌNH, với inset 34:
         // đáy thẻ = 34 + `reservedHeight` 94 = 128, đáy NÚT = +8 đệm dọc của thẻ = 136, mép trên
-        // vòng Scan = 34 + 92 = 126 ⇒ hở 10pt (quầng sáng với tới 135, dừng ~1pt dưới nút) —
+        // vòng Scan = 34 + 92 = 126 ⇒ hở 10pt —
         // khớp "có khoảng hở" ông tả. Với inset 0: đáy thẻ 94, đáy nút 102, mà vòng Scan choán
         // 54…126 ⇒ 24pt cuối của nút nằm TRONG đĩa — khớp ảnh ông gửi.
         // Thoát app rồi vào lại KHÔNG chữa được ⇒ giá trị bị CHỐT MỘT LẦN lúc dựng màn, ✗ "đo
@@ -305,6 +305,8 @@ struct ScanDetailView: View {
             serviceCard
                 .padding(.bottom, CedarTabBar.reservedHeight)
         }
+        // Fog screen background (only the background ignores the safe area).
+        .background(Theme.bg.ignoresSafeArea())
         // (`SafeAreaRepair.nudge()` ở đây ĐÃ XOÁ cùng cả file `SafeAreaRepair.swift` ở 2.13 — đo
         // được là TRƠ, xem `ScanCover.swift`. Hai màn PUSH vẫn phải khai GIỐNG NHAU: `ProjectView`
         // cũng không còn dòng này.)
@@ -481,9 +483,9 @@ struct ScanDetailView: View {
                 Text(action)
                     .font(.headline)
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 10)
+                    .padding(.vertical, 14)
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(FogPrimary())
         }
     }
 
@@ -511,25 +513,13 @@ struct ScanDetailView: View {
                     if current.qualityRescan == true {
                         Text(String(localized: "· rescan recommended"))
                             .font(.caption)
-                            .foregroundStyle(.orange)
+                            .foregroundStyle(Theme.Badge.warn.fg)
                     }
                     Spacer()
                 }
             }
             if let orderNumber = current.cloudOrderNumber {
-                HStack(spacing: 8) {
-                    // `.tint` chứ không phải `.blue` cứng — xem giải thích ở `HomeView.mainList`.
-                    Image(systemName: "shippingbox.fill")
-                        .foregroundStyle(.tint)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(String(localized: "Floor plan ordered") + " · \(orderNumber)")
-                            .font(.subheadline.weight(.semibold))
-                        Text(String(localized: "Track progress in the Orders tab."))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                }
+                orderedCard(orderNumber)
             } else if !account.isSignedIn {
                 // Câu chữ đã BỎ phần "(mục Tài khoản)": giờ đã có nút mở thẳng màn đăng nhập ngay
                 // tại chỗ, chỉ đường sang tab khác vừa thừa vừa SAI (sheet không chuyển tab).
@@ -564,9 +554,9 @@ struct ScanDetailView: View {
                     )
                     .font(.headline)
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 10)
+                    .padding(.vertical, 14)
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(FogPrimary())
             } else {
                 switch uploader.phase {
                 case .idle, .failed:
@@ -586,9 +576,9 @@ struct ScanDetailView: View {
                         )
                         .font(.headline)
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
+                        .padding(.vertical, 14)
                     }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(FogPrimary())
                 case .preparing:
                     progressRow(String(localized: "Preparing upload…"), nil)
                 // KHÔNG in tên file (model-colored.zip / colored-mesh.ply / scan-video.mp4):
@@ -608,15 +598,39 @@ struct ScanDetailView: View {
                         Label(String(localized: "Order Floor Plan"), systemImage: "paperplane.fill")
                             .font(.headline)
                             .frame(maxWidth: .infinity)
-                            .padding(.vertical, 10)
+                            .padding(.vertical, 14)
                     }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(FogPrimary())
                 }
             }
         }
         .padding(.horizontal)
         .padding(.vertical, 8)
         .background(.ultraThinMaterial)
+    }
+
+    /// "Floor plan ordered" (Fog): card with an `accentTint` icon tile.
+    private func orderedCard(_ orderNumber: String) -> some View {
+        let shape = RoundedRectangle(cornerRadius: 16, style: .continuous)
+        return HStack(spacing: 12) {
+            Image(systemName: "shippingbox")
+                .font(.system(size: 20))
+                .foregroundStyle(Theme.accentText)
+                .frame(width: 40, height: 40)
+                .background(Theme.accentTint, in: RoundedRectangle(cornerRadius: 11, style: .continuous))
+            VStack(alignment: .leading, spacing: 2) {
+                Text(String(localized: "Floor plan ordered") + " · \(orderNumber)")
+                    .font(.subheadline.weight(.semibold))
+                Text(String(localized: "Track progress in the Orders tab."))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+        }
+        .padding(.vertical, 12)
+        .padding(.horizontal, 14)
+        .background(shape.fill(Theme.card))
+        .overlay(shape.strokeBorder(Theme.hairline, lineWidth: 1))
     }
 
     private func progressRow(_ label: String, _ fraction: Double?) -> some View {
@@ -707,12 +721,13 @@ struct ScanDetailView: View {
         }
     }
 
+    /// Fog: A/B/C/D = ok / accent / warn / danger.
     private func gradeColor(_ grade: String) -> Color {
         switch grade {
-        case "A": return .green
-        case "B": return .blue
-        case "C": return .orange
-        default: return .red
+        case "A": return Theme.Badge.ok.fg
+        case "B": return Theme.accentText
+        case "C": return Theme.Badge.warn.fg
+        default: return Theme.Badge.danger.fg
         }
     }
 
@@ -732,9 +747,13 @@ struct ScanDetailView: View {
     private var meshTab: some View {
         VStack(spacing: 10) {
             videoArea(missing: String(localized: "No walkthrough video in this scan"))
+                // Fog video card: radius 16, 16pt side margins.
+                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .padding(.horizontal, 16)
             modelRow
             missingModelNote
         }
+        .padding(.top, 8)
     }
 
     /// **MỘT nút xem mô hình duy nhất** (bản 2.0 — chủ app chốt: *"gom cái texture và xám thành
@@ -767,9 +786,9 @@ struct ScanDetailView: View {
                 Label(String(localized: "View 3D model"), systemImage: "cube")
                     .font(.subheadline.weight(.semibold))
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 9)
+                    .padding(.vertical, 12)
             }
-            .buttonStyle(.bordered)
+            .buttonStyle(FogTint(radius: 12))
             .padding(.horizontal)
         }
     }
@@ -857,8 +876,12 @@ struct ScanDetailView: View {
                 systemImage: "exclamationmark.triangle.fill"
             )
             .font(.caption)
-            .foregroundStyle(.orange)
+            .foregroundStyle(Theme.Badge.warn.fg)
             .frame(maxWidth: .infinity, alignment: .leading)
+            // Fog: `warn` box, radius 12.
+            .padding(.vertical, 11)
+            .padding(.horizontal, 13)
+            .background(Theme.Badge.warn.bg, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
             .padding(.horizontal)
             .padding(.bottom, 6)
         }

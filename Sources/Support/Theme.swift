@@ -179,6 +179,90 @@ extension View {
     }
 }
 
+/// Wrapped text a customer must read whole (instructions, notes). iOS 26 can measure a SwiftUI
+/// `Text` or `UILabel` in fewer lines than it draws and cut the last line (German, trap #44).
+/// Here one TextKit layout measures and draws, at the full proposed width. VoiceOver reads it
+/// as a plain `Text`. Primary colour; font = `style` at the environment's Dynamic Type size.
+struct WrappedText: View {
+    let text: String
+    let style: UIFont.TextStyle
+
+    init(_ text: String, style: UIFont.TextStyle = .body) {
+        self.text = text
+        self.style = style
+    }
+
+    var body: some View {
+        WrappedTextView(text: text, style: style)
+            .accessibilityRepresentation { Text(text) }
+    }
+}
+
+/// UIKit side of `WrappedText` (internal so a test can measure it the same way).
+struct WrappedTextView: UIViewRepresentable {
+    let text: String
+    let style: UIFont.TextStyle
+
+    func makeUIView(context: Context) -> UITextView {
+        Self.makeTextView()
+    }
+
+    func updateUIView(_ view: UITextView, context: Context) {
+        Self.configure(view, text: text, font: Self.font(style, context.environment))
+    }
+
+    func sizeThatFits(_ proposal: ProposedViewSize, uiView view: UITextView, context: Context) -> CGSize? {
+        Self.configure(view, text: text, font: Self.font(style, context.environment))
+        return Self.fittingSize(view, width: proposal.width)
+    }
+
+    /// TextKit 1: `sizeThatFits` and drawing use the same NSLayoutManager, so the measured
+    /// height is the drawn height. Top-aligned, no insets, not interactive.
+    static func makeTextView() -> UITextView {
+        let view = UITextView(usingTextLayoutManager: false)
+        view.isEditable = false
+        view.isSelectable = false
+        view.isScrollEnabled = false
+        view.isUserInteractionEnabled = false
+        view.isAccessibilityElement = false
+        view.backgroundColor = .clear
+        // A scroll view near the screen edge would otherwise add safe-area insets to the text.
+        view.contentInsetAdjustmentBehavior = .never
+        view.textContainerInset = .zero
+        view.textContainer.lineFragmentPadding = 0
+        view.textContainer.widthTracksTextView = true
+        view.textContainer.heightTracksTextView = false
+        return view
+    }
+
+    static func font(_ style: UIFont.TextStyle, _ environment: EnvironmentValues) -> UIFont {
+        var traits = UITraitCollection(preferredContentSizeCategory: UIContentSizeCategory(environment.dynamicTypeSize))
+        if environment.legibilityWeight == .bold {
+            traits = traits.modifyingTraits { $0.legibilityWeight = .bold }
+        }
+        return UIFont.preferredFont(forTextStyle: style, compatibleWith: traits)
+    }
+
+    static func configure(_ view: UITextView, text: String, font: UIFont) {
+        guard view.attributedText?.string != text || view.font != font else { return }
+        view.attributedText = NSAttributedString(string: text, attributes: [
+            .font: font,
+            .foregroundColor: UIColor.label,
+        ])
+    }
+
+    /// Wrapped: the full proposed width. One line: its natural width.
+    static func fittingSize(_ view: UITextView, width: CGFloat?) -> CGSize {
+        let unbounded: CGFloat = 10_000_000
+        let line = view.sizeThatFits(CGSize(width: unbounded, height: unbounded))
+        guard let width, width < unbounded, ceil(line.width) > width else {
+            return CGSize(width: ceil(line.width), height: ceil(line.height))
+        }
+        let wrapped = view.sizeThatFits(CGSize(width: max(width, 1), height: unbounded))
+        return CGSize(width: width, height: ceil(wrapped.height))
+    }
+}
+
 private func rgb(_ value: UInt32, alpha: CGFloat = 1) -> UIColor {
     let r = CGFloat((value >> 16) & 0xFF) / 255
     let g = CGFloat((value >> 8) & 0xFF) / 255

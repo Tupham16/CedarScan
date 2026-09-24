@@ -48,12 +48,16 @@ struct ScanPreviewView: View {
             // Nền ĐỤC phủ kín: view này là lớp trên cùng của ZStack trong MeshScanFlowView, bên
             // dưới vẫn còn khung hình camera đóng băng và nút "Dừng & Lưu". Nền trong suốt là
             // khách thấy hai giao diện chồng nhau và bấm nhầm xuống lớp dưới.
-            Color(.systemBackground).ignoresSafeArea()
+            // Fog: `Theme.bg` is opaque in both modes — keep it opaque.
+            Theme.bg.ignoresSafeArea()
 
             VStack(spacing: 0) {
                 header
                 mediaPicker
                 mediaArea
+                    // Fog card; the mesh keeps its dark backdrop.
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .padding(.horizontal, 16)
                 footer
             }
         }
@@ -94,9 +98,14 @@ struct ScanPreviewView: View {
 
     private var header: some View {
         VStack(spacing: 4) {
-            Label(String(localized: "Scan saved"), systemImage: "checkmark.circle.fill")
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.green)
+            // Fog: `ok` pill.
+            Label(String(localized: "Scan saved"), systemImage: "checkmark")
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(Theme.Badge.ok.fg)
+                .padding(.leading, 8)
+                .padding(.trailing, 11)
+                .padding(.vertical, 4)
+                .background(Theme.Badge.ok.bg, in: Capsule())
             // Địa chỉ là thứ khách cần đối chiếu nhất ("mình vừa quét đúng căn chưa?") nên nó là
             // dòng TO. Thiếu địa chỉ thì tên bản quét lên thay — không bao giờ để tiêu đề rỗng.
             Text(addressName ?? scanName)
@@ -223,7 +232,7 @@ struct ScanPreviewView: View {
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(FogTint())
 
                 Button(action: onOrderNow) {
                     // Bổ sung thì KHÔNG mở form giá (không thu tiền) — nhãn phải nói đúng việc
@@ -238,7 +247,7 @@ struct ScanPreviewView: View {
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(FogPrimary())
             }
         }
         .padding(.horizontal, 16)

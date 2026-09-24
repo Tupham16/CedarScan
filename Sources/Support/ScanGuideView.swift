@@ -58,8 +58,10 @@ struct ScanGuideContent: View {
                 savingSection
                 startButton
             }
-            .padding(20)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 20)
         }
+        .fogScreen()
     }
 
     // Tách từng mục thành computed property riêng — CI từng timeout type-check với
@@ -134,26 +136,65 @@ struct ScanGuideContent: View {
                 Text(String(localized: "Got it — start scanning"))
                     .font(.headline)
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
+                    .padding(.vertical, 14)
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(FogPrimary())
             .padding(.top, 4)
         }
     }
 
     private func tipSection(icon: String, title: String, tips: [String]) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            Label(title, systemImage: icon)
+            sectionTitle(icon: icon, title: title)
+            tipCard(tips)
+        }
+    }
+
+    /// Icon tile on `accentTint` + headline.
+    private func sectionTitle(icon: String, title: String) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: icon)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(Theme.accentText)
+                .frame(width: 30, height: 30)
+                .background(Theme.accentTint, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+                .accessibilityHidden(true)
+            Text(title)
                 .font(.headline)
+        }
+    }
+
+    /// All tips of a section in one card, hairline between them.
+    private func tipCard(_ tips: [String]) -> some View {
+        let shape = RoundedRectangle(cornerRadius: 16, style: .continuous)
+        return VStack(alignment: .leading, spacing: 0) {
             ForEach(tips, id: \.self) { tip in
-                HStack(alignment: .top, spacing: 8) {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.footnote)
-                        .foregroundStyle(.green)
-                        .padding(.top, 2)
-                    Text(tip)
-                        .font(.subheadline)
-                }
+                tipRow(tip, first: tip == tips.first)
+            }
+        }
+        .padding(.vertical, 4)
+        .background(shape.fill(Theme.card))
+        .overlay(shape.strokeBorder(Theme.hairline, lineWidth: 1))
+    }
+
+    private func tipRow(_ tip: String, first: Bool) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "checkmark.circle.fill")
+                .font(.footnote)
+                .foregroundStyle(Theme.Badge.ok.fg)
+                .padding(.top, 2)
+            // Not `Text`: iOS 26 cut the last line of German tips (text-cut audit §4b #3–4).
+            WrappedText(tip, style: .subheadline)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.leading, 14)
+        .padding(.trailing, 16)
+        .padding(.vertical, 10)
+        .overlay(alignment: .top) {
+            if !first {
+                Theme.hairline
+                    .frame(height: 1)
+                    .padding(.leading, 40)
             }
         }
     }

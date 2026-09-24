@@ -180,12 +180,21 @@ struct ScanAddressView: View {
                     // VÀ bóp phần Form còn lại xuống còn hai dòng: gợi ý địa chỉ + danh sách căn
                     // đã quét không còn chỗ hiện, đúng lúc khách đang gõ và cần chúng nhất.
                     .frame(height: addressFocused ? 130 : 230)
+                    // Fog card: radius 16 + hairline, 16pt side margins.
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .strokeBorder(Theme.hairline, lineWidth: 1)
+                            .allowsHitTesting(false)
+                    )
+                    .padding(.horizontal, 16)
                     .animation(.easeInOut(duration: 0.25), value: addressFocused)
                 Form {
                     homeSection
                 }
                 startBar
             }
+            .fogScreen()
             // Tiêu đề "Trước khi quét" đổi thành TÊN THỨ MÀN NÀY HỎI (chủ app chốt 2026-08-13) và
             // để cỡ LỚN cho dễ nhận. Nhãn "Địa chỉ căn nhà" của section đã bỏ theo — hai chữ y hệt
             // nhau cách nhau 30pt là một dòng thừa, mà màn này vốn chỉ hỏi đúng một thứ.
@@ -254,41 +263,16 @@ struct ScanAddressView: View {
     /// trả lời đúng, còn tạo thêm một căn thứ hai cùng địa chỉ là lỗi phải đi dọn bằng tay sau đó.
     private var homeSection: some View {
         Section {
-            TextField(
-                String(localized: "Address or name (e.g. 1600 College Ave)"),
-                text: $address
-            )
-            .textInputAutocapitalization(.words)
-            .autocorrectionDisabled()
-            .focused($addressFocused)
-            // Gõ = đang mô tả căn mới → bỏ dòng đang chọn. Hai đường loại trừ nhau, để cả hai
-            // cùng "bật" là người dùng không đoán được cái nào thắng.
-            //
-            // XOÁ VÔ ĐIỀU KIỆN, không guard `!newValue.isEmpty`: guard đó là tàn dư từ hồi nút
-            // chọn dòng còn đặt `address = ""` (phải chặn để lựa chọn vừa tạo không tự huỷ).
-            // Bỏ dòng đó rồi mà giữ guard thì sinh ra trạng thái KHÔNG THOÁT ĐƯỢC: ô rỗng nhưng
-            // `pickedProjectId` vẫn còn — màn hình nói "chưa gắn căn nào" (ô trống + footer +
-            // nhãn nút) trong khi `start()` vẫn gắn. Giờ an toàn vì nhánh chạm dòng không ghi
-            // vào `address` nữa nên không sinh vòng lặp.
-            .onChange(of: address) { _, newValue in
-                pickedProjectId = nil
-                // Bản đồ đi theo chữ trong ô, kể cả khi chữ do app tự điền. `AddressGeocoder` tự
-                // debounce + tự bỏ qua khi chuỗi trùng cái đang ghim, nên gọi vô điều kiện ở đây
-                // là an toàn — ✗ nhét thêm điều kiện, chỗ này đã có `suppressCompleter` là một cờ
-                // đủ để nhầm rồi.
-                geocoder.update(address: newValue)
-                if suppressCompleter {
-                    suppressCompleter = false
-                    completer.clear()
-                } else {
-                    completer.update(query: newValue)
-                }
+            // `Group` hands the Fog card background to every row, including the dynamic ones.
+            Group {
+                addressField
+                useLocationButton
+                locationStatusRow
+                matchingRows
+                suggestionRows
+                pickedRow
             }
-            useLocationButton
-            locationStatusRow
-            matchingRows
-            suggestionRows
-            pickedRow
+            .listRowBackground(Theme.card)
         } footer: {
             // Footer render SAU mọi dòng của section, nên KHÔNG dùng nó để chỉ đường ("chạm dòng
             // bên dưới" sẽ trỏ ngược lên trên).
@@ -304,6 +288,40 @@ struct ScanAddressView: View {
         }
     }
 
+    /// The address field, split out of `homeSection` (smaller Section expression for CI type-check).
+    private var addressField: some View {
+        TextField(
+            String(localized: "Address or name (e.g. 1600 College Ave)"),
+            text: $address
+        )
+        .textInputAutocapitalization(.words)
+        .autocorrectionDisabled()
+        .focused($addressFocused)
+        // Gõ = đang mô tả căn mới → bỏ dòng đang chọn. Hai đường loại trừ nhau, để cả hai
+        // cùng "bật" là người dùng không đoán được cái nào thắng.
+        //
+        // XOÁ VÔ ĐIỀU KIỆN, không guard `!newValue.isEmpty`: guard đó là tàn dư từ hồi nút
+        // chọn dòng còn đặt `address = ""` (phải chặn để lựa chọn vừa tạo không tự huỷ).
+        // Bỏ dòng đó rồi mà giữ guard thì sinh ra trạng thái KHÔNG THOÁT ĐƯỢC: ô rỗng nhưng
+        // `pickedProjectId` vẫn còn — màn hình nói "chưa gắn căn nào" (ô trống + footer +
+        // nhãn nút) trong khi `start()` vẫn gắn. Giờ an toàn vì nhánh chạm dòng không ghi
+        // vào `address` nữa nên không sinh vòng lặp.
+        .onChange(of: address) { _, newValue in
+            pickedProjectId = nil
+            // Bản đồ đi theo chữ trong ô, kể cả khi chữ do app tự điền. `AddressGeocoder` tự
+            // debounce + tự bỏ qua khi chuỗi trùng cái đang ghim, nên gọi vô điều kiện ở đây
+            // là an toàn — ✗ nhét thêm điều kiện, chỗ này đã có `suppressCompleter` là một cờ
+            // đủ để nhầm rồi.
+            geocoder.update(address: newValue)
+            if suppressCompleter {
+                suppressCompleter = false
+                completer.clear()
+            } else {
+                completer.update(query: newValue)
+            }
+        }
+    }
+
     /// Đường tắt 1: lấy địa chỉ từ GPS. Nút nổi bật hơn vì đây là đường NHANH NHẤT khi khách
     /// đang đứng ngay tại căn nhà — đúng tình huống của gần như mọi lần quét.
     private var useLocationButton: some View {
@@ -312,25 +330,17 @@ struct ScanAddressView: View {
             addressWhenLocating = address
             locator.requestAddress()
         } label: {
+            // Fog light pill (owner approved 17/09: one solid blue button per screen). No colour
+            // here: `FogTint` sets icon + text (`accentText`; grey while locating = disabled).
+            // Old trap kept in mind: in a List the Label icon takes the tint colour unless the
+            // label has an explicit foreground — the style's `.foregroundStyle` is that.
             Label(String(localized: "Use my location"), systemImage: "location.fill")
                 .font(.subheadline.weight(.semibold))
-                // TRẮNG tường minh cho CẢ icon lẫn chữ. Trong List, icon của Label bị iOS tô
-                // màu tint (accent) bất chấp buttonStyle — accent trên nền borderedProminent
-                // cũng accent là mũi tên tàng hình (chủ app báo 2026-07-28: "không thấy icon").
-                // Chữ vốn trắng theo style nút nên không ai nhận ra cho tới khi nhìn kỹ.
-                //
-                // NHƯNG chỉ trắng khi nút CÒN BẤM ĐƯỢC: lúc `.disabled` (đang định vị — quãng
-                // này >15s nếu khách ngồi đọc hộp thoại quyền, trap #24) nền capsule chuyển
-                // xám nhạt mà chữ vẫn trắng tinh là cả nút thành viên nhộng trống. Ép trắng
-                // vô điều kiện chính là lỗi do bản vá đầu của nó đẻ ra (review 2026-07-29).
-                .foregroundStyle(
-                    locator.state == .working ? AnyShapeStyle(.secondary) : AnyShapeStyle(Color.white)
-                )
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 9)
         }
-        .buttonStyle(.borderedProminent)
-        .buttonBorderShape(.capsule)
+        // Radius above half the height = capsule at every text size.
+        .buttonStyle(FogTint(radius: 100))
         .disabled(locator.state == .working)
         // `bottom: 8`, không phải 4: số 4 cũ là để nút này dính sát nút "Tìm địa chỉ" ngay dưới
         // thành một cặp. Nút đó đã xoá 13/08, giữ 4 thì nút nằm dí vào dòng gợi ý đầu tiên.
@@ -498,7 +508,9 @@ struct ScanAddressView: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
             }
-            .buttonStyle(.borderedProminent)
+            // Disabled = grey (`Badge.neutral.bg` + `inactive`): the grey button tells the
+            // customer the address is still missing.
+            .buttonStyle(FogPrimary())
             .disabled(!hasHome)
         }
         .padding(.horizontal)
@@ -633,7 +645,9 @@ private struct AddressMapView: View {
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 6)
-                .background(.ultraThinMaterial, in: Capsule())
+                // Fog: `card` + hairline.
+                .background(Theme.card, in: Capsule())
+                .overlay(Capsule().strokeBorder(Theme.hairline, lineWidth: 1))
                 .padding(.horizontal, 12)
                 .padding(.bottom, 10)
         }
