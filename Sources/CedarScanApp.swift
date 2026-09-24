@@ -43,7 +43,7 @@ struct RootView: View {
     @EnvironmentObject private var account: AccountStore
     @Environment(\.scenePhase) private var scenePhase
 
-    @State private var tab: RootTab = .home
+    @State private var tab: RootTab = Orders2Shots.on ? .orders : .home
     /// Tab SCAN là NÚT HÀNH ĐỘNG, không phải trang: bấm nó bật về Home rồi yêu cầu HomeView mở màn
     /// quét mới. Tăng số này mỗi lần bấm = tín hiệu; `HomeView.onChange(of: scanRequest)` bắt được.
     @State private var scanRequest = 0

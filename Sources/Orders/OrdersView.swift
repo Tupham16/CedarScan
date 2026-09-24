@@ -26,7 +26,7 @@ struct OrdersView: View {
     var body: some View {
         NavigationStack {
             Group {
-                if !account.isSignedIn {
+                if !account.isSignedIn && !Orders2Shots.on {
                     signedOutState
                 } else if orders.isEmpty && !isLoading {
                     emptyState
@@ -46,6 +46,11 @@ struct OrdersView: View {
             // "đang xem dữ liệu cũ" của [17] khi refresh lỗi. `.task(id:)` luôn chạy lại khi id đổi
             // (A→B, đăng xuất→nil) nên nhánh này vẫn bắt được đổi tài khoản.
             .task(id: account.customer?.id) {
+                if Orders2Shots.on {
+                    orders = Orders2Shots.orders
+                    if Orders2Shots.error { errorMessage = "offline" }
+                    return
+                }
                 let currentId = account.customer?.id
                 if loadedCustomerId != currentId {
                     orders = []
@@ -77,6 +82,7 @@ struct OrdersView: View {
     }
 
     private func load() async {
+        if Orders2Shots.on { return }
         guard account.isSignedIn else { return }
         isLoading = true
         // Card payments the server has not confirmed yet. Not awaited: the list must never wait on
