@@ -12,6 +12,27 @@ final class Fog6Shots: XCTestCase {
         continueAfterFailure = true
         let en = lang("en", "US")
         let de = lang("de", "DE")
+        // 6b: order sheet + Order placed.
+        for args in [en, de, de + xxxl] {
+            capture("order", args, pages: true)
+        }
+        capture("order-paid", en, pages: true)
+        capture("order-paid", de + xxxl, pages: true)
+        for args in [en, de] {
+            capture("order-busy", args, end: true)
+            capture("order-error", args, end: true)
+        }
+        for args in [en, de, de + xxxl] {
+            capture("placed", args)
+        }
+        capture("placed-free", en)
+        capture("placed-coupon", en)
+        capture("placed-coupon", de)
+        capture("placed-badcoupon", en)
+        capture("placed-badcoupon", de + xxxl)
+        if ProcessInfo.processInfo.environment["SHOTS_ONLY"] != "all" {
+            return
+        }
         if ProcessInfo.processInfo.environment["SHOTS_ONLY"] == "naming" {
             let xxl = ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryXXL"]
             let small = ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryS"]
@@ -62,7 +83,17 @@ final class Fog6Shots: XCTestCase {
         }
     }
 
-    private func capture(_ screen: String, _ args: [String], pages: Bool = false, then: ((XCUIApplication) -> Void)? = nil) {
+    /// Fast drags up until the form's end is on screen.
+    private func scrollToEnd(_ app: XCUIApplication) {
+        for _ in 0..<8 {
+            let from = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.85))
+            let to = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.2))
+            from.press(forDuration: 0.05, thenDragTo: to, withVelocity: 3000, thenHoldForDuration: 0.05)
+        }
+        sleep(2)
+    }
+
+    private func capture(_ screen: String, _ args: [String], pages: Bool = false, end: Bool = false, then: ((XCUIApplication) -> Void)? = nil) {
         let app = XCUIApplication()
         app.launchArguments = ["-fog6shot", screen] + args
         app.launch()
@@ -73,6 +104,9 @@ final class Fog6Shots: XCTestCase {
         let tag = screen + "-" + (args.contains("(de)") ? "de" : "en") + size
         if pages {
             self.pages(app, tag)
+        } else if end {
+            scrollToEnd(app)
+            shot(tag + "-end")
         } else {
             shot(tag)
         }

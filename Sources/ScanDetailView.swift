@@ -1275,7 +1275,9 @@ struct OrderSheet: View {
             extraFloors = Set(otherScans.map(\.id))
         }
         do {
-            let result = try await APIClient.shared.catalog()
+            // THROWAWAY harness (claude/fog6b-shots): canned catalog, no server.
+            let result: CatalogResponse
+            if Fog6.on { result = Fog6.catalog() } else { result = try await APIClient.shared.catalog() }
             catalog = result
             // Điền mặc định gói: `packageIds` (app mới) > `packageId` (default cũ) > gói default > gói đầu.
             let d = result.defaults
@@ -1305,6 +1307,16 @@ struct OrderSheet: View {
             // thì hiện rỗng). Giá trị cũ tự do (vd "Vietnamese") → giữ mặc định "English".
             if let lang = d?.language, Self.languageOptions.contains(lang) { language = lang }
             if let fn = d?.floorNaming { floorNaming = fn }
+            // THROWAWAY harness: canned states.
+            switch Fog6.screen {
+            case "order-busy":
+                isBusy = true
+                busyLabel = String(localized: "Uploading \(record.name)…")
+            case "order-error":
+                errorMessage = String(localized: "Your free-order slots were just used up. Please review the price and tap Place order again.")
+            default:
+                if let p = Fog6.placed() { placedOrder = p }
+            }
         } catch {
             loadError = error.localizedDescription
         }

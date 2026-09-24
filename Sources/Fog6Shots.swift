@@ -21,6 +21,91 @@ enum Fog6 {
     static let rLow = UUID(uuidString: "AAAAAAAA-0000-0000-0000-000000000004")!
     static let rNoModel = UUID(uuidString: "AAAAAAAA-0000-0000-0000-000000000005")!
     static let rOakOrdered = UUID(uuidString: "AAAAAAAA-0000-0000-0000-000000000006")!
+    static let rUpper = UUID(uuidString: "AAAAAAAA-0000-0000-0000-000000000007")!
+    static let rBase = UUID(uuidString: "AAAAAAAA-0000-0000-0000-000000000008")!
+
+    // MARK: 6b — order sheet stubs (no server)
+
+    static let palettes: [(String, [UInt32])] = [
+        ("Classic", [0xE9E2D0, 0xD9E4DC, 0xDDE3EC, 0xCFE0E8, 0xEFEAE0]),
+        ("Warm", [0xF3D9B8, 0xEBC3A0, 0xF0E0C8, 0xE2B49A, 0xF6EAD8]),
+        ("Cool", [0xCFE1F2, 0xBBD3EA, 0xDCE9F5, 0xA9C7E3, 0xE8F1F9]),
+        ("Pastel", [0xF7D6E0, 0xD6EBD8, 0xE0DAF2, 0xFCEBC7, 0xD3ECEF]),
+        ("Bold", [0xF2B134, 0x4FA3A5, 0xE4572E, 0x5B6FA8, 0xA8C686]),
+    ]
+
+    static func templateURL(_ name: String) -> URL {
+        URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("fog6-tpl-\(name.lowercased()).png")
+    }
+
+    /// Template image stand-in: a small coloured plan on white.
+    static func writeTemplate(_ colors: [UInt32], to url: URL) {
+        let size = CGSize(width: 240, height: 160)
+        let image = UIGraphicsImageRenderer(size: size).image { ctx in
+            UIColor.white.setFill()
+            ctx.fill(CGRect(origin: .zero, size: size))
+            let rooms = [
+                CGRect(x: 24, y: 20, width: 110, height: 70), CGRect(x: 134, y: 20, width: 82, height: 62),
+                CGRect(x: 24, y: 90, width: 66, height: 50), CGRect(x: 90, y: 90, width: 44, height: 50),
+                CGRect(x: 134, y: 82, width: 82, height: 58),
+            ]
+            for (r, c) in zip(rooms, colors) {
+                UIColor(red: CGFloat((c >> 16) & 0xFF) / 255, green: CGFloat((c >> 8) & 0xFF) / 255,
+                        blue: CGFloat(c & 0xFF) / 255, alpha: 1).setFill()
+                ctx.fill(r)
+            }
+            UIColor(red: 0.29, green: 0.33, blue: 0.41, alpha: 1).setStroke()
+            for r in rooms {
+                let p = UIBezierPath(rect: r)
+                p.lineWidth = 4
+                p.stroke()
+            }
+        }
+        try? image.pngData()?.write(to: url)
+    }
+
+    /// DEFAULT_CATALOG prices. `order` / `order-busy` = FREE (2 of 3 left), the rest paid.
+    static func catalog() -> CatalogResponse {
+        let free = screen == "order" || screen == "order-busy"
+        let addons = screen == "order" ? "[\"color\",\"dwg\",\"express\",\"tour\"]" : "[\"color\",\"dwg\",\"tour\"]"
+        let tpls = palettes.map { p in
+            "{\"id\":\"\(p.0.lowercased())\",\"name\":\"\(p.0)\",\"imageUrl\":\"\(templateURL(p.0).absoluteString)\"}"
+        }.joined(separator: ",")
+        let json = """
+        {"currency":"USD",
+         "packages":[{"id":"2d","name":"2D Floor Plan","price":6,"isDefault":true},
+                     {"id":"3d","name":"3D Floor Plan","price":40,"isDefault":false}],
+         "addons":[{"id":"color","name":"Color floor plan","price":2,"templates":[\(tpls)]},
+                   {"id":"siteplan","name":"Site plan","price":2,"templates":[\(tpls)]},
+                   {"id":"dwg","name":"CAD File","price":1},
+                   {"id":"express","name":"Express 12h turnaround","price":6},
+                   {"id":"gla","name":"GLA report (ANSI)","price":10},
+                   {"id":"tour","name":"Virtual Tour","price":10}],
+         "areaSurcharges":[],
+         "freeFirstOrders":3,"freeOrdersRemaining":\(free ? 2 : 0),
+         "defaults":{"packageIds":["2d"],"addonIds":\(addons),"templates":{"color":"classic"},
+                     "unitSystem":"metric","language":"English"}}
+        """
+        return try! JSONDecoder().decode(CatalogResponse.self, from: Data(json.utf8))
+    }
+
+    /// Canned "Order placed" answers (#10483). nil = stay on the form.
+    static func placed() -> OrderScanResponse? {
+        let json: String
+        switch screen {
+        case "placed":
+            json = ##"{"orderId":"h1","orderNumber":"#10483","status":"pending","total":19,"currency":"USD","paymentUrl":"https://example.invalid/pay/h1","free":false,"hasTour":true,"payInApp":false}"##
+        case "placed-free":
+            json = ##"{"orderId":"h2","orderNumber":"#10484","status":"pending","total":0,"currency":"USD","free":true,"hasTour":false}"##
+        case "placed-coupon":
+            json = ##"{"orderId":"h3","orderNumber":"#10485","status":"pending","total":14,"currency":"USD","paymentUrl":"https://example.invalid/pay/h3","discount":5,"couponApplied":true,"free":false,"hasTour":false,"payInApp":false}"##
+        case "placed-badcoupon":
+            json = ##"{"orderId":"h4","orderNumber":"#10486","status":"pending","total":19,"currency":"USD","couponApplied":false,"free":false,"hasTour":true}"##
+        default:
+            return nil
+        }
+        return try? JSONDecoder().decode(OrderScanResponse.self, from: Data(json.utf8))
+    }
 
     static var docs: URL { FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0] }
     static func folder(_ id: UUID) -> URL {
@@ -65,7 +150,14 @@ enum Fog6 {
             ScanRecord(id: rLow, name: "Basement", createdAt: now, roomCount: 0, projectId: nil,
                        qualityScore: 58, qualityGrade: "C", qualityRescan: true),
             ScanRecord(id: rNoModel, name: "Shed", createdAt: now, roomCount: 0, projectId: nil),
+            ScanRecord(id: rUpper, name: "Upper floor", createdAt: now, roomCount: 0, projectId: maple,
+                       qualityScore: 90, qualityGrade: "A", qualityRescan: false),
+            ScanRecord(id: rBase, name: "Basement", createdAt: now, roomCount: 0, projectId: maple,
+                       qualityScore: 90, qualityGrade: "A", qualityRescan: false),
         ]
+        for p in palettes {
+            writeTemplate(p.1, to: templateURL(p.0))
+        }
         for r in records {
             let dir = folder(r.id)
             try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
@@ -204,8 +296,27 @@ struct Fog6ShotRoot: View {
         case "learn":
             LearnView()
                 .overlay(alignment: .bottom) { CedarTabBar(selection: .constant(.learn), onScan: {}) }
+        case "order", "order-busy", "order-error", "placed", "placed-free", "placed-coupon", "placed-badcoupon":
+            Color.gray.opacity(0.35).ignoresSafeArea()
+                .sheet(isPresented: $sheet) { orderSheet(project: false) }
+        case "order-paid":
+            Color.gray.opacity(0.35).ignoresSafeArea()
+                .sheet(isPresented: $sheet) { orderSheet(project: true) }
         default:
             Text(verbatim: "unknown screen \(screen)")
+        }
+    }
+
+    /// Record mode (Main floor + 2 unordered floors of the same home) or project mode (all ticked).
+    @ViewBuilder
+    private func orderSheet(project: Bool) -> some View {
+        if let r = store.records.first(where: { $0.id == Fog6.rMain }) {
+            OrderSheet(
+                record: r,
+                projectName: "7 Maple Court",
+                candidateScans: project ? store.records.filter { $0.projectId == Fog6.maple } : nil
+            )
+            .environmentObject(store)
         }
     }
 
