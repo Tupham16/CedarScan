@@ -42,6 +42,7 @@ final class AccountStore: ObservableObject {
 
     func refresh() async {
         guard APIClient.shared.token != nil else { return }
+        if Fog6.on { return } // THROWAWAY harness: keep the fake sign-in
         do {
             let me = try await APIClient.shared.me()
             setCustomer(me.customer)

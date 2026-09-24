@@ -22,6 +22,7 @@ targets:
     scheme:
       testTargets:
         - CedarScanUITests
+        - CedarScanAuditTests
     sources:
       - Sources
       - Assets.xcassets
@@ -174,4 +175,18 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.cedar247.cedarscan.uitests
         TEST_TARGET_NAME: CedarScan
+        GENERATE_INFOPLIST_FILE: YES
+  CedarScanAuditTests:
+    type: bundle.unit-test
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - AuditTests
+    dependencies:
+      - target: CedarScan
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.cedar247.cedarscan.audittests
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/CedarScan.app/CedarScan"
+        BUNDLE_LOADER: "$(TEST_HOST)"
         GENERATE_INFOPLIST_FILE: YES

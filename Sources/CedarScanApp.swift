@@ -5,9 +5,15 @@ struct CedarScanApp: App {
     @StateObject private var store = ScanStore()
     @StateObject private var account = AccountStore()
 
+    init() { Fog6.seed() } // THROWAWAY harness
+
     var body: some Scene {
         WindowGroup {
-            if Fog5.on {
+            if Fog6.on {
+                Fog6ShotRoot()
+                    .environmentObject(store)
+                    .environmentObject(account)
+            } else if Fog5.on {
                 MeshScanFlowView(
                     quality: .storageDefault,
                     onOrderNow: { _ in },

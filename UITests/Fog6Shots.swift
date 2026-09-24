@@ -1,0 +1,118 @@
+import UIKit
+import XCTest
+
+/// THROWAWAY (branch claude/fog6-shots, never main): Fog step 6 screens, light or dark per run.
+final class Fog6Shots: XCTestCase {
+    private var n = 0
+
+    private func lang(_ l: String, _ r: String) -> [String] { ["-AppleLanguages", "(\(l))", "-AppleLocale", "\(l)_\(r)"] }
+    private let xxxl = ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryXXXL"]
+
+    func testShots() {
+        continueAfterFailure = true
+        let en = lang("en", "US")
+        let de = lang("de", "DE")
+        for screen in ["detail", "detail-ordered", "detail-extra", "detail-low", "detail-nomodel", "detail-signedout"] {
+            capture(screen, en)
+        }
+        capture("detail", de)
+        capture("detail-low", de)
+        capture("viewer", en)
+        capture("saved", en) { app in
+            self.tapSegment(app, 1)
+            self.shot("saved-3d-en")
+        }
+        capture("saved-extra", en)
+        capture("saved-novideo", de)
+        capture("address", en) { app in
+            let field = app.textFields.firstMatch
+            guard field.waitForExistence(timeout: 5) else { return }
+            field.tap()
+            app.typeText("7 Maple")
+            sleep(3)
+            self.shot("address-typing-en")
+            app.typeText(" Court\n")
+            sleep(4)
+            self.shot("address-filled-en")
+        }
+        capture("address", de)
+        capture("naming", en)
+        capture("naming", de)
+        capture("naming", de + xxxl)
+        capture("guide", en, pages: true)
+        capture("guide", de, pages: true)
+        capture("guide", de + xxxl, pages: true)
+        capture("learn", en) { app in
+            self.openGuide(app)
+            self.pages(app, "learn-guide-en")
+        }
+        capture("learn", de + xxxl) { app in
+            self.openGuide(app)
+            self.pages(app, "learn-guide-de-xxxl")
+        }
+    }
+
+    private func capture(_ screen: String, _ args: [String], pages: Bool = false, then: ((XCUIApplication) -> Void)? = nil) {
+        let app = XCUIApplication()
+        app.launchArguments = ["-fog6shot", screen] + args
+        app.launch()
+        sleep(4)
+        let tag = screen + "-" + (args.contains("(de)") ? "de" : "en") + (args.contains("UICTContentSizeCategoryXXXL") ? "-xxxl" : "")
+        if pages {
+            self.pages(app, tag)
+        } else {
+            shot(tag)
+        }
+        then?(app)
+        app.terminate()
+    }
+
+    private func tapSegment(_ app: XCUIApplication, _ index: Int) {
+        let seg = app.segmentedControls.firstMatch
+        if seg.waitForExistence(timeout: 3) {
+            seg.buttons.element(boundBy: index).tap()
+            sleep(2)
+        }
+    }
+
+    private func openGuide(_ app: XCUIApplication) {
+        let cell = app.buttons.matching(NSPredicate(format: "label CONTAINS[c] 'scan'")).firstMatch
+        if cell.waitForExistence(timeout: 3) {
+            cell.tap()
+        } else {
+            app.cells.firstMatch.tap()
+        }
+        sleep(2)
+    }
+
+    /// Screenshot, scroll ~60% of the screen slowly, repeat until the picture stops changing.
+    private func pages(_ app: XCUIApplication, _ tag: String) {
+        var last: Data?
+        for page in 0..<14 {
+            let s = XCUIScreen.main.screenshot()
+            let png: Data? = {
+                let img = s.image
+                let cut = img.size.height / 12
+                let f = UIGraphicsImageRendererFormat()
+                f.scale = 1
+                let r = UIGraphicsImageRenderer(size: CGSize(width: img.size.width, height: img.size.height - cut), format: f)
+                return r.pngData { _ in img.draw(at: CGPoint(x: 0, y: -cut)) }
+            }()
+            if png != nil, png == last { break }
+            last = png
+            shot("\(tag)-p\(page)", s)
+            let from = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.8))
+            let to = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.3))
+            from.press(forDuration: 0.05, thenDragTo: to, withVelocity: 500, thenHoldForDuration: 0.3)
+            sleep(1)
+        }
+    }
+
+    private func shot(_ name: String, _ s: XCUIScreenshot? = nil) {
+        n += 1
+        let a = XCTAttachment(screenshot: s ?? XCUIScreen.main.screenshot())
+        a.name = String(format: "%03d-%@", n, name)
+        a.lifetime = .keepAlways
+        add(a)
+    }
+}
