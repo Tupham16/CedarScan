@@ -1785,7 +1785,7 @@ struct OrderSheet: View {
                             .font(.headline)
                     }
                 }
-                .padding(.horizontal, 12)
+                .multilineTextAlignment(.center)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
             }
@@ -1868,10 +1868,12 @@ struct OrderSheet: View {
                 Text(String(localized: "Coupon applied: −$\(String(format: "%.2f", discount))"))
                     .font(.subheadline)
                     .foregroundStyle(Theme.Badge.ok.fg)
+                    .multilineTextAlignment(.center)
             } else if order.couponApplied == false {
                 Text(String(localized: "Coupon code was not valid — full price applies."))
                     .font(.footnote)
                     .foregroundStyle(Theme.Badge.warn.fg)
+                    .multilineTextAlignment(.center)
             }
             // Câu "Đội ngũ Cedar247 sẽ bắt đầu…" (CẢ HAI nhánh free/trả tiền) ĐÃ BỎ 2026-09-01
             // theo chủ app — thay bằng lời cảm ơn, GIỮ đúng dòng "Theo dõi…". Việc "trả tiền ở
@@ -1919,6 +1921,8 @@ struct OrderSheet: View {
                     Label(String(localized: "Add room photos for your tour"),
                           systemImage: "photo.on.rectangle.angled")
                         .font(.headline)
+                        // Full height: German xxxL on 390pt was squeezed to one cut line.
+                        .fixedSize(horizontal: false, vertical: true)
                         .padding(.horizontal, 12)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
