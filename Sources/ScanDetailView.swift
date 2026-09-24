@@ -1471,11 +1471,12 @@ struct OrderSheet: View {
         .fogScreen()
     }
 
-    /// Fog section title: 13pt semibold grey, sentence case.
+    /// Fog section title: 13pt semibold grey, sentence case. Concrete `Color.secondary`: in a Form
+    /// header `.secondary` resolves one level fainter (tertiary).
     private func sectionHeader(_ title: String) -> some View {
         Text(title)
             .font(.footnote.weight(.semibold))
-            .foregroundStyle(.secondary)
+            .foregroundStyle(Color.secondary)
             .textCase(nil)
     }
 
@@ -1805,6 +1806,7 @@ struct OrderSheet: View {
                     showTermsSheet = true
                 } label: {
                     Text(String(localized: "By placing this order you agree to the Terms and Conditions."))
+                        .font(.footnote)
                         .foregroundStyle(Theme.accentText)
                         .multilineTextAlignment(.leading)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -1887,6 +1889,7 @@ struct OrderSheet: View {
                 ) {
                     Label(String(localized: "Pay Now"), systemImage: "creditcard.fill")
                         .font(.headline)
+                        .fixedSize(horizontal: false, vertical: true)
                         .padding(.horizontal, 12)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
