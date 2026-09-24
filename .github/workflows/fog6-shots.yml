@@ -48,6 +48,8 @@ jobs:
           xcrun simctl bootstatus "${{ steps.sim.outputs.udid }}" -b
 
       - name: Shots (light)
+        env:
+          TEST_RUNNER_SHOTS_ONLY: naming
         run: |
           set -o pipefail
           xcrun simctl ui "${{ steps.sim.outputs.udid }}" appearance light
@@ -62,6 +64,8 @@ jobs:
 
       - name: Shots (dark)
         if: always()
+        env:
+          TEST_RUNNER_SHOTS_ONLY: naming
         run: |
           set -o pipefail
           xcrun simctl ui "${{ steps.sim.outputs.udid }}" appearance dark

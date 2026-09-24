@@ -12,6 +12,16 @@ final class Fog6Shots: XCTestCase {
         continueAfterFailure = true
         let en = lang("en", "US")
         let de = lang("de", "DE")
+        if ProcessInfo.processInfo.environment["SHOTS_ONLY"] == "naming" {
+            let xxl = ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryXXL"]
+            let small = ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryS"]
+            for extra in [[], small, xxl, xxxl] {
+                capture("naming", en + extra)
+                capture("naming-typing", en + extra)
+                capture("naming", de + extra)
+            }
+            return
+        }
         for screen in ["detail", "detail-ordered", "detail-extra", "detail-low", "detail-nomodel", "detail-signedout", "detail-verify"] {
             capture(screen, en)
         }
@@ -57,7 +67,10 @@ final class Fog6Shots: XCTestCase {
         app.launchArguments = ["-fog6shot", screen] + args
         app.launch()
         sleep(4)
-        let tag = screen + "-" + (args.contains("(de)") ? "de" : "en") + (args.contains("UICTContentSizeCategoryXXXL") ? "-xxxl" : "")
+        let size = args.contains("UICTContentSizeCategoryXXXL") ? "-xxxl"
+            : args.contains("UICTContentSizeCategoryXXL") ? "-xxl"
+            : args.contains("UICTContentSizeCategoryS") ? "-s" : ""
+        let tag = screen + "-" + (args.contains("(de)") ? "de" : "en") + size
         if pages {
             self.pages(app, tag)
         } else {

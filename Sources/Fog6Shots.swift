@@ -151,7 +151,7 @@ struct Fog6ShotRoot: View {
     @EnvironmentObject private var store: ScanStore
     @EnvironmentObject private var account: AccountStore
     @StateObject private var textured = TexturedModelCache()
-    @State private var name = "Main floor"
+    @State private var name = Fog6.screen == "naming-typing" ? "c" : "Main floor"
     @State private var sheet = true
     @State private var path = NavigationPath()
 
@@ -183,14 +183,18 @@ struct Fog6ShotRoot: View {
         case "address":
             Color.gray.opacity(0.35).ignoresSafeArea()
                 .sheet(isPresented: $sheet) { ScanAddressView(onStart: { _ in }).environmentObject(store) }
-        case "naming":
+        case "naming", "naming-typing":
             ZStack {
                 Image("Fog5Room").resizable().scaledToFill().ignoresSafeArea()
                 ScanNameOverlay(
                     name: $name,
                     subtitle: String(localized: "Which area of the property is this?"),
                     suggestions: ["Main floor", "Basement", "Upper floor", "Shed", "Garage", "Storage"],
-                    typeAheadSuggestions: ["Ground floor", "First floor", "Second floor", "Attic", "Lower Floor"],
+                    typeAheadSuggestions: [
+                        "Ground floor", "First floor", "Second floor", "Attic", "Lower Floor",
+                        "Conservatory", "Sunroom", "Tool Shed", "Detached Garage", "Roof floor",
+                        "Carport", "Basement", "Kitchen", "Bedroom", "Patio", "Deck", "Porch",
+                    ],
                     onSave: {}, onBack: {}
                 )
             }
