@@ -28,7 +28,7 @@ struct OrdersView: View {
     var body: some View {
         NavigationStack(path: $path) {
             Group {
-                if !account.isSignedIn {
+                if !account.isSignedIn && !Orders2Shots.on {
                     signedOutState
                 } else if orders.isEmpty && !isLoading {
                     emptyState
@@ -68,6 +68,14 @@ struct OrdersView: View {
         // would cancel a load in flight (a false "Couldn't refresh") and hold this wipe back until
         // Back is tapped — account B shown A's order, with A's Pay Now.
         .task(id: account.customer?.id) {
+            if Orders2Shots.on {
+                orders = Orders2Shots.orders
+                if Orders2Shots.error { errorMessage = "offline" }
+                if let id = Orders2Shots.openId, let o = orders.first(where: { $0.orderId == id }) {
+                    path = [OrderRoute(orderId: id, title: title(of: o))]
+                }
+                return
+            }
             let currentId = account.customer?.id
             if loadedCustomerId != currentId {
                 orders = []
@@ -114,6 +122,7 @@ struct OrdersView: View {
     }
 
     private func load() async {
+        if Orders2Shots.on { return }
         guard account.isSignedIn else { return }
         isLoading = true
         // Card payments the server has not confirmed yet. Not awaited: the list must never wait on
