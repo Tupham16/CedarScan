@@ -213,7 +213,7 @@ struct WrappedTextView: UIViewRepresentable {
 
     func sizeThatFits(_ proposal: ProposedViewSize, uiView view: UITextView, context: Context) -> CGSize? {
         Self.configure(view, text: text, font: Self.font(style, context.environment))
-        return Self.fittingSize(view, width: proposal.width)
+        return Self.fittingSize(view, width: proposal.width, scale: context.environment.displayScale)
     }
 
     /// TextKit 1: `sizeThatFits` and drawing use the same NSLayoutManager, so the measured
@@ -253,16 +253,18 @@ struct WrappedTextView: UIViewRepresentable {
         ])
     }
 
-    /// Wrapped: the full proposed width, measured 1pt narrower (the frame SwiftUI finally gives the
-    /// view is pixel-rounded and can be a fraction of a point narrower). One line: natural width + 1.
-    static func fittingSize(_ view: UITextView, width: CGFloat?) -> CGSize {
+    /// Wrapped: the full proposed width, measured at that width floored to the pixel grid (the
+    /// frame SwiftUI places is pixel-rounded and never narrower than that). One line: natural + 1.
+    static func fittingSize(_ view: UITextView, width: CGFloat?, scale: CGFloat = 3) -> CGSize {
         let unbounded: CGFloat = 10_000_000
         let line = view.sizeThatFits(CGSize(width: unbounded, height: unbounded))
         let lineWidth = ceil(line.width) + 1
         guard let width, width < unbounded, lineWidth > width else {
             return CGSize(width: lineWidth, height: ceil(line.height))
         }
-        let wrapped = view.sizeThatFits(CGSize(width: max(width - 1, 1), height: unbounded))
+        let pixel = max(scale, 1)
+        let measured = max(floor(width * pixel) / pixel, 1)
+        let wrapped = view.sizeThatFits(CGSize(width: measured, height: unbounded))
         return CGSize(width: width, height: ceil(wrapped.height))
     }
 }

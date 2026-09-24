@@ -338,18 +338,18 @@ struct ScanAddressView: View {
                 Text(String(localized: "Use my location"))
             }
             .font(.subheadline.weight(.semibold))
-            .frame(maxWidth: .infinity)
-            // 44pt tap target (the old bordered capsule was ~50pt).
-            .padding(.vertical, 12)
+            .padding(.vertical, 8)
+            // At least a 44pt tap target (the old bordered capsule was ~50pt).
+            .frame(maxWidth: .infinity, minHeight: 44)
         }
         // Radius above half the height = capsule at every text size.
         .buttonStyle(FogTint(radius: 100))
         .disabled(locator.state == .working)
         // Separator under this row starts at the row edge, not at the centred label.
         .alignmentGuide(.listRowSeparatorLeading) { _ in 0 }
-        // Row stays ~54pt (mockup): 5 + 44 + 5. Was `bottom: 8` so the button did not sit on the
-        // first suggestion row; 5pt + that row's own padding still keeps them apart.
-        .listRowInsets(EdgeInsets(top: 5, leading: 16, bottom: 5, trailing: 16))
+        // `bottom: 8`, không phải 4: số 4 cũ là để nút này dính sát nút "Tìm địa chỉ" ngay dưới
+        // thành một cặp. Nút đó đã xoá 13/08, giữ 4 thì nút nằm dí vào dòng gợi ý đầu tiên.
+        .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
     }
 
     // 🔴 `searchAddressButton` (nút kính lúp "Tìm địa chỉ") ĐÃ XOÁ 2026-08-13 — lý do ghi ở
