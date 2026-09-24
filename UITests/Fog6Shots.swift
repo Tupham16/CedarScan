@@ -12,23 +12,17 @@ final class Fog6Shots: XCTestCase {
         continueAfterFailure = true
         let en = lang("en", "US")
         let de = lang("de", "DE")
-        // 6b round 3: tour label height, Place order label room, coupon lines centred.
-        let fr = lang("fr", "FR")
-        let cs = lang("cs", "CZ")
-        for args in [en, de + xxxl] {
-            capture("placed", args)
-        }
-        capture("placed-free", en)
-        capture("placed-coupon", de)
-        capture("placed-badcoupon", en)
-        capture("placed-badcoupon", de + xxxl)
-        capture("placed-tall", de + xxxl, end: true)
-        capture("order-busy", en, end: true)
+        // 6b round 4: header grey, terms line size, Pay Now height, scroll at AX sizes.
+        let axl = ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityL"]
+        capture("order", en, end: true)
+        capture("order", de + xxxl, end: true)
+        capture("order-paid", de, end: true)
         capture("order-error", de, end: true)
-        for args in [en, de + xxxl, fr + xxxl, cs + xxxl] {
-            capture("order", args, end: true)
-        }
-        capture("order-paid", en, end: true)
+        capture("placed", en)
+        capture("placed", de + xxxl)
+        capture("placed-badcoupon", de + xxxl)
+        capture("placed-tall", de + axl, end: true)
+        capture("placed", de + axl, end: true)
         if ProcessInfo.processInfo.environment["SHOTS_ONLY"] != "all" {
             return
         }
@@ -97,7 +91,8 @@ final class Fog6Shots: XCTestCase {
         app.launchArguments = ["-fog6shot", screen] + args
         app.launch()
         sleep(4)
-        let size = args.contains("UICTContentSizeCategoryXXXL") ? "-xxxl"
+        let size = args.contains("UICTContentSizeCategoryAccessibilityL") ? "-axl"
+            : args.contains("UICTContentSizeCategoryXXXL") ? "-xxxl"
             : args.contains("UICTContentSizeCategoryXXL") ? "-xxl"
             : args.contains("UICTContentSizeCategoryS") ? "-s" : ""
         let langTag = args.first(where: { $0.hasPrefix("(") })?.trimmingCharacters(in: CharacterSet(charactersIn: "()")) ?? "en"
