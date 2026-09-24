@@ -322,8 +322,8 @@ struct ScanAddressView: View {
         }
     }
 
-    /// Đường tắt 1: lấy địa chỉ từ GPS. Nút nổi bật hơn vì đây là đường NHANH NHẤT khi khách
-    /// đang đứng ngay tại căn nhà — đúng tình huống của gần như mọi lần quét.
+    /// Shortcut 1: the address from GPS — the fastest path when the customer stands at the home,
+    /// which is almost every scan. A light pill since Fog step 6 (one solid button per screen).
     private var useLocationButton: some View {
         Button {
             addressFocused = false // giấu bàn phím rồi mới xin quyền, không thì hộp thoại đè lên
@@ -393,17 +393,19 @@ struct ScanAddressView: View {
                     address = suggestion.full
                     completer.clear()
                 } label: {
+                    // Concrete colours: `.primary`/`.secondary` inside a default Button label
+                    // render as the tint (trap #45); the mockup shows black/grey rows.
                     HStack(spacing: 8) {
                         Image(systemName: "mappin.circle")
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Color.secondary)
                         VStack(alignment: .leading, spacing: 1) {
                             Text(suggestion.title)
-                                .foregroundStyle(.primary)
+                                .foregroundStyle(Color.primary)
                                 .lineLimit(1)
                             if !suggestion.subtitle.isEmpty {
                                 Text(suggestion.subtitle)
                                     .font(.caption)
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(Color.secondary)
                                     .lineLimit(1)
                             }
                         }
@@ -473,16 +475,17 @@ struct ScanAddressView: View {
     /// `pickedRow`. (Giữ lại một guard đã hết lý do tồn tại là bẫy #3 trong handoff.)
     private func projectRow(_ project: ScanProject) -> some View {
         let count = store.scans(in: project).count
+        // Concrete colours (trap #45), as in `suggestionRows`.
         return HStack(spacing: 8) {
             Image(systemName: "folder")
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color.secondary)
             Text(project.name)
-                .foregroundStyle(.primary)
+                .foregroundStyle(Color.primary)
                 .lineLimit(1)
             Spacer(minLength: 8)
             Text(String(localized: "\(count) scan(s)"))
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color.secondary)
                 .layoutPriority(1)
         }
     }
@@ -505,6 +508,7 @@ struct ScanAddressView: View {
                     .font(.headline)
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
+                    .padding(.horizontal, 12)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
             }
@@ -516,7 +520,7 @@ struct ScanAddressView: View {
         .padding(.horizontal)
         .padding(.bottom, 8)
         .padding(.top, 8)
-        .background(.ultraThinMaterial)
+        // Fog: on `Theme.bg`, no material strip (mockup) — the Form sits above, never under it.
     }
 
     /// Đã xác định được căn nhà chưa — chạm một dòng trong danh sách HOẶC gõ chữ đều tính.
@@ -645,11 +649,12 @@ private struct AddressMapView: View {
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 6)
-                // Fog: `card` + hairline.
+                // Fog: `card` + hairline. Opaque, so it sits above the Apple Maps logo and
+                // Legal link (MapKit terms: never cover them).
                 .background(Theme.card, in: Capsule())
                 .overlay(Capsule().strokeBorder(Theme.hairline, lineWidth: 1))
                 .padding(.horizontal, 12)
-                .padding(.bottom, 10)
+                .padding(.bottom, 30)
         }
     }
 

@@ -482,6 +482,7 @@ struct ScanDetailView: View {
             } label: {
                 Text(action)
                     .font(.headline)
+                    .padding(.horizontal, 12)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
             }
@@ -553,6 +554,7 @@ struct ScanDetailView: View {
                         systemImage: "paperplane.fill"
                     )
                     .font(.headline)
+                    .padding(.horizontal, 12)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
                 }
@@ -575,6 +577,7 @@ struct ScanDetailView: View {
                             systemImage: "paperplane.fill"
                         )
                         .font(.headline)
+                        .padding(.horizontal, 12)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
                     }
@@ -597,6 +600,7 @@ struct ScanDetailView: View {
                     } label: {
                         Label(String(localized: "Order Floor Plan"), systemImage: "paperplane.fill")
                             .font(.headline)
+                            .padding(.horizontal, 12)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 14)
                     }
@@ -606,7 +610,7 @@ struct ScanDetailView: View {
         }
         .padding(.horizontal)
         .padding(.vertical, 8)
-        .background(.ultraThinMaterial)
+        // Fog: on `Theme.bg`, no material strip (mockup) — nothing scrolls under this card.
     }
 
     /// "Floor plan ordered" (Fog): card with an `accentTint` icon tile.
@@ -785,6 +789,7 @@ struct ScanDetailView: View {
             } label: {
                 Label(String(localized: "View 3D model"), systemImage: "cube")
                     .font(.subheadline.weight(.semibold))
+                    .padding(.horizontal, 12)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
             }
@@ -860,9 +865,9 @@ struct ScanDetailView: View {
     /// quét lành (khu video vẫn chạy, nút đặt hàng vẫn sáng) ⇒ khách đặt tiền cho một bản quét
     /// không vẽ được. ✗ gỡ "cho gọn".
     ///
-    /// Màu cam + icon tam giác chứ ✗ xám nhạt như cũ: trước đây nó là một trong ba câu mô tả nên
-    /// phải đồng màu với hai câu kia; nay nó là thứ DUY NHẤT còn in ra ở chỗ này nên chỉ xuất hiện
-    /// khi có chuyện.
+    /// Warning look (Fog: `warn` box, radius 12, triangle icon), ✗ the old light grey: it used to be
+    /// one of three descriptive lines; now it is the ONLY thing printed here, and only when
+    /// something is wrong. (The FAQ still calls it "an orange line" — reword in step 7.)
     @ViewBuilder
     private var missingModelNote: some View {
         if !hasMeshModel {
@@ -900,9 +905,9 @@ struct ScanDetailView: View {
     ///  · bản quét LÀNH của bản hiện tại **không có `model.obj` lẫn `colored-mesh.ply` rời trên
     ///    đĩa** — cả hai chỉ nằm TRONG `model-colored.zip` (`ScanStore.saveMeshScan` nén xong là
     ///    xoá bản rời; app không có bộ giải nén, xem `MeshPreviewFile`);
-    ///  ⇒ lượt render đầu của MỌI bản quét lành cho `hasMeshModel == false` ⇒ **cảnh báo cam nháy
+    ///  ⇒ lượt render đầu của MỌI bản quét lành cho `hasMeshModel == false` ⇒ **cảnh báo nháy
     ///    lên rồi tắt**. Đời `meshFooterText` cũ dính y hệt nhưng in chữ XÁM lẫn giữa hai câu mô tả
-    ///    nên không ai thấy; nay nó là cảnh báo cam đơn độc, và mục Hỏi đáp mới vừa dạy khách rằng
+    ///    nên không ai thấy; nay nó là cảnh báo đơn độc (ô `warn`), và mục Hỏi đáp mới vừa dạy khách rằng
     ///    dòng cam nghĩa là "phải quét lại khu đó".
     ///
     /// Giá phải trả: 4 lần `fileExists` mỗi lượt dựng body thay vì 2. Chấp nhận — cùng LOẠI chi phí

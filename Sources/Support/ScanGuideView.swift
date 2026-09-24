@@ -48,6 +48,8 @@ struct ScanGuideView: View {
 struct ScanGuideContent: View {
     @Environment(\.dismiss) private var dismiss
     var onStart: (() -> Void)? = nil
+    /// Tick column, grows with Dynamic Type so the separators start under the text at every size.
+    @ScaledMetric(relativeTo: .footnote) private var tickWidth: CGFloat = 16
 
     var body: some View {
         ScrollView {
@@ -135,6 +137,7 @@ struct ScanGuideContent: View {
             } label: {
                 Text(String(localized: "Got it — start scanning"))
                     .font(.headline)
+                    .padding(.horizontal, 12)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
             }
@@ -182,6 +185,7 @@ struct ScanGuideContent: View {
             Image(systemName: "checkmark.circle.fill")
                 .font(.footnote)
                 .foregroundStyle(Theme.Badge.ok.fg)
+                .frame(width: tickWidth)
                 .padding(.top, 2)
             // Not `Text`: iOS 26 cut the last line of German tips (text-cut audit §4b #3–4).
             WrappedText(tip, style: .subheadline)
@@ -192,9 +196,10 @@ struct ScanGuideContent: View {
         .padding(.vertical, 10)
         .overlay(alignment: .top) {
             if !first {
+                // Starts under the text: 14 inset + tick column + 10 spacing.
                 Theme.hairline
                     .frame(height: 1)
-                    .padding(.leading, 40)
+                    .padding(.leading, 24 + tickWidth)
             }
         }
     }
