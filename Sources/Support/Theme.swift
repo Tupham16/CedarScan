@@ -68,11 +68,13 @@ struct FogBadge: View {
 }
 
 /// Solid button (`accentFill`, white label). The label sets its own font, frame and padding.
+/// `busy`: disabled while it works (spinner label) = the solid colour at 62%, not grey.
 struct FogPrimary: ButtonStyle {
     var radius: CGFloat = 14
+    var busy = false
 
     func makeBody(configuration: Configuration) -> some View {
-        FogButtonBody(configuration: configuration, kind: .primary, radius: radius)
+        FogButtonBody(configuration: configuration, kind: .primary, radius: radius, busy: busy)
     }
 }
 
@@ -103,6 +105,7 @@ private struct FogButtonBody: View {
     let configuration: ButtonStyleConfiguration
     let kind: FogButtonKind
     let radius: CGFloat
+    var busy = false
     @Environment(\.isEnabled) private var isEnabled
 
     var body: some View {
@@ -116,11 +119,14 @@ private struct FogButtonBody: View {
                 }
             }
             .contentShape(shape)
-            .opacity(configuration.isPressed ? 0.7 : 1)
+            .opacity(busy ? 0.62 : configuration.isPressed ? 0.7 : 1)
     }
 
+    /// Grey only when disabled and not busy.
+    private var colored: Bool { isEnabled || busy }
+
     private var foreground: Color {
-        guard isEnabled else { return Theme.inactive }
+        guard colored else { return Theme.inactive }
         switch kind {
         case .primary: return .white
         case .tint: return Theme.accentText
@@ -130,8 +136,8 @@ private struct FogButtonBody: View {
 
     private var fill: Color {
         switch kind {
-        case .primary: return isEnabled ? Theme.accentFill : Theme.Badge.neutral.bg
-        case .tint: return isEnabled ? Theme.accentTint : Theme.Badge.neutral.bg
+        case .primary: return colored ? Theme.accentFill : Theme.Badge.neutral.bg
+        case .tint: return colored ? Theme.accentTint : Theme.Badge.neutral.bg
         case .ghost: return .clear
         }
     }

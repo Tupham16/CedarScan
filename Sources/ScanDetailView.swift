@@ -1236,6 +1236,9 @@ struct OrderSheet: View {
                     ProgressView(String(localized: "Loading options…"))
                 }
             }
+            // Fog: `Theme.bg` behind every state (loading, form, placed).
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Theme.bg.ignoresSafeArea())
             .navigationTitle(String(localized: "Order Floor Plan"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -1339,14 +1342,15 @@ struct OrderSheet: View {
                             VStack(spacing: 4) {
                                 templateThumb(tpl)
                                     .overlay(
-                                        RoundedRectangle(cornerRadius: 8).strokeBorder(
-                                            selectedTemplates[addonId] == tpl.id ? Color.accentColor : Color.secondary.opacity(0.3),
+                                        RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(
+                                            selectedTemplates[addonId] == tpl.id ? Theme.accentText : Theme.ghostBorder,
                                             lineWidth: selectedTemplates[addonId] == tpl.id ? 2.5 : 1
                                         )
                                     )
                                 Text(tpl.name)
                                     .font(.caption2)
-                                    .foregroundStyle(selectedTemplates[addonId] == tpl.id ? Color.accentColor : Color.secondary)
+                                    .fontWeight(selectedTemplates[addonId] == tpl.id ? .semibold : .regular)
+                                    .foregroundStyle(selectedTemplates[addonId] == tpl.id ? Theme.accentText : Color.secondary)
                                     .lineLimit(1)
                             }
                         }
@@ -1377,8 +1381,8 @@ struct OrderSheet: View {
             }
             .frame(maxWidth: .infinity)
             .frame(height: 200)
-            .background(Color.secondary.opacity(0.06))
-            .clipShape(RoundedRectangle(cornerRadius: 10))
+            .background(Theme.thumbBg)
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         } else {
             RoundedRectangle(cornerRadius: 10)
                 .fill(Color.secondary.opacity(0.1))
@@ -1408,9 +1412,9 @@ struct OrderSheet: View {
                 }
             }
             .frame(width: 64, height: 64)
-            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         } else {
-            RoundedRectangle(cornerRadius: 8)
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .fill(Color.secondary.opacity(0.12))
                 .frame(width: 64, height: 64)
                 .overlay(Image(systemName: "paintpalette").foregroundStyle(.secondary))
@@ -1449,24 +1453,55 @@ struct OrderSheet: View {
         OrderFileItem.mimeType(for: url)
     }
 
+    /// Fog: `Form` stays insetGrouped; rows on `Theme.card`, `Theme.bg` behind (`fogScreen`).
+    /// One function per Section (CI type-check timeout on big SwiftUI expressions).
     @ViewBuilder
     private func orderForm(_ catalog: CatalogResponse) -> some View {
         Form {
-            if isFreePromo, let remaining = catalog.freeOrdersRemaining, let totalFree = catalog.freeFirstOrders {
-                Section {
-                    Label {
-                        Text(String(localized: "This order is FREE! New customers get their first \(totalFree) orders free (\(remaining) left)."))
-                        .font(.subheadline.weight(.semibold))
-                    } icon: {
-                        Text("🎁")
-                    }
-                    .foregroundStyle(.green)
-                }
-            }
+            freeBanner(catalog)
+            floorsSection
+            packagesSection(catalog)
+            addonsSection(catalog)
+            preferencesSection
+            noteSection
+            attachmentsSection
+            couponSection
+            placeOrderSection(catalog)
+        }
+        .fogScreen()
+    }
+
+    /// Fog section title: 13pt semibold grey, sentence case.
+    private func sectionHeader(_ title: String) -> some View {
+        Text(title)
+            .font(.footnote.weight(.semibold))
+            .foregroundStyle(.secondary)
+            .textCase(nil)
+    }
+
+    /// FREE banner (Fog: a row on `Badge.ok`).
+    @ViewBuilder
+    private func freeBanner(_ catalog: CatalogResponse) -> some View {
+        if isFreePromo, let remaining = catalog.freeOrdersRemaining, let totalFree = catalog.freeFirstOrders {
             Section {
+                Label {
+                    Text(String(localized: "This order is FREE! New customers get their first \(totalFree) orders free (\(remaining) left)."))
+                    .font(.subheadline.weight(.semibold))
+                } icon: {
+                    Text("🎁")
+                }
+                .foregroundStyle(Theme.Badge.ok.fg)
+                .listRowBackground(Theme.Badge.ok.bg)
+            }
+        }
+    }
+
+    private var floorsSection: some View {
+        Section {
+            Group {
                 HStack {
                     Image(systemName: "checkmark.circle.fill")
-                        .foregroundStyle(.green)
+                        .foregroundStyle(Theme.Badge.ok.fg)
                     Text(record.name)
                     Spacer()
                     if let area = record.areaSqm, area > 0 {
@@ -1491,28 +1526,33 @@ struct OrderSheet: View {
                         }
                     }
                 }
-            } header: {
-                Text(String(localized: "Floors in this order"))
-            } footer: {
-                // CHỈ NÓI KHI CÓ VIỆC PHẢI LÀM: không có bản quét nào khác để gộp thì mục này không
-                // có footer nào cả (chủ app chốt 2026-08-13 — xem `floorsFooterText`).
-                if !otherScans.isEmpty {
-                    if extraFloors.isEmpty {
-                        // Nhắc NỔI BẬT: gộp tầng = 1 giá cho cả căn — đừng đặt lẻ từng tầng!
-                        Label {
-                            Text(String(localized: "TIP: One order covers the WHOLE home — select the other floors above instead of ordering them separately!"))
-                            .font(.footnote.weight(.semibold))
-                        } icon: {
-                            Text("💡")
-                        }
-                        .foregroundStyle(.tint)
-                    } else {
-                        Text(floorsFooterText)
+            }
+            .listRowBackground(Theme.card)
+        } header: {
+            sectionHeader(String(localized: "Floors in this order"))
+        } footer: {
+            // CHỈ NÓI KHI CÓ VIỆC PHẢI LÀM: không có bản quét nào khác để gộp thì mục này không
+            // có footer nào cả (chủ app chốt 2026-08-13 — xem `floorsFooterText`).
+            if !otherScans.isEmpty {
+                if extraFloors.isEmpty {
+                    // Nhắc NỔI BẬT: gộp tầng = 1 giá cho cả căn — đừng đặt lẻ từng tầng!
+                    Label {
+                        Text(String(localized: "TIP: One order covers the WHOLE home — select the other floors above instead of ordering them separately!"))
+                        .font(.footnote.weight(.semibold))
+                    } icon: {
+                        Text("💡")
                     }
+                    .foregroundStyle(.tint)
+                } else {
+                    Text(floorsFooterText)
                 }
             }
+        }
+    }
 
-            Section {
+    private func packagesSection(_ catalog: CatalogResponse) -> some View {
+        Section {
+            Group {
                 // ĐA GÓI: khách chọn 2D / 3D / cả hai — check nhiều được, giá cộng dồn (checkmark thay
                 // cho radio để báo hiệu chọn-nhiều). Ít nhất một gói (nút Đặt hàng khoá khi rỗng).
                 ForEach(catalog.packages) { pkg in
@@ -1526,19 +1566,25 @@ struct OrderSheet: View {
                         HStack {
                             Image(systemName: selectedPackages.contains(pkg.id) ? "checkmark.circle.fill" : "circle")
                                 .foregroundStyle(.tint)
+                            // Concrete colours: `.primary`/`.secondary` in a Button label = the tint (trap #45).
                             Text(pkg.name)
-                                .foregroundStyle(.primary)
+                                .foregroundStyle(Color.primary)
                             Spacer()
                             Text("$\(pkg.price)")
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(Color.secondary)
                         }
                     }
                 }
-            } header: {
-                Text(String(localized: "Packages (choose one or more)"))
             }
+            .listRowBackground(Theme.card)
+        } header: {
+            sectionHeader(String(localized: "Packages (choose one or more)"))
+        }
+    }
 
-            Section {
+    private func addonsSection(_ catalog: CatalogResponse) -> some View {
+        Section {
+            Group {
                 ForEach(catalog.addons) { addon in
                     Toggle(isOn: addonBinding(addon)) {
                         HStack {
@@ -1553,22 +1599,27 @@ struct OrderSheet: View {
                         templatePicker(addonId: addon.id, templates: templates)
                     }
                 }
-            } header: {
-                Text(String(localized: "Add-ons"))
-            } footer: {
-                VStack(alignment: .leading, spacing: 6) {
-                    // Express: chỉ CẢNH BÁO. App không đo được diện tích (mesh không có areaSqm) nên
-                    // không tự chặn nhà lớn được — chủ app tự xử khi vẽ.
-                    if selectedAddons.contains("express") {
-                        Text(String(localized: "⚡️ Express: delivered within 12 hours. Not available for homes over 5,000 sq ft (464 m²)."))
-                    }
-                    if selectedAddons.contains("tour") {
-                        Text(String(localized: "🏠 Virtual Tour: after ordering you'll add 1–3 photos per room — we pin them on your floor plan and you get a shareable interactive tour link."))
-                    }
+            }
+            .listRowBackground(Theme.card)
+        } header: {
+            sectionHeader(String(localized: "Add-ons"))
+        } footer: {
+            VStack(alignment: .leading, spacing: 6) {
+                // Express: chỉ CẢNH BÁO. App không đo được diện tích (mesh không có areaSqm) nên
+                // không tự chặn nhà lớn được — chủ app tự xử khi vẽ.
+                if selectedAddons.contains("express") {
+                    Text(String(localized: "⚡️ Express: delivered within 12 hours. Not available for homes over 5,000 sq ft (464 m²)."))
+                }
+                if selectedAddons.contains("tour") {
+                    Text(String(localized: "🏠 Virtual Tour: after ordering you'll add 1–3 photos per room — we pin them on your floor plan and you get a shareable interactive tour link."))
                 }
             }
+        }
+    }
 
-            Section {
+    private var preferencesSection: some View {
+        Section {
+            Group {
                 Picker(String(localized: "Units"), selection: $unitSystem) {
                     Text(String(localized: "Metric (m)")).tag("metric")
                     Text(String(localized: "Imperial (ft)")).tag("imperial")
@@ -1585,24 +1636,32 @@ struct OrderSheet: View {
                 // nên dán nhãn "không bắt buộc" lên từng ô là lặp lại một điều đúng với tất cả.
                 // ✗ thêm lại cho riêng một ô: lúc đó ba ô còn lại trông như thể BẮT BUỘC.
                 TextField(String(localized: "Floor naming style"), text: $floorNaming)
-            } header: {
-                Text(String(localized: "Preferences (saved for next time)"))
             }
+            .listRowBackground(Theme.card)
+        } header: {
+            sectionHeader(String(localized: "Preferences (saved for next time)"))
+        }
+    }
 
-            // Ghi chú TÁCH khỏi mục "lưu cho lần sau": server chỉ lưu gói/add-on/đơn vị/ngôn ngữ/kiểu
-            // tên tầng làm mặc định (orderDefaults), KHÔNG lưu `notes` — để chung header cũ là hứa sai.
-            Section {
-                TextField(
-                    String(localized: "Anything we should know?"),
-                    text: $notes,
-                    axis: .vertical
-                )
-                .lineLimit(3...6)
-            } header: {
-                Text(String(localized: "Note"))
-            }
+    // Ghi chú TÁCH khỏi mục "lưu cho lần sau": server chỉ lưu gói/add-on/đơn vị/ngôn ngữ/kiểu
+    // tên tầng làm mặc định (orderDefaults), KHÔNG lưu `notes` — để chung header cũ là hứa sai.
+    private var noteSection: some View {
+        Section {
+            TextField(
+                String(localized: "Anything we should know?"),
+                text: $notes,
+                axis: .vertical
+            )
+            .lineLimit(3...6)
+            .listRowBackground(Theme.card)
+        } header: {
+            sectionHeader(String(localized: "Note"))
+        }
+    }
 
-            Section {
+    private var attachmentsSection: some View {
+        Section {
+            Group {
                 ForEach(orderFiles) { file in
                     HStack {
                         Image(systemName: "doc.fill").foregroundStyle(.secondary)
@@ -1643,28 +1702,36 @@ struct OrderSheet: View {
                 if let fileUploadError {
                     Text(fileUploadError).font(.footnote).foregroundStyle(.red)
                 }
-            } header: {
-                Text(String(localized: "Attachments"))
-            } footer: {
-                // Câu mời "Gửi thêm logo hoặc file cho đội vẽ nếu cần — ảnh hoặc PDF." ĐÃ XOÁ
-                // 2026-08-13 (chủ app): nút ngay trên đã ghi "Thêm file (logo, PDF…)", nói lại
-                // lần nữa là hai dòng cho một việc.
-                // 🔴 CẢNH BÁO TRẦN THÌ GIỮ — nó là thứ DUY NHẤT giải thích vì sao nút thêm file
-                // bỗng xám khi đủ 10 file. Bỏ nốt nó là nút chết không lý do (xem `.disabled`).
-                if orderFiles.count >= Self.maxOrderFiles {
-                    Text(String(localized: "Maximum \(Self.maxOrderFiles) files per order."))
-                }
             }
-
-            Section {
-                TextField(String(localized: "Coupon code"), text: $couponCode)
-                    .textInputAutocapitalization(.characters)
-                    .autocorrectionDisabled()
-            } footer: {
-                Text(String(localized: "The discount is applied on the payment page."))
+            .listRowBackground(Theme.card)
+        } header: {
+            sectionHeader(String(localized: "Attachments"))
+        } footer: {
+            // Câu mời "Gửi thêm logo hoặc file cho đội vẽ nếu cần — ảnh hoặc PDF." ĐÃ XOÁ
+            // 2026-08-13 (chủ app): nút ngay trên đã ghi "Thêm file (logo, PDF…)", nói lại
+            // lần nữa là hai dòng cho một việc.
+            // 🔴 CẢNH BÁO TRẦN THÌ GIỮ — nó là thứ DUY NHẤT giải thích vì sao nút thêm file
+            // bỗng xám khi đủ 10 file. Bỏ nốt nó là nút chết không lý do (xem `.disabled`).
+            if orderFiles.count >= Self.maxOrderFiles {
+                Text(String(localized: "Maximum \(Self.maxOrderFiles) files per order."))
             }
+        }
+    }
 
-            Section {
+    private var couponSection: some View {
+        Section {
+            TextField(String(localized: "Coupon code"), text: $couponCode)
+                .textInputAutocapitalization(.characters)
+                .autocorrectionDisabled()
+                .listRowBackground(Theme.card)
+        } footer: {
+            Text(String(localized: "The discount is applied on the payment page."))
+        }
+    }
+
+    private func placeOrderSection(_ catalog: CatalogResponse) -> some View {
+        Section {
+            Group {
                 if let surcharge = catalog.areaSurcharges
                     .filter({ areaSqFt > $0.overSqFt && $0.fee > 0 })
                     .max(by: { $0.overSqFt < $1.overSqFt }) {
@@ -1690,53 +1757,58 @@ struct OrderSheet: View {
                         .font(.footnote)
                         .foregroundStyle(.red)
                 }
-                Button {
-                    submit()
-                } label: {
-                    HStack {
-                        if isBusy {
-                            ProgressView().tint(.white)
-                            if let busyLabel {
-                                Text(busyLabel).font(.subheadline)
-                            }
-                        } else {
-                            Text(String(localized: "Place order") + " · " + (isFreePromo ? String(localized: "FREE 🎁") : "$\(totalUSD)"))
-                                .font(.headline)
+            }
+            .listRowBackground(Theme.card)
+            Button {
+                submit()
+            } label: {
+                HStack {
+                    if isBusy {
+                        ProgressView().tint(.white)
+                        if let busyLabel {
+                            Text(busyLabel).font(.subheadline)
                         }
+                    } else {
+                        Text(String(localized: "Place order") + " · " + (isFreePromo ? String(localized: "FREE 🎁") : "$\(totalUSD)"))
+                            .font(.headline)
                     }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 6)
                 }
-                .buttonStyle(.borderedProminent)
-                .listRowInsets(EdgeInsets())
-                .disabled(isBusy || selectedPackages.isEmpty || uploadingFile)
-            } footer: {
-                // Nhánh KHÔNG-free ("Sau khi đặt sẽ có link thanh toán bảo mật (Stripe/PayPal)")
-                // ĐÃ XOÁ 2026-08-13 (chủ app). Việc "trả tiền ở bước sau" vẫn được nói ở màn
-                // THÀNH CÔNG ngay sau khi bấm (`successView`: nút "Thanh toán ngay" / câu "gửi
-                // link qua email" — câu "đội ngũ bắt đầu sau khi nhận thanh toán" đã bỏ 2026-09-01)
-                // và ở tab Đơn hàng — tức khách vẫn không bị bất ngờ, chỉ là không đọc nó hai lần.
-                //
-                // Câu cho đơn MIỄN PHÍ thì GIỮ: nó không mô tả quy trình chung mà nói đúng một
-                // điều riêng của đơn này — "không phải trả gì cả". Bỏ nốt là khách vừa thấy nút
-                // "MIỄN PHÍ 🎁" vừa không có gì xác nhận.
-                VStack(alignment: .leading, spacing: 4) {
-                    if isFreePromo {
-                        Text(String(localized: "Free order — no payment needed. Our team starts right after you place it."))
-                    }
-                    // Dòng đồng ý điều khoản — MỘT dòng footer, bấm được để đọc ngay tại chỗ
-                    // (không bắt khách rời form sang tab Tài khoản). Sheet bọc NavigationStack
-                    // vì LegalDocumentView dùng navigationTitle.
-                    Button {
-                        showTermsSheet = true
-                    } label: {
-                        Text(String(localized: "By placing this order you agree to the Terms and Conditions."))
-                            .multilineTextAlignment(.leading)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                    .sheet(isPresented: $showTermsSheet) {
-                        NavigationStack { LegalDocumentView(doc: .terms) }
-                    }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+            }
+            // Fog: stands alone on the screen background (mockup). Busy = blue at 62% (mockup 19),
+            // other disabled states grey.
+            .buttonStyle(FogPrimary(busy: isBusy))
+            .listRowInsets(EdgeInsets())
+            .listRowBackground(Color.clear)
+            .disabled(isBusy || selectedPackages.isEmpty || uploadingFile)
+        } footer: {
+            // Nhánh KHÔNG-free ("Sau khi đặt sẽ có link thanh toán bảo mật (Stripe/PayPal)")
+            // ĐÃ XOÁ 2026-08-13 (chủ app). Việc "trả tiền ở bước sau" vẫn được nói ở màn
+            // THÀNH CÔNG ngay sau khi bấm (`successView`: nút "Thanh toán ngay" / câu "gửi
+            // link qua email" — câu "đội ngũ bắt đầu sau khi nhận thanh toán" đã bỏ 2026-09-01)
+            // và ở tab Đơn hàng — tức khách vẫn không bị bất ngờ, chỉ là không đọc nó hai lần.
+            //
+            // Câu cho đơn MIỄN PHÍ thì GIỮ: nó không mô tả quy trình chung mà nói đúng một
+            // điều riêng của đơn này — "không phải trả gì cả". Bỏ nốt là khách vừa thấy nút
+            // "MIỄN PHÍ 🎁" vừa không có gì xác nhận.
+            VStack(alignment: .leading, spacing: 4) {
+                if isFreePromo {
+                    Text(String(localized: "Free order — no payment needed. Our team starts right after you place it."))
+                }
+                // Dòng đồng ý điều khoản — MỘT dòng footer, bấm được để đọc ngay tại chỗ
+                // (không bắt khách rời form sang tab Tài khoản). Sheet bọc NavigationStack
+                // vì LegalDocumentView dùng navigationTitle.
+                Button {
+                    showTermsSheet = true
+                } label: {
+                    Text(String(localized: "By placing this order you agree to the Terms and Conditions."))
+                        .foregroundStyle(Theme.accentText)
+                        .multilineTextAlignment(.leading)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .sheet(isPresented: $showTermsSheet) {
+                    NavigationStack { LegalDocumentView(doc: .terms) }
                 }
             }
         }
@@ -1745,9 +1817,12 @@ struct OrderSheet: View {
     @ViewBuilder
     private func successView(_ order: OrderScanResponse) -> some View {
         VStack(spacing: 14) {
-            Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 52))
-                .foregroundStyle(.green)
+            // Fog: tick on an `ok` disc.
+            Image(systemName: "checkmark")
+                .font(.system(size: 30, weight: .bold))
+                .foregroundStyle(Theme.Badge.ok.fg)
+                .frame(width: 76, height: 76)
+                .background(Circle().fill(Theme.Badge.ok.bg))
             Text(String(localized: "Order placed!"))
                 .font(.title3.weight(.bold))
             Text(order.orderNumber)
@@ -1761,11 +1836,11 @@ struct OrderSheet: View {
             if let discount = order.discount, discount > 0 {
                 Text(String(localized: "Coupon applied: −$\(String(format: "%.2f", discount))"))
                     .font(.subheadline)
-                    .foregroundStyle(.green)
+                    .foregroundStyle(Theme.Badge.ok.fg)
             } else if order.couponApplied == false {
                 Text(String(localized: "Coupon code was not valid — full price applies."))
                     .font(.footnote)
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(Theme.Badge.warn.fg)
             }
             // Câu "Đội ngũ Cedar247 sẽ bắt đầu…" (CẢ HAI nhánh free/trả tiền) ĐÃ BỎ 2026-09-01
             // theo chủ app — thay bằng lời cảm ơn, GIỮ đúng dòng "Theo dõi…". Việc "trả tiền ở
@@ -1792,10 +1867,11 @@ struct OrderSheet: View {
                     Label(String(localized: "Pay Now"), systemImage: "creditcard.fill")
                         .font(.headline)
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
+                        .padding(.vertical, 14)
                 }
-                .buttonStyle(.borderedProminent)
-                .padding(.horizontal)
+                // Restyled here only; ✗ edit `PaymentFlow.swift`. Loading = disabled = grey, so the
+                // spinner keeps its default grey (white would vanish on it).
+                .buttonStyle(FogPrimary())
             } else if order.free != true {
                 Text(String(localized: "We will email you a payment link shortly."))
                 .font(.footnote)
@@ -1811,11 +1887,10 @@ struct OrderSheet: View {
                           systemImage: "photo.on.rectangle.angled")
                         .font(.headline)
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
+                        .padding(.vertical, 14)
                 }
-                .buttonStyle(.bordered)
-                .tint(.indigo)
-                .padding(.horizontal)
+                // Fog tint, blue (owner 21/09: not purple).
+                .buttonStyle(FogTint())
                 Text(String(localized: "1–3 photos per room. You can also add them later in the Orders tab."))
                 .font(.footnote)
                 .foregroundStyle(.secondary)
