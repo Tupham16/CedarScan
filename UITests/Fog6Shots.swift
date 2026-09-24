@@ -12,8 +12,10 @@ final class Fog6Shots: XCTestCase {
         continueAfterFailure = true
         let en = lang("en", "US")
         let de = lang("de", "DE")
-        // 6b round 2: Order placed (scrolls when too tall) + Place order label padding.
-        for args in [en, de, de + xxxl] {
+        // 6b round 3: tour label height, Place order label room, coupon lines centred.
+        let fr = lang("fr", "FR")
+        let cs = lang("cs", "CZ")
+        for args in [en, de + xxxl] {
             capture("placed", args)
         }
         capture("placed-free", en)
@@ -23,7 +25,9 @@ final class Fog6Shots: XCTestCase {
         capture("placed-tall", de + xxxl, end: true)
         capture("order-busy", en, end: true)
         capture("order-error", de, end: true)
-        capture("order", de + xxxl, end: true)
+        for args in [en, de + xxxl, fr + xxxl, cs + xxxl] {
+            capture("order", args, end: true)
+        }
         capture("order-paid", en, end: true)
         if ProcessInfo.processInfo.environment["SHOTS_ONLY"] != "all" {
             return
@@ -96,7 +100,8 @@ final class Fog6Shots: XCTestCase {
         let size = args.contains("UICTContentSizeCategoryXXXL") ? "-xxxl"
             : args.contains("UICTContentSizeCategoryXXL") ? "-xxl"
             : args.contains("UICTContentSizeCategoryS") ? "-s" : ""
-        let tag = screen + "-" + (args.contains("(de)") ? "de" : "en") + size
+        let langTag = args.first(where: { $0.hasPrefix("(") })?.trimmingCharacters(in: CharacterSet(charactersIn: "()")) ?? "en"
+        let tag = screen + "-" + langTag + size
         if pages {
             self.pages(app, tag)
         } else if end {
