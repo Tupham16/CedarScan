@@ -101,7 +101,7 @@ struct ScanPreviewView: View {
             // Fog: `ok` pill, small tick close to the text (mockup).
             HStack(spacing: 5) {
                 Image(systemName: "checkmark")
-                    .font(.caption.weight(.bold))
+                    .font(.caption2.weight(.bold))
                     .accessibilityHidden(true)
                 Text(String(localized: "Scan saved"))
                     .font(.footnote.weight(.semibold))
