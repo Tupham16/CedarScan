@@ -12,24 +12,19 @@ final class Fog6Shots: XCTestCase {
         continueAfterFailure = true
         let en = lang("en", "US")
         let de = lang("de", "DE")
-        // 6b: order sheet + Order placed.
-        for args in [en, de, de + xxxl] {
-            capture("order", args, pages: true)
-        }
-        capture("order-paid", en, pages: true)
-        capture("order-paid", de + xxxl, pages: true)
-        for args in [en, de] {
-            capture("order-busy", args, end: true)
-            capture("order-error", args, end: true)
-        }
+        // 6b round 2: Order placed (scrolls when too tall) + Place order label padding.
         for args in [en, de, de + xxxl] {
             capture("placed", args)
         }
         capture("placed-free", en)
-        capture("placed-coupon", en)
         capture("placed-coupon", de)
         capture("placed-badcoupon", en)
         capture("placed-badcoupon", de + xxxl)
+        capture("placed-tall", de + xxxl, end: true)
+        capture("order-busy", en, end: true)
+        capture("order-error", de, end: true)
+        capture("order", de + xxxl, end: true)
+        capture("order-paid", en, end: true)
         if ProcessInfo.processInfo.environment["SHOTS_ONLY"] != "all" {
             return
         }
@@ -105,6 +100,7 @@ final class Fog6Shots: XCTestCase {
         if pages {
             self.pages(app, tag)
         } else if end {
+            shot(tag)
             scrollToEnd(app)
             shot(tag + "-end")
         } else {

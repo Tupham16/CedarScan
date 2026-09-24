@@ -99,6 +99,8 @@ enum Fog6 {
             json = ##"{"orderId":"h2","orderNumber":"#10484","status":"pending","total":0,"currency":"USD","free":true,"hasTour":false}"##
         case "placed-coupon":
             json = ##"{"orderId":"h3","orderNumber":"#10485","status":"pending","total":14,"currency":"USD","paymentUrl":"https://example.invalid/pay/h3","discount":5,"couponApplied":true,"free":false,"hasTour":false,"payInApp":false}"##
+        case "placed-tall":
+            json = ##"{"orderId":"h5","orderNumber":"#10487","status":"pending","total":14,"currency":"USD","paymentUrl":"https://example.invalid/pay/h5","discount":5,"couponApplied":true,"free":false,"hasTour":true,"payInApp":false}"##
         case "placed-badcoupon":
             json = ##"{"orderId":"h4","orderNumber":"#10486","status":"pending","total":19,"currency":"USD","couponApplied":false,"free":false,"hasTour":true}"##
         default:
@@ -296,7 +298,7 @@ struct Fog6ShotRoot: View {
         case "learn":
             LearnView()
                 .overlay(alignment: .bottom) { CedarTabBar(selection: .constant(.learn), onScan: {}) }
-        case "order", "order-busy", "order-error", "placed", "placed-free", "placed-coupon", "placed-badcoupon":
+        case "order", "order-busy", "order-error", "placed", "placed-free", "placed-coupon", "placed-badcoupon", "placed-tall":
             Color.gray.opacity(0.35).ignoresSafeArea()
                 .sheet(isPresented: $sheet) { orderSheet(project: false) }
         case "order-paid":
