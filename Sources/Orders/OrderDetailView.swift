@@ -7,6 +7,8 @@ struct OrderRoute: Hashable {
     let orderId: String
     /// Plain data for the navigation bar, captured at tap time (`ProjectView.projectName`).
     let title: String
+    /// The account whose list it was tapped in.
+    let customerId: String?
 }
 
 /// One order (mockups 32/33): summary + Pay Now, files, what was ordered, revision / add a scan.
@@ -22,16 +24,23 @@ struct OrderDetailView: View {
     /// 🔴 Passed by hand, ✗ `@EnvironmentObject`: this is a PUSHED screen (SIGTRAP history,
     /// `ProjectView.store`). Order → project on this device, for "Add a scan".
     @ObservedObject var store: ScanStore
+    /// Passed by hand too. Only read to check the order still belongs to the signed-in account.
+    @ObservedObject var account: AccountStore
     /// `OrdersView.load()`.
     let reload: () async -> Void
     /// Nhảy sang tab Home và mở dự án — `RootView.requestOpenProject`.
     let onOpenProject: (ScanProject) -> Void
     @State private var revisionOrder: OrderDTO?
     @State private var tourOrder: OrderDTO? // mở màn thêm ảnh Virtual Tour
+    @Environment(\.dynamicTypeSize) private var typeSize
 
-    /// `nil` = gone from the list (refresh, account switch): `OrdersView` pops this screen.
+    /// `nil` = gone from the list (a refresh) or not this account's (sign-out, account switch):
+    /// `OrdersView` pops this screen. The account check is synchronous on purpose — the wipe in
+    /// `OrdersView` runs only once the tab shows again, and its first frame must not draw the
+    /// previous account's order, Pay Now link or property name.
     private var order: OrderDTO? {
-        orders.first { $0.orderId == route.orderId }
+        guard route.customerId == account.customer?.id else { return nil }
+        return orders.first { $0.orderId == route.orderId }
     }
 
     var body: some View {
@@ -41,10 +50,12 @@ struct OrderDetailView: View {
             }
         }
         .fogScreen()
+        // Its own task: SwiftUI cancels a refresh whose view goes away (Back), and a cancelled
+        // load reads as a failure — a false "Couldn't refresh" on the list.
         .refreshable {
-            await reload()
+            await Task { await reload() }.value
         }
-        .navigationTitle(route.title)
+        .navigationTitle(order == nil ? "" : route.title)
         .navigationBarTitleDisplayMode(.inline)
         // A pushed screen hides the system tab bar itself, as `ProjectView` / `ScanDetailView` do.
         .toolbar(.hidden, for: .tabBar)
@@ -86,14 +97,17 @@ struct OrderDetailView: View {
     /// Status, number, date · total · Paid, and Pay Now while unpaid.
     private func summary(_ order: OrderDTO) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 8) {
+            // Accessibility sizes stack both rows: side by side the number gets cut and "Paid"
+            // breaks mid-word (simulator renders, AX3).
+            if typeSize.isAccessibilitySize {
                 StatusBadge(status: order.status)
-                Spacer(minLength: 8)
-                Text(order.orderNumber)
-                    .font(.subheadline.monospaced().weight(.semibold))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
+                orderNumber(order)
+            } else {
+                HStack(spacing: 8) {
+                    StatusBadge(status: order.status)
+                    Spacer(minLength: 8)
+                    orderNumber(order)
+                }
             }
             summaryLine(order)
             payNow(order)
@@ -102,22 +116,46 @@ struct OrderDetailView: View {
         .detailCard()
     }
 
+    private func orderNumber(_ order: OrderDTO) -> some View {
+        Text(order.orderNumber)
+            .font(.subheadline.monospaced().weight(.semibold))
+            .foregroundStyle(.secondary)
+            .lineLimit(1)
+            .minimumScaleFactor(0.7)
+    }
+
     /// The 2.45 header's second line, conditions verbatim; the order number moved up to the badge.
+    @ViewBuilder
     private func summaryLine(_ order: OrderDTO) -> some View {
-        HStack(spacing: 5) {
-            Text(OrdersView.formatDate(order.placedAt))
-            if let total = order.total, total > 0 {
-                Text("· $\(total)")
-                if order.paid == true {
+        if typeSize.isAccessibilitySize {
+            VStack(alignment: .leading, spacing: 4) {
+                summaryParts(order, dots: false)
+            }
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+        } else {
+            HStack(spacing: 5) {
+                summaryParts(order, dots: true)
+            }
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+        }
+    }
+
+    @ViewBuilder
+    private func summaryParts(_ order: OrderDTO, dots: Bool) -> some View {
+        Text(OrdersView.formatDate(order.placedAt))
+        if let total = order.total, total > 0 {
+            Text(verbatim: dots ? "· $\(total)" : "$\(total)")
+            if order.paid == true {
+                if dots {
                     Text(verbatim: "·")
-                    Label(String(localized: "Paid"), systemImage: "checkmark.circle")
-                        .fontWeight(.medium)
-                        .foregroundStyle(Theme.Badge.ok.fg)
                 }
+                Label(String(localized: "Paid"), systemImage: "checkmark.circle")
+                    .fontWeight(.medium)
+                    .foregroundStyle(Theme.Badge.ok.fg)
             }
         }
-        .font(.footnote)
-        .foregroundStyle(.secondary)
     }
 
     /// In-app card sheet when the server offers it, else the browser — see `PaymentFlow`.
@@ -215,13 +253,15 @@ struct OrderDetailView: View {
             HStack(spacing: 8) {
                 Image(systemName: "doc")
                     .foregroundStyle(Theme.inactive)
+                // Concrete colours: `.primary` / `.secondary` inside a Link label render the tint
+                // (trap #45) — the mockup shows plain text.
                 Text(file.fileName)
                     .lineLimit(1)
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(Color.primary)
                 Spacer(minLength: 8)
                 if let size = file.sizeLabel {
                     Text(size)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Color.secondary)
                 }
             }
             .font(.footnote)
