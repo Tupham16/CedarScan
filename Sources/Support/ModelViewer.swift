@@ -132,10 +132,9 @@ struct ModelViewerScreen: View {
                     .font(.headline)
                     .foregroundStyle(.white)
                     .frame(width: 38, height: 38)
-                    // Chip đen cố định, ✗ `.ultraThinMaterial`: nền ở đây LUÔN tối bất kể máy
-                    // đang light hay dark, nên vật liệu sẽ ra gần trắng ở light mode và nuốt
-                    // mất dấu X trắng.
-                    .background(Color.black.opacity(0.45), in: Circle())
+                    // Fog dark glass (as on the scan screen): always dark, so the white X
+                    // stays visible in light mode too.
+                    .fogGlass(Circle())
             }
             .accessibilityLabel(String(localized: "Close"))
 
@@ -147,6 +146,8 @@ struct ModelViewerScreen: View {
         }
         .padding(.horizontal, 16)
         .padding(.top, 12)
+        // The backdrop is dark in both modes: the switch uses its dark-mode track (mockup).
+        .environment(\.colorScheme, .dark)
     }
 
     /// Công tắc Texture. `Toggle` thật (✗ hai nút hay một segmented) vì chủ app tả đúng cái đó:
@@ -161,7 +162,7 @@ struct ModelViewerScreen: View {
         .fixedSize()
         .padding(.horizontal, 12)
         .padding(.vertical, 7)
-        .background(Color.black.opacity(0.45), in: Capsule())
+        .fogGlass(Capsule())
         // Đang tải thì khoá công tắc lại: gạt qua gạt lại giữa chừng chỉ đẻ ra câu hỏi "nó có
         // đang tải nữa không". Muốn dừng thì bấm Hủy ở khối đang tải giữa màn.
         .disabled(textured.phase == .downloading && texture == nil)

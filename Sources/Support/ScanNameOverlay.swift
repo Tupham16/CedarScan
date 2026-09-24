@@ -14,6 +14,8 @@ struct ScanNameOverlay: View {
     let onSave: () -> Void
     let onBack: () -> Void
 
+    @FocusState private var fieldFocused: Bool
+
     /// Số gợi ý-theo-chữ tối đa hiện cùng lúc. ✗ nâng: thẻ này nằm giữa màn và bàn phím đang mở
     /// đẩy nó lên; mỗi hàng thêm là một hàng có thể bị đẩy khuất. 4 = tối đa 2 hàng.
     private static let maxTypeAhead = 4
@@ -44,7 +46,8 @@ struct ScanNameOverlay: View {
     }
 
     var body: some View {
-        ZStack {
+        let card = RoundedRectangle(cornerRadius: 20, style: .continuous)
+        return ZStack {
             Color.black.opacity(0.45).ignoresSafeArea()
             VStack(spacing: 14) {
                 Text(String(localized: "Name this scan"))
@@ -56,18 +59,7 @@ struct ScanNameOverlay: View {
 
                 suggestionGrid
 
-                TextField(
-                    String(localized: "Or type a name (e.g. Attic)"),
-                    text: $name
-                )
-                .textFieldStyle(.roundedBorder)
-                // Tên riêng của khu vực, ✗ câu tiếng Anh: TẮT sửa lỗi tự động để bàn phím thôi
-                // "chữa" chữ khách vừa gõ hoặc vừa chọn từ gợi ý. Viết hoa thì KHÔNG tắt — để
-                // `.words` cho giống ô địa chỉ (`ScanAddressView`), tên khu vực vốn viết hoa đầu
-                // từ. ⚠ Hệ quả đã biết: tự gõ ra "Ground Floor" trong khi thẻ gợi ý ghi "Ground
-                // floor" — danh sách giữ NGUYÊN cách viết hoa của chủ app nên hai đường lệch nhau.
-                .autocorrectionDisabled()
-                .textInputAutocapitalization(.words)
+                nameField
 
                 // Gợi ý theo chữ đang gõ — CHỈ hiện khi có thứ để gợi. Nằm ngay dưới ô nhập
                 // (đúng chỗ mắt đang nhìn), ✗ trộn vào lưới nút sẵn ở trên: hai vai khác nhau.
@@ -79,17 +71,41 @@ struct ScanNameOverlay: View {
                     Text(String(localized: "Save scan"))
                         .font(.headline)
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
+                        .padding(.vertical, 14)
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(FogPrimary())
 
                 Button(String(localized: "Back"), action: onBack)
                     .font(.subheadline)
             }
             .padding(20)
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18))
+            .background(card.fill(Theme.card))
+            .overlay(card.strokeBorder(Theme.hairline, lineWidth: 1))
             .padding(24)
         }
+    }
+
+    /// Fog field: `Theme.bg`, radius 12, hairline.
+    private var nameField: some View {
+        let field = RoundedRectangle(cornerRadius: 12, style: .continuous)
+        return TextField(
+            String(localized: "Or type a name (e.g. Attic)"),
+            text: $name
+        )
+        .textFieldStyle(.plain)
+        // Tên riêng của khu vực, ✗ câu tiếng Anh: TẮT sửa lỗi tự động để bàn phím thôi
+        // "chữa" chữ khách vừa gõ hoặc vừa chọn từ gợi ý. Viết hoa thì KHÔNG tắt — để
+        // `.words` cho giống ô địa chỉ (`ScanAddressView`), tên khu vực vốn viết hoa đầu
+        // từ. ⚠ Hệ quả đã biết: tự gõ ra "Ground Floor" trong khi thẻ gợi ý ghi "Ground
+        // floor" — danh sách giữ NGUYÊN cách viết hoa của chủ app nên hai đường lệch nhau.
+        .autocorrectionDisabled()
+        .textInputAutocapitalization(.words)
+        .focused($fieldFocused)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 11)
+        // The padding is not the field: a tap there focuses it, like the old rounded border.
+        .background(field.fill(Theme.bg).onTapGesture { fieldFocused = true })
+        .overlay(field.strokeBorder(Theme.hairline, lineWidth: 1).allowsHitTesting(false))
     }
 
     private var suggestionGrid: some View {
@@ -113,10 +129,13 @@ private struct SuggestionChip: View {
     let action: () -> Void
 
     var body: some View {
-        let background: Color = isSelected ? Color.accentColor.opacity(0.2) : Color(.tertiarySystemFill)
+        // Fog: `thumbBg` pill; selected = soft badge.
+        let background: Color = isSelected ? Theme.Badge.soft.bg : Theme.thumbBg
+        let foreground: Color = isSelected ? Theme.Badge.soft.fg : Color.primary
         return Button(action: action) {
             Text(title)
-                .font(.subheadline)
+                .font(.subheadline.weight(isSelected ? .semibold : .regular))
+                .foregroundStyle(foreground)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
                 .frame(maxWidth: .infinity)
