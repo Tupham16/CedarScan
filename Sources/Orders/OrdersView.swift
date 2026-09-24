@@ -2,15 +2,19 @@ import SwiftUI
 import UniformTypeIdentifiers // UTType — suy ra MIME cho file đính kèm của "Yêu cầu sửa"
 
 /// Danh sách đơn đã đặt xử lý: trạng thái + file thành phẩm khi đã giao.
+/// Orders v2: compact rows (title · date · status); tap = `OrderDetailView`, pushed.
 struct OrdersView: View {
-    @EnvironmentObject private var account: AccountStore
-    /// 🔴 TRUYỀN TAY từ `RootView`, cùng khuôn `HomeView`. Tab này KHÔNG push màn nào nên
-    /// `@EnvironmentObject` ở đây vốn an toàn — truyền tay để hai tab đọc store theo MỘT cách.
-    /// Looks up order → project on this device: for the "Add a scan" button, and as the row
-    /// title / search fallback (display only).
+    /// 🔴 TRUYỀN TAY từ `RootView`, cùng khuôn `HomeView`: since Orders v2 this tab PUSHES
+    /// (`OrderDetailView`), and a pushed screen must not read `@EnvironmentObject` (SIGTRAP,
+    /// `ProjectView.store`). Looks up order → project on this device: the row title / search
+    /// fallback (display only), and "Add a scan" in the detail.
     @ObservedObject var store: ScanStore
+    /// Passed by hand for the same reason (it was `@EnvironmentObject` while the tab pushed nothing).
+    @ObservedObject var account: AccountStore
     /// Nhảy sang tab Home và mở dự án — `RootView.requestOpenProject`. Tab này ✗ tự đổi tab.
     let onOpenProject: (ScanProject) -> Void
+    /// Pushed orders: 0 or 1 entry, IDs only (`OrderRoute`).
+    @State private var path: [OrderRoute] = []
     @State private var orders: [OrderDTO] = []
     /// Search text, matched against `searchKeys(of:)`: order #, house name, scan names.
     @State private var searchText = ""
@@ -18,77 +22,152 @@ struct OrdersView: View {
     /// xoá trên mỗi lần `.task` chạy lại (tránh chớp trắng + giữ được banner "dữ liệu cũ" của [17]).
     @State private var loadedCustomerId: String?
     @State private var isLoading = false
+    /// The last load started, the last one whose answer is on screen, and the last failure shown
+    /// (see `load()`).
+    @State private var loadSeq = 0
+    @State private var appliedSeq = 0
+    @State private var failedSeq = 0
     @State private var errorMessage: String?
-    @State private var revisionOrder: OrderDTO?
-    @State private var tourOrder: OrderDTO? // mở màn thêm ảnh Virtual Tour
     @State private var filter: OrderFilter = .all
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             Group {
                 if !account.isSignedIn {
                     signedOutState
-                } else if orders.isEmpty && !isLoading {
+                } else if ownOrders.isEmpty && !isLoading {
                     emptyState
                 } else {
                     ordersList
                 }
             }
             .navigationTitle(String(localized: "Orders"))
-            // Khoá theo DANH TÍNH khách chứ không chỉ theo cờ `isSignedIn`: một máy có thể dùng
-            // >1 tài khoản (A đăng xuất → B đăng nhập). Với `id: isSignedIn` thì cache `orders`
-            // của A đứng nguyên suốt lúc B chờ mạng — B thấy đơn, tên bản quét, và bấm được
-            // "Thanh toán ngay" trỏ vào link chưa-trả của A.
-            //
-            // XOÁ cache CHỈ khi danh tính đổi thật (so `loadedCustomerId`), KHÔNG xoá vô điều kiện
-            // mỗi lần task chạy: nếu TabView cho `.task` chạy lại lúc quay về tab (hành vi tuỳ phiên
-            // bản SwiftUI), `orders = []` vô điều kiện sẽ chớp trắng danh sách VÀ phá luôn banner
-            // "đang xem dữ liệu cũ" của [17] khi refresh lỗi. `.task(id:)` luôn chạy lại khi id đổi
-            // (A→B, đăng xuất→nil) nên nhánh này vẫn bắt được đổi tài khoản.
-            .task(id: account.customer?.id) {
-                let currentId = account.customer?.id
-                if loadedCustomerId != currentId {
-                    orders = []
-                    errorMessage = nil
-                    // Dọn CẢ ô tìm kiếm và bộ lọc, không chỉ `orders`: cả hai là `@State` của
-                    // OrdersView nên chúng sống suốt vòng đời app, không chết theo tài khoản.
-                    // A đăng xuất → B đăng nhập, B thấy ô tìm kiếm ĐÃ ĐIỀN SẴN số đơn của A (một
-                    // mẩu dữ liệu của người khác) và danh sách rỗng kèm câu "không có đơn nào
-                    // khớp" — B kết luận mình không có đơn nào.
-                    searchText = ""
-                    filter = .all
-                    loadedCustomerId = currentId
-                }
-                if account.isSignedIn { await load() }
-            }
+            // 🔴 Search goes HERE, level with `.navigationTitle` — ✗ back inside `ordersList`
+            // (trap #10). It sat in that branch while this tab pushed nothing; since Orders v2 it
+            // pushes `OrderDetailView`, so the reason in the 🔴 block of `HomeView.body` applies:
+            // `.searchable` is a UISearchController on the ROOT navigationItem, and a branch that
+            // SwiftUI rebuilds can tear it down in the middle of a push.
+            // Price, accepted as on Home: the signed-out and empty screens show the field too.
+            .searchable(
+                text: $searchText,
+                placement: .navigationBarDrawer(displayMode: .always),
+                prompt: String(localized: "Search property or order #")
+            )
+            // Its own task, as in `OrderDetailView`: tapping a row during a refresh must not cancel
+            // it into a false "Couldn't refresh".
             .refreshable {
-                await load()
+                await Task { await load() }.value
             }
-            .sheet(item: $revisionOrder) { order in
-                RevisionSheet(order: order) {
-                    Task { await load() }
-                }
+            .navigationDestination(for: OrderRoute.self, destination: orderDetail)
+        }
+        // Khoá theo DANH TÍNH khách chứ không chỉ theo cờ `isSignedIn`: một máy có thể dùng
+        // >1 tài khoản (A đăng xuất → B đăng nhập). Với `id: isSignedIn` thì cache `orders`
+        // của A đứng nguyên suốt lúc B chờ mạng — B thấy đơn, tên bản quét, và bấm được
+        // "Thanh toán ngay" trỏ vào link chưa-trả của A.
+        //
+        // XOÁ cache CHỈ khi danh tính đổi thật (so `loadedCustomerId`), KHÔNG xoá vô điều kiện
+        // mỗi lần task chạy: nếu TabView cho `.task` chạy lại lúc quay về tab (hành vi tuỳ phiên
+        // bản SwiftUI), `orders = []` vô điều kiện sẽ chớp trắng danh sách VÀ phá luôn banner
+        // "đang xem dữ liệu cũ" của [17] khi refresh lỗi. `.task(id:)` luôn chạy lại khi id đổi
+        // (A→B, đăng xuất→nil) nên nhánh này vẫn bắt được đổi tài khoản.
+        //
+        // 🔴 On the STACK, ✗ on its root view: the root disappears while an order is pushed, which
+        // would cancel a load in flight (a false "Couldn't refresh") and hold this wipe back until
+        // Back is tapped — account B shown A's order, with A's Pay Now.
+        .task(id: account.customer?.id) {
+            let currentId = account.customer?.id
+            if loadedCustomerId != currentId {
+                orders = []
+                errorMessage = nil
+                // Dọn CẢ ô tìm kiếm và bộ lọc, không chỉ `orders`: cả hai là `@State` của
+                // OrdersView nên chúng sống suốt vòng đời app, không chết theo tài khoản.
+                // A đăng xuất → B đăng nhập, B thấy ô tìm kiếm ĐÃ ĐIỀN SẴN số đơn của A (một
+                // mẩu dữ liệu của người khác) và danh sách rỗng kèm câu "không có đơn nào
+                // khớp" — B kết luận mình không có đơn nào.
+                searchText = ""
+                filter = .all
+                // And the open order: it belongs to the previous account.
+                path = []
+                // A load still out answers for the previous account: its answer is dropped.
+                loadSeq += 1
+                appliedSeq = loadSeq
+                isLoading = false
+                loadedCustomerId = currentId
             }
-            .sheet(item: $tourOrder) { order in
-                TourPhotosView(orderId: order.orderId)
-                    .onDisappear { Task { await load() } }
-            }
+            if account.isSignedIn { await load() }
+        }
+        .onChange(of: orders.map(\.orderId)) { _, ids in
+            leaveGoneOrder(ids)
+        }
+    }
+
+    /// The pushed screen. The ID only (`OrderDTO` is not Hashable): the detail reads the LIVE
+    /// order through the binding. `store` passed by hand, ✗ `@EnvironmentObject`.
+    private func orderDetail(_ route: OrderRoute) -> some View {
+        OrderDetailView(
+            route: route,
+            orders: $orders,
+            errorMessage: $errorMessage,
+            store: store,
+            account: account,
+            reload: { await load() },
+            onOpenProject: onOpenProject
+        )
+    }
+
+    /// An open order the list no longer has (a refresh dropped it): back to the list. One tick
+    /// later and checked again — a pop in the middle of a push is trap #9.
+    private func leaveGoneOrder(_ ids: [String]) {
+        guard path.contains(where: { !ids.contains($0.orderId) }) else { return }
+        Task { @MainActor in
+            let live = Set(orders.map(\.orderId))
+            path.removeAll { !live.contains($0.orderId) }
         }
     }
 
     private func load() async {
-        guard account.isSignedIn else { return }
+        // Only for the account the cached list belongs to: a reload fired after a sign-out or an
+        // account switch (Pay Now's `onPaid`, a revision sent) waits for the wipe's own load.
+        guard account.isSignedIn, account.customer?.id == loadedCustomerId else { return }
+        // Refreshes run in their own task (`.refreshable`) and Retry / reloads never were tied to a
+        // view, so answers can land late and out of order. An answer is dropped when the account
+        // changed meanwhile or a newer answer is already on screen — ✗ account A's orders shown
+        // to B, ✗ an older list over a newer one.
+        let owner = account.customer?.id
+        loadSeq += 1
+        let seq = loadSeq
         isLoading = true
         // Card payments the server has not confirmed yet. Not awaited: the list must never wait on
-        // it, and the row shows "Paid" from `PaymentFlow` either way.
+        // it, and the order detail shows "Paid" from `PaymentFlow` either way.
         Task { await PaymentFlow.shared.confirmPending() }
+        let answer: Result<[OrderDTO], Error>
         do {
-            orders = try await APIClient.shared.listOrders().orders
-            errorMessage = nil
+            answer = .success(try await APIClient.shared.listOrders().orders)
         } catch {
-            errorMessage = error.localizedDescription
+            answer = .failure(error)
         }
-        isLoading = false
+        guard owner == account.customer?.id, seq > appliedSeq else { return }
+        let newest = seq == loadSeq
+        switch answer {
+        case .success(let fresh):
+            orders = fresh
+            // An answer older than the failure shown is not the refresh that failed.
+            if seq > failedSeq { errorMessage = nil }
+            appliedSeq = seq
+        case .failure(let error):
+            // Only the newest load may say "Couldn't refresh": an older one is still followed by
+            // an answer. A cancelled load (tab switched away) brought no answer at all.
+            if newest, !Self.isCancellation(error) {
+                errorMessage = error.localizedDescription
+                failedSeq = seq
+            }
+        }
+        if newest { isLoading = false }
+    }
+
+    private static func isCancellation(_ error: Error) -> Bool {
+        error is CancellationError || (error as? URLError)?.code == .cancelled
     }
 
     private var signedOutState: some View {
@@ -143,10 +222,18 @@ struct OrdersView: View {
     /// mà bấm vào chỉ ra 1 đơn — vì 2 đơn kia bị ô tìm kiếm loại — là con số nói dối.
     private var searchedOrders: [OrderDTO] {
         let key = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !key.isEmpty else { return orders }
-        return orders.filter { order in
+        guard !key.isEmpty else { return ownOrders }
+        return ownOrders.filter { order in
             searchKeys(of: order).contains { TextMatch.contains($0, key) }
         }
+    }
+
+    /// `orders` as the signed-in account may see them. They belong to `loadedCustomerId`, and after
+    /// a sign-out or an account switch the wipe in `.task(id:)` can run a frame late (it waits for
+    /// the tab to show): until then nothing, ✗ the previous account's list. Same gate as the one
+    /// in `OrderDetailView.order`.
+    private var ownOrders: [OrderDTO] {
+        loadedCustomerId == account.customer?.id ? orders : []
     }
 
     /// House name of an order: the server's, else the project on this device that holds its
@@ -175,33 +262,7 @@ struct OrdersView: View {
     }
 
     /// Đơn đang hiển thị: khớp cả ô tìm kiếm lẫn bộ lọc trạng thái đang chọn.
-    /// Dự án TRÊN MÁY NÀY của đơn — `nil` thì KHÔNG hiện nút "Thêm bản quét".
-    ///
-    /// (Chú thích của `filteredOrders` nằm NGAY DƯỚI hàm này, ✗ trên nó — hàm này chen vào giữa
-    /// 19/08. Đọc đúng khối cho đúng hàm.)
-    ///
-    /// Hai ca trả nil, cả hai là hành vi ĐÚNG chứ ✗ lỗi:
-    ///  · **Đơn đã hoàn tiền** — `supplement-scan` từ chối bằng `order_closed`, nên hiện nút là
-    ///    dẫn khách đi quét 10–30 phút rồi tải 40–200MB lên để nhận một lời từ chối. Chặn ở đây,
-    ///    chỗ RẺ NHẤT. (Đơn ĐÃ GIAO thì KHÔNG chặn: server nhận nó từ 19/08 — xem
-    ///    `supplement-scan/route.ts`, chủ app chốt "đã đặt hay đã giao đều không tính phí".)
-    ///  · **Máy này không giữ dự án đó** — khách xoá rồi, hoặc đang dùng máy khác. Không có bản
-    ///    quét gốc trên máy thì cũng chẳng có gì để quét bổ sung vào.
-    ///  · **Dự án đó nay thuộc về một số đơn KHÁC** — xem khối 🔴 ngay dưới.
-    private func supplementProject(for order: OrderDTO) -> ScanProject? {
-        guard order.status != "refunded" else { return nil }
-        guard let project = store.project(withOrderNumber: order.orderNumber) else { return nil }
-        // 🔴 CHỐT CHỐNG GỬI NHẦM ĐƠN. Nút này chỉ ĐIỀU HƯỚNG; việc gửi ở trang dự án lại hỏi
-        // `ScanStore.orderNumber(ofProject:)`, hàm đó lấy số đơn của bản quét MỚI NHẤT. Một dự án
-        // ôm HAI số đơn là chuyện tới được trong app hôm nay (kéo một bản quét đã đặt lẻ vào một
-        // dự án đã có đơn — `moveScan`), và khi đó bấm nút ở đơn CŨ sẽ đưa khách tới trang dự án
-        // rồi gửi bản quét vào đơn MỚI. Sai đơn = đội vẽ nhận file cho một căn nhà khác.
-        // ⇒ Chỉ hiện nút khi hai chiều đồng ý với nhau. Lệch thì ẨN — khách vẫn còn đường vào từ
-        // tab Home, và ẩn một nút còn hơn gửi nhầm không ai biết.
-        guard store.orderNumber(ofProject: project.id) == order.orderNumber else { return nil }
-        return project
-    }
-
+    /// (`supplementProject(for:)`, which sat here, moved to `OrderDetailView` with Orders v2.)
     private var filteredOrders: [OrderDTO] {
         searchedOrders.filter { filter.matches($0.status) }
     }
@@ -213,9 +274,9 @@ struct OrdersView: View {
     /// đúng — nó đếm trên `searchedOrders` — chỉ mỗi câu này từng chỉ sai hướng.)
     private var emptyListNote: String {
         // Đang tải LẦN ĐẦU (chưa có đơn nào trong tay) cũng rơi vào đây — `ordersList` được chọn
-        // khi `orders.isEmpty && isLoading`. Không có nhánh này thì màn hình khẳng định "Không có
+        // khi `ownOrders.isEmpty && isLoading`. Không có nhánh này thì màn hình khẳng định "Không có
         // đơn nào" đúng lúc dữ liệu còn đang trên đường về.
-        if isLoading && orders.isEmpty {
+        if isLoading && ownOrders.isEmpty {
             return String(localized: "Loading your orders…")
         }
         let hasQuery = !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -283,17 +344,8 @@ struct OrdersView: View {
             // + cho đường Thử lại chủ động, thay vì để khách tin trạng thái/link thanh toán lỗi thời.
             if let errorMessage {
                 Section {
-                    HStack(spacing: 8) {
-                        Image(systemName: "wifi.exclamationmark")
-                            .foregroundStyle(.orange)
-                        Text(String(localized: "Couldn't refresh — showing saved data."))
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                        Spacer()
-                        Button(String(localized: "Retry")) { Task { await load() } }
-                            .font(.footnote.weight(.semibold))
-                    }
-                    .fogCardRow(trailing: 32)
+                    RefreshFailedNote { Task { await load() } }
+                        .fogCardRow(trailing: 32)
                 }
                 .listSectionSeparator(.hidden)
             }
@@ -305,264 +357,81 @@ struct OrdersView: View {
                     .listRowSeparator(.hidden)
             }
             ForEach(filteredOrders) { order in
-                orderCard(order)
-                    .fogCardRow(trailing: 32)
+                orderRow(order)
+                    .fogCardRow(trailing: 28)
             }
             }
             .listStyle(.plain)
         }
         .fogScreen()
-        // Ô tìm kiếm nằm ở NHÁNH CÓ ĐƠN (`ordersList`), không gắn cho màn trống/chưa đăng nhập:
-        // chưa có đơn nào mà vẫn bày ô tìm kiếm là mời khách đi tìm thứ không tồn tại.
-        //
-        // ⚠ CỐ Ý KHÁC `HomeView` — đừng "sửa cho nhất quán". Ở `HomeView`, `.searchable` đã phải
-        // chuyển RA KHỎI nhánh điều kiện vì tab đó có `navigationDestination` và PUSH màn mới:
-        // search controller bị tháo/cắm lại đúng lúc `UINavigationController` đang push là cách
-        // làm UIKit mất đồng bộ (xem chú thích 🔴 ở `HomeView.body`). Tab này KHÔNG push gì cả —
-        // mọi thứ mở bằng `.sheet` — nên cơ chế đó không với tới được, và đổi lại thì màn "Đăng
-        // nhập để xem đơn hàng" sẽ mọc một ô tìm kiếm vô nghĩa. Nếu pha sau THÊM
-        // `navigationDestination` vào tab này thì phải chuyển `.searchable` lên ngang
-        // `.navigationTitle` NGAY, giống HomeView.
-        .searchable(
-            text: $searchText,
-            placement: .navigationBarDrawer(displayMode: .always),
-            prompt: String(localized: "Search property or order #")
-        )
+        // `.searchable` is NOT here any more: it moved up to `body`, level with `.navigationTitle`
+        // (Orders v2 pushes). Read the 🔴 note there before moving it back.
     }
 
-    /// One order as a Fog card. Every condition is the pre-Fog row's, copied verbatim; only the
-    /// look and the block order (tour after the files, as in the mockup) changed.
-    private func orderCard(_ order: OrderDTO) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            orderHeader(order)
-            payNow(order)
-            deliverables(order)
-            ruledRows(order)
-            tourPhotos(order)
-            followUps(order)
-        }
-        .padding(.vertical, 3)
-    }
-
-    private func orderHeader(_ order: OrderDTO) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            HStack(spacing: 8) {
-                Text(title(of: order))
-                    .font(.headline)
-                Spacer()
-                StatusBadge(status: order.status)
-            }
-            HStack(spacing: 6) {
-                Text("\(order.orderNumber) · \(Self.formatDate(order.placedAt))")
-                if let total = order.total, total > 0 {
-                    Text("· $\(total)")
-                    if order.paid == true {
-                        Label(String(localized: "Paid"), systemImage: "checkmark.seal.fill")
-                            .foregroundStyle(Theme.Badge.ok.fg)
-                    }
-                }
-            }
-            .font(.footnote)
-            .foregroundStyle(.secondary)
-        }
-    }
-
-    /// In-app card sheet when the server offers it, else the browser — see `PaymentFlow`.
-    /// Restyled here at the call site only; ✗ edit `PaymentFlow.swift`.
-    @ViewBuilder
-    private func payNow(_ order: OrderDTO) -> some View {
-        if order.paid != true, let payURL = httpsURL(order.paymentUrl) {
-            PayNowButton(
-                orderId: order.orderId,
-                payURL: payURL,
-                payInApp: order.payInApp == true,
-                onPaid: { Task { await load() } }
-            ) {
-                Label(String(localized: "Pay Now"), systemImage: "creditcard")
-                    .font(.subheadline.weight(.semibold))
-                    .frame(maxWidth: .infinity, minHeight: 44)
-            }
-            .buttonStyle(FogPrimary(radius: 12))
-            .tint(.white) // loading spinner on the blue fill
-        }
-    }
-
-    // 🔴 KHỐI NÀY GÁC `status == "delivered"`, tức FILE THÀNH PHẨM — đúng, vì server
-    // chỉ trả `deliveryFiles` khi `stage === "done"`. Nút "Yêu cầu sửa" thì TÁCH RA
-    // khối riêng bên dưới: nó phải sống lâu hơn thế.
-    // Downloads stay `Link`s to the browser (App Store rule: no in-app viewer).
-    @ViewBuilder
-    private func deliverables(_ order: OrderDTO) -> some View {
-        if order.status == "delivered" {
-            if let url = httpsURL(order.deliveredUrl) {
-                Link(destination: url) {
-                    Label(String(localized: "Download deliverables"), systemImage: "arrow.down.circle")
-                        .font(.subheadline.weight(.semibold))
-                        .frame(maxWidth: .infinity, minHeight: 44)
-                }
-                .buttonStyle(FogTint(radius: 12))
-            }
-        }
-    }
-
-    /// Delivered files + tour link as one ruled list (mockup). The outer `if` only skips an
-    /// empty block (stray line and spacing); each row keeps its pre-Fog condition.
-    @ViewBuilder
-    private func ruledRows(_ order: OrderDTO) -> some View {
-        if hasFileRows(order) || (order.hasTour == true && httpsURL(order.tourUrl) != nil) {
-            VStack(spacing: 0) {
-                if order.status == "delivered" {
-                    ForEach(order.files, id: \.self) { file in
-                        if let url = httpsURL(file.url) {
-                            fileLink(file, url: url)
-                        }
-                    }
-                }
-                // Virtual Tour: trước khi giao = thêm ảnh phòng; sau khi giao = link tour chia sẻ được
-                if order.hasTour == true, let tourURL = httpsURL(order.tourUrl) {
-                    tourLink(tourURL)
-                }
-            }
-            .overlay(alignment: .bottom) { Self.hairline }
-        }
-    }
-
-    private func hasFileRows(_ order: OrderDTO) -> Bool {
-        order.status == "delivered" && order.files.contains { httpsURL($0.url) != nil }
-    }
-
-    private func fileLink(_ file: DeliveryFileDTO, url: URL) -> some View {
-        Link(destination: url) {
-            HStack(spacing: 8) {
-                Image(systemName: "doc")
-                    .foregroundStyle(Theme.inactive)
-                Text(file.fileName)
-                    .lineLimit(1)
-                    .foregroundStyle(.primary)
-                Spacer(minLength: 8)
-                if let size = file.sizeLabel {
-                    Text(size)
+    /// One compact row (mockup 30/31): title · date · status · chevron. Tap = the order detail.
+    /// A `Button` + `path.append`, ✗ `NavigationLink`: same reason as `HomeView.projectRow` — a List
+    /// draws its own chevron and a full-width grey highlight across the Fog card.
+    /// Everything the 2.45 card showed (Pay Now, files, tour, revision, add a scan) is in
+    /// `OrderDetailView`, with the same conditions.
+    private func orderRow(_ order: OrderDTO) -> some View {
+        let name = title(of: order)
+        return Button {
+            // One order at a time: a quick double tap must not stack the same screen twice.
+            guard path.isEmpty else { return }
+            path.append(OrderRoute(orderId: order.orderId, title: name, customerId: account.customer?.id))
+        } label: {
+            HStack(spacing: 10) {
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(name)
+                        .font(.headline)
+                    Text(Self.formatDate(order.placedAt))
+                        .font(.footnote)
                         .foregroundStyle(.secondary)
+                    // Accessibility sizes: the badge under the date — beside it the title breaks
+                    // at every syllable (simulator renders, AX3).
+                    if typeSize.isAccessibilitySize {
+                        StatusBadge(status: order.status)
+                            .padding(.top, 4)
+                    }
                 }
+                Spacer(minLength: 8)
+                if !typeSize.isAccessibilitySize {
+                    StatusBadge(status: order.status)
+                }
+                Image(systemName: "chevron.right")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.tertiary)
+                    .accessibilityHidden(true)
             }
-            .font(.footnote)
-            .frame(minHeight: 34)
             .contentShape(Rectangle())
         }
-        .buttonStyle(.borderless)
-        .overlay(alignment: .top) { Self.hairline }
+        // `.plain`: no accent tint over the row's own colours (see `HomeView.projectRow`).
+        .buttonStyle(.plain)
     }
 
-    private func tourLink(_ tourURL: URL) -> some View {
-        HStack(spacing: 12) {
-            Link(destination: tourURL) {
-                Label(String(localized: "View Virtual Tour"), systemImage: "house")
-                    .font(.subheadline.weight(.semibold))
-            }
-            Spacer()
-            ShareLink(item: tourURL) {
-                Image(systemName: "square.and.arrow.up")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
-        }
-        .buttonStyle(.borderless)
-        .frame(minHeight: 40)
-        .overlay(alignment: .top) { Self.hairline }
-    }
-
-    /// The pre-Fog `else if` branch of the tour block: tour ordered, no tour link yet.
-    @ViewBuilder
-    private func tourPhotos(_ order: OrderDTO) -> some View {
-        if order.hasTour == true, httpsURL(order.tourUrl) == nil {
-            if order.status != "refunded" {
-                Button {
-                    tourOrder = order
-                } label: {
-                    Label(
-                        (order.tourPhotoCount ?? 0) > 0
-                            ? String(localized: "Tour photos: \(order.tourPhotoCount ?? 0) — add more")
-                            : String(localized: "Add tour photos"),
-                        systemImage: "photo.on.rectangle.angled"
-                    )
-                    .font(.subheadline.weight(.semibold))
-                    .frame(maxWidth: .infinity, minHeight: 44)
-                }
-                .buttonStyle(FogTint(radius: 12))
-            }
-        }
-    }
-
-    /// "Request a revision" + "Add a scan", side by side when both show. The outer `if` only
-    /// avoids an empty row (stray spacing); each button keeps its own condition.
-    @ViewBuilder
-    private func followUps(_ order: OrderDTO) -> some View {
-        if order.deliveredAt != nil || supplementProject(for: order) != nil {
-            HStack(spacing: 8) {
-                // 🔴 "YÊU CẦU SỬA" GÁC THEO `deliveredAt`, ✗ theo `status == "delivered"` —
-                // sửa 19/08, vòng soi đối kháng bắt.
-                //
-                // Từ 19/08, gửi bổ sung vào một đơn ĐÃ GIAO kéo thẻ `done → fix`, tức `status` đổi
-                // thành `in_production`. Gác theo `status` là nút "Yêu cầu sửa" **BIẾN MẤT IM LẶNG**
-                // ngay sau khi khách gửi bổ sung — trong khi mục Hỏi đáp vừa hứa với họ HAI đường
-                // song song trong cửa sổ 90 ngày ("bản vẽ sai → Yêu cầu sửa" / "quét sót → Gửi bổ
-                // sung"). Khách phát hiện thêm một lỗi vẽ sẽ không còn nút nào để báo.
-                //
-                // `deliveredAt != null` là "đơn này đã từng được giao", và nó KHÔNG bị cú kéo cột
-                // xoá đi (`refundOrder`/`holdOrder`/`supplement-scan` đều không đụng trường đó) —
-                // đúng thứ cần gác. Server vẫn tự lo phần còn lại: `revision/route.ts` nhận cả khi
-                // thẻ đang ở "fix" (nay ghi được cả `feedback`, sửa cùng lượt).
-                if order.deliveredAt != nil {
-                    Button {
-                        revisionOrder = order
-                    } label: {
-                        ghostLabel(String(localized: "Request a revision"), systemImage: "pencil.and.outline")
-                    }
-                    .buttonStyle(FogGhost())
-                }
-                // 🆕 "THÊM BẢN QUÉT" — chủ app đặt 19/08: *"thêm nút thêm bản quét, khi kích vào
-                // đó nó nhảy qua dự án đó"*. Nó chữa một lỗ THẬT: khách nhận bản vẽ, thấy thiếu
-                // một khu, và không có đường nào từ đơn hàng ngược về căn nhà để quét thêm — họ
-                // phải tự đoán là mình cần sang tab Home tìm đúng dự án.
-                //
-                // 🔴 CHỈ ĐIỀU HƯỚNG, ✗ gửi gì cả. Việc gửi vẫn là `SupplementSheet` ở trang dự án
-                // — LỐI VÀO DUY NHẤT, ✗ nhân bản luồng gửi ở tab này (thứ trôi được giữa hai bản
-                // sao là cú ĐÓNG DẤU số đơn, mà thiếu dấu = khách TRẢ TIỀN HAI LẦN).
-                if let project = supplementProject(for: order) {
-                    Button {
-                        onOpenProject(project)
-                    } label: {
-                        ghostLabel(String(localized: "Add a scan"), systemImage: "plus.viewfinder")
-                    }
-                    .buttonStyle(FogGhost())
-                }
-            }
-        }
-    }
-
-    private func ghostLabel(_ title: String, systemImage: String) -> some View {
-        Label {
-            Text(title)
-        } icon: {
-            Image(systemName: systemImage)
-                .foregroundStyle(.secondary)
-        }
-            .font(.footnote.weight(.semibold))
-            .multilineTextAlignment(.center)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 8)
-            .frame(maxWidth: .infinity, minHeight: 36)
-    }
-
-    /// 1px divider inside a card.
-    private static var hairline: some View {
-        Theme.hairline.frame(height: 1)
-    }
-
-    private static func formatDate(_ iso: String) -> String {
+    static func formatDate(_ iso: String) -> String {
         // Server timestamps carry milliseconds, which a default ISO8601DateFormatter rejects.
         guard let date = OrderDTO.isoDate(iso) else { return "" }
         return date.formatted(date: .abbreviated, time: .omitted)
+    }
+}
+
+/// The last refresh failed: the screen still shows the orders from before (list and order detail).
+/// ✗ drop it from either: a failed refresh must never pass for fresh data — status, Pay Now link.
+struct RefreshFailedNote: View {
+    let onRetry: () -> Void
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "wifi.exclamationmark")
+                .foregroundStyle(.orange)
+            Text(String(localized: "Couldn't refresh — showing saved data."))
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+            Spacer()
+            Button(String(localized: "Retry"), action: onRetry)
+                .font(.footnote.weight(.semibold))
+        }
     }
 }
 

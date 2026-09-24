@@ -15,9 +15,6 @@ struct ScanNameOverlay: View {
     let onBack: () -> Void
 
     @FocusState private var fieldFocused: Bool
-    /// Chip column minimum: 100 at the default size, grows with text (at most 140 = two columns
-    /// on every phone) so a one-word name never breaks mid-word in a narrow third column.
-    @ScaledMetric(relativeTo: .subheadline) private var chipMin: CGFloat = 100
 
     /// Số gợi ý-theo-chữ tối đa hiện cùng lúc. ✗ nâng: thẻ này nằm giữa màn và bàn phím đang mở
     /// đẩy nó lên; mỗi hàng thêm là một hàng có thể bị đẩy khuất. 4 = tối đa 2 hàng.
@@ -117,7 +114,7 @@ struct ScanNameOverlay: View {
     }
 
     private func chipGrid(_ items: [String]) -> some View {
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: min(chipMin, 140)))], spacing: 8) {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 100))], spacing: 8) {
             ForEach(items, id: \.self) { suggestion in
                 SuggestionChip(title: suggestion, isSelected: name == suggestion) {
                     name = suggestion
@@ -136,10 +133,15 @@ private struct SuggestionChip: View {
         // Fog: `thumbBg` pill; selected = soft badge, semibold (mockup).
         let background: Color = isSelected ? Theme.Badge.soft.bg : Theme.thumbBg
         let foreground: Color = isSelected ? Theme.Badge.soft.fg : Color.primary
+        // A one-word name shrinks a little instead of breaking mid-word in a narrow column
+        // (3 columns on Pro Max, large text); longer names still wrap.
+        let oneWord = !title.contains(" ")
         return Button(action: action) {
             Text(title)
                 .font(.subheadline.weight(isSelected ? .semibold : .regular))
                 .multilineTextAlignment(.center)
+                .lineLimit(oneWord ? 1 : nil)
+                .minimumScaleFactor(oneWord ? 0.6 : 1)
                 .foregroundStyle(foreground)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)

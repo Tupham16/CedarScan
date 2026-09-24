@@ -181,6 +181,9 @@ struct OrderDTO: Decodable, Identifiable {
     /// House the order was placed under. Optional: an older server omits it, and so do orders
     /// placed without one.
     let projectName: String?
+    /// What was ordered, as display names ("2D Floor Plan", "Color floor plan · Classic"), for the
+    /// order detail. Optional: an older server omits it.
+    let items: [String]?
     let status: String
     let placedAt: String
     let deliveredAt: String?
