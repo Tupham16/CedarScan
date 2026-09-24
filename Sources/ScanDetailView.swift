@@ -1846,6 +1846,7 @@ struct OrderSheet: View {
                 .background(Circle().fill(Theme.Badge.ok.bg))
             Text(String(localized: "Order placed!"))
                 .font(.title3.weight(.bold))
+                .multilineTextAlignment(.center)
             Text(order.orderNumber)
                 .font(.title3.monospaced().weight(.bold))
             // Dòng "MIỄN PHÍ — khuyến mãi đơn đầu 🎁" ĐÃ BỎ 2026-09-01 theo chủ app. Đơn free
