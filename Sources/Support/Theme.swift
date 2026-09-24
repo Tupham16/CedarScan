@@ -253,14 +253,16 @@ struct WrappedTextView: UIViewRepresentable {
         ])
     }
 
-    /// Wrapped: the full proposed width. One line: its natural width.
+    /// Wrapped: the full proposed width, measured 1pt narrower (the frame SwiftUI finally gives the
+    /// view is pixel-rounded and can be a fraction of a point narrower). One line: natural width + 1.
     static func fittingSize(_ view: UITextView, width: CGFloat?) -> CGSize {
         let unbounded: CGFloat = 10_000_000
         let line = view.sizeThatFits(CGSize(width: unbounded, height: unbounded))
-        guard let width, width < unbounded, ceil(line.width) > width else {
-            return CGSize(width: ceil(line.width), height: ceil(line.height))
+        let lineWidth = ceil(line.width) + 1
+        guard let width, width < unbounded, lineWidth > width else {
+            return CGSize(width: lineWidth, height: ceil(line.height))
         }
-        let wrapped = view.sizeThatFits(CGSize(width: max(width, 1), height: unbounded))
+        let wrapped = view.sizeThatFits(CGSize(width: max(width - 1, 1), height: unbounded))
         return CGSize(width: width, height: ceil(wrapped.height))
     }
 }

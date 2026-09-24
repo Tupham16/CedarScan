@@ -330,21 +330,26 @@ struct ScanAddressView: View {
             addressWhenLocating = address
             locator.requestAddress()
         } label: {
-            // Fog light pill (owner approved 17/09: one solid blue button per screen). No colour
-            // here: `FogTint` sets icon + text (`accentText`; grey while locating = disabled).
-            // Old trap kept in mind: in a List the Label icon takes the tint colour unless the
-            // label has an explicit foreground — the style's `.foregroundStyle` is that.
-            Label(String(localized: "Use my location"), systemImage: "location.fill")
-                .font(.subheadline.weight(.semibold))
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 9)
+            // No colour here: `FogTint` colours icon + text (grey while locating = disabled).
+            // HStack, not Label: a List row gives a Label a wide icon column (20pt gap).
+            HStack(spacing: 7) {
+                Image(systemName: "location.fill")
+                    .accessibilityHidden(true)
+                Text(String(localized: "Use my location"))
+            }
+            .font(.subheadline.weight(.semibold))
+            .frame(maxWidth: .infinity)
+            // 44pt tap target (the old bordered capsule was ~50pt).
+            .padding(.vertical, 12)
         }
         // Radius above half the height = capsule at every text size.
         .buttonStyle(FogTint(radius: 100))
         .disabled(locator.state == .working)
-        // `bottom: 8`, không phải 4: số 4 cũ là để nút này dính sát nút "Tìm địa chỉ" ngay dưới
-        // thành một cặp. Nút đó đã xoá 13/08, giữ 4 thì nút nằm dí vào dòng gợi ý đầu tiên.
-        .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+        // Separator under this row starts at the row edge, not at the centred label.
+        .alignmentGuide(.listRowSeparatorLeading) { _ in 0 }
+        // Row stays ~54pt (mockup): 5 + 44 + 5. Was `bottom: 8` so the button did not sit on the
+        // first suggestion row; 5pt + that row's own padding still keeps them apart.
+        .listRowInsets(EdgeInsets(top: 5, leading: 16, bottom: 5, trailing: 16))
     }
 
     // 🔴 `searchAddressButton` (nút kính lúp "Tìm địa chỉ") ĐÃ XOÁ 2026-08-13 — lý do ghi ở

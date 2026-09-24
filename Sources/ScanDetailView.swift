@@ -551,7 +551,7 @@ struct ScanDetailView: View {
                 } label: {
                     Label(
                         String(localized: "Send extra scan to \(supplementNumber)"),
-                        systemImage: "paperplane.fill"
+                        systemImage: "paperplane"
                     )
                     .font(.headline)
                     .padding(.horizontal, 12)
@@ -574,7 +574,7 @@ struct ScanDetailView: View {
                             current.cloudScanId == nil
                                 ? String(localized: "Order Floor Plan")
                                 : String(localized: "Order Floor Plan"),
-                            systemImage: "paperplane.fill"
+                            systemImage: "paperplane"
                         )
                         .font(.headline)
                         .padding(.horizontal, 12)
@@ -598,7 +598,7 @@ struct ScanDetailView: View {
                     Button {
                         showOrderSheet = true
                     } label: {
-                        Label(String(localized: "Order Floor Plan"), systemImage: "paperplane.fill")
+                        Label(String(localized: "Order Floor Plan"), systemImage: "paperplane")
                             .font(.headline)
                             .padding(.horizontal, 12)
                             .frame(maxWidth: .infinity)
