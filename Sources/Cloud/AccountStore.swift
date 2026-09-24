@@ -38,6 +38,11 @@ final class AccountStore: ObservableObject {
             // Làm mới thông tin nền; token hỏng/hết hạn thì tự đăng xuất
             Task { await refresh() }
         }
+        // THROWAWAY harness: the simulator build cannot use the Keychain (unsigned).
+        if Fog6.on, !(Fog6.screen ?? "").hasSuffix("-signedout") {
+            customer = CustomerDTO(id: "harness", email: "harness@example.com", name: "Harness")
+            emailVerified = !(Fog6.screen ?? "").hasSuffix("-verify")
+        }
     }
 
     func refresh() async {

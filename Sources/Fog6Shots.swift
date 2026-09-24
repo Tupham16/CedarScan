@@ -159,7 +159,7 @@ struct Fog6ShotRoot: View {
 
     var body: some View {
         switch screen {
-        case "detail", "detail-signedout": detail(Fog6.rMain)
+        case "detail", "detail-signedout", "detail-verify": detail(Fog6.rMain)
         case "detail-ordered": detail(Fog6.rOrdered)
         case "detail-extra": detail(Fog6.rExtra)
         case "detail-low": detail(Fog6.rLow)

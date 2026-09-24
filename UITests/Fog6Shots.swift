@@ -12,7 +12,7 @@ final class Fog6Shots: XCTestCase {
         continueAfterFailure = true
         let en = lang("en", "US")
         let de = lang("de", "DE")
-        for screen in ["detail", "detail-ordered", "detail-extra", "detail-low", "detail-nomodel", "detail-signedout"] {
+        for screen in ["detail", "detail-ordered", "detail-extra", "detail-low", "detail-nomodel", "detail-signedout", "detail-verify"] {
             capture(screen, en)
         }
         capture("detail", de)
@@ -76,11 +76,9 @@ final class Fog6Shots: XCTestCase {
     }
 
     private func openGuide(_ app: XCUIApplication) {
-        let cell = app.buttons.matching(NSPredicate(format: "label CONTAINS[c] 'scan'")).firstMatch
-        if cell.waitForExistence(timeout: 3) {
+        let cell = app.collectionViews.cells.firstMatch
+        if cell.waitForExistence(timeout: 5) {
             cell.tap()
-        } else {
-            app.cells.firstMatch.tap()
         }
         sleep(2)
     }

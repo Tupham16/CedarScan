@@ -2,8 +2,7 @@
 name: Fog6 WrappedText sweep (throwaway)
 
 on:
-  push:
-    branches: ['claude/fog6-shots']
+  workflow_dispatch:
 
 jobs:
   sweep:
