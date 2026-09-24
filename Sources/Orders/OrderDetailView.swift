@@ -7,6 +7,8 @@ struct OrderRoute: Hashable {
     let orderId: String
     /// Plain data for the navigation bar, captured at tap time (`ProjectView.projectName`).
     let title: String
+    /// The account whose list it was tapped in.
+    let customerId: String?
 }
 
 /// One order (mockups 32/33): summary + Pay Now, files, what was ordered, revision / add a scan.
@@ -22,6 +24,8 @@ struct OrderDetailView: View {
     /// 🔴 Passed by hand, ✗ `@EnvironmentObject`: this is a PUSHED screen (SIGTRAP history,
     /// `ProjectView.store`). Order → project on this device, for "Add a scan".
     @ObservedObject var store: ScanStore
+    /// Passed by hand too. Only read to check the order still belongs to the signed-in account.
+    @ObservedObject var account: AccountStore
     /// `OrdersView.load()`.
     let reload: () async -> Void
     /// Nhảy sang tab Home và mở dự án — `RootView.requestOpenProject`.
@@ -29,9 +33,13 @@ struct OrderDetailView: View {
     @State private var revisionOrder: OrderDTO?
     @State private var tourOrder: OrderDTO? // mở màn thêm ảnh Virtual Tour
 
-    /// `nil` = gone from the list (refresh, account switch): `OrdersView` pops this screen.
+    /// `nil` = gone from the list (a refresh) or not this account's (sign-out, account switch):
+    /// `OrdersView` pops this screen. The account check is synchronous on purpose — the wipe in
+    /// `OrdersView` runs only once the tab shows again, and its first frame must not draw the
+    /// previous account's order, Pay Now link or property name.
     private var order: OrderDTO? {
-        orders.first { $0.orderId == route.orderId }
+        guard route.customerId == account.customer?.id else { return nil }
+        return orders.first { $0.orderId == route.orderId }
     }
 
     var body: some View {
@@ -41,10 +49,12 @@ struct OrderDetailView: View {
             }
         }
         .fogScreen()
+        // Its own task: SwiftUI cancels a refresh whose view goes away (Back), and a cancelled
+        // load reads as a failure — a false "Couldn't refresh" on the list.
         .refreshable {
-            await reload()
+            await Task { await reload() }.value
         }
-        .navigationTitle(route.title)
+        .navigationTitle(order == nil ? "" : route.title)
         .navigationBarTitleDisplayMode(.inline)
         // A pushed screen hides the system tab bar itself, as `ProjectView` / `ScanDetailView` do.
         .toolbar(.hidden, for: .tabBar)

@@ -48,8 +48,10 @@ struct OrdersView: View {
                 placement: .navigationBarDrawer(displayMode: .always),
                 prompt: String(localized: "Search property or order #")
             )
+            // Its own task, as in `OrderDetailView`: tapping a row during a refresh must not cancel
+            // it into a false "Couldn't refresh".
             .refreshable {
-                await load()
+                await Task { await load() }.value
             }
             .navigationDestination(for: OrderRoute.self, destination: orderDetail)
         }
@@ -98,6 +100,7 @@ struct OrdersView: View {
             orders: $orders,
             errorMessage: $errorMessage,
             store: store,
+            account: account,
             reload: { await load() },
             onOpenProject: onOpenProject
         )
@@ -326,7 +329,9 @@ struct OrdersView: View {
     private func orderRow(_ order: OrderDTO) -> some View {
         let name = title(of: order)
         return Button {
-            path.append(OrderRoute(orderId: order.orderId, title: name))
+            // One order at a time: a quick double tap must not stack the same screen twice.
+            guard path.isEmpty else { return }
+            path.append(OrderRoute(orderId: order.orderId, title: name, customerId: account.customer?.id))
         } label: {
             HStack(spacing: 10) {
                 VStack(alignment: .leading, spacing: 1) {
