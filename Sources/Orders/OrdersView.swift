@@ -22,15 +22,18 @@ struct OrdersView: View {
     /// xoá trên mỗi lần `.task` chạy lại (tránh chớp trắng + giữ được banner "dữ liệu cũ" của [17]).
     @State private var loadedCustomerId: String?
     @State private var isLoading = false
+    /// Bumped by every `load()` and by the account wipe: only the newest load may write.
+    @State private var loadSeq = 0
     @State private var errorMessage: String?
     @State private var filter: OrderFilter = .all
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     var body: some View {
         NavigationStack(path: $path) {
             Group {
                 if !account.isSignedIn {
                     signedOutState
-                } else if orders.isEmpty && !isLoading {
+                } else if ownOrders.isEmpty && !isLoading {
                     emptyState
                 } else {
                     ordersList
@@ -83,6 +86,9 @@ struct OrdersView: View {
                 filter = .all
                 // And the open order: it belongs to the previous account.
                 path = []
+                // A load still out answers for the previous account: its answer is dropped.
+                loadSeq += 1
+                isLoading = false
                 loadedCustomerId = currentId
             }
             if account.isSignedIn { await load() }
@@ -118,14 +124,24 @@ struct OrdersView: View {
 
     private func load() async {
         guard account.isSignedIn else { return }
+        // Refreshes run in their own task (`.refreshable`) and Retry / reloads never were tied to a
+        // view, so an answer can land late: after a newer load, or after a sign-out or account
+        // switch. Only the newest load for the account that asked may write — ✗ a stale list, a
+        // false "Couldn't refresh", or account A's orders shown to B.
+        let owner = account.customer?.id
+        loadSeq += 1
+        let seq = loadSeq
         isLoading = true
         // Card payments the server has not confirmed yet. Not awaited: the list must never wait on
         // it, and the order detail shows "Paid" from `PaymentFlow` either way.
         Task { await PaymentFlow.shared.confirmPending() }
         do {
-            orders = try await APIClient.shared.listOrders().orders
+            let fresh = try await APIClient.shared.listOrders().orders
+            guard seq == loadSeq, owner == account.customer?.id else { return }
+            orders = fresh
             errorMessage = nil
         } catch {
+            guard seq == loadSeq, owner == account.customer?.id else { return }
             errorMessage = error.localizedDescription
         }
         isLoading = false
@@ -183,10 +199,18 @@ struct OrdersView: View {
     /// mà bấm vào chỉ ra 1 đơn — vì 2 đơn kia bị ô tìm kiếm loại — là con số nói dối.
     private var searchedOrders: [OrderDTO] {
         let key = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !key.isEmpty else { return orders }
-        return orders.filter { order in
+        guard !key.isEmpty else { return ownOrders }
+        return ownOrders.filter { order in
             searchKeys(of: order).contains { TextMatch.contains($0, key) }
         }
+    }
+
+    /// `orders` as the signed-in account may see them. They belong to `loadedCustomerId`, and after
+    /// a sign-out or an account switch the wipe in `.task(id:)` can run a frame late (it waits for
+    /// the tab to show): until then nothing, ✗ the previous account's list. Same gate as the one
+    /// in `OrderDetailView.order`.
+    private var ownOrders: [OrderDTO] {
+        loadedCustomerId == account.customer?.id ? orders : []
     }
 
     /// House name of an order: the server's, else the project on this device that holds its
@@ -227,9 +251,9 @@ struct OrdersView: View {
     /// đúng — nó đếm trên `searchedOrders` — chỉ mỗi câu này từng chỉ sai hướng.)
     private var emptyListNote: String {
         // Đang tải LẦN ĐẦU (chưa có đơn nào trong tay) cũng rơi vào đây — `ordersList` được chọn
-        // khi `orders.isEmpty && isLoading`. Không có nhánh này thì màn hình khẳng định "Không có
+        // khi `ownOrders.isEmpty && isLoading`. Không có nhánh này thì màn hình khẳng định "Không có
         // đơn nào" đúng lúc dữ liệu còn đang trên đường về.
-        if isLoading && orders.isEmpty {
+        if isLoading && ownOrders.isEmpty {
             return String(localized: "Loading your orders…")
         }
         let hasQuery = !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -340,9 +364,17 @@ struct OrdersView: View {
                     Text(Self.formatDate(order.placedAt))
                         .font(.footnote)
                         .foregroundStyle(.secondary)
+                    // Accessibility sizes: the badge under the date — beside it the title breaks
+                    // at every syllable (simulator renders, AX3).
+                    if typeSize.isAccessibilitySize {
+                        StatusBadge(status: order.status)
+                            .padding(.top, 4)
+                    }
                 }
                 Spacer(minLength: 8)
-                StatusBadge(status: order.status)
+                if !typeSize.isAccessibilitySize {
+                    StatusBadge(status: order.status)
+                }
                 Image(systemName: "chevron.right")
                     .font(.footnote.weight(.semibold))
                     .foregroundStyle(.tertiary)
