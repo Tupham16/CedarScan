@@ -1773,11 +1773,13 @@ struct OrderSheet: View {
                             .font(.headline)
                     }
                 }
+                .padding(.horizontal, 12)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
             }
-            // Fog: stands alone on the screen background (mockup). Busy = blue at 62% (mockup 19),
-            // other disabled states grey.
+            // Fog: stands alone on the screen background (mockup); clear row, as a card row would
+            // ring the capsule (the row is 2pt taller). Busy = blue at 62% (mockup 19), other
+            // disabled states grey.
             .buttonStyle(FogPrimary(busy: isBusy))
             .listRowInsets(EdgeInsets())
             .listRowBackground(Color.clear)
@@ -1814,8 +1816,25 @@ struct OrderSheet: View {
         }
     }
 
-    @ViewBuilder
+    /// Centred as before; scrolls only when it does not fit (German at large text sizes).
     private func successView(_ order: OrderScanResponse) -> some View {
+        GeometryReader { proxy in
+            ScrollView {
+                successContent(order)
+                    .padding(24)
+                    .frame(maxWidth: .infinity, minHeight: proxy.size.height)
+            }
+            .scrollBounceBehavior(.basedOnSize)
+        }
+        .sheet(isPresented: $showTourPhotos) {
+            if let placedOrder {
+                TourPhotosView(orderId: placedOrder.orderId)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func successContent(_ order: OrderScanResponse) -> some View {
         VStack(spacing: 14) {
             // Fog: tick on an `ok` disc.
             Image(systemName: "checkmark")
@@ -1866,6 +1885,7 @@ struct OrderSheet: View {
                 ) {
                     Label(String(localized: "Pay Now"), systemImage: "creditcard.fill")
                         .font(.headline)
+                        .padding(.horizontal, 12)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
                 }
@@ -1876,6 +1896,7 @@ struct OrderSheet: View {
                 Text(String(localized: "We will email you a payment link shortly."))
                 .font(.footnote)
                 .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
             }
 
             // Đơn có Virtual Tour → mời khách thêm ảnh phòng ngay (làm sớm = giao sớm)
@@ -1886,6 +1907,7 @@ struct OrderSheet: View {
                     Label(String(localized: "Add room photos for your tour"),
                           systemImage: "photo.on.rectangle.angled")
                         .font(.headline)
+                        .padding(.horizontal, 12)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
                 }
@@ -1894,12 +1916,7 @@ struct OrderSheet: View {
                 Text(String(localized: "1–3 photos per room. You can also add them later in the Orders tab."))
                 .font(.footnote)
                 .foregroundStyle(.secondary)
-            }
-        }
-        .padding(24)
-        .sheet(isPresented: $showTourPhotos) {
-            if let placedOrder {
-                TourPhotosView(orderId: placedOrder.orderId)
+                .multilineTextAlignment(.center)
             }
         }
     }
