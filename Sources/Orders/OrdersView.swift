@@ -22,8 +22,9 @@ struct OrdersView: View {
     /// xoá trên mỗi lần `.task` chạy lại (tránh chớp trắng + giữ được banner "dữ liệu cũ" của [17]).
     @State private var loadedCustomerId: String?
     @State private var isLoading = false
-    /// Bumped by every `load()` and by the account wipe: only the newest load may write.
+    /// The last load started, and the last one whose answer is on screen (see `load()`).
     @State private var loadSeq = 0
+    @State private var appliedSeq = 0
     @State private var errorMessage: String?
     @State private var filter: OrderFilter = .all
     @Environment(\.dynamicTypeSize) private var typeSize
@@ -88,6 +89,7 @@ struct OrdersView: View {
                 path = []
                 // A load still out answers for the previous account: its answer is dropped.
                 loadSeq += 1
+                appliedSeq = loadSeq
                 isLoading = false
                 loadedCustomerId = currentId
             }
@@ -123,11 +125,13 @@ struct OrdersView: View {
     }
 
     private func load() async {
-        guard account.isSignedIn else { return }
+        // Only for the account the cached list belongs to: a reload fired after a sign-out or an
+        // account switch (Pay Now's `onPaid`, a revision sent) waits for the wipe's own load.
+        guard account.isSignedIn, account.customer?.id == loadedCustomerId else { return }
         // Refreshes run in their own task (`.refreshable`) and Retry / reloads never were tied to a
-        // view, so an answer can land late: after a newer load, or after a sign-out or account
-        // switch. Only the newest load for the account that asked may write — ✗ a stale list, a
-        // false "Couldn't refresh", or account A's orders shown to B.
+        // view, so answers can land late and out of order. An answer is dropped when the account
+        // changed meanwhile or a newer answer is already on screen — ✗ account A's orders shown
+        // to B, ✗ an older list over a newer one.
         let owner = account.customer?.id
         loadSeq += 1
         let seq = loadSeq
@@ -135,16 +139,31 @@ struct OrdersView: View {
         // Card payments the server has not confirmed yet. Not awaited: the list must never wait on
         // it, and the order detail shows "Paid" from `PaymentFlow` either way.
         Task { await PaymentFlow.shared.confirmPending() }
+        let answer: Result<[OrderDTO], Error>
         do {
-            let fresh = try await APIClient.shared.listOrders().orders
-            guard seq == loadSeq, owner == account.customer?.id else { return }
+            answer = .success(try await APIClient.shared.listOrders().orders)
+        } catch {
+            answer = .failure(error)
+        }
+        guard owner == account.customer?.id, seq > appliedSeq else { return }
+        let newest = seq == loadSeq
+        switch answer {
+        case .success(let fresh):
             orders = fresh
             errorMessage = nil
-        } catch {
-            guard seq == loadSeq, owner == account.customer?.id else { return }
-            errorMessage = error.localizedDescription
+            appliedSeq = seq
+        case .failure(let error):
+            // Only the newest load may say "Couldn't refresh": an older one is still followed by
+            // an answer. A cancelled load (tab switched away) brought no answer at all.
+            if newest, !Self.isCancellation(error) {
+                errorMessage = error.localizedDescription
+            }
         }
-        isLoading = false
+        if newest { isLoading = false }
+    }
+
+    private static func isCancellation(_ error: Error) -> Bool {
+        error is CancellationError || (error as? URLError)?.code == .cancelled
     }
 
     private var signedOutState: some View {

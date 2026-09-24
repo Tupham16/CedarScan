@@ -280,9 +280,10 @@ struct OrderDetailView: View {
             }
             Spacer()
             ShareLink(item: tourURL) {
+                // Concrete colour, as the file rows (trap #45): the mockup draws this icon grey.
                 Image(systemName: "square.and.arrow.up")
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color.secondary)
             }
         }
         .buttonStyle(.borderless)
