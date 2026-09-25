@@ -55,13 +55,18 @@ struct AddToOrderSheet: View {
     @State private var shownTotal = 0
     /// The server said the purchase is paid (a browser payment: `PaymentFlow` never hears of it).
     @State private var serverPaid = false
+    /// A purchase whose answer was lost, found in the order afterwards (`failed`): the names of
+    /// its items, for the done screen.
+    @State private var addedUnanswered: [String]?
     @State private var showTerms = false
 
     var body: some View {
         NavigationStack {
             Group {
                 if let created, isDone(created) {
-                    doneView(created)
+                    doneView(amount: created.free == true ? nil : amountText(created), items: created.items)
+                } else if let addedUnanswered {
+                    doneView(amount: nil, items: addedUnanswered)
                 } else if let offer {
                     form(offer)
                 } else if let loadError {
@@ -88,7 +93,7 @@ struct AddToOrderSheet: View {
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     // The done screen closes with its own Done button (mockup 40).
-                    if !(created.map { isDone($0) } ?? false) {
+                    if !showsDone {
                         Button(created == nil ? String(localized: "Cancel") : String(localized: "Close")) {
                             dismiss()
                         }
@@ -119,6 +124,10 @@ struct AddToOrderSheet: View {
             || flow.paidOrderIds.contains(purchase.orderId) || serverPaid
     }
 
+    private var showsDone: Bool {
+        (created.map { isDone($0) } ?? false) || addedUnanswered != nil
+    }
+
     /// The price the button showed is the exact amount the server will charge (rule 3).
     private func exactAsShown(_ purchase: AddExtrasResponse) -> Bool {
         purchase.amountCents == shownTotal * 100
@@ -142,7 +151,12 @@ struct AddToOrderSheet: View {
 
     private func load() async {
         do {
-            apply(try await APIClient.shared.extrasOffer(orderId: target.orderId))
+            let fresh = try await APIClient.shared.extrasOffer(orderId: target.orderId)
+            apply(fresh)
+            // The order detail offered "Add" but a purchase still awaits payment: its list is stale
+            // (a lost answer, another device). Read it again so that purchase shows there with Pay /
+            // Cancel — the message below sends the customer to it.
+            if fresh.code == "extra_awaiting" { onChanged() }
         } catch {
             loadError = error.localizedDescription
         }
@@ -177,6 +191,7 @@ struct AddToOrderSheet: View {
         let addonIds = offer.addons.filter { !$0.included && selectedAddons.contains($0.id) }.map { $0.id }
         let templates = selectedTemplates.filter { addonIds.contains($0.key) }
         let expected = total
+        let names = (offer.packages + offer.addons).filter { (packageIds + addonIds).contains($0.id) }.map { $0.name }
         guard !(packageIds.isEmpty && addonIds.isEmpty), expected > 0 else { return }
         busy = true
         errorMessage = nil
@@ -200,21 +215,32 @@ struct AddToOrderSheet: View {
                     openURL(url)
                 }
             } catch {
-                await failed(error)
+                await failed(error, sentIds: packageIds + addonIds, names: names)
             }
             busy = false
         }
     }
 
     /// The purchase was refused or its answer lost. The offer is read again: it tells a lost answer
-    /// that DID buy (`extra_awaiting`) from a refusal, and brings the current prices.
-    private func failed(_ error: Error) async {
+    /// that DID buy from a refusal, and brings the current prices. A purchase to pay reads
+    /// `extra_awaiting`; one a coupon made free reads as its items now `included`.
+    private func failed(_ error: Error, sentIds: [String], names: [String]) async {
+        // Whatever happened, the order detail reads its list again: a lost answer may have bought.
+        defer { onChanged() }
         let code = (error as? APIError)?.code
         if let fresh = try? await APIClient.shared.extrasOffer(orderId: target.orderId) {
             apply(fresh)
             if fresh.code == "extra_awaiting" {
-                onChanged()
                 errorMessage = nil
+                return
+            }
+            // Only an unknown outcome (no answer, a gateway error, an answer that could not be
+            // read): a refusal (4xx) bought nothing, even when something else put these items in
+            // the order meanwhile.
+            let refused = (error as? APIError).map { (400..<500).contains($0.statusCode) } ?? false
+            if !refused, Self.allIncluded(sentIds, in: fresh) {
+                errorMessage = nil
+                addedUnanswered = names
                 return
             }
         }
@@ -224,6 +250,12 @@ struct AddToOrderSheet: View {
         default:
             errorMessage = error.localizedDescription
         }
+    }
+
+    /// Every id sent is now in the order.
+    static func allIncluded(_ ids: [String], in offer: ExtrasOffer) -> Bool {
+        let included = Set((offer.packages + offer.addons).filter { $0.included }.map { $0.id })
+        return !ids.isEmpty && ids.allSatisfy { included.contains($0) }
     }
 
     /// Back from the payment page: ask the server, so this sheet says "Added" to someone who paid.
@@ -538,10 +570,11 @@ struct AddToOrderSheet: View {
     // MARK: Done (mockup 40)
 
     /// Centred; scrolls only when it does not fit (large text), as the "Order placed" screen.
-    private func doneView(_ purchase: AddExtrasResponse) -> some View {
+    /// `amount`: what was paid (nil when free, or unknown).
+    private func doneView(amount: String?, items: [String]?) -> some View {
         GeometryReader { proxy in
             ScrollView {
-                doneContent(purchase)
+                doneContent(amount: amount, items: items)
                     .padding(24)
                     .frame(maxWidth: .infinity, minHeight: proxy.size.height)
             }
@@ -549,7 +582,7 @@ struct AddToOrderSheet: View {
         }
     }
 
-    private func doneContent(_ purchase: AddExtrasResponse) -> some View {
+    private func doneContent(amount: String?, items: [String]?) -> some View {
         VStack(spacing: 14) {
             Image(systemName: "checkmark")
                 .font(.system(size: 30, weight: .bold))
@@ -559,11 +592,11 @@ struct AddToOrderSheet: View {
             Text(String(localized: "Added to your order"))
                 .font(.title3.weight(.bold))
                 .multilineTextAlignment(.center)
-            if purchase.free != true, let amount = amountText(purchase) {
+            if let amount {
                 Text(verbatim: amount + " · " + String(localized: "Paid"))
                     .font(.headline)
             }
-            if let names = Self.itemNames(purchase.items) {
+            if let names = Self.itemNames(items) {
                 Text(verbatim: names)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)

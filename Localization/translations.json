@@ -4945,6 +4945,18 @@
    }
   },
   {
+   "key": "Not started yet — we start once it is paid and your current drawing is delivered.",
+   "translations": {
+    "vi": "Chưa bắt đầu — chúng tôi bắt đầu khi đã được thanh toán và bản vẽ hiện tại của bạn đã giao.",
+    "fr": "Pas encore commencé — nous commençons une fois que c'est payé et que votre plan actuel est livré.",
+    "de": "Noch nicht begonnen — wir beginnen, sobald bezahlt ist und Ihre aktuelle Zeichnung geliefert ist.",
+    "cs": "Zatím nezahájeno — začneme, jakmile bude zaplaceno a váš současný výkres bude dodán.",
+    "sk": "Zatiaľ nezačaté — začneme, keď bude zaplatené a váš súčasný výkres bude dodaný.",
+    "es": "Aún sin empezar — empezamos cuando esté pagado y tu plano actual esté entregado.",
+    "nl": "Nog niet begonnen — we beginnen zodra het betaald is en je huidige tekening geleverd is."
+   }
+  },
+  {
    "key": "Unpaid additions are cancelled after 7 days.",
    "translations": {
     "vi": "Mục thêm chưa thanh toán sẽ tự hủy sau 7 ngày.",

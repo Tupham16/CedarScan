@@ -514,24 +514,29 @@ struct OrderDetailView: View {
 
     /// Each purchase added to the order, oldest first, as its own card (mockup 40). Cancelled
     /// unpaid ones never come from the server (one paid late does: it gets refunded); one this
-    /// device just cancelled is hidden until the reload lands.
+    /// device just cancelled is hidden until the reload lands. `parentDelivered`: the server hands
+    /// an added purchase to the team only once the order's drawing was delivered (owner 25/09) —
+    /// `deliveredAt`, the column its queue reads.
     private func addedItems(_ order: OrderDTO) -> some View {
-        addedItemsList((order.extras ?? []).filter { !store.cancelledOrderIds.contains($0.orderId) })
+        addedItemsList(
+            (order.extras ?? []).filter { !store.cancelledOrderIds.contains($0.orderId) },
+            parentDelivered: order.deliveredAt != nil
+        )
     }
 
     @ViewBuilder
-    private func addedItemsList(_ extras: [OrderDTO]) -> some View {
+    private func addedItemsList(_ extras: [OrderDTO], parentDelivered: Bool) -> some View {
         if !extras.isEmpty {
             sectionHeader(String(localized: "Added to this order"))
             VStack(spacing: 12) {
                 ForEach(extras) { extra in
-                    extraCard(extra)
+                    extraCard(extra, parentDelivered: parentDelivered)
                 }
             }
         }
     }
 
-    private func extraCard(_ extra: OrderDTO) -> some View {
+    private func extraCard(_ extra: OrderDTO, parentDelivered: Bool) -> some View {
         let items = extra.items ?? []
         return VStack(alignment: .leading, spacing: 0) {
             extraHeader(extra)
@@ -539,7 +544,7 @@ struct OrderDetailView: View {
             ForEach(items.indices, id: \.self) { index in
                 itemRow(items[index], ruled: index > 0)
             }
-            extraState(extra)
+            extraState(extra, parentDelivered: parentDelivered)
         }
         .detailCard()
     }
@@ -580,12 +585,16 @@ struct OrderDetailView: View {
     }
 
     /// What the purchase asks of the customer, or gives them: Pay / Cancel while it awaits payment,
-    /// the files once delivered, the refund note for one paid after it was cancelled.
+    /// the files (+ its own revision) once delivered, the refund note for one paid after it was
+    /// cancelled.
     @ViewBuilder
-    private func extraState(_ extra: OrderDTO) -> some View {
+    private func extraState(_ extra: OrderDTO, parentDelivered: Bool) -> some View {
         if showsUnpaidState(extra) {
             VStack(alignment: .leading, spacing: 10) {
-                WrappedText(Self.extraNotStarted(expires: extra.payBy != nil), style: .footnote)
+                WrappedText(
+                    Self.extraNotStarted(expires: extra.payBy != nil, parentDelivered: parentDelivered),
+                    style: .footnote
+                )
                 payNowButton(extra)
                 Button {
                     confirmCancelExtra = extra
@@ -607,27 +616,58 @@ struct OrderDetailView: View {
                 .disabled(cancelling(extra) || paymentBusy(extra))
             }
             .padding(EdgeInsets(top: 6, leading: 16, bottom: 14, trailing: 16))
-        } else if extra.isCancelled {
-            // Listed only when money reached it after the cancel (server): staff refund it.
+        } else if extra.isAwaitingPayment, flow.paidOrderIds.contains(extra.orderId), httpsURL(extra.paymentUrl) != nil {
+            // Paid in the card sheet, the list not settled yet: its "Paid" mark, which
+            // `PayNowButton` draws — as the order's own Pay Now keeps doing (`payNow`).
+            payNowButton(extra)
+                .padding(EdgeInsets(top: 6, leading: 16, bottom: 14, trailing: 16))
+        } else if extra.status == "cancelled" {
+            // Listed only when money reached it after the cancel (server): staff refund it. Once
+            // refunded it reads "refunded" (cancelledAt stays set) — ✗ `isCancelled` here, as
+            // `stateNote` for the order.
             WrappedText(String(localized: "This order was cancelled, but a payment reached us afterwards. Our team will refund it."), style: .footnote)
                 .padding(EdgeInsets(top: 6, leading: 16, bottom: 14, trailing: 16))
-        } else if extra.status == "delivered" && (httpsURL(extra.deliveredUrl) != nil || hasFileRows(extra)) {
+        } else if extraHasFiles(extra) || extra.deliveredAt != nil {
             VStack(alignment: .leading, spacing: 10) {
                 deliverables(extra)
                 ruledRows(extra)
+                extraRevision(extra)
             }
             .padding(.horizontal, 16)
             .padding(.top, 8)
-            // A ruled row carries its own height; the download button alone needs an inset.
-            .padding(.bottom, hasFileRows(extra) ? 2 : 14)
+            // A ruled row carries its own height; a button last needs an inset.
+            .padding(.bottom, hasFileRows(extra) && extra.deliveredAt == nil ? 2 : 14)
         } else {
             Color.clear.frame(height: 6)
         }
     }
 
-    /// Mockup 40. The 7-day sentence only with a `payBy` (a test account's never expire).
-    static func extraNotStarted(expires: Bool) -> String {
-        let first = String(localized: "Not started yet — we start as soon as it is paid.")
+    private func extraHasFiles(_ extra: OrderDTO) -> Bool {
+        extra.status == "delivered" && (httpsURL(extra.deliveredUrl) != nil || hasFileRows(extra))
+    }
+
+    /// 🔴 The purchase's OWN revision (server `orders/{extraId}/revision`, fdeef49): the order's
+    /// "Request a revision" moves the ORDER back to work (its downloads pause) and the team that
+    /// drew these items never hears. Gated like the order's: `deliveredAt`, ✗ `status` (a revision
+    /// under way reads "in production" again, and a second fix must stay possible).
+    @ViewBuilder
+    private func extraRevision(_ extra: OrderDTO) -> some View {
+        if extra.deliveredAt != nil {
+            Button {
+                revisionOrder = extra
+            } label: {
+                ghostLabel(String(localized: "Request a revision"), systemImage: "pencil.and.outline")
+            }
+            .buttonStyle(FogGhost())
+        }
+    }
+
+    /// Mockup 40. The 7-day sentence only with a `payBy` (a test account's never expire). Not
+    /// delivered yet: paying alone does not start it (`parentDelivered`, `addedItems`).
+    static func extraNotStarted(expires: Bool, parentDelivered: Bool) -> String {
+        let first = parentDelivered
+            ? String(localized: "Not started yet — we start as soon as it is paid.")
+            : String(localized: "Not started yet — we start once it is paid and your current drawing is delivered.")
         guard expires else { return first }
         return first + " " + String(localized: "Unpaid additions are cancelled after 7 days.")
     }

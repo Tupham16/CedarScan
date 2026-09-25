@@ -9354,6 +9354,53 @@
         }
       }
     },
+    "Not started yet — we start once it is paid and your current drawing is delivered.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zatím nezahájeno — začneme, jakmile bude zaplaceno a váš současný výkres bude dodán."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Noch nicht begonnen — wir beginnen, sobald bezahlt ist und Ihre aktuelle Zeichnung geliefert ist."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aún sin empezar — empezamos cuando esté pagado y tu plano actual esté entregado."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pas encore commencé — nous commençons une fois que c'est payé et que votre plan actuel est livré."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nog niet begonnen — we beginnen zodra het betaald is en je huidige tekening geleverd is."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zatiaľ nezačaté — začneme, keď bude zaplatené a váš súčasný výkres bude dodaný."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chưa bắt đầu — chúng tôi bắt đầu khi đã được thanh toán và bản vẽ hiện tại của bạn đã giao."
+          }
+        }
+      }
+    },
     "Note": {
       "extractionState": "manual",
       "localizations": {
