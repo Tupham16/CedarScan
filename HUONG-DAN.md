@@ -197,9 +197,9 @@ Khi đơn **Đã giao**, bấm **"Tải file thành phẩm"** để tải bản 
 | **DWG (file CAD)** | **Dịch vụ thêm, tính tiền riêng** — tick add-on **"CAD File"** lúc đặt hàng |
 
 **Muốn thêm dịch vụ cho đơn đã trả tiền?** Mở đơn ở tab **Đơn hàng**, bấm **"Thêm vào đơn này"**, chọn
-gói hoặc dịch vụ thêm mà đơn chưa có (bản 3D, màu, site plan, file CAD… — đúng giá như lúc đặt, không có
-Express), rồi bấm **"Thanh toán · $X"**. Món thêm hiện ở mục **"Đã thêm vào đơn"** ngay trong đơn đó, có
-trạng thái và file riêng. Chưa trả tiền thì chưa làm: 7 ngày chưa trả sẽ tự hủy, đổi ý thì bấm
+gói hoặc dịch vụ thêm mà đơn chưa có (bản 3D, màu, site plan, file CAD… — giá như trong form đặt hàng hiện
+tại, không có Express), rồi bấm **"Thanh toán · $X"**. Món thêm hiện ở mục **"Đã thêm vào đơn"** ngay trong
+đơn đó, có trạng thái, file và nút **"Yêu cầu sửa"** riêng. Chưa trả tiền thì chưa làm: 7 ngày chưa trả sẽ tự hủy, đổi ý thì bấm
 **"Hủy các mục"**. Đơn chưa giao thì món thêm được làm sau khi bản vẽ hiện tại giao xong.
 
 **Chưa ưng?** Bấm **"Yêu cầu sửa"** (chỉ hiện sau khi đã giao), mô tả cần sửa gì. **Sửa lỗi thuộc

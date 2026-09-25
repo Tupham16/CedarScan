@@ -153,10 +153,11 @@ struct AddToOrderSheet: View {
         do {
             let fresh = try await APIClient.shared.extrasOffer(orderId: target.orderId)
             apply(fresh)
-            // The order detail offered "Add" but a purchase still awaits payment: its list is stale
-            // (a lost answer, another device). Read it again so that purchase shows there with Pay /
-            // Cancel — the message below sends the customer to it.
-            if fresh.code == "extra_awaiting" { onChanged() }
+            // The order detail offered "Add" but the server says no: its list is stale (a purchase
+            // awaiting payment after a lost answer or from another device, everything bought, the
+            // order refunded or closed). Read it again — e.g. that purchase then shows there with
+            // Pay / Cancel, where the message below sends the customer.
+            if !fresh.canAdd { onChanged() }
         } catch {
             loadError = error.localizedDescription
         }

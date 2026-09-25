@@ -492,7 +492,9 @@ struct OrderDetailView: View {
                 Spacer(minLength: 0)
                 Image(systemName: "chevron.right")
                     .font(.footnote.weight(.semibold))
-                    .foregroundStyle(.tertiary)
+                    // Concrete grey (mockup): `.tertiary` under the row's accent style below = faint
+                    // blue (renders 25/09).
+                    .foregroundStyle(Color(uiColor: .tertiaryLabel))
                     .accessibilityHidden(true)
             }
             // Concrete colour (trap #45): the mockup draws the row in the accent text colour.
@@ -514,12 +516,14 @@ struct OrderDetailView: View {
 
     /// Each purchase added to the order, oldest first, as its own card (mockup 40). Cancelled
     /// unpaid ones never come from the server (one paid late does: it gets refunded); one this
-    /// device just cancelled is hidden until the reload lands. `parentDelivered`: the server hands
-    /// an added purchase to the team only once the order's drawing was delivered (owner 25/09) —
-    /// `deliveredAt`, the column its queue reads.
+    /// device just cancelled is hidden while the list still reads it unpaid (its reload has not
+    /// landed) — only then: `cancelledOrderIds` lasts the whole run, and a payment that lands after
+    /// the cancel must show its refund note. `parentDelivered`: the server hands an added purchase
+    /// to the team only once the order's drawing was delivered (owner 25/09) — `deliveredAt`, the
+    /// column its queue reads.
     private func addedItems(_ order: OrderDTO) -> some View {
         addedItemsList(
-            (order.extras ?? []).filter { !store.cancelledOrderIds.contains($0.orderId) },
+            (order.extras ?? []).filter { !($0.isAwaitingPayment && store.cancelledOrderIds.contains($0.orderId)) },
             parentDelivered: order.deliveredAt != nil
         )
     }
