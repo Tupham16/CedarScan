@@ -141,6 +141,21 @@ struct AddToOrderSheet: View {
     private var locked: Bool { busy || created != nil }
 
     private func load() async {
+        // THROWAWAY harness (claude/orders2c-shots): canned offer / purchase, no server.
+        if Fog6.addonScreen {
+            apply(Fog6.extrasOffer())
+            if Fog6.screen != "addon-blocked" {
+                selectedPackages = ["3d"]
+                selectedAddons = ["siteplan"]
+                selectedTemplates = ["siteplan": "style-2"]
+            }
+            if let purchase = Fog6.extrasPurchase() {
+                shownTotal = 43
+                created = purchase
+                serverPaid = purchase.status == "received"
+            }
+            return
+        }
         do {
             apply(try await APIClient.shared.extrasOffer(orderId: target.orderId))
         } catch {

@@ -126,6 +126,42 @@ enum Fog6 {
         return try? JSONDecoder().decode(OrderScanResponse.self, from: Data(json.utf8))
     }
 
+    // MARK: Orders v2 C — "Add to this order" stubs
+
+    static var addonScreen: Bool { screen?.hasPrefix("addon") == true }
+
+    static func extrasOffer() -> ExtrasOffer {
+        let tpls = palettes.enumerated().map { i, p in
+            "{\"id\":\"style-\(i + 1)\",\"name\":\"Style \(i + 1)\",\"imageUrl\":\"\(templateURL(p.0).absoluteString)\"}"
+        }.joined(separator: ",")
+        let blocked = screen == "addon-blocked"
+        let code = blocked ? "\"extra_awaiting\"" : "null"
+        let json = """
+        {"orderId":"a7","orderNumber":"#LS-MS5UP7AUN","canAdd":\(!blocked),"code":\(code),"awaitingOrderId":null,
+         "packages":[{"id":"2d","name":"2D Floor Plan","price":10,"included":true},
+                     {"id":"3d","name":"3D Floor Plan","price":40,"included":false}],
+         "addons":[{"id":"color","name":"Color floor plan","price":2,"included":true,"templates":[\(tpls)]},
+                   {"id":"siteplan","name":"Site plan","price":3,"included":false,"templates":[\(tpls)]},
+                   {"id":"dwg","name":"CAD File","price":1,"included":false}]}
+        """
+        return try! JSONDecoder().decode(ExtrasOffer.self, from: Data(json.utf8))
+    }
+
+    /// The purchase the sheet made: `addon-coupon` = a customer coupon took 40 cents off (the button
+    /// shows the exact amount and waits for a tap); `addon-done*` = paid.
+    static func extrasPurchase() -> AddExtrasResponse? {
+        let json: String
+        switch screen {
+        case "addon-coupon":
+            json = ##"{"orderId":"x9","orderNumber":"#LS-MS5UP7AUN_A2","status":"awaiting_payment","total":43,"amountCents":4260,"items":["3D Floor Plan","Site plan · Style 2"],"discount":0.4,"free":false,"paymentUrl":"https://example.invalid/pay/x9","payInApp":false,"payBy":"2026-10-02T10:00:00.000Z"}"##
+        case "addon-done", "addon-done-notdelivered":
+            json = ##"{"orderId":"x9","orderNumber":"#LS-MS5UP7AUN_A2","status":"received","total":43,"amountCents":4300,"items":["3D Floor Plan","Site plan · Style 2"],"discount":0,"free":false,"paymentUrl":null,"payInApp":false,"payBy":null}"##
+        default:
+            return nil
+        }
+        return try? JSONDecoder().decode(AddExtrasResponse.self, from: Data(json.utf8))
+    }
+
     // MARK: Orders v2 B — canned Orders tab
 
     /// `orders` = the list; `orders-<orderId>` = that order pushed.
@@ -141,10 +177,14 @@ enum Fog6 {
          {"orderId":"a1","orderNumber":"#LS-MS5M4941E","scanId":"s3","scanIds":["s3"],"scanName":"Main floor","projectName":"12 Oak Street","items":["2D Floor Plan","3D Floor Plan","Site plan","Express 12h turnaround"],"status":"awaiting_payment","placedAt":"2026-09-14T10:00:00.000Z","payBy":"2026-09-21T10:00:00.000Z","cancelledAt":null,"cancelReason":null,"deliveredAt":null,"deliveredUrl":null,"deliveryFiles":[],"total":129,"currency":"USD","paid":false,"paymentUrl":"https://example.invalid/pay/a1","payInApp":false,"hasTour":false,"tourPhotoCount":0,"tourUrl":null,"texturedScans":[]},
          {"orderId":"a2","orderNumber":"#LS-MS5M4941F","scanId":"s8","scanIds":["s8"],"scanName":"Main floor","projectName":"Demo House (App Review)","items":["2D Floor Plan"],"status":"awaiting_payment","placedAt":"2026-09-13T10:00:00.000Z","payBy":null,"cancelledAt":null,"cancelReason":null,"deliveredAt":null,"deliveredUrl":null,"deliveryFiles":[],"total":6,"currency":"USD","paid":false,"paymentUrl":"https://example.invalid/pay/a2","payInApp":false,"hasTour":true,"tourPhotoCount":0,"tourUrl":null,"texturedScans":[]},
          {"orderId":"a3","orderNumber":"#LS-MS5M4941G","scanId":"s9","scanIds":["s9"],"scanName":"Garage","projectName":"3 Birch Lane","items":["2D Floor Plan","CAD File"],"status":"awaiting_payment","placedAt":"2026-09-12T10:00:00.000Z","payBy":"2026-09-19T10:00:00.000Z","cancelledAt":null,"cancelReason":null,"deliveredAt":null,"deliveredUrl":null,"deliveryFiles":[],"total":7,"currency":"USD","paid":false,"paymentUrl":null,"payInApp":false,"hasTour":false,"tourPhotoCount":0,"tourUrl":null,"texturedScans":[]},
-         {"orderId":"a4","orderNumber":"#LS-MRQL7MXNA","scanId":"s4","scanIds":["s4"],"scanName":"Main floor","projectName":"7 Pine Court","items":["2D Floor Plan"],"status":"in_production","placedAt":"2026-09-10T10:00:00.000Z","payBy":null,"cancelledAt":null,"cancelReason":null,"deliveredAt":null,"deliveredUrl":null,"deliveryFiles":[],"total":6,"currency":"USD","paid":true,"paymentUrl":null,"payInApp":false,"hasTour":false,"tourPhotoCount":0,"tourUrl":null,"texturedScans":[]},
+         {"orderId":"a4","orderNumber":"#LS-MRQL7MXNA","scanId":"s4","scanIds":["s4"],"scanName":"Main floor","projectName":"7 Pine Court","items":["2D Floor Plan"],"status":"in_production","placedAt":"2026-09-10T10:00:00.000Z","payBy":null,"cancelledAt":null,"cancelReason":null,"deliveredAt":null,"deliveredUrl":null,"deliveryFiles":[],"total":6,"currency":"USD","paid":true,"paymentUrl":null,"payInApp":false,"hasTour":false,"tourPhotoCount":0,"tourUrl":null,"texturedScans":[],"canAddItems":false,
+          "extras":[{"orderId":"x2","orderNumber":"#LS-MRQL7MXNA_A1","scanId":null,"scanIds":[],"scanName":null,"projectName":"7 Pine Court","items":["Site plan · Style 2","CAD File"],"status":"awaiting_payment","placedAt":"2026-09-20T10:00:00.000Z","payBy":"2026-09-27T10:00:00.000Z","cancelledAt":null,"cancelReason":null,"deliveredAt":null,"deliveredUrl":null,"deliveryFiles":[],"total":4,"currency":"USD","paid":false,"paymentUrl":"https://example.invalid/pay/x2","payInApp":false,"hasTour":false,"tourPhotoCount":0,"tourUrl":null,"texturedScans":[]}]},
          {"orderId":"a5","orderNumber":"#LS-MRAT7XNG6","scanId":"s6","scanIds":["s6","s7"],"scanName":"Main floor + Basement","projectName":"5 Elm Way","items":["2D Floor Plan","Color floor plan · Classic"],"status":"cancelled","placedAt":"2026-09-03T10:00:00.000Z","payBy":null,"cancelledAt":"2026-09-10T10:00:00.000Z","cancelReason":"expired","deliveredAt":null,"deliveredUrl":null,"deliveryFiles":[],"total":8,"currency":"USD","paid":false,"paymentUrl":null,"payInApp":false,"hasTour":false,"tourPhotoCount":0,"tourUrl":null,"texturedScans":[]},
          {"orderId":"a6","orderNumber":"#LS-MRAT7XNG7","scanId":"s10","scanIds":["s10"],"scanName":"Shed","projectName":"9 Cedar Road","items":["2D Floor Plan"],"status":"cancelled","placedAt":"2026-09-02T10:00:00.000Z","payBy":null,"cancelledAt":"2026-09-04T10:00:00.000Z","cancelReason":"customer","deliveredAt":null,"deliveredUrl":null,"deliveryFiles":[],"total":6,"currency":"USD","paid":true,"paymentUrl":null,"payInApp":false,"hasTour":false,"tourPhotoCount":0,"tourUrl":null,"texturedScans":[]},
-         {"orderId":"a7","orderNumber":"#LS-MS5UP7AUN","scanId":"s1","scanIds":["s1"],"scanName":"Main floor","projectName":"48 Harbor View","items":["2D Floor Plan"],"status":"delivered","placedAt":"2026-09-01T10:00:00.000Z","payBy":null,"cancelledAt":null,"cancelReason":null,"deliveredAt":"2026-09-02T10:00:00.000Z","deliveredUrl":"https://example.invalid/d/a7.zip","deliveryFiles":[{"fileName":"48-Harbor-View-floorplan.pdf","url":"https://example.invalid/d/a.pdf","sizeLabel":"2.4 MB"}],"total":6,"currency":"USD","paid":true,"paymentUrl":null,"payInApp":false,"hasTour":false,"tourPhotoCount":0,"tourUrl":null,"texturedScans":[]}
+         {"orderId":"a7","orderNumber":"#LS-MS5UP7AUN","scanId":"s1","scanIds":["s1"],"scanName":"Main floor","projectName":"48 Harbor View","items":["2D Floor Plan"],"status":"delivered","placedAt":"2026-09-01T10:00:00.000Z","payBy":null,"cancelledAt":null,"cancelReason":null,"deliveredAt":"2026-09-02T10:00:00.000Z","deliveredUrl":"https://example.invalid/d/a7.zip","deliveryFiles":[{"fileName":"48-Harbor-View-floorplan.pdf","url":"https://example.invalid/d/a.pdf","sizeLabel":"2.4 MB"}],"total":6,"currency":"USD","paid":true,"paymentUrl":null,"payInApp":false,"hasTour":false,"tourPhotoCount":0,"tourUrl":null,"texturedScans":[],"canAddItems":true,
+          "extras":[{"orderId":"x1","orderNumber":"#LS-MS5UP7AUN_A1","scanId":null,"scanIds":[],"scanName":null,"projectName":"48 Harbor View","items":["3D Floor Plan","Site plan · Style 2"],"status":"delivered","placedAt":"2026-09-20T10:00:00.000Z","payBy":null,"cancelledAt":null,"cancelReason":null,"deliveredAt":"2026-09-23T10:00:00.000Z","deliveredUrl":"https://example.invalid/d/x1.zip","deliveryFiles":[{"fileName":"48-Harbor-View-3D.pdf","url":"https://example.invalid/d/x1a.pdf","sizeLabel":"3.1 MB"},{"fileName":"48-Harbor-View-siteplan.pdf","url":"https://example.invalid/d/x1b.pdf","sizeLabel":"0.9 MB"}],"total":42,"currency":"USD","paid":true,"paymentUrl":null,"payInApp":false,"hasTour":false,"tourPhotoCount":0,"tourUrl":null,"texturedScans":[]}]},
+         {"orderId":"a8","orderNumber":"#LS-MS3KQ2ZT4","scanId":"s11","scanIds":["s11"],"scanName":"Main floor","projectName":"210 Lake Road","items":["2D Floor Plan","Color floor plan · Style 2"],"status":"in_production","placedAt":"2026-08-21T10:00:00.000Z","payBy":null,"cancelledAt":null,"cancelReason":null,"deliveredAt":null,"deliveredUrl":null,"deliveryFiles":[],"total":8,"currency":"USD","paid":true,"paymentUrl":null,"payInApp":false,"hasTour":false,"tourPhotoCount":0,"tourUrl":null,"texturedScans":[],"canAddItems":true,
+          "extras":[{"orderId":"x3","orderNumber":"#LS-MS3KQ2ZT4_A1","scanId":null,"scanIds":[],"scanName":null,"projectName":"210 Lake Road","items":["3D Floor Plan"],"status":"received","placedAt":"2026-09-01T10:00:00.000Z","payBy":null,"cancelledAt":null,"cancelReason":null,"deliveredAt":null,"deliveredUrl":null,"deliveryFiles":[],"total":40,"currency":"USD","paid":true,"paymentUrl":null,"payInApp":false,"hasTour":false,"tourPhotoCount":0,"tourUrl":null,"texturedScans":[]}]}
         ]}
         """##
         do {
@@ -373,6 +413,19 @@ struct Fog6ShotRoot: View {
              "placed-awaiting", "placed-awaiting-test", "placed-awaiting-nolink", "placed-awaiting-coupon":
             Color.gray.opacity(0.35).ignoresSafeArea()
                 .sheet(isPresented: $sheet) { orderSheet(project: false) }
+        case "addon", "addon-coupon", "addon-done", "addon-blocked", "addon-notdelivered", "addon-done-notdelivered":
+            Color.gray.opacity(0.35).ignoresSafeArea()
+                .sheet(isPresented: $sheet) {
+                    AddToOrderSheet(
+                        target: AddToOrderTarget(
+                            orderId: "a7",
+                            orderNumber: "#LS-MS5UP7AUN",
+                            title: "48 Harbor View",
+                            delivered: !screen.hasSuffix("notdelivered")
+                        ),
+                        onChanged: {}
+                    )
+                }
         case "order-paid":
             Color.gray.opacity(0.35).ignoresSafeArea()
                 .sheet(isPresented: $sheet) { orderSheet(project: true) }

@@ -1,9 +1,9 @@
-# THROWAWAY: simulator screenshots of the Orders v2 B screens. Never merge to main.
-name: Orders2b shots (throwaway)
+# THROWAWAY: simulator screenshots of the Orders v2 C screens. Never merge to main.
+name: Orders2c shots (throwaway)
 
 on:
   push:
-    branches: ['claude/orders2b-shots']
+    branches: ['claude/orders2c-shots']
 
 jobs:
   shots:
@@ -38,7 +38,7 @@ jobs:
           r = [x for x in json.load(sys.stdin)['runtimes'] if x['identifier'].startswith('com.apple.CoreSimulator.SimRuntime.iOS-26') and x.get('isAvailable')]
           print(sorted(r, key=lambda x: x['version'])[-1]['identifier'])
           ")
-          UDID=$(xcrun simctl create "O2b ${{ matrix.device }}" "com.apple.CoreSimulator.SimDeviceType.${{ matrix.device }}" "$RT")
+          UDID=$(xcrun simctl create "O2c ${{ matrix.device }}" "com.apple.CoreSimulator.SimDeviceType.${{ matrix.device }}" "$RT")
           echo "Created $UDID on $RT"
           echo "udid=$UDID" >> "$GITHUB_OUTPUT"
 
@@ -55,7 +55,7 @@ jobs:
             -project CedarScan.xcodeproj \
             -scheme CedarScan \
             -destination "id=${{ steps.sim.outputs.udid }}" \
-            -only-testing:CedarScanUITests/Orders2bShots \
+            -only-testing:CedarScanUITests/Orders2cShots \
             -resultBundlePath light.xcresult \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
             | tee light.log | grep -E "Test Case|error:|\*\* TEST" || true
@@ -69,7 +69,7 @@ jobs:
             -project CedarScan.xcodeproj \
             -scheme CedarScan \
             -destination "id=${{ steps.sim.outputs.udid }}" \
-            -only-testing:CedarScanUITests/Orders2bShots \
+            -only-testing:CedarScanUITests/Orders2cShots \
             -resultBundlePath dark.xcresult \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
             | tee dark.log | grep -E "Test Case|error:|\*\* TEST" || true
@@ -88,7 +88,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: orders2b-shots-${{ matrix.device }}
+          name: orders2c-shots-${{ matrix.device }}
           path: |
             shots
             light.log
