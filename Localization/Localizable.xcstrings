@@ -1223,49 +1223,49 @@
         }
       }
     },
-    "Added to your order. It is not placed until it is paid — you can pay in the Orders tab.": {
+    "Added to your order. It is not placed until it is paid — see it in the Orders tab.": {
       "extractionState": "manual",
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Přidáno k vaší objednávce. Objednávka platí až po zaplacení — zaplatit můžete na záložce Objednávky."
+            "value": "Přidáno k vaší objednávce. Objednávka platí až po zaplacení — najdete ji na záložce Objednávky."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Zu Ihrer Bestellung hinzugefügt. Sie ist erst mit der Bezahlung aufgegeben — bezahlen können Sie im Tab \"Bestellungen\"."
+            "value": "Zu Ihrer Bestellung hinzugefügt. Sie ist erst mit der Bezahlung aufgegeben — Sie finden sie im Tab \"Bestellungen\"."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Añadido a tu pedido. No se realiza hasta que se paga — puedes pagar en la pestaña Pedidos."
+            "value": "Añadido a tu pedido. No se realiza hasta que se paga — lo encontrarás en la pestaña Pedidos."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "C'est ajouté à votre commande. Elle n'est passée qu'une fois payée — vous pouvez payer dans l'onglet Commandes."
+            "value": "C'est ajouté à votre commande. Elle n'est passée qu'une fois payée — voyez-la dans l'onglet Commandes."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Toegevoegd aan je bestelling. Die is pas geplaatst als er betaald is — betalen kan in het tabblad Bestellingen."
+            "value": "Toegevoegd aan je bestelling. Die is pas geplaatst als er betaald is — je vindt haar in het tabblad Bestellingen."
           }
         },
         "sk": {
           "stringUnit": {
             "state": "translated",
-            "value": "Pridané k vašej objednávke. Objednávka platí až po zaplatení — zaplatiť môžete na karte Objednávky."
+            "value": "Pridané k vašej objednávke. Objednávka platí až po zaplatení — nájdete ju na karte Objednávky."
           }
         },
         "vi": {
           "stringUnit": {
             "state": "translated",
-            "value": "Đã thêm vào đơn của bạn. Đơn chỉ được đặt khi đã thanh toán — bạn thanh toán ở tab Đơn hàng."
+            "value": "Đã thêm vào đơn của bạn. Đơn chỉ được đặt khi đã thanh toán — xem đơn ở tab Đơn hàng."
           }
         }
       }
@@ -1642,6 +1642,53 @@
           "stringUnit": {
             "state": "translated",
             "value": "Đơn đang chờ thanh toán: mở đơn ở tab Đơn hàng rồi bấm \"Hủy đơn\" — bạn không mất tiền và các bản quét của đơn về lại \"Mới\". Đơn khác: bạn viết cho %@ kèm số đơn nhé. Điều khoản đầy đủ ở tab Tài khoản, mục Legal & Privacy."
+          }
+        }
+      }
+    },
+    "An order still awaiting payment is cancelled first.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Objednávka, která ještě čeká na platbu, se nejdřív zruší."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eine Bestellung, deren Zahlung noch aussteht, wird zuerst storniert."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un pedido que aún está pendiente de pago se cancela primero."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Une commande encore en attente de paiement est d'abord annulée."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Een bestelling die nog wacht op betaling, wordt eerst geannuleerd."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Objednávka, ktorá ešte čaká na platbu, sa najprv zruší."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đơn còn đang chờ thanh toán sẽ bị hủy trước."
           }
         }
       }
@@ -2445,49 +2492,49 @@
         }
       }
     },
-    "Cancelled before it was paid — nothing was charged. Its scans are back to \"New\", so you can order them again.": {
+    "Cancelled before it was paid — nothing was charged. Its scans were released, so they can be ordered again.": {
       "extractionState": "manual",
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Zrušeno před zaplacením — nic nebylo účtováno. Její skeny jsou znovu \"Nový\", takže je můžete objednat znovu."
+            "value": "Zrušeno před zaplacením — nic nebylo účtováno. Její skeny byly uvolněny, takže je lze objednat znovu."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Vor der Bezahlung storniert — es wurde nichts berechnet. Ihre Scans sind wieder \"Neu\", Sie können sie also erneut bestellen."
+            "value": "Vor der Bezahlung storniert — es wurde nichts berechnet. Ihre Scans wurden freigegeben und können daher erneut bestellt werden."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Cancelado antes de pagarse — no se cobró nada. Sus escaneos vuelven a estar en \"Nuevo\", así que puedes pedirlos otra vez."
+            "value": "Cancelado antes de pagarse — no se cobró nada. Sus escaneos se liberaron, así que se pueden pedir otra vez."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Annulée avant d'être payée — rien n'a été débité. Ses numérisations sont redevenues \"Nouveau\", vous pouvez donc les commander de nouveau."
+            "value": "Annulée avant d'être payée — rien n'a été débité. Ses numérisations ont été libérées et peuvent donc être commandées de nouveau."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Geannuleerd voordat er betaald is — er is niets in rekening gebracht. De scans staan weer op \"Nieuw\", dus je kunt ze opnieuw bestellen."
+            "value": "Geannuleerd voordat er betaald is — er is niets in rekening gebracht. De scans zijn vrijgegeven, dus ze kunnen opnieuw besteld worden."
           }
         },
         "sk": {
           "stringUnit": {
             "state": "translated",
-            "value": "Zrušená pred zaplatením — nič sa neúčtovalo. Jej skeny sú znova \"Nový\", takže ich môžete objednať znova."
+            "value": "Zrušená pred zaplatením — nič sa neúčtovalo. Jej skeny boli uvoľnené, takže sa dajú objednať znova."
           }
         },
         "vi": {
           "stringUnit": {
             "state": "translated",
-            "value": "Đã hủy khi chưa thanh toán — bạn không mất tiền. Các bản quét của đơn đã về lại \"Mới\", bạn có thể đặt lại."
+            "value": "Đã hủy khi chưa thanh toán — bạn không mất tiền. Các bản quét của đơn đã được trả lại để có thể đặt lại."
           }
         }
       }
@@ -8696,49 +8743,49 @@
         }
       }
     },
-    "Not placed until it is paid. Pay in the Orders tab.": {
+    "Not placed until it is paid — see the Orders tab.": {
       "extractionState": "manual",
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Objednávka platí až po zaplacení. Zaplaťte na záložce Objednávky."
+            "value": "Objednávka platí až po zaplacení — viz záložka Objednávky."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Erst mit der Bezahlung aufgegeben. Bezahlen Sie im Tab \"Bestellungen\"."
+            "value": "Erst mit der Bezahlung aufgegeben — siehe Tab \"Bestellungen\"."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "No se realiza hasta que se paga. Paga en la pestaña Pedidos."
+            "value": "No se realiza hasta que se paga — mira la pestaña Pedidos."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Commande passée seulement une fois payée. Payez dans l'onglet Commandes."
+            "value": "Commande passée seulement une fois payée — voyez l'onglet Commandes."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Pas geplaatst als er betaald is. Betaal in het tabblad Bestellingen."
+            "value": "Pas geplaatst als er betaald is — zie het tabblad Bestellingen."
           }
         },
         "sk": {
           "stringUnit": {
             "state": "translated",
-            "value": "Objednávka platí až po zaplatení. Zaplaťte na karte Objednávky."
+            "value": "Objednávka platí až po zaplatení — pozrite kartu Objednávky."
           }
         },
         "vi": {
           "stringUnit": {
             "state": "translated",
-            "value": "Đơn chỉ được đặt khi đã thanh toán. Thanh toán ở tab Đơn hàng."
+            "value": "Đơn chỉ được đặt khi đã thanh toán — xem ở tab Đơn hàng."
           }
         }
       }
@@ -10243,53 +10290,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Đã đổi mật khẩu!"
-          }
-        }
-      }
-    },
-    "Pay $%lld": {
-      "extractionState": "manual",
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Zaplatit %lld $"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "$%lld bezahlen"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Pagar $%lld"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Payer %lld $"
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "$%lld betalen"
-          }
-        },
-        "sk": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Zaplatiť $%lld"
-          }
-        },
-        "vi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Thanh toán $%lld"
           }
         }
       }
@@ -14289,6 +14289,53 @@
         }
       }
     },
+    "Tap \"Pay Now\" — on the screen right after you order, or on the order in the Orders tab. You pay by card in the app, or on the payment page in your browser. An order marked \"Awaiting payment\" is placed once it is paid, and cancelled if it stays unpaid for 7 days. No button yet? Give it a few minutes; the link reaches your email.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klepněte na \"Zaplatit nyní\" — na obrazovce hned po objednání, nebo v objednávce na záložce Objednávky. Zaplatíte kartou v aplikaci, nebo na platební stránce ve vašem prohlížeči. Objednávka se štítkem \"Čeká na platbu\" platí, jakmile je zaplacená, a zruší se, pokud zůstane 7 dní nezaplacená. Tlačítko zatím nikde? Dejte tomu pár minut; odkaz vám dorazí na e-mail."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tippen Sie auf \"Jetzt bezahlen\" — auf dem Bildschirm direkt nach der Bestellung oder in der Bestellung im Tab \"Bestellungen\". Sie bezahlen per Karte in der App oder auf der Zahlungsseite in Ihrem Browser. Eine Bestellung mit dem Status \"Zahlung ausstehend\" ist aufgegeben, sobald sie bezahlt ist, und wird storniert, wenn sie 7 Tage unbezahlt bleibt. Noch kein Button? Warten Sie ein paar Minuten — der Link kommt per E-Mail."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toca \"Pagar ahora\" — en la pantalla justo después de pedir, o en el pedido, en la pestaña Pedidos. Pagas con tarjeta en la app, o en la página de pago en tu navegador. Un pedido marcado como \"Pendiente de pago\" se realiza cuando está pagado, y se cancela si sigue sin pagar durante 7 días. ¿Aún no ves el botón? Dale unos minutos; el enlace llegará a tu correo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Touchez \"Payer maintenant\" — sur l'écran juste après la commande, ou dans la commande, dans l'onglet Commandes. Vous payez par carte dans l'app, ou sur la page de paiement dans votre navigateur. Une commande marquée \"Paiement en attente\" est passée une fois payée, et annulée si elle reste impayée pendant 7 jours. Pas encore de bouton? Patientez quelques minutes; le lien arrive dans votre boîte courriel."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tik op \"Nu betalen\" — op het scherm direct na het bestellen, of in de bestelling in het tabblad Bestellingen. Je betaalt met je betaalkaart in de app, of op de betaalpagina in je browser. Een bestelling met het label \"Wacht op betaling\" is geplaatst zodra ze betaald is, en wordt geannuleerd als ze 7 dagen onbetaald blijft. Nog geen knop? Geef het een paar minuten; de link komt in je mailbox."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ťuknite na \"Zaplatiť teraz\" — na obrazovke hneď po objednaní alebo v objednávke na karte Objednávky. Zaplatíte platobnou kartou v aplikácii alebo na platobnej stránke vo vašom prehliadači. Objednávka so štítkom \"Čaká na platbu\" platí, keď je zaplatená, a zruší sa, ak zostane 7 dní nezaplatená. Tlačidlo ešte nevidíte? Počkajte pár minút; odkaz vám príde na e-mail."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bạn bấm \"Thanh toán ngay\" — ở màn hình ngay sau khi đặt, hoặc trong đơn ở tab Đơn hàng. Bạn trả bằng thẻ ngay trong app, hoặc ở trang thanh toán trên trình duyệt. Đơn ghi \"Chờ thanh toán\" chỉ được đặt khi đã thanh toán, và sẽ bị hủy nếu để 7 ngày chưa trả. Chưa thấy nút thì đợi vài phút, link sẽ tới email của bạn."
+          }
+        }
+      }
+    },
     "Tap Stop & Save, NAME the scan and tap Save — the scan is still recording until you do. Only then put the phone down.": {
       "extractionState": "manual",
       "localizations": {
@@ -14379,53 +14426,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Bấm nút Scan ở giữa thanh dưới để quét không gian đầu tiên. Mỗi bản quét sẽ tự vào dự án theo địa chỉ bạn nhập."
-          }
-        }
-      }
-    },
-    "Tap the pay button — on the screen right after you order, or on the order in the Orders tab. You pay by card in the app, or on the payment page in your browser. Your order is placed once it is paid; an order left unpaid for 7 days is cancelled. No button yet? Give it a few minutes; the link reaches your email.": {
-      "extractionState": "manual",
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Klepněte na tlačítko pro platbu — na obrazovce hned po objednání, nebo v objednávce na záložce Objednávky. Zaplatíte kartou v aplikaci, nebo na platební stránce ve vašem prohlížeči. Objednávka platí, jakmile je zaplacená; objednávka nezaplacená 7 dní se zruší. Tlačítko zatím nikde? Dejte tomu pár minut; odkaz vám dorazí na e-mail."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tippen Sie auf den Bezahl-Button — auf dem Bildschirm direkt nach der Bestellung oder in der Bestellung im Tab \"Bestellungen\". Sie bezahlen per Karte in der App oder auf der Zahlungsseite in Ihrem Browser. Aufgegeben ist Ihre Bestellung, sobald sie bezahlt ist; eine Bestellung, die 7 Tage unbezahlt bleibt, wird storniert. Noch kein Button? Warten Sie ein paar Minuten — der Link kommt per E-Mail."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Toca el botón de pago — en la pantalla justo después de pedir, o en el pedido, en la pestaña Pedidos. Pagas con tarjeta en la app, o en la página de pago en tu navegador. Tu pedido se realiza cuando está pagado; un pedido sin pagar durante 7 días se cancela. ¿Aún no ves el botón? Dale unos minutos; el enlace llegará a tu correo."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Touchez le bouton de paiement — sur l'écran juste après la commande, ou dans la commande, dans l'onglet Commandes. Vous payez par carte dans l'app, ou sur la page de paiement dans votre navigateur. Votre commande est passée une fois payée; une commande non payée pendant 7 jours est annulée. Pas encore de bouton? Patientez quelques minutes; le lien arrive dans votre boîte courriel."
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tik op de betaalknop — op het scherm direct na het bestellen, of in de bestelling in het tabblad Bestellingen. Je betaalt met je betaalkaart in de app, of op de betaalpagina in je browser. Je bestelling is geplaatst zodra ze betaald is; een bestelling die 7 dagen onbetaald blijft, wordt geannuleerd. Nog geen knop? Geef het een paar minuten; de link komt in je mailbox."
-          }
-        },
-        "sk": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ťuknite na tlačidlo platby — na obrazovke hneď po objednaní alebo v objednávke na karte Objednávky. Zaplatíte platobnou kartou v aplikácii alebo na platobnej stránke vo vašom prehliadači. Objednávka platí, keď je zaplatená; objednávka nezaplatená 7 dní sa zruší. Tlačidlo ešte nevidíte? Počkajte pár minút; odkaz vám príde na e-mail."
-          }
-        },
-        "vi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Bạn bấm nút thanh toán — ở màn hình ngay sau khi đặt, hoặc trong đơn ở tab Đơn hàng. Bạn trả bằng thẻ ngay trong app, hoặc ở trang thanh toán trên trình duyệt. Thanh toán xong thì đơn mới được đặt; đơn để 7 ngày chưa thanh toán sẽ bị hủy. Chưa thấy nút thì đợi vài phút, link sẽ tới email của bạn."
           }
         }
       }
@@ -14802,6 +14802,53 @@
           "stringUnit": {
             "state": "translated",
             "value": "Tour đã được giao — ảnh đã khoá. Liên hệ hỗ trợ nếu cần đổi."
+          }
+        }
+      }
+    },
+    "These will be added to order %@ for this property, which is placed once it is paid. No extra charge.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tyto skeny přidáme k objednávce %@ u této nemovitosti, která začne platit po zaplacení. Nic navíc neplatíte."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diese Scans werden zu Bestellung %@ für dieses Objekt hinzugefügt, die mit der Bezahlung aufgegeben ist. Ohne Aufpreis."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se añadirán al pedido %@ de esta propiedad, que se realiza cuando se paga. Sin costo adicional."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elles seront ajoutées à la commande %@ de cette propriété, qui sera passée une fois payée. Sans frais supplémentaires."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deze worden toegevoegd aan bestelling %@ voor deze woning, die geplaatst is zodra er betaald is. Geen extra kosten."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pridajú sa do objednávky %@ pre túto nehnuteľnosť, ktorá začne platiť po zaplatení. Bez príplatku."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Các bản quét này sẽ được thêm vào đơn %@ của căn nhà này — đơn chỉ được đặt khi đã thanh toán. Không tính thêm phí."
           }
         }
       }

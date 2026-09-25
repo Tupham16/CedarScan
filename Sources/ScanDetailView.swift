@@ -633,7 +633,7 @@ struct ScanDetailView: View {
                 Text((unpaid ? String(localized: "Awaiting payment") : String(localized: "Floor plan ordered")) + " · \(orderNumber)")
                     .font(.subheadline.weight(.semibold))
                 Text(unpaid
-                     ? String(localized: "Not placed until it is paid. Pay in the Orders tab.")
+                     ? String(localized: "Not placed until it is paid — see the Orders tab.")
                      : String(localized: "Track progress in the Orders tab."))
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -1145,6 +1145,9 @@ struct OrderSheet: View {
     @State private var showTourPhotos = false // mở màn thêm ảnh Virtual Tour ngay sau khi đặt
     /// Read only: the card sheet paid this order (the placed screen then says "Order placed!").
     @ObservedObject private var flow = PaymentFlow.shared
+    /// The server said this order is paid (a browser payment: `PaymentFlow` never hears of it).
+    @State private var serverPaid = false
+    @Environment(\.scenePhase) private var scenePhase
 
     /// Ngôn ngữ bản vẽ — list cố định (chủ app chốt 2026-07-21). Giá trị gửi lên server = chính chuỗi
     /// này (đội vẽ đọc để biết viết bản vẽ bằng ngôn ngữ/biến thể nào).
@@ -1279,6 +1282,9 @@ struct OrderSheet: View {
         // NHƯNG không hủy khi đang `placingOrder`: lúc đó để orderScan chạy trọn thì đơn tạo + đóng
         // dấu bản quét cùng chạy (nhất quán), còn hủy nửa chừng mới đẻ half-state.
         .onDisappear { if !placingOrder { submitTask?.cancel() } }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { recheckPlacedOrder() }
+        }
     }
 
     private func loadCatalog() async {
@@ -1851,7 +1857,21 @@ struct OrderSheet: View {
     /// screen must not say "Order placed!" before the money lands (mockup 39). Free / 100% coupon
     /// orders come back "received" = placed at once. Paid in the sheet here = placed.
     private func awaitsPayment(_ order: OrderScanResponse) -> Bool {
-        order.status == "awaiting_payment" && !flow.paidOrderIds.contains(order.orderId)
+        order.status == "awaiting_payment" && !flow.paidOrderIds.contains(order.orderId) && !serverPaid
+    }
+
+    /// Back from the browser pay page (the only way `PaymentFlow` misses a payment): ask the server,
+    /// so this screen does not keep saying "not placed, cancelled after 7 days" to someone who paid.
+    /// Only a positive "paid" flips it — ✗ read anything into the order's absence or an error.
+    private func recheckPlacedOrder() {
+        guard let placed = placedOrder, awaitsPayment(placed) else { return }
+        Task {
+            guard let list = try? await APIClient.shared.listOrders(),
+                  let live = list.orders.first(where: { $0.orderId == placed.orderId }),
+                  live.paid == true, !live.isCancelled else { return }
+            serverPaid = true
+            store.noteOrderStatus(orderNumber: live.orderNumber, status: live.status)
+        }
     }
 
     /// A plain function first, so the state is a parameter: a local `let` inside a ViewBuilder is
@@ -1951,7 +1971,12 @@ struct OrderSheet: View {
     private func successPay(_ order: OrderScanResponse, unpaid: Bool) -> some View {
         // The card sheet opens by itself right after Place order when the server offers in-app
         // payment; closing it leaves this button. Otherwise the browser, as before — `PaymentFlow`.
-        if let payURL = httpsURL(order.paymentUrl) {
+        if serverPaid {
+            // Paid in the browser (`recheckPlacedOrder`): what `PayNowButton` shows once it knows.
+            Label(String(localized: "Paid"), systemImage: "checkmark.seal.fill")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.green)
+        } else if let payURL = httpsURL(order.paymentUrl) {
             PayNowButton(
                 orderId: order.orderId,
                 payURL: payURL,
@@ -1963,7 +1988,9 @@ struct OrderSheet: View {
                 // can do that): nothing to reload here, the Orders tab shows it. ✗ the browser.
                 onOrderChanged: {}
             ) {
-                Label(payLabel(order), systemImage: "creditcard.fill")
+                // "Pay Now", ✗ "Pay $X": `total` is the Woo total ROUNDED to whole dollars and a
+                // coupon can leave cents — the card sheet / pay page charge the exact amount.
+                Label(String(localized: "Pay Now"), systemImage: "creditcard.fill")
                     .font(.headline)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.horizontal, 12)
@@ -1986,14 +2013,6 @@ struct OrderSheet: View {
             .foregroundStyle(.secondary)
             .multilineTextAlignment(.center)
         }
-    }
-
-    /// "Pay $129" while the order awaits payment (same label as the order detail).
-    private func payLabel(_ order: OrderScanResponse) -> String {
-        if order.status == "awaiting_payment", let total = order.total, total > 0 {
-            return String(localized: "Pay $\(total)")
-        }
-        return String(localized: "Pay Now")
     }
 
     private func submit() {

@@ -49,9 +49,10 @@ struct SupplementSheet: View {
     /// (`wasDelivered`/`movedToFix`), ✗ tự đoán trạng thái đơn ở phía app: app chỉ biết trạng
     /// thái qua `listOrders()`, tức cần mạng và có thể cũ.
     @State private var deliveredNote: String?
-    /// The order list fetched by `send()`. Applied to the store only when this sheet goes away
-    /// (Orders v2 B): releasing a cancelled order's stamps while it is up would empty it — its
-    /// caller builds it from the project's order number (trap #20a).
+    /// The order list fetched by `send()`. Its CANCELLED orders release their stamps only when this
+    /// sheet goes away (Orders v2 B): releasing while it is up would empty it — its caller builds it
+    /// from the project's order number (trap #20a). Only the releases: the list may be tens of
+    /// minutes old by then (an upload), and a cancel never goes stale — an "awaiting" state can.
     @State private var fetchedOrders: [OrderDTO]?
 
     var body: some View {
@@ -80,7 +81,7 @@ struct SupplementSheet: View {
         }
         .onDisappear {
             task?.cancel()
-            if let fetchedOrders { store.syncOrders(fetchedOrders) }
+            if let fetchedOrders { store.releaseCancelledStamps(fetchedOrders) }
         }
     }
 
@@ -99,7 +100,10 @@ struct SupplementSheet: View {
         } header: {
             Text(String(localized: "Scans to send"))
         } footer: {
-            Text(String(localized: "These will be added to order \(orderNumber) — the one you already placed for this property. No extra charge."))
+            // Orders v2 B: an order still awaiting payment is not "placed" yet.
+            Text(store.awaitingOrderNumbers.contains(orderNumber)
+                 ? String(localized: "These will be added to order \(orderNumber) for this property, which is placed once it is paid. No extra charge.")
+                 : String(localized: "These will be added to order \(orderNumber) — the one you already placed for this property. No extra charge."))
         }
 
         switch phase {
@@ -264,6 +268,16 @@ struct SupplementSheet: View {
             } catch let error as APIError where error.code == "order_delivered" {
                 deliveredOrder = order
                 phase = .delivered(error.message)
+            } catch let error as APIError where error.code == "order_closed" {
+                // Orders v2 B: cancelled while the scans were uploading (by the customer elsewhere,
+                // or the 7-day expiry)? Then it is the Close message, and the stamps go on close.
+                if let fresh = try? await APIClient.shared.listOrders(),
+                   fresh.orders.first(where: { $0.orderId == order.orderId })?.isCancelled == true {
+                    fetchedOrders = fresh.orders
+                    phase = .orderCancelled(String(localized: "Order \(orderNumber) was cancelled before it was paid. Close this screen: its scans are back to \"New\" and can be ordered again."))
+                } else {
+                    phase = .failed(error.localizedDescription)
+                }
             } catch {
                 phase = .failed(error.localizedDescription)
             }
@@ -280,7 +294,7 @@ struct SupplementSheet: View {
     /// team has been notified" would be false — it is drawn once paid.
     private static func deliveredNote(for result: SupplementScanResponse) -> String? {
         if result.status == "awaiting_payment" {
-            return String(localized: "Added to your order. It is not placed until it is paid — you can pay in the Orders tab.")
+            return String(localized: "Added to your order. It is not placed until it is paid — see it in the Orders tab.")
         }
         guard result.wasDelivered == true else { return nil }
         if result.movedToFix == true {
