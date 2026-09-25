@@ -213,7 +213,7 @@ struct OrderFAQContent: View {
             FAQItem(
                 id: "delivered",
                 question: String(localized: "Can I still change things after I get the drawing?"),
-                answer: String(localized: "Yes. If the drawing is wrong somewhere you did scan, go to Orders, tap \"Request a revision\", say what to change and attach a marked-up photo or PDF (up to 10 files). Our mistakes are fixed free, within 90 days of delivery and up to three times per order. If you simply missed an area, send the new scan as usual — still free. We draw it in and send you an updated drawing; meanwhile the old download link pauses. Wanting something different from what you ordered — another package or add-on — is new work, and we quote that separately.")
+                answer: String(localized: "Yes. If the drawing is wrong somewhere you did scan, go to Orders, tap \"Request a revision\", say what to change and attach a marked-up photo or PDF (up to 10 files). Our mistakes are fixed free, within 90 days of delivery and up to three times per order. If you simply missed an area, send the new scan as usual — still free. We draw it in and send you an updated drawing; meanwhile the old download link pauses. Want another package or add-on, say 3D or a site plan? Open the order in the Orders tab and tap \"Add to this order\" — you pay only for what you add.")
             ),
             FAQItem(
                 id: "quality",

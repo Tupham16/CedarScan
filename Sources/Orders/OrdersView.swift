@@ -110,15 +110,23 @@ struct OrdersView: View {
     /// Orders v2 B: a customer who paid on the browser pay page comes back to a list (or an open
     /// order) that still says "Awaiting payment · not placed · cancelled after 7 days" — nothing
     /// else reloads it (`PaymentFlow` never hears of a browser payment). Only while an unpaid order
-    /// is listed. WordPress reports the payment a moment later (fire-and-forget callback), so once
-    /// more after a few seconds if it still reads unpaid. Through `load()`: its guards apply.
+    /// (or an unpaid purchase added to one, Orders v2 C) is listed. WordPress reports the payment a
+    /// moment later (fire-and-forget callback), so once more after a few seconds if it still reads
+    /// unpaid. Through `load()`: its guards apply.
     private func refreshUnpaid() {
-        guard account.isSignedIn, ownOrders.contains(where: { $0.isAwaitingPayment }) else { return }
+        guard account.isSignedIn, hasUnpaid else { return }
         Task {
             await load()
-            guard ownOrders.contains(where: { $0.isAwaitingPayment }) else { return }
+            guard hasUnpaid else { return }
             try? await Task.sleep(nanoseconds: 5_000_000_000)
             await load()
+        }
+    }
+
+    /// An order awaiting payment is listed, or items added to one (Orders v2 C) that are.
+    private var hasUnpaid: Bool {
+        ownOrders.contains { order in
+            order.isAwaitingPayment || (order.extras ?? []).contains { $0.isAwaitingPayment }
         }
     }
 

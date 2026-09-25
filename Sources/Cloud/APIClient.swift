@@ -218,6 +218,13 @@ struct OrderDTO: Decodable, Identifiable {
     let payBy: String?
     let cancelledAt: String?
     let cancelReason: String?
+    /// Orders v2 C ("Add to this order", PLAN-DON-HANG-V2.md §5): what the customer bought for this
+    /// order later, oldest first. Each is its OWN order on the server (number "<this>_A<n>", its own
+    /// status, payment and files) and never appears in the list on its own. Optional: older servers.
+    let extras: [OrderDTO]?
+    /// The server allows "Add to this order" now (paid, not refunded / closed, nothing awaiting
+    /// payment, something left to add). `orders/{id}/extras` decides again.
+    let canAddItems: Bool?
 
     var id: String { orderId }
 
@@ -292,6 +299,47 @@ struct OrderDTO: Decodable, Identifiable {
 
 struct OrdersResponse: Decodable {
     let orders: [OrderDTO]
+}
+
+/// Orders v2 C: one catalog item in "Add to this order". `included` = the order has it already.
+struct ExtrasOfferItem: Decodable, Identifiable {
+    let id: String
+    let name: String
+    let price: Int
+    let included: Bool
+    let templates: [CatalogTemplate]?
+}
+
+/// `GET orders/{id}/extras`: what may be added to this order, at what price. `code` says why not
+/// when `canAdd` is false: `not_paid` · `refunded` · `closed` · `not_eligible` · `extra_awaiting`
+/// (pay or cancel `awaitingOrderId` first) · `nothing_to_add`.
+struct ExtrasOffer: Decodable {
+    let orderId: String
+    let orderNumber: String
+    let canAdd: Bool
+    let code: String?
+    let awaitingOrderId: String?
+    let packages: [ExtrasOfferItem]
+    let addons: [ExtrasOfferItem]
+}
+
+/// `POST orders/{id}/extras` (200): the NEW order that holds the items. `status` `awaiting_payment`
+/// (pay it like any order: `PayNowButton` on `orderId`) or `received` (free by a coupon: placed).
+/// `amountCents` = the exact amount the payment page / card sheet charge (a customer coupon may take
+/// cents off); nil when the server could not ask WordPress. Optional fields: a decode failure after
+/// a purchase that DID happen would read as a failure.
+struct AddExtrasResponse: Decodable {
+    let orderId: String
+    let orderNumber: String
+    let status: String
+    let total: Int?
+    let amountCents: Int?
+    let items: [String]?
+    let discount: Double?
+    let free: Bool?
+    let paymentUrl: String?
+    let payInApp: Bool?
+    let payBy: String?
 }
 
 /// `POST orders/{id}/cancel` (200). `scanIds` = the scans released back to the customer: the app
@@ -594,6 +642,30 @@ final class APIClient {
     /// `payment_processing` / `not_cancellable` / `try_again`, 502 `try_again`, 404, 429.
     func cancelOrder(orderId: String) async throws -> CancelOrderResponse {
         try await send("orders/\(orderId)/cancel", method: "POST", json: [:], timeout: 90)
+    }
+
+    /// Orders v2 C: what may be added to this (paid) order.
+    func extrasOffer(orderId: String) async throws -> ExtrasOffer {
+        try await send("orders/\(orderId)/extras")
+    }
+
+    /// Orders v2 C: buy these items for the order. The server decides the price and refuses
+    /// (`price_changed`) when it is not `expectedTotal`, the total the button showed. Not idempotent,
+    /// but safe to retry: a purchase that went through while its answer was lost comes back as
+    /// `extra_awaiting` (one unpaid purchase per order). WordPress can take ~15 s.
+    func addExtras(
+        orderId: String,
+        packageIds: [String],
+        addonIds: [String],
+        templates: [String: String],
+        expectedTotal: Int
+    ) async throws -> AddExtrasResponse {
+        try await send("orders/\(orderId)/extras", method: "POST", json: [
+            "packageIds": packageIds,
+            "addons": addonIds,
+            "templates": templates,
+            "expectedTotal": expectedTotal,
+        ], timeout: 60)
     }
 
     // MARK: In-app payment — callers: `PaymentFlow` only
