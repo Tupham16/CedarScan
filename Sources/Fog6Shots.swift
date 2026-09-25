@@ -101,6 +101,14 @@ enum Fog6 {
             json = ##"{"orderId":"h3","orderNumber":"#10485","status":"pending","total":14,"currency":"USD","paymentUrl":"https://example.invalid/pay/h3","discount":5,"couponApplied":true,"free":false,"hasTour":false,"payInApp":false}"##
         case "placed-tall":
             json = ##"{"orderId":"h5","orderNumber":"#10487","status":"pending","total":14,"currency":"USD","paymentUrl":"https://example.invalid/pay/h5","discount":5,"couponApplied":true,"free":false,"hasTour":true,"payInApp":false}"##
+        case "placed-awaiting":
+            json = ##"{"orderId":"h6","orderNumber":"#LS-MS5M4941E","status":"awaiting_payment","payBy":"2026-10-02T10:00:00.000Z","total":129,"currency":"USD","paymentUrl":"https://example.invalid/pay/h6","free":false,"hasTour":true,"payInApp":false}"##
+        case "placed-awaiting-test":
+            json = ##"{"orderId":"h7","orderNumber":"#LS-MS5M4941F","status":"awaiting_payment","payBy":null,"total":129,"currency":"USD","paymentUrl":"https://example.invalid/pay/h7","free":false,"hasTour":false,"payInApp":false}"##
+        case "placed-awaiting-nolink":
+            json = ##"{"orderId":"h8","orderNumber":"#LS-MS5M4941G","status":"awaiting_payment","payBy":"2026-10-02T10:00:00.000Z","total":129,"currency":"USD","couponApplied":false,"free":false,"hasTour":false}"##
+        case "placed-awaiting-coupon":
+            json = ##"{"orderId":"h9","orderNumber":"#LS-MS5M4941H","status":"awaiting_payment","payBy":"2026-10-02T10:00:00.000Z","total":124,"currency":"USD","paymentUrl":"https://example.invalid/pay/h9","discount":5,"couponApplied":true,"free":false,"hasTour":true,"payInApp":false}"##
         case "placed-badcoupon":
             json = ##"{"orderId":"h4","orderNumber":"#10486","status":"pending","total":19,"currency":"USD","couponApplied":false,"free":false,"hasTour":true}"##
         default:
@@ -108,6 +116,34 @@ enum Fog6 {
         }
         return try? JSONDecoder().decode(OrderScanResponse.self, from: Data(json.utf8))
     }
+
+    // MARK: Orders v2 B — canned Orders tab
+
+    /// `orders` = the list; `orders-<orderId>` = that order pushed.
+    static var ordersScreen: Bool { screen?.hasPrefix("orders") == true }
+    static var openOrderId: String? {
+        guard let screen, screen.hasPrefix("orders-") else { return nil }
+        return String(screen.dropFirst("orders-".count))
+    }
+
+    static let orders: [OrderDTO] = {
+        let json = ##"""
+        {"orders":[
+         {"orderId":"a1","orderNumber":"#LS-MS5M4941E","scanId":"s3","scanIds":["s3"],"scanName":"Main floor","projectName":"12 Oak Street","items":["2D Floor Plan","3D Floor Plan","Site plan","Express 12h turnaround"],"status":"awaiting_payment","placedAt":"2026-09-14T10:00:00.000Z","payBy":"2026-09-21T10:00:00.000Z","cancelledAt":null,"cancelReason":null,"deliveredAt":null,"deliveredUrl":null,"deliveryFiles":[],"total":129,"currency":"USD","paid":false,"paymentUrl":"https://example.invalid/pay/a1","payInApp":false,"hasTour":false,"tourPhotoCount":0,"tourUrl":null,"texturedScans":[]},
+         {"orderId":"a2","orderNumber":"#LS-MS5M4941F","scanId":"s8","scanIds":["s8"],"scanName":"Main floor","projectName":"Demo House (App Review)","items":["2D Floor Plan"],"status":"awaiting_payment","placedAt":"2026-09-13T10:00:00.000Z","payBy":null,"cancelledAt":null,"cancelReason":null,"deliveredAt":null,"deliveredUrl":null,"deliveryFiles":[],"total":6,"currency":"USD","paid":false,"paymentUrl":"https://example.invalid/pay/a2","payInApp":false,"hasTour":true,"tourPhotoCount":0,"tourUrl":null,"texturedScans":[]},
+         {"orderId":"a3","orderNumber":"#LS-MS5M4941G","scanId":"s9","scanIds":["s9"],"scanName":"Garage","projectName":"3 Birch Lane","items":["2D Floor Plan","CAD File"],"status":"awaiting_payment","placedAt":"2026-09-12T10:00:00.000Z","payBy":"2026-09-19T10:00:00.000Z","cancelledAt":null,"cancelReason":null,"deliveredAt":null,"deliveredUrl":null,"deliveryFiles":[],"total":7,"currency":"USD","paid":false,"paymentUrl":null,"payInApp":false,"hasTour":false,"tourPhotoCount":0,"tourUrl":null,"texturedScans":[]},
+         {"orderId":"a4","orderNumber":"#LS-MRQL7MXNA","scanId":"s4","scanIds":["s4"],"scanName":"Main floor","projectName":"7 Pine Court","items":["2D Floor Plan"],"status":"in_production","placedAt":"2026-09-10T10:00:00.000Z","payBy":null,"cancelledAt":null,"cancelReason":null,"deliveredAt":null,"deliveredUrl":null,"deliveryFiles":[],"total":6,"currency":"USD","paid":true,"paymentUrl":null,"payInApp":false,"hasTour":false,"tourPhotoCount":0,"tourUrl":null,"texturedScans":[]},
+         {"orderId":"a5","orderNumber":"#LS-MRAT7XNG6","scanId":"s6","scanIds":["s6","s7"],"scanName":"Main floor + Basement","projectName":"5 Elm Way","items":["2D Floor Plan","Color floor plan · Classic"],"status":"cancelled","placedAt":"2026-09-03T10:00:00.000Z","payBy":null,"cancelledAt":"2026-09-10T10:00:00.000Z","cancelReason":"expired","deliveredAt":null,"deliveredUrl":null,"deliveryFiles":[],"total":8,"currency":"USD","paid":false,"paymentUrl":null,"payInApp":false,"hasTour":false,"tourPhotoCount":0,"tourUrl":null,"texturedScans":[]},
+         {"orderId":"a6","orderNumber":"#LS-MRAT7XNG7","scanId":"s10","scanIds":["s10"],"scanName":"Shed","projectName":"9 Cedar Road","items":["2D Floor Plan"],"status":"cancelled","placedAt":"2026-09-02T10:00:00.000Z","payBy":null,"cancelledAt":"2026-09-04T10:00:00.000Z","cancelReason":"customer","deliveredAt":null,"deliveredUrl":null,"deliveryFiles":[],"total":6,"currency":"USD","paid":true,"paymentUrl":null,"payInApp":false,"hasTour":false,"tourPhotoCount":0,"tourUrl":null,"texturedScans":[]},
+         {"orderId":"a7","orderNumber":"#LS-MS5UP7AUN","scanId":"s1","scanIds":["s1"],"scanName":"Main floor","projectName":"48 Harbor View","items":["2D Floor Plan"],"status":"delivered","placedAt":"2026-09-01T10:00:00.000Z","payBy":null,"cancelledAt":null,"cancelReason":null,"deliveredAt":"2026-09-02T10:00:00.000Z","deliveredUrl":"https://example.invalid/d/a7.zip","deliveryFiles":[{"fileName":"48-Harbor-View-floorplan.pdf","url":"https://example.invalid/d/a.pdf","sizeLabel":"2.4 MB"}],"total":6,"currency":"USD","paid":true,"paymentUrl":null,"payInApp":false,"hasTour":false,"tourPhotoCount":0,"tourUrl":null,"texturedScans":[]}
+        ]}
+        """##
+        do {
+            return try JSONDecoder().decode(OrdersResponse.self, from: Data(json.utf8)).orders
+        } catch {
+            fatalError("harness orders: \(error)")
+        }
+    }()
 
     static var docs: URL { FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0] }
     static func folder(_ id: UUID) -> URL {
@@ -159,6 +195,12 @@ enum Fog6 {
         ]
         for p in palettes {
             writeTemplate(p.1, to: templateURL(p.0))
+        }
+        // Orders v2 B: the Oak order #10482 awaits payment (Home / property / scan page badges).
+        if ["home", "project", "detail-awaiting"].contains(screen) {
+            UserDefaults.standard.set(["#10482"], forKey: "awaitingOrderNumbers.v1")
+        } else {
+            UserDefaults.standard.removeObject(forKey: "awaitingOrderNumbers.v1")
         }
         for r in records {
             let dir = folder(r.id)
@@ -298,7 +340,28 @@ struct Fog6ShotRoot: View {
         case "learn":
             LearnView()
                 .overlay(alignment: .bottom) { CedarTabBar(selection: .constant(.learn), onScan: {}) }
-        case "order", "order-busy", "order-error", "placed", "placed-free", "placed-coupon", "placed-badcoupon", "placed-tall":
+        case "home":
+            HomeView(scanRequest: 0, openProjectRequest: nil, store: store, account: account)
+                .overlay(alignment: .bottom) { CedarTabBar(selection: .constant(.home), onScan: {}) }
+        case "project":
+            NavigationStack(path: $path) {
+                Color.clear
+                    .navigationDestination(for: ScanProject.self) { p in
+                        ProjectView(store: store, account: account, projectId: p.id, projectName: p.name, path: $path)
+                    }
+            }
+            .overlay(alignment: .bottom) { CedarTabBar(selection: .constant(.home), onScan: {}) }
+            .onAppear {
+                if path.isEmpty, let p = store.projects.first(where: { $0.id == Fog6.oak }) {
+                    path.append(p)
+                }
+            }
+        case "detail-awaiting": detail(Fog6.rOakOrdered)
+        case let s where s.hasPrefix("orders"):
+            OrdersView(store: store, account: account, onOpenProject: { _ in })
+                .overlay(alignment: .bottom) { CedarTabBar(selection: .constant(.orders), onScan: {}) }
+        case "order", "order-busy", "order-error", "placed", "placed-free", "placed-coupon", "placed-badcoupon", "placed-tall",
+             "placed-awaiting", "placed-awaiting-test", "placed-awaiting-nolink", "placed-awaiting-coupon":
             Color.gray.opacity(0.35).ignoresSafeArea()
                 .sheet(isPresented: $sheet) { orderSheet(project: false) }
         case "order-paid":

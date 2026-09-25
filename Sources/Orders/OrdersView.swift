@@ -76,6 +76,15 @@ struct OrdersView: View {
         // would cancel a load in flight (a false "Couldn't refresh") and hold this wipe back until
         // Back is tapped — account B shown A's order, with A's Pay Now.
         .task(id: account.customer?.id) {
+            // THROWAWAY harness (claude/orders2b-shots): canned orders, no server.
+            if Fog6.ordersScreen {
+                loadedCustomerId = account.customer?.id
+                orders = Fog6.orders
+                if let id = Fog6.openOrderId, let o = orders.first(where: { $0.orderId == id }) {
+                    path = [OrderRoute(orderId: id, title: title(of: o), customerId: account.customer?.id)]
+                }
+                return
+            }
             let currentId = account.customer?.id
             if loadedCustomerId != currentId {
                 orders = []
@@ -127,6 +136,7 @@ struct OrdersView: View {
     }
 
     private func load() async {
+        if Fog6.ordersScreen { return } // THROWAWAY harness
         // Only for the account the cached list belongs to: a reload fired after a sign-out or an
         // account switch (Pay Now's `onPaid`, a revision sent) waits for the wipe's own load.
         guard account.isSignedIn, account.customer?.id == loadedCustomerId else { return }
