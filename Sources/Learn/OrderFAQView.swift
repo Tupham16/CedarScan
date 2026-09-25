@@ -232,7 +232,7 @@ struct OrderFAQContent: View {
             FAQItem(
                 id: "pay",
                 question: String(localized: "Where do I pay?"),
-                answer: String(localized: "Tap the pay button — on the screen right after you order, or on the order in the Orders tab. You pay by card in the app, or on the payment page in your browser. Your order is placed once it is paid; an order left unpaid for 7 days is cancelled. No button yet? Give it a few minutes; the link reaches your email.")
+                answer: String(localized: "Tap \"Pay Now\" — on the screen right after you order, or on the order in the Orders tab. You pay by card in the app, or on the payment page in your browser. An order marked \"Awaiting payment\" is placed once it is paid, and cancelled if it stays unpaid for 7 days. No button yet? Give it a few minutes; the link reaches your email.")
             ),
             FAQItem(
                 id: "track",

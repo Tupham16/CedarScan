@@ -32,10 +32,9 @@ struct OrderDetailView: View {
     let onOpenProject: (ScanProject) -> Void
     @State private var revisionOrder: OrderDTO?
     @State private var tourOrder: OrderDTO? // mở màn thêm ảnh Virtual Tour
-    /// Orders v2 B: the "Cancel this order?" alert · a cancel in flight (up to ~45 s on the
-    /// server) · why the last one was refused.
+    /// Orders v2 B: the "Cancel this order?" alert · why the last cancel was refused. A cancel in
+    /// flight lives in `ScanStore.cancellingOrderIds` (app-wide: Back + reopen keeps it).
     @State private var confirmCancel = false
-    @State private var cancelling = false
     @State private var cancelError: String?
     /// Read only: a card payment of this order being prepared / settled / just completed.
     @ObservedObject private var flow = PaymentFlow.shared
@@ -129,10 +128,18 @@ struct OrderDetailView: View {
                 StatusBadge(status: order.status)
                 orderNumber(order)
             } else {
-                HStack(spacing: 8) {
-                    StatusBadge(status: order.status)
-                    Spacer(minLength: 8)
-                    orderNumber(order)
+                // Side by side while both fit at full size; else stacked. "Zahlung ausstehend" at
+                // German xxxL left the number cut to "#LS-MS5M494…" (Orders v2 B renders).
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 8) {
+                        StatusBadge(status: order.status)
+                        Spacer(minLength: 8)
+                        orderNumber(order)
+                    }
+                    VStack(alignment: .leading, spacing: 8) {
+                        StatusBadge(status: order.status)
+                        orderNumber(order)
+                    }
                 }
             }
             summaryLine(order)
@@ -150,22 +157,29 @@ struct OrderDetailView: View {
         if showsUnpaidState(order) {
             WrappedText(PayFirstCopy.notPlaced(expires: order.payBy != nil), style: .subheadline)
                 .padding(.top, 2)
-        } else if order.status == "cancelled" {
+        } else if order.status == "cancelled" || store.cancelledOrderIds.contains(order.orderId) {
             // `paid` on a cancelled order = money that arrived after the cancel (staff are alerted
             // and refund it — server "TRẢ SAU KHI HUỶ"); once refunded it reads "refunded".
             WrappedText(
                 order.paid == true
                     ? String(localized: "This order was cancelled, but a payment reached us afterwards. Our team will refund it.")
-                    : String(localized: "Cancelled before it was paid — nothing was charged. Its scans are back to \"New\", so you can order them again."),
+                    : String(localized: "Cancelled before it was paid — nothing was charged. Its scans were released, so they can be ordered again."),
                 style: .subheadline
             )
             .padding(.top, 2)
         }
     }
 
-    /// Awaiting payment and not just paid in the card sheet (`PaymentFlow` knows before the list).
+    /// Awaiting payment, not just paid in the card sheet (`PaymentFlow` knows before the list) and
+    /// not just cancelled here (a 200 whose reload has not landed, or failed).
     private func showsUnpaidState(_ order: OrderDTO) -> Bool {
         order.isAwaitingPayment && !flow.paidOrderIds.contains(order.orderId)
+            && !store.cancelledOrderIds.contains(order.orderId)
+    }
+
+    /// A Cancel request for this order is in flight (from this screen or an earlier copy of it).
+    private func cancelling(_ order: OrderDTO) -> Bool {
+        store.cancellingOrderIds.contains(order.orderId)
     }
 
     /// A card payment of THIS order is being prepared or settled.
@@ -219,7 +233,9 @@ struct OrderDetailView: View {
     /// Restyled here at the call site only; ✗ edit `PaymentFlow.swift`.
     @ViewBuilder
     private func payNow(_ order: OrderDTO) -> some View {
-        if order.paid != true, let payURL = httpsURL(order.paymentUrl) {
+        // ✗ for an order cancelled here whose list entry is still the old "awaiting" one: its pay
+        // page is closed (410) and the card sheet refused.
+        if order.paid != true, !store.cancelledOrderIds.contains(order.orderId), let payURL = httpsURL(order.paymentUrl) {
             PayNowButton(
                 orderId: order.orderId,
                 payURL: payURL,
@@ -228,7 +244,7 @@ struct OrderDetailView: View {
                 // Cancelled (or being cancelled) meanwhile: show its state, ✗ the pay page.
                 onOrderChanged: { Task { await reload() } }
             ) {
-                Label(payLabel(order), systemImage: "creditcard")
+                Label(String(localized: "Pay Now"), systemImage: "creditcard")
                     .font(.subheadline.weight(.semibold))
                     .frame(maxWidth: .infinity, minHeight: 44)
             }
@@ -237,7 +253,7 @@ struct OrderDetailView: View {
             .buttonStyle(FogPrimary(radius: 12, busy: paymentBusy(order)))
             .tint(.white) // loading spinner on the blue fill
             // Not while a cancel runs: the sheet would be refused (`cancel_in_progress`) anyway.
-            .disabled(cancelling)
+            .disabled(cancelling(order))
             .padding(.top, 6)
         } else if showsUnpaidState(order) {
             // Awaiting payment but no pay link (WordPress failed at creation): staff send it by
@@ -247,14 +263,6 @@ struct OrderDetailView: View {
                 .foregroundStyle(.secondary)
                 .padding(.top, 2)
         }
-    }
-
-    /// "Pay $129" for an order awaiting payment (mockup 34); "Pay Now" for the older ones.
-    private func payLabel(_ order: OrderDTO) -> String {
-        if order.isAwaitingPayment, let total = order.total, total > 0 {
-            return String(localized: "Pay $\(total)")
-        }
-        return String(localized: "Pay Now")
     }
 
     // MARK: Files
@@ -444,7 +452,7 @@ struct OrderDetailView: View {
     /// avoids an empty row (stray spacing); each button keeps its own condition.
     @ViewBuilder
     private func followUps(_ order: OrderDTO) -> some View {
-        if order.deliveredAt != nil || supplementProject(for: order) != nil {
+        if order.deliveredAt != nil || supplementTarget(for: order) != nil {
             HStack(spacing: 8) {
                 // 🔴 "YÊU CẦU SỬA" GÁC THEO `deliveredAt`, ✗ theo `status == "delivered"` —
                 // sửa 19/08, vòng soi đối kháng bắt.
@@ -475,7 +483,7 @@ struct OrderDetailView: View {
                 // 🔴 CHỈ ĐIỀU HƯỚNG, ✗ gửi gì cả. Việc gửi vẫn là `SupplementSheet` ở trang dự án
                 // — LỐI VÀO DUY NHẤT, ✗ nhân bản luồng gửi ở tab này (thứ trôi được giữa hai bản
                 // sao là cú ĐÓNG DẤU số đơn, mà thiếu dấu = khách TRẢ TIỀN HAI LẦN).
-                if let project = supplementProject(for: order) {
+                if let project = supplementTarget(for: order) {
                     Button {
                         onOpenProject(project)
                     } label: {
@@ -498,7 +506,7 @@ struct OrderDetailView: View {
             Button {
                 confirmCancel = true
             } label: {
-                if cancelling {
+                if cancelling(order) {
                     HStack(spacing: 8) {
                         ProgressView()
                         Text(String(localized: "Cancelling…"))
@@ -513,36 +521,44 @@ struct OrderDetailView: View {
             .buttonStyle(FogGhost())
             // No second tap while one runs (the server would only wait for the first), and not
             // while this order's card payment is being prepared or settled.
-            .disabled(cancelling || paymentBusy(order))
+            .disabled(cancelling(order) || paymentBusy(order))
             .padding(.top, 12)
         }
     }
 
     private func canCancel(_ order: OrderDTO) -> Bool {
-        showsUnpaidState(order) && !cancelling && !paymentBusy(order)
+        showsUnpaidState(order) && !cancelling(order) && !paymentBusy(order)
     }
 
     /// `POST orders/{id}/cancel` (up to ~45 s). Its own task, ✗ tied to this screen: Back during
     /// the wait must not cancel it half way — the stamps must be released when it answers.
     private func cancelOrder(_ order: OrderDTO) {
-        guard !cancelling else { return }
-        cancelling = true
+        guard !cancelling(order) else { return }
         let orderId = order.orderId
         let number = order.orderNumber
+        store.beginCancel(orderId: orderId)
         Task { @MainActor in
             var failure: String?
+            var cancelled = false
+            var transport = false
             do {
                 let reply = try await APIClient.shared.cancelOrder(orderId: orderId)
                 // Its scans are "New" again on this device (only those still stamped with it).
                 store.releaseCancelledOrder(orderNumber: reply.orderNumber ?? number, scanIds: reply.scanIds ?? [])
+                cancelled = true
             } catch {
                 failure = Self.cancelFailure(error)
+                transport = !(error is APIError)
             }
-            cancelling = false
-            cancelError = failure
-            // Whatever happened: a refusal means "paid" or "try later", a timeout may hide a cancel
-            // that went through — the list says which (and releases stamps for a cancel it shows).
+            store.endCancel(orderId: orderId, cancelled: cancelled)
+            // Whatever happened: a refusal means "paid" or "try later", a lost answer may hide a
+            // cancel that went through — the list says which (and releases stamps for a cancel it
+            // shows). So it is read BEFORE a lost answer may be called a failure.
             await reload()
+            if transport, let live = orders.first(where: { $0.orderId == orderId }), !live.isAwaitingPayment {
+                failure = nil
+            }
+            cancelError = failure
         }
     }
 
@@ -562,6 +578,13 @@ struct OrderDetailView: View {
             if api?.statusCode == 404 { return nil }
             return String(localized: "We couldn't cancel this order right now. Please try again in a few minutes.")
         }
+    }
+
+    /// `supplementProject`, and not while this device cancels the order (or just did): a scan sent
+    /// then would join an order about to be cancelled (Orders v2 B).
+    private func supplementTarget(for order: OrderDTO) -> ScanProject? {
+        guard !cancelling(order), !store.cancelledOrderIds.contains(order.orderId) else { return nil }
+        return supplementProject(for: order)
     }
 
     /// Dự án TRÊN MÁY NÀY của đơn — `nil` thì KHÔNG hiện nút "Thêm bản quét".

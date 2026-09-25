@@ -145,17 +145,18 @@ kèm số lượt còn lại.
 
 Bấm **"Đặt hàng"** để chốt. Đơn miễn phí được đặt ngay. Đơn có phí thì **chỉ được đặt khi đã thanh toán**: màn
 hình ngay sau đó ghi **"Chờ thanh toán"** (không phải "Đã đặt hàng!"), đội ngũ chưa thấy đơn, và các bản quét của
-đơn hiện nhãn cam **"Chờ thanh toán"** ở trang chủ và trang căn nhà. Đơn để **7 ngày** chưa thanh toán sẽ **tự
+đơn hiện nhãn cam **"Chờ thanh toán"** ở trang chủ và trang căn nhà. Đơn **"Chờ thanh toán"** để **7 ngày** chưa trả sẽ **tự
 hủy**; đổi ý thì mở đơn ở tab **Đơn hàng** và bấm **"Hủy đơn"** — không mất tiền. Đơn bị hủy thì các bản quét của
 nó về lại **"Mới"** để đặt lại. Khi Cedar247 bật thanh toán trong app cho tài khoản của bạn (và bản app bạn cài có
 hỗ trợ), bảng nhập thẻ của Stripe **tự mở ngay sau khi bấm Đặt hàng** (có ô lưu thẻ cho lần sau); đóng bảng thì
-bấm nút **"Thanh toán $…"** để mở lại. Chưa bật — hoặc một đơn cụ thể app không mở được bảng — thì nút đó mở
+bấm **"Thanh toán ngay"** để mở lại. Chưa bật — hoặc một đơn cụ thể app không mở được bảng — thì nút đó mở
 **trang thanh toán trên trình duyệt** (trả bằng thẻ, hoặc cách trả khác trang đó có). Nút thanh toán nằm ở màn
 hình ngay sau khi đặt và trong đơn ở tab **Đơn hàng**. Nếu lúc đặt chưa tạo được link thanh
 toán, màn hình báo "Link thanh toán sẽ được gửi qua email trong ít phút." thay cho nút và hiện giá đầy đủ, chưa trừ mã
 giảm giá; nếu có gõ mã, màn hình còn báo "Mã giảm giá không hợp lệ — tính giá đầy đủ." dù mã chưa được kiểm, nên hãy
-báo Cedar247 mã bạn đã dùng. Đơn đó không tự mở bảng thẻ và tab **Đơn hàng** cũng không có nút cho nó: đội ngũ Cedar247
-gửi link qua email — việc này làm tay nên có thể lâu hơn vài phút; chưa nhận được thì hãy liên hệ Cedar247. Đội ngũ
+báo Cedar247 mã bạn đã dùng. Đơn đó không tự mở bảng thẻ và trong tab **Đơn hàng** nó chỉ có nút **"Hủy đơn"**, chưa có nút thanh toán: đội ngũ Cedar247
+gửi link qua email — việc này làm tay nên có thể lâu hơn vài phút; chưa nhận được thì hãy liên hệ Cedar247. Đơn
+đó vẫn tự hủy sau 7 ngày nếu chưa trả. Đội ngũ
 bắt đầu làm sau khi nhận thanh toán.
 
 ### Virtual Tour (dịch vụ thêm)
@@ -178,7 +179,7 @@ Thêm ảnh ngay sau khi đặt, hoặc bất cứ lúc nào ở tab **Đơn hà
 Theo dõi ở tab **Đơn hàng**: trạng thái *Đang xử lý → Đã giao*. Kéo xuống để làm mới.
 
 Ngoài hai mốc chính còn các trạng thái khác: **Chờ thanh toán** (đơn chưa trả tiền nên chưa được đặt —
-mở đơn để bấm **"Thanh toán $…"** hoặc **"Hủy đơn"**), **Tạm giữ** (đơn tạm dừng — liên hệ Cedar247 để biết
+mở đơn để bấm **"Thanh toán ngay"** — khi đơn đã có link thanh toán — hoặc **"Hủy đơn"**), **Tạm giữ** (đơn tạm dừng — liên hệ Cedar247 để biết
 lý do), **Hoàn tiền** và **Đã hủy** (đơn hủy khi chưa trả tiền: bạn tự hủy, hoặc quá 7 ngày).
 
 Khi đơn **Đã giao**, bấm **"Tải file thành phẩm"** để tải bản vẽ về.

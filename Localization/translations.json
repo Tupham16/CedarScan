@@ -4405,18 +4405,6 @@
    }
   },
   {
-   "key": "Tap the pay button — on the screen right after you order, or on the order in the Orders tab. You pay by card in the app, or on the payment page in your browser. Your order is placed once it is paid; an order left unpaid for 7 days is cancelled. No button yet? Give it a few minutes; the link reaches your email.",
-   "translations": {
-    "vi": "Bạn bấm nút thanh toán — ở màn hình ngay sau khi đặt, hoặc trong đơn ở tab Đơn hàng. Bạn trả bằng thẻ ngay trong app, hoặc ở trang thanh toán trên trình duyệt. Thanh toán xong thì đơn mới được đặt; đơn để 7 ngày chưa thanh toán sẽ bị hủy. Chưa thấy nút thì đợi vài phút, link sẽ tới email của bạn.",
-    "fr": "Touchez le bouton de paiement — sur l'écran juste après la commande, ou dans la commande, dans l'onglet Commandes. Vous payez par carte dans l'app, ou sur la page de paiement dans votre navigateur. Votre commande est passée une fois payée; une commande non payée pendant 7 jours est annulée. Pas encore de bouton? Patientez quelques minutes; le lien arrive dans votre boîte courriel.",
-    "de": "Tippen Sie auf den Bezahl-Button — auf dem Bildschirm direkt nach der Bestellung oder in der Bestellung im Tab \"Bestellungen\". Sie bezahlen per Karte in der App oder auf der Zahlungsseite in Ihrem Browser. Aufgegeben ist Ihre Bestellung, sobald sie bezahlt ist; eine Bestellung, die 7 Tage unbezahlt bleibt, wird storniert. Noch kein Button? Warten Sie ein paar Minuten — der Link kommt per E-Mail.",
-    "cs": "Klepněte na tlačítko pro platbu — na obrazovce hned po objednání, nebo v objednávce na záložce Objednávky. Zaplatíte kartou v aplikaci, nebo na platební stránce ve vašem prohlížeči. Objednávka platí, jakmile je zaplacená; objednávka nezaplacená 7 dní se zruší. Tlačítko zatím nikde? Dejte tomu pár minut; odkaz vám dorazí na e-mail.",
-    "sk": "Ťuknite na tlačidlo platby — na obrazovke hneď po objednaní alebo v objednávke na karte Objednávky. Zaplatíte platobnou kartou v aplikácii alebo na platobnej stránke vo vašom prehliadači. Objednávka platí, keď je zaplatená; objednávka nezaplatená 7 dní sa zruší. Tlačidlo ešte nevidíte? Počkajte pár minút; odkaz vám príde na e-mail.",
-    "es": "Toca el botón de pago — en la pantalla justo después de pedir, o en el pedido, en la pestaña Pedidos. Pagas con tarjeta en la app, o en la página de pago en tu navegador. Tu pedido se realiza cuando está pagado; un pedido sin pagar durante 7 días se cancela. ¿Aún no ves el botón? Dale unos minutos; el enlace llegará a tu correo.",
-    "nl": "Tik op de betaalknop — op het scherm direct na het bestellen, of in de bestelling in het tabblad Bestellingen. Je betaalt met je betaalkaart in de app, of op de betaalpagina in je browser. Je bestelling is geplaatst zodra ze betaald is; een bestelling die 7 dagen onbetaald blijft, wordt geannuleerd. Nog geen knop? Geef het een paar minuten; de link komt in je mailbox."
-   }
-  },
-  {
    "key": "The Orders tab. Each order carries a badge — Awaiting payment, Processing, On hold, Delivered, Refunded or Cancelled. The search box finds an order by property name, order number or scan name.",
    "translations": {
     "vi": "Tab Đơn hàng. Mỗi đơn có một nhãn — Chờ thanh toán, Đang xử lý, Tạm giữ, Đã giao, Hoàn tiền hoặc Đã hủy. Ô tìm kiếm tìm được theo tên dự án, số đơn hoặc tên bản quét.",
@@ -4462,18 +4450,6 @@
     "sk": "Zrušená",
     "es": "Cancelado",
     "nl": "Geannuleerd"
-   }
-  },
-  {
-   "key": "Pay $%lld",
-   "translations": {
-    "vi": "Thanh toán $%lld",
-    "fr": "Payer %lld $",
-    "de": "$%lld bezahlen",
-    "cs": "Zaplatit %lld $",
-    "sk": "Zaplatiť $%lld",
-    "es": "Pagar $%lld",
-    "nl": "$%lld betalen"
    }
   },
   {
@@ -4633,18 +4609,6 @@
    }
   },
   {
-   "key": "Cancelled before it was paid — nothing was charged. Its scans are back to \"New\", so you can order them again.",
-   "translations": {
-    "vi": "Đã hủy khi chưa thanh toán — bạn không mất tiền. Các bản quét của đơn đã về lại \"Mới\", bạn có thể đặt lại.",
-    "fr": "Annulée avant d'être payée — rien n'a été débité. Ses numérisations sont redevenues \"Nouveau\", vous pouvez donc les commander de nouveau.",
-    "de": "Vor der Bezahlung storniert — es wurde nichts berechnet. Ihre Scans sind wieder \"Neu\", Sie können sie also erneut bestellen.",
-    "cs": "Zrušeno před zaplacením — nic nebylo účtováno. Její skeny jsou znovu \"Nový\", takže je můžete objednat znovu.",
-    "sk": "Zrušená pred zaplatením — nič sa neúčtovalo. Jej skeny sú znova \"Nový\", takže ich môžete objednať znova.",
-    "es": "Cancelado antes de pagarse — no se cobró nada. Sus escaneos vuelven a estar en \"Nuevo\", así que puedes pedirlos otra vez.",
-    "nl": "Geannuleerd voordat er betaald is — er is niets in rekening gebracht. De scans staan weer op \"Nieuw\", dus je kunt ze opnieuw bestellen."
-   }
-  },
-  {
    "key": "This order was cancelled, but a payment reached us afterwards. Our team will refund it.",
    "translations": {
     "vi": "Đơn này đã bị hủy nhưng sau đó chúng tôi vẫn nhận được một khoản thanh toán. Chúng tôi sẽ hoàn lại khoản đó.",
@@ -4654,18 +4618,6 @@
     "sk": "Táto objednávka bola zrušená, ale potom nám ešte prišla platba. Náš tím ju vráti.",
     "es": "Este pedido se canceló, pero después nos llegó un pago. Nuestro equipo lo reembolsará.",
     "nl": "Deze bestelling is geannuleerd, maar daarna kwam er toch een betaling binnen. Ons team betaalt die terug."
-   }
-  },
-  {
-   "key": "Not placed until it is paid. Pay in the Orders tab.",
-   "translations": {
-    "vi": "Đơn chỉ được đặt khi đã thanh toán. Thanh toán ở tab Đơn hàng.",
-    "fr": "Commande passée seulement une fois payée. Payez dans l'onglet Commandes.",
-    "de": "Erst mit der Bezahlung aufgegeben. Bezahlen Sie im Tab \"Bestellungen\".",
-    "cs": "Objednávka platí až po zaplacení. Zaplaťte na záložce Objednávky.",
-    "sk": "Objednávka platí až po zaplatení. Zaplaťte na karte Objednávky.",
-    "es": "No se realiza hasta que se paga. Paga en la pestaña Pedidos.",
-    "nl": "Pas geplaatst als er betaald is. Betaal in het tabblad Bestellingen."
    }
   },
   {
@@ -4681,15 +4633,75 @@
    }
   },
   {
-   "key": "Added to your order. It is not placed until it is paid — you can pay in the Orders tab.",
+   "key": "Cancelled before it was paid — nothing was charged. Its scans were released, so they can be ordered again.",
    "translations": {
-    "vi": "Đã thêm vào đơn của bạn. Đơn chỉ được đặt khi đã thanh toán — bạn thanh toán ở tab Đơn hàng.",
-    "fr": "C'est ajouté à votre commande. Elle n'est passée qu'une fois payée — vous pouvez payer dans l'onglet Commandes.",
-    "de": "Zu Ihrer Bestellung hinzugefügt. Sie ist erst mit der Bezahlung aufgegeben — bezahlen können Sie im Tab \"Bestellungen\".",
-    "cs": "Přidáno k vaší objednávce. Objednávka platí až po zaplacení — zaplatit můžete na záložce Objednávky.",
-    "sk": "Pridané k vašej objednávke. Objednávka platí až po zaplatení — zaplatiť môžete na karte Objednávky.",
-    "es": "Añadido a tu pedido. No se realiza hasta que se paga — puedes pagar en la pestaña Pedidos.",
-    "nl": "Toegevoegd aan je bestelling. Die is pas geplaatst als er betaald is — betalen kan in het tabblad Bestellingen."
+    "vi": "Đã hủy khi chưa thanh toán — bạn không mất tiền. Các bản quét của đơn đã được trả lại để có thể đặt lại.",
+    "fr": "Annulée avant d'être payée — rien n'a été débité. Ses numérisations ont été libérées et peuvent donc être commandées de nouveau.",
+    "de": "Vor der Bezahlung storniert — es wurde nichts berechnet. Ihre Scans wurden freigegeben und können daher erneut bestellt werden.",
+    "cs": "Zrušeno před zaplacením — nic nebylo účtováno. Její skeny byly uvolněny, takže je lze objednat znovu.",
+    "sk": "Zrušená pred zaplatením — nič sa neúčtovalo. Jej skeny boli uvoľnené, takže sa dajú objednať znova.",
+    "es": "Cancelado antes de pagarse — no se cobró nada. Sus escaneos se liberaron, así que se pueden pedir otra vez.",
+    "nl": "Geannuleerd voordat er betaald is — er is niets in rekening gebracht. De scans zijn vrijgegeven, dus ze kunnen opnieuw besteld worden."
+   }
+  },
+  {
+   "key": "Not placed until it is paid — see the Orders tab.",
+   "translations": {
+    "vi": "Đơn chỉ được đặt khi đã thanh toán — xem ở tab Đơn hàng.",
+    "fr": "Commande passée seulement une fois payée — voyez l'onglet Commandes.",
+    "de": "Erst mit der Bezahlung aufgegeben — siehe Tab \"Bestellungen\".",
+    "cs": "Objednávka platí až po zaplacení — viz záložka Objednávky.",
+    "sk": "Objednávka platí až po zaplatení — pozrite kartu Objednávky.",
+    "es": "No se realiza hasta que se paga — mira la pestaña Pedidos.",
+    "nl": "Pas geplaatst als er betaald is — zie het tabblad Bestellingen."
+   }
+  },
+  {
+   "key": "Added to your order. It is not placed until it is paid — see it in the Orders tab.",
+   "translations": {
+    "vi": "Đã thêm vào đơn của bạn. Đơn chỉ được đặt khi đã thanh toán — xem đơn ở tab Đơn hàng.",
+    "fr": "C'est ajouté à votre commande. Elle n'est passée qu'une fois payée — voyez-la dans l'onglet Commandes.",
+    "de": "Zu Ihrer Bestellung hinzugefügt. Sie ist erst mit der Bezahlung aufgegeben — Sie finden sie im Tab \"Bestellungen\".",
+    "cs": "Přidáno k vaší objednávce. Objednávka platí až po zaplacení — najdete ji na záložce Objednávky.",
+    "sk": "Pridané k vašej objednávke. Objednávka platí až po zaplatení — nájdete ju na karte Objednávky.",
+    "es": "Añadido a tu pedido. No se realiza hasta que se paga — lo encontrarás en la pestaña Pedidos.",
+    "nl": "Toegevoegd aan je bestelling. Die is pas geplaatst als er betaald is — je vindt haar in het tabblad Bestellingen."
+   }
+  },
+  {
+   "key": "Tap \"Pay Now\" — on the screen right after you order, or on the order in the Orders tab. You pay by card in the app, or on the payment page in your browser. An order marked \"Awaiting payment\" is placed once it is paid, and cancelled if it stays unpaid for 7 days. No button yet? Give it a few minutes; the link reaches your email.",
+   "translations": {
+    "vi": "Bạn bấm \"Thanh toán ngay\" — ở màn hình ngay sau khi đặt, hoặc trong đơn ở tab Đơn hàng. Bạn trả bằng thẻ ngay trong app, hoặc ở trang thanh toán trên trình duyệt. Đơn ghi \"Chờ thanh toán\" chỉ được đặt khi đã thanh toán, và sẽ bị hủy nếu để 7 ngày chưa trả. Chưa thấy nút thì đợi vài phút, link sẽ tới email của bạn.",
+    "fr": "Touchez \"Payer maintenant\" — sur l'écran juste après la commande, ou dans la commande, dans l'onglet Commandes. Vous payez par carte dans l'app, ou sur la page de paiement dans votre navigateur. Une commande marquée \"Paiement en attente\" est passée une fois payée, et annulée si elle reste impayée pendant 7 jours. Pas encore de bouton? Patientez quelques minutes; le lien arrive dans votre boîte courriel.",
+    "de": "Tippen Sie auf \"Jetzt bezahlen\" — auf dem Bildschirm direkt nach der Bestellung oder in der Bestellung im Tab \"Bestellungen\". Sie bezahlen per Karte in der App oder auf der Zahlungsseite in Ihrem Browser. Eine Bestellung mit dem Status \"Zahlung ausstehend\" ist aufgegeben, sobald sie bezahlt ist, und wird storniert, wenn sie 7 Tage unbezahlt bleibt. Noch kein Button? Warten Sie ein paar Minuten — der Link kommt per E-Mail.",
+    "cs": "Klepněte na \"Zaplatit nyní\" — na obrazovce hned po objednání, nebo v objednávce na záložce Objednávky. Zaplatíte kartou v aplikaci, nebo na platební stránce ve vašem prohlížeči. Objednávka se štítkem \"Čeká na platbu\" platí, jakmile je zaplacená, a zruší se, pokud zůstane 7 dní nezaplacená. Tlačítko zatím nikde? Dejte tomu pár minut; odkaz vám dorazí na e-mail.",
+    "sk": "Ťuknite na \"Zaplatiť teraz\" — na obrazovke hneď po objednaní alebo v objednávke na karte Objednávky. Zaplatíte platobnou kartou v aplikácii alebo na platobnej stránke vo vašom prehliadači. Objednávka so štítkom \"Čaká na platbu\" platí, keď je zaplatená, a zruší sa, ak zostane 7 dní nezaplatená. Tlačidlo ešte nevidíte? Počkajte pár minút; odkaz vám príde na e-mail.",
+    "es": "Toca \"Pagar ahora\" — en la pantalla justo después de pedir, o en el pedido, en la pestaña Pedidos. Pagas con tarjeta en la app, o en la página de pago en tu navegador. Un pedido marcado como \"Pendiente de pago\" se realiza cuando está pagado, y se cancela si sigue sin pagar durante 7 días. ¿Aún no ves el botón? Dale unos minutos; el enlace llegará a tu correo.",
+    "nl": "Tik op \"Nu betalen\" — op het scherm direct na het bestellen, of in de bestelling in het tabblad Bestellingen. Je betaalt met je betaalkaart in de app, of op de betaalpagina in je browser. Een bestelling met het label \"Wacht op betaling\" is geplaatst zodra ze betaald is, en wordt geannuleerd als ze 7 dagen onbetaald blijft. Nog geen knop? Geef het een paar minuten; de link komt in je mailbox."
+   }
+  },
+  {
+   "key": "These will be added to order %@ for this property, which is placed once it is paid. No extra charge.",
+   "translations": {
+    "vi": "Các bản quét này sẽ được thêm vào đơn %@ của căn nhà này — đơn chỉ được đặt khi đã thanh toán. Không tính thêm phí.",
+    "fr": "Elles seront ajoutées à la commande %@ de cette propriété, qui sera passée une fois payée. Sans frais supplémentaires.",
+    "de": "Diese Scans werden zu Bestellung %@ für dieses Objekt hinzugefügt, die mit der Bezahlung aufgegeben ist. Ohne Aufpreis.",
+    "cs": "Tyto skeny přidáme k objednávce %@ u této nemovitosti, která začne platit po zaplacení. Nic navíc neplatíte.",
+    "sk": "Pridajú sa do objednávky %@ pre túto nehnuteľnosť, ktorá začne platiť po zaplatení. Bez príplatku.",
+    "es": "Se añadirán al pedido %@ de esta propiedad, que se realiza cuando se paga. Sin costo adicional.",
+    "nl": "Deze worden toegevoegd aan bestelling %@ voor deze woning, die geplaatst is zodra er betaald is. Geen extra kosten."
+   }
+  },
+  {
+   "key": "An order still awaiting payment is cancelled first, where possible.",
+   "translations": {
+    "vi": "Đơn còn đang chờ thanh toán sẽ bị hủy trước, nếu hủy được.",
+    "fr": "Une commande encore en attente de paiement est d'abord annulée, lorsque c'est possible.",
+    "de": "Eine Bestellung, deren Zahlung noch aussteht, wird zuerst storniert, soweit möglich.",
+    "cs": "Objednávka, která ještě čeká na platbu, se nejdřív zruší, pokud to jde.",
+    "sk": "Objednávka, ktorá ešte čaká na platbu, sa najprv zruší, ak je to možné.",
+    "es": "Un pedido que aún está pendiente de pago se cancela primero, cuando es posible.",
+    "nl": "Een bestelling die nog wacht op betaling, wordt eerst geannuleerd, als dat kan."
    }
   }
  ],

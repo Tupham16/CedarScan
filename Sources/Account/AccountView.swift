@@ -164,6 +164,8 @@ struct AccountView: View {
 struct DeleteAccountView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var account: AccountStore
+    /// Orders v2 B: after the deletion the account's unpaid orders are cancelled server-side.
+    @EnvironmentObject private var store: ScanStore
 
     @State private var password = ""
     @State private var isBusy = false
@@ -183,7 +185,12 @@ struct DeleteAccountView: View {
                         //     bảng Order, nên MỌI đơn ở lại, giao hay chưa. Khách có đơn đang vẽ dở
                         //     đọc câu cũ sẽ tưởng đơn biến mất theo tài khoản.
                         // (3) Không nói rõ bản quét TRONG MÁY không bị đụng (chỉ server bị xoá).
-                        Text(String(localized: "This permanently deletes your account and the scans we hold in the cloud. Your orders stay in our records, and so do the files attached to them. Scans on this iPhone are not affected. This CANNOT be undone."))
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(String(localized: "This permanently deletes your account and the scans we hold in the cloud. Your orders stay in our records, and so do the files attached to them. Scans on this iPhone are not affected. This CANNOT be undone."))
+                            // Orders v2 B: `account/delete/route.ts` cancels them first (Privacy
+                            // "Deleting your account" says the same).
+                            Text(String(localized: "An order still awaiting payment is cancelled first, where possible."))
+                        }
                         .font(.footnote)
                     } icon: {
                         Image(systemName: "exclamationmark.triangle.fill")
@@ -234,6 +241,9 @@ struct DeleteAccountView: View {
         Task {
             do {
                 _ = try await APIClient.shared.deleteAccount(password: password)
+                // Its unpaid orders were cancelled and their list is gone for good: ✗ leave
+                // "Awaiting payment" on its scans (`ScanStore.forgetAwaitingOrders`).
+                store.forgetAwaitingOrders()
                 dismiss()
                 account.signOut()
             } catch {

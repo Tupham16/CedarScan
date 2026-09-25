@@ -12,6 +12,11 @@ final class ScanStore: ObservableObject {
     /// order list (`syncOrders`). An order not in a list is left alone (another account's).
     @Published private(set) var awaitingOrderNumbers: Set<String>
     private static let awaitingKey = "awaitingOrderNumbers.v1"
+    /// Order IDs with a Cancel request in flight (up to ~45 s), and those this run saw cancelled
+    /// (200). App-wide, ✗ in the order screen: Back + reopen during the wait must not offer Pay or a
+    /// second Cancel, and a reload that fails after a 200 must not bring them back. Not persisted.
+    @Published private(set) var cancellingOrderIds: Set<String> = []
+    @Published private(set) var cancelledOrderIds: Set<String> = []
 
     /// Số việc đang "đụng vào" dữ liệu bản quét: phiên quét đang mở, hoặc đang lưu.
     /// `purgeDelivered` phải đứng NGOÀI cửa sổ này.
@@ -617,18 +622,40 @@ final class ScanStore: ObservableObject {
     func syncOrders(_ orders: [OrderDTO]) {
         var numbers = awaitingOrderNumbers
         for order in orders {
-            if order.isAwaitingPayment {
+            // Paid in the card sheet but not settled on the server yet: not "awaiting" here either
+            // (the order screen says "Paid" from the same `PaymentFlow` set).
+            if order.isAwaitingPayment, !PaymentFlow.shared.paidOrderIds.contains(order.orderId) {
                 numbers.insert(order.orderNumber)
             } else {
                 numbers.remove(order.orderNumber)
             }
         }
         setAwaiting(numbers)
+        releaseCancelledStamps(orders)
+    }
+
+    /// Only the releases of `syncOrders` — for a list that may be OLD (fetched before a long
+    /// upload): its awaiting states may be out of date, a cancel never is (a cancelled order stays
+    /// cancelled).
+    func releaseCancelledStamps(_ orders: [OrderDTO]) {
         for order in orders where order.isCancelled {
             // `scanIds` of a cancelled order = the scans released at the cancel. Absent = old
             // server: nothing is released (✗ `allScanIds`, whose `scanId` fallback is not that list).
+            var numbers = awaitingOrderNumbers
+            numbers.remove(order.orderNumber)
+            setAwaiting(numbers)
             releaseStamps(orderNumber: order.orderNumber, scanIds: order.scanIds ?? [])
         }
+    }
+
+    /// `POST orders/{id}/cancel` sent / answered. `cancelled` = the server answered 200.
+    func beginCancel(orderId: String) {
+        cancellingOrderIds.insert(orderId)
+    }
+
+    func endCancel(orderId: String, cancelled: Bool) {
+        cancellingOrderIds.remove(orderId)
+        if cancelled { cancelledOrderIds.insert(orderId) }
     }
 
     /// `POST orders/{id}/cancel` answered 200: its released scans are "New" again.
@@ -637,6 +664,13 @@ final class ScanStore: ObservableObject {
         numbers.remove(orderNumber)
         setAwaiting(numbers)
         releaseStamps(orderNumber: orderNumber, scanIds: scanIds)
+    }
+
+    /// The account was deleted: the server cancelled its unpaid orders, and their list can never be
+    /// read again — ✗ leave "Awaiting payment" on its scans for good. Another
+    /// account's unpaid orders on this device come back with that account's next order list.
+    func forgetAwaitingOrders() {
+        setAwaiting([])
     }
 
     /// Clears `cloudOrderNumber` where the scan was released by THAT order: `cloudScanId` in the
