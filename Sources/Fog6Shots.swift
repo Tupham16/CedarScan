@@ -295,6 +295,20 @@ struct Fog6ShotRoot: View {
         case "guide":
             Color.gray.opacity(0.35).ignoresSafeArea()
                 .sheet(isPresented: $sheet) { ScanGuideView(onStart: {}) }
+        case "accent":
+            AccentProbeView()
+        case "accent-sheet":
+            Color.gray.opacity(0.35).ignoresSafeArea()
+                .sheet(isPresented: $sheet) { AccentProbeView(showInfo: false) }
+                .tint(AccentProbe.candidate)
+        case "accent-alert":
+            Color.gray.opacity(0.35).ignoresSafeArea()
+                .alert(Text(verbatim: "Probe"), isPresented: $sheet) {
+                    Button(role: .cancel, action: {}) { Text(verbatim: "Cancel") }
+                    Button(action: {}) { Text(verbatim: "OK") }
+                } message: {
+                    Text(verbatim: "Alert buttons")
+                }
         case "learn":
             LearnView()
                 .overlay(alignment: .bottom) { CedarTabBar(selection: .constant(.learn), onScan: {}) }

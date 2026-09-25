@@ -11,6 +11,7 @@ struct CedarScanApp: App {
         WindowGroup {
             if Fog6.on {
                 Fog6ShotRoot()
+                    .modifier(AccentProbeHooks())
                     .environmentObject(store)
                     .environmentObject(account)
             } else if Fog5.on {
