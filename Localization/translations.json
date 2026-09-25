@@ -4693,15 +4693,15 @@
    }
   },
   {
-   "key": "An order still awaiting payment is cancelled first.",
+   "key": "An order still awaiting payment is cancelled first, where possible.",
    "translations": {
-    "vi": "Đơn còn đang chờ thanh toán sẽ bị hủy trước.",
-    "fr": "Une commande encore en attente de paiement est d'abord annulée.",
-    "de": "Eine Bestellung, deren Zahlung noch aussteht, wird zuerst storniert.",
-    "cs": "Objednávka, která ještě čeká na platbu, se nejdřív zruší.",
-    "sk": "Objednávka, ktorá ešte čaká na platbu, sa najprv zruší.",
-    "es": "Un pedido que aún está pendiente de pago se cancela primero.",
-    "nl": "Een bestelling die nog wacht op betaling, wordt eerst geannuleerd."
+    "vi": "Đơn còn đang chờ thanh toán sẽ bị hủy trước, nếu hủy được.",
+    "fr": "Une commande encore en attente de paiement est d'abord annulée, lorsque c'est possible.",
+    "de": "Eine Bestellung, deren Zahlung noch aussteht, wird zuerst storniert, soweit möglich.",
+    "cs": "Objednávka, která ještě čeká na platbu, se nejdřív zruší, pokud to jde.",
+    "sk": "Objednávka, ktorá ešte čaká na platbu, sa najprv zruší, ak je to možné.",
+    "es": "Un pedido que aún está pendiente de pago se cancela primero, cuando es posible.",
+    "nl": "Een bestelling die nog wacht op betaling, wordt eerst geannuleerd, als dat kan."
    }
   }
  ],

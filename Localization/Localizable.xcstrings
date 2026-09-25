@@ -1646,49 +1646,49 @@
         }
       }
     },
-    "An order still awaiting payment is cancelled first.": {
+    "An order still awaiting payment is cancelled first, where possible.": {
       "extractionState": "manual",
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Objednávka, která ještě čeká na platbu, se nejdřív zruší."
+            "value": "Objednávka, která ještě čeká na platbu, se nejdřív zruší, pokud to jde."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Eine Bestellung, deren Zahlung noch aussteht, wird zuerst storniert."
+            "value": "Eine Bestellung, deren Zahlung noch aussteht, wird zuerst storniert, soweit möglich."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Un pedido que aún está pendiente de pago se cancela primero."
+            "value": "Un pedido que aún está pendiente de pago se cancela primero, cuando es posible."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Une commande encore en attente de paiement est d'abord annulée."
+            "value": "Une commande encore en attente de paiement est d'abord annulée, lorsque c'est possible."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Een bestelling die nog wacht op betaling, wordt eerst geannuleerd."
+            "value": "Een bestelling die nog wacht op betaling, wordt eerst geannuleerd, als dat kan."
           }
         },
         "sk": {
           "stringUnit": {
             "state": "translated",
-            "value": "Objednávka, ktorá ešte čaká na platbu, sa najprv zruší."
+            "value": "Objednávka, ktorá ešte čaká na platbu, sa najprv zruší, ak je to možné."
           }
         },
         "vi": {
           "stringUnit": {
             "state": "translated",
-            "value": "Đơn còn đang chờ thanh toán sẽ bị hủy trước."
+            "value": "Đơn còn đang chờ thanh toán sẽ bị hủy trước, nếu hủy được."
           }
         }
       }

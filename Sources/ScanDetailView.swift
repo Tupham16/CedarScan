@@ -1863,14 +1863,21 @@ struct OrderSheet: View {
     /// Back from the browser pay page (the only way `PaymentFlow` misses a payment): ask the server,
     /// so this screen does not keep saying "not placed, cancelled after 7 days" to someone who paid.
     /// Only a positive "paid" flips it — ✗ read anything into the order's absence or an error.
+    /// WordPress reports a browser payment a moment later (fire-and-forget callback): asked again
+    /// once after a few seconds.
     private func recheckPlacedOrder() {
         guard let placed = placedOrder, awaitsPayment(placed) else { return }
         Task {
-            guard let list = try? await APIClient.shared.listOrders(),
-                  let live = list.orders.first(where: { $0.orderId == placed.orderId }),
-                  live.paid == true, !live.isCancelled else { return }
-            serverPaid = true
-            store.noteOrderStatus(orderNumber: live.orderNumber, status: live.status)
+            for attempt in 0..<2 {
+                if attempt > 0 { try? await Task.sleep(nanoseconds: 5_000_000_000) }
+                if let list = try? await APIClient.shared.listOrders(),
+                   let live = list.orders.first(where: { $0.orderId == placed.orderId }),
+                   live.paid == true, !live.isCancelled {
+                    serverPaid = true
+                    store.noteOrderStatus(orderNumber: live.orderNumber, status: live.status)
+                    return
+                }
+            }
         }
     }
 

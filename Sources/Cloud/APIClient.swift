@@ -479,8 +479,11 @@ final class APIClient {
         ])
     }
 
+    /// Orders v2 B: the server first cancels every order still awaiting payment (WordPress, up to
+    /// ~20 s each, or ~45 s behind a cancel already running) — ✗ the default 30 s timeout, which
+    /// would report a failure for a deletion that goes through.
     func deleteAccount(password: String) async throws -> OkResponse {
-        try await send("account/delete", method: "POST", json: ["password": password])
+        try await send("account/delete", method: "POST", json: ["password": password], timeout: 120)
     }
 
     func verifyEmail(code: String) async throws -> OKResponse {

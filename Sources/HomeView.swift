@@ -556,7 +556,7 @@ struct HomeView: View {
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                         if awaiting {
-                            FogBadge(String(localized: "Awaiting payment"), .warn, compact: true)
+                            AwaitingPaymentMark()
                                 .padding(.top, 5)
                         }
                     }
@@ -780,21 +780,41 @@ struct ScanRow: View {
         }
     }
 
+    @Environment(\.dynamicTypeSize) private var typeSize
+
+    /// Accessibility sizes: the badge under the name — beside it a long one ("Zahlung ausstehend")
+    /// squeezed the name to a few letters a line and ran past the card (Orders v2 B review).
+    @ViewBuilder
     private var nameLine: some View {
-        HStack(spacing: 8) {
-            Text(record.name)
-                .font(.callout.weight(.semibold))
-            // Nhãn CHỮ chứ không chỉ icon: mở dự án ra phải đọc được NGAY tầng nào đã đặt
-            // rồi, để biết căn nhà còn thiếu tầng nào mà quét thêm. Một icon nhỏ màu xanh
-            // không nói được điều đó.
-            // "Ordered" = `cloudOrderNumber != nil`, the app-wide rule; every other scan is "New".
-            // Orders v2 B: stamped by an order still awaiting payment = "Awaiting payment" (not
-            // placed until paid — owner 25/09, mockup 39); the scan stays reserved by that order.
-            if store.isAwaitingPayment(record) {
-                FogBadge(String(localized: "Awaiting payment"), .warn, compact: true)
-            } else if record.cloudOrderNumber != nil {
-                FogBadge(String(localized: "Ordered"), .neutral, compact: true)
-            } else {
+        if typeSize.isAccessibilitySize {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(record.name)
+                    .font(.callout.weight(.semibold))
+                badges
+            }
+        } else {
+            HStack(spacing: 8) {
+                Text(record.name)
+                    .font(.callout.weight(.semibold))
+                badges
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var badges: some View {
+        // Nhãn CHỮ chứ không chỉ icon: mở dự án ra phải đọc được NGAY tầng nào đã đặt
+        // rồi, để biết căn nhà còn thiếu tầng nào mà quét thêm. Một icon nhỏ màu xanh
+        // không nói được điều đó.
+        // "Ordered" = `cloudOrderNumber != nil`, the app-wide rule; every other scan is "New".
+        // Orders v2 B: stamped by an order still awaiting payment = "Awaiting payment" (not
+        // placed until paid — owner 25/09, mockup 39); the scan stays reserved by that order.
+        if store.isAwaitingPayment(record) {
+            AwaitingPaymentMark()
+        } else if record.cloudOrderNumber != nil {
+            FogBadge(String(localized: "Ordered"), .neutral, compact: true)
+        } else {
+            HStack(spacing: 8) {
                 FogBadge(String(localized: "New"), .soft, compact: true)
                 if record.cloudScanId != nil {
                     Image(systemName: "checkmark.icloud.fill")
@@ -825,5 +845,23 @@ struct ScanRow: View {
     /// hơi sai với chúng, nhưng chủ app là người duy nhất còn giữ và đã chốt bóc sạch RoomPlan.
     private var typePart: String {
         String(localized: "3D mesh")
+    }
+}
+
+/// Orders v2 B: "Awaiting payment" on a scan / property whose order is not paid yet (owner 25/09,
+/// mockup 39). At accessibility sizes a wrapping `warn` line instead of the capsule: `FogBadge`
+/// never wraps, and "Zahlung ausstehend" at AX3 ran past the card.
+struct AwaitingPaymentMark: View {
+    @Environment(\.dynamicTypeSize) private var typeSize
+
+    var body: some View {
+        if typeSize.isAccessibilitySize {
+            Text(String(localized: "Awaiting payment"))
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(Theme.Badge.warn.fg)
+                .fixedSize(horizontal: false, vertical: true)
+        } else {
+            FogBadge(String(localized: "Awaiting payment"), .warn, compact: true)
+        }
     }
 }

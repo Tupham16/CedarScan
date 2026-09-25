@@ -128,10 +128,18 @@ struct OrderDetailView: View {
                 StatusBadge(status: order.status)
                 orderNumber(order)
             } else {
-                HStack(spacing: 8) {
-                    StatusBadge(status: order.status)
-                    Spacer(minLength: 8)
-                    orderNumber(order)
+                // Side by side while both fit at full size; else stacked. "Zahlung ausstehend" at
+                // German xxxL left the number cut to "#LS-MS5M494…" (Orders v2 B renders).
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 8) {
+                        StatusBadge(status: order.status)
+                        Spacer(minLength: 8)
+                        orderNumber(order)
+                    }
+                    VStack(alignment: .leading, spacing: 8) {
+                        StatusBadge(status: order.status)
+                        orderNumber(order)
+                    }
                 }
             }
             summaryLine(order)
@@ -444,7 +452,7 @@ struct OrderDetailView: View {
     /// avoids an empty row (stray spacing); each button keeps its own condition.
     @ViewBuilder
     private func followUps(_ order: OrderDTO) -> some View {
-        if order.deliveredAt != nil || supplementProject(for: order) != nil {
+        if order.deliveredAt != nil || supplementTarget(for: order) != nil {
             HStack(spacing: 8) {
                 // 🔴 "YÊU CẦU SỬA" GÁC THEO `deliveredAt`, ✗ theo `status == "delivered"` —
                 // sửa 19/08, vòng soi đối kháng bắt.
@@ -475,7 +483,7 @@ struct OrderDetailView: View {
                 // 🔴 CHỈ ĐIỀU HƯỚNG, ✗ gửi gì cả. Việc gửi vẫn là `SupplementSheet` ở trang dự án
                 // — LỐI VÀO DUY NHẤT, ✗ nhân bản luồng gửi ở tab này (thứ trôi được giữa hai bản
                 // sao là cú ĐÓNG DẤU số đơn, mà thiếu dấu = khách TRẢ TIỀN HAI LẦN).
-                if let project = supplementProject(for: order) {
+                if let project = supplementTarget(for: order) {
                     Button {
                         onOpenProject(project)
                     } label: {
@@ -570,6 +578,13 @@ struct OrderDetailView: View {
             if api?.statusCode == 404 { return nil }
             return String(localized: "We couldn't cancel this order right now. Please try again in a few minutes.")
         }
+    }
+
+    /// `supplementProject`, and not while this device cancels the order (or just did): a scan sent
+    /// then would join an order about to be cancelled (Orders v2 B).
+    private func supplementTarget(for order: OrderDTO) -> ScanProject? {
+        guard !cancelling(order), !store.cancelledOrderIds.contains(order.orderId) else { return nil }
+        return supplementProject(for: order)
     }
 
     /// Dự án TRÊN MÁY NÀY của đơn — `nil` thì KHÔNG hiện nút "Thêm bản quét".

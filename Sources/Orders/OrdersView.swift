@@ -30,6 +30,8 @@ struct OrdersView: View {
     @State private var errorMessage: String?
     @State private var filter: OrderFilter = .all
     @Environment(\.dynamicTypeSize) private var typeSize
+    /// Orders v2 B: back from the browser pay page (see `refreshUnpaid`).
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -99,6 +101,24 @@ struct OrdersView: View {
         }
         .onChange(of: orders.map(\.orderId)) { _, ids in
             leaveGoneOrder(ids)
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { refreshUnpaid() }
+        }
+    }
+
+    /// Orders v2 B: a customer who paid on the browser pay page comes back to a list (or an open
+    /// order) that still says "Awaiting payment · not placed · cancelled after 7 days" — nothing
+    /// else reloads it (`PaymentFlow` never hears of a browser payment). Only while an unpaid order
+    /// is listed. WordPress reports the payment a moment later (fire-and-forget callback), so once
+    /// more after a few seconds if it still reads unpaid. Through `load()`: its guards apply.
+    private func refreshUnpaid() {
+        guard account.isSignedIn, ownOrders.contains(where: { $0.isAwaitingPayment }) else { return }
+        Task {
+            await load()
+            guard ownOrders.contains(where: { $0.isAwaitingPayment }) else { return }
+            try? await Task.sleep(nanoseconds: 5_000_000_000)
+            await load()
         }
     }
 

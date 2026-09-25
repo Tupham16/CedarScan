@@ -85,6 +85,16 @@ struct SupplementSheet: View {
         }
     }
 
+    /// Orders v2 B: an order still awaiting payment is not "placed" yet; and a cancelled one gets
+    /// no footer at all — the message under it says the scans will NOT be added.
+    private var scansFooter: String? {
+        if case .orderCancelled = phase { return nil }
+        if store.awaitingOrderNumbers.contains(orderNumber) {
+            return String(localized: "These will be added to order \(orderNumber) for this property, which is placed once it is paid. No extra charge.")
+        }
+        return String(localized: "These will be added to order \(orderNumber) — the one you already placed for this property. No extra charge.")
+    }
+
     private var isWorking: Bool {
         if case .working = phase { return true }
         return false
@@ -100,10 +110,9 @@ struct SupplementSheet: View {
         } header: {
             Text(String(localized: "Scans to send"))
         } footer: {
-            // Orders v2 B: an order still awaiting payment is not "placed" yet.
-            Text(store.awaitingOrderNumbers.contains(orderNumber)
-                 ? String(localized: "These will be added to order \(orderNumber) for this property, which is placed once it is paid. No extra charge.")
-                 : String(localized: "These will be added to order \(orderNumber) — the one you already placed for this property. No extra charge."))
+            if let footer = scansFooter {
+                Text(footer)
+            }
         }
 
         switch phase {
@@ -178,8 +187,8 @@ struct SupplementSheet: View {
             }
         case .orderCancelled(let message):
             Section {
-                Text(message)
-                    .font(.subheadline)
+                // Must be read whole (trap #44).
+                WrappedText(message, style: .subheadline)
                 Button(String(localized: "Close")) { dismiss() }
             }
         }

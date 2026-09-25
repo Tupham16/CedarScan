@@ -189,7 +189,7 @@ struct DeleteAccountView: View {
                             Text(String(localized: "This permanently deletes your account and the scans we hold in the cloud. Your orders stay in our records, and so do the files attached to them. Scans on this iPhone are not affected. This CANNOT be undone."))
                             // Orders v2 B: `account/delete/route.ts` cancels them first (Privacy
                             // "Deleting your account" says the same).
-                            Text(String(localized: "An order still awaiting payment is cancelled first."))
+                            Text(String(localized: "An order still awaiting payment is cancelled first, where possible."))
                         }
                         .font(.footnote)
                     } icon: {
