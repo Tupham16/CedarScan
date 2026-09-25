@@ -157,6 +157,16 @@ struct MeshScanFlowView: View {
             // ✗ nối lại khi chưa sửa GỐC sổ-theo-anchor và chưa hỏi chủ app.
             // Tắt lưới khi đã sang màn preview: nhịp cập nhật dừng hẳn nên CADisplayLink 30Hz
             // không quay không tải suốt lúc khách ngồi xem lại video.
+            if Fog5.on {
+                Color.black
+                    .overlay {
+                        Image(Fog5.white ? "Fog5White" : "Fog5Room")
+                            .resizable()
+                            .scaledToFill()
+                    }
+                    .clipped()
+                    .ignoresSafeArea()
+            } else {
             ARCameraViewRepresentable(
                 arSession: controller.arSession,
                 sessionDelegate: controller,
@@ -174,6 +184,7 @@ struct MeshScanFlowView: View {
                 // photoCoverage CỐ Ý không truyền (default nil) — đọc chú thích 🔴 ở trên.
             )
             .ignoresSafeArea()
+            }
 
             if !isSaving && !showNaming && savedRecord == nil {
                 QualityAlertOverlay(monitor: controller.qualityMonitor)
@@ -222,6 +233,10 @@ struct MeshScanFlowView: View {
             // khoá VẪN BẮT BUỘC: dọn giữa buổi là `saveMeshScan` ghi vào dự án đã xoá, và pop
             // ProjectView là gỡ mất cái `.onChange` đang cầm đường ĐÓNG cover của phiên này.
             store.beginBusy()
+            if Fog5.on {
+                controller.fog5Fake()
+                return
+            }
             guard controller.isSupported else {
                 showUnsupported = true
                 return

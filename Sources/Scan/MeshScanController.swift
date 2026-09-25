@@ -54,6 +54,12 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
         super.init()
     }
 
+    /// THROWAWAY (fog5-shots): fake a running scan for simulator screenshots.
+    func fog5Fake() {
+        startedAt = Date().addingTimeInterval(-252)
+        if Fog5.banner { capReached = true }
+    }
+
     var isSupported: Bool {
         ARWorldTrackingConfiguration.supportsSceneReconstruction(.mesh)
     }

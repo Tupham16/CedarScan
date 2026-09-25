@@ -1,0 +1,95 @@
+# THROWAWAY: simulator screenshots of the Fog step 5 scan screen. Never merge to main.
+name: Fog5 scan-screen shots (throwaway)
+
+on:
+  push:
+    branches: ['claude/fog5-shots']
+
+jobs:
+  shots:
+    runs-on: macos-15
+    strategy:
+      fail-fast: false
+      matrix:
+        device: [iPhone-13-Pro, iPhone-16-Pro, iPhone-16-Pro-Max]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode 26.3
+        run: |
+          sudo xcode-select -s /Applications/Xcode_26.3.app
+          xcodebuild -version
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Resolve Swift packages
+        run: xcodebuild -resolvePackageDependencies -project CedarScan.xcodeproj -scheme CedarScan
+
+      - name: Create an iPhone 13 Pro simulator (390x844, the owner's 12 Pro size)
+        id: sim
+        run: |
+          set -euo pipefail
+          RT=$(xcrun simctl list runtimes -j | python3 -c "
+          import json, sys
+          r = [x for x in json.load(sys.stdin)['runtimes'] if x['identifier'].startswith('com.apple.CoreSimulator.SimRuntime.iOS-26') and x.get('isAvailable')]
+          print(sorted(r, key=lambda x: x['version'])[-1]['identifier'])
+          ")
+          UDID=$(xcrun simctl create "Fog5 ${{ matrix.device }}" "com.apple.CoreSimulator.SimDeviceType.${{ matrix.device }}" "$RT")
+          echo "Created $UDID on $RT"
+          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
+
+      - name: Boot simulator
+        run: |
+          xcrun simctl boot "${{ steps.sim.outputs.udid }}" || true
+          xcrun simctl bootstatus "${{ steps.sim.outputs.udid }}" -b
+
+      - name: Shots (light)
+        run: |
+          set -o pipefail
+          xcrun simctl ui "${{ steps.sim.outputs.udid }}" appearance light
+          xcodebuild test \
+            -project CedarScan.xcodeproj \
+            -scheme CedarScan \
+            -destination "id=${{ steps.sim.outputs.udid }}" \
+            -only-testing:CedarScanUITests \
+            -resultBundlePath light.xcresult \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            | tee light.log | grep -E "FOG5|Test Case|error:|\*\* TEST" || true
+
+      - name: Shots (dark)
+        if: always()
+        run: |
+          set -o pipefail
+          xcrun simctl ui "${{ steps.sim.outputs.udid }}" appearance dark
+          xcodebuild test \
+            -project CedarScan.xcodeproj \
+            -scheme CedarScan \
+            -destination "id=${{ steps.sim.outputs.udid }}" \
+            -only-testing:CedarScanUITests \
+            -resultBundlePath dark.xcresult \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            | tee dark.log | grep -E "FOG5|Test Case|error:|\*\* TEST" || true
+
+      - name: Export screenshots
+        if: always()
+        run: |
+          for m in light dark; do
+            if [ -d "$m.xcresult" ]; then
+              xcrun xcresulttool export attachments --path "$m.xcresult" --output-path "shots/$m" || true
+            fi
+          done
+          ls -laR shots || true
+
+      - name: Upload
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fog5-shots-${{ matrix.device }}
+          path: |
+            shots
+            light.log
+            dark.log
