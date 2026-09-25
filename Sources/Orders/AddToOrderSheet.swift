@@ -163,6 +163,8 @@ struct AddToOrderSheet: View {
                 created = purchase
                 serverPaid = purchase.status == "received"
             }
+            // A lost answer found in the order afterwards (round 1 fix).
+            if Fog6.screen == "addon-lost" { addedUnanswered = ["3D Floor Plan", "Site plan"] }
             return
         }
         do {

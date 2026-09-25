@@ -40,6 +40,7 @@ final class Orders2cShots: XCTestCase {
         capture("addon-coupon", en, end: true)
         capture("addon-done", en)
         capture("addon-done-notdelivered", en)
+        capture("addon-lost", en)
         capture("addon-blocked", en)
         capture("addon-notdelivered", en, end: true)
 
