@@ -66,6 +66,10 @@ final class Orders2bShots: XCTestCase {
         capture("placed-awaiting", de + axl, end: true)
         capture("orders", en + axl)
 
+        let ax3 = ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
+        capture("home", de + ax3, end: true)
+        capture("project", de + ax3)
+        capture("detail-awaiting", de + ax3, end: true)
         capture("orders-a1", vi)
         capture("placed-awaiting", vi)
         capture("project", vi)
@@ -89,7 +93,8 @@ final class Orders2bShots: XCTestCase {
         app.launchArguments = ["-fog6shot", screen] + args
         app.launch()
         sleep(4)
-        let size = args.contains("UICTContentSizeCategoryAccessibilityL") ? "-axl"
+        let size = args.contains("UICTContentSizeCategoryAccessibilityXXXL") ? "-ax3"
+            : args.contains("UICTContentSizeCategoryAccessibilityL") ? "-axl"
             : args.contains("UICTContentSizeCategoryXXXL") ? "-xxxl" : ""
         let langTag = args.first(where: { $0.hasPrefix("(") })?.trimmingCharacters(in: CharacterSet(charactersIn: "()")) ?? "en"
         let tag = screen + "-" + langTag + size

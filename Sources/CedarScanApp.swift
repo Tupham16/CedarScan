@@ -11,6 +11,7 @@ struct CedarScanApp: App {
         WindowGroup {
             if Fog6.on {
                 Fog6ShotRoot()
+                    .onAppear { Fog6.applyAccentTint() }
                     .environmentObject(store)
                     .environmentObject(account)
             } else if Fog5.on {

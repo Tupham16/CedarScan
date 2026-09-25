@@ -13,6 +13,15 @@ enum Fog6 {
     }()
     static var on: Bool { screen != nil }
 
+    /// Harness only: `init() { Fog6.seed() }` leaves the window tint at system blue (trap #48).
+    @MainActor static func applyAccentTint() {
+        let accent = UIColor(named: "AccentColor")
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        for window in scenes.flatMap(\.windows) {
+            window.tintColor = accent
+        }
+    }
+
     static let maple = UUID(uuidString: "11111111-1111-1111-1111-111111111111")!
     static let oak = UUID(uuidString: "22222222-2222-2222-2222-222222222222")!
     static let rMain = UUID(uuidString: "AAAAAAAA-0000-0000-0000-000000000001")!
