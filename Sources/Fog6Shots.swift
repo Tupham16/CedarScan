@@ -114,6 +114,15 @@ enum Fog6 {
         docs.appendingPathComponent("Scans", isDirectory: true).appendingPathComponent(id.uuidString, isDirectory: true)
     }
 
+    /// `seed()` runs before UIApplication adopts NSAccentColorName, so the process tint stays
+    /// system blue (#0088FF) in the harness only; the real app draws AccentColor (measured,
+    /// branch claude/accent-probe). Set it on the window as the real app has it.
+    @MainActor static func applyAccentTint() {
+        let accent = UIColor(named: "AccentColor")
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        for window in scenes.flatMap(\.windows) { window.tintColor = accent }
+    }
+
     /// Runs in `CedarScanApp.init`, before `ScanStore()` / `AccountStore()` read disk.
     static func seed() {
         guard let screen else { return }
