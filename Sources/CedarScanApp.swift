@@ -125,6 +125,7 @@ struct RootView: View {
         .onChange(of: tab) { _, newTab in PaymentFlow.visibleTab = newTab }
         .task(id: account.isSignedIn) {
             await confirmPendingPayments()
+            await syncUnpaidOrders()
             await purgeDeliveredScans()
         }
         // `.task(id:)` KHÔNG đủ: TabView gốc không bao giờ disappear/reappear trong vòng đời
@@ -135,9 +136,21 @@ struct RootView: View {
             guard phase == .active else { return }
             Task {
                 await confirmPendingPayments()
+                await syncUnpaidOrders()
                 await purgeDeliveredScans()
             }
         }
+    }
+
+    /// Orders v2 B: an unpaid order can be cancelled from elsewhere or expire after 7 days while
+    /// the Orders tab is never opened — its scans would stay "Awaiting payment", reserved by a dead
+    /// order (Send extra scan → refused). Asked only while a scan HERE is stamped with an order
+    /// known to be unpaid, so no request at all for everybody else. Positive signals only
+    /// (`ScanStore.syncOrders`); a failure changes nothing.
+    private func syncUnpaidOrders() async {
+        guard account.isSignedIn, store.hasAwaitingStamps else { return }
+        guard let response = try? await APIClient.shared.listOrders() else { return }
+        store.syncOrders(response.orders)
     }
 
     /// A card payment completed in the app but not yet confirmed by the server (network dropped

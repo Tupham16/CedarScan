@@ -192,14 +192,17 @@ extension View {
 struct WrappedText: View {
     let text: String
     let style: UIFont.TextStyle
+    /// `.center` for a centred screen (the placed screen); line breaks do not depend on it.
+    let alignment: NSTextAlignment
 
-    init(_ text: String, style: UIFont.TextStyle = .body) {
+    init(_ text: String, style: UIFont.TextStyle = .body, alignment: NSTextAlignment = .natural) {
         self.text = text
         self.style = style
+        self.alignment = alignment
     }
 
     var body: some View {
-        WrappedTextView(text: text, style: style)
+        WrappedTextView(text: text, style: style, alignment: alignment)
             .accessibilityRepresentation { Text(text) }
     }
 }
@@ -208,17 +211,18 @@ struct WrappedText: View {
 struct WrappedTextView: UIViewRepresentable {
     let text: String
     let style: UIFont.TextStyle
+    var alignment: NSTextAlignment = .natural
 
     func makeUIView(context: Context) -> UITextView {
         Self.makeTextView()
     }
 
     func updateUIView(_ view: UITextView, context: Context) {
-        Self.configure(view, text: text, font: Self.font(style, context.environment))
+        Self.configure(view, text: text, font: Self.font(style, context.environment), alignment: alignment)
     }
 
     func sizeThatFits(_ proposal: ProposedViewSize, uiView view: UITextView, context: Context) -> CGSize? {
-        Self.configure(view, text: text, font: Self.font(style, context.environment))
+        Self.configure(view, text: text, font: Self.font(style, context.environment), alignment: alignment)
         return Self.fittingSize(view, width: proposal.width, scale: context.environment.displayScale)
     }
 
@@ -251,12 +255,20 @@ struct WrappedTextView: UIViewRepresentable {
         return UIFont.preferredFont(forTextStyle: style, compatibleWith: traits)
     }
 
-    static func configure(_ view: UITextView, text: String, font: UIFont) {
-        guard view.attributedText?.string != text || view.font != font else { return }
-        view.attributedText = NSAttributedString(string: text, attributes: [
+    static func configure(_ view: UITextView, text: String, font: UIFont, alignment: NSTextAlignment = .natural) {
+        guard view.attributedText?.string != text || view.font != font || view.textAlignment != alignment else { return }
+        var attributes: [NSAttributedString.Key: Any] = [
             .font: font,
             .foregroundColor: UIColor.label,
-        ])
+        ]
+        // Only when asked: the default (.natural) keeps the exact attributes the German sweep measured.
+        if alignment != .natural {
+            let paragraph = NSMutableParagraphStyle()
+            paragraph.alignment = alignment
+            attributes[.paragraphStyle] = paragraph
+        }
+        view.attributedText = NSAttributedString(string: text, attributes: attributes)
+        if view.textAlignment != alignment { view.textAlignment = alignment }
     }
 
     /// Wrapped: the full proposed width, measured at that width floored to the pixel grid (the

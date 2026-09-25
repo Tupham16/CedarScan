@@ -536,6 +536,9 @@ struct HomeView: View {
         let countLine = Self.projectCountLine(scans)
         // "N new" = scans not ordered yet; same "ordered" rule as `projectCountLine`.
         let newCount = scans.filter { $0.cloudOrderNumber == nil }.count
+        // Orders v2 B: its order is not paid yet (mockup 39: a small badge under the count line;
+        // beside "N new" it squeezed the count line into two).
+        let awaiting = scans.contains { store.isAwaitingPayment($0) }
         let created = project.createdAt.formatted(date: .abbreviated, time: .omitted)
         return HStack(spacing: 0) {
             Button {
@@ -552,6 +555,10 @@ struct HomeView: View {
                         Text(countLine)
                             .font(.footnote)
                             .foregroundStyle(.secondary)
+                        if awaiting {
+                            FogBadge(String(localized: "Awaiting payment"), .warn, compact: true)
+                                .padding(.top, 5)
+                        }
                     }
                     // Nuốt hết chỗ trống giữa chữ và giỏ rác, và `contentShape` bên dưới biến nó
                     // thành vùng chạm — không thì chạm vào khoảng trắng giữa dòng là rơi tọt.
@@ -781,7 +788,11 @@ struct ScanRow: View {
             // rồi, để biết căn nhà còn thiếu tầng nào mà quét thêm. Một icon nhỏ màu xanh
             // không nói được điều đó.
             // "Ordered" = `cloudOrderNumber != nil`, the app-wide rule; every other scan is "New".
-            if record.cloudOrderNumber != nil {
+            // Orders v2 B: stamped by an order still awaiting payment = "Awaiting payment" (not
+            // placed until paid — owner 25/09, mockup 39); the scan stays reserved by that order.
+            if store.isAwaitingPayment(record) {
+                FogBadge(String(localized: "Awaiting payment"), .warn, compact: true)
+            } else if record.cloudOrderNumber != nil {
                 FogBadge(String(localized: "Ordered"), .neutral, compact: true)
             } else {
                 FogBadge(String(localized: "New"), .soft, compact: true)

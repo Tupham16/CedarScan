@@ -236,49 +236,49 @@
         }
       }
     },
-    "1. Scan the property, then open it and tap \"Order Floor Plan\".\n2. Sign in if the app asks. Your email has to be verified before an order goes through.\n3. Pick a package, switch on any add-ons, write a note.\n4. Tap \"Place order\". Use Wi-Fi and leave the app open until your order number appears — your scan is a big upload.\n5. Tap \"Pay Now\". We start drawing once the payment lands.": {
+    "1. Scan the property, then open it and tap \"Order Floor Plan\".\n2. Sign in if the app asks. Your email has to be verified before an order goes through.\n3. Pick a package, switch on any add-ons, write a note.\n4. Tap \"Place order\". Use Wi-Fi and leave the app open until your order number appears — your scan is a big upload.\n5. Pay for it. Until it is paid the order is not placed; we start drawing once the payment lands.": {
       "extractionState": "manual",
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "1. Naskenujte nemovitost, pak ji otevřete a klepněte na \"Objednat půdorys\".\n2. Pokud vás aplikace vyzve, přihlaste se. Aby objednávka prošla, musí být váš e-mail ověřený.\n3. Vyberte balíček, zapněte případné doplňky, napište poznámku.\n4. Klepněte na \"Odeslat objednávku\". Použijte Wi-Fi a nechte aplikaci otevřenou, dokud se nezobrazí číslo objednávky — sken je velký objem dat.\n5. Klepněte na \"Zaplatit nyní\". Jakmile platba dorazí, začneme kreslit."
+            "value": "1. Naskenujte nemovitost, pak ji otevřete a klepněte na \"Objednat půdorys\".\n2. Pokud vás aplikace vyzve, přihlaste se. Aby objednávka prošla, musí být váš e-mail ověřený.\n3. Vyberte balíček, zapněte případné doplňky, napište poznámku.\n4. Klepněte na \"Odeslat objednávku\". Použijte Wi-Fi a nechte aplikaci otevřenou, dokud se nezobrazí číslo objednávky — sken je velký objem dat.\n5. Zaplaťte ji. Dokud není zaplacená, objednávka neplatí; jakmile platba dorazí, začneme kreslit."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "1. Scannen Sie das Objekt, öffnen Sie es dann und tippen Sie auf \"Grundriss bestellen\".\n2. Melden Sie sich an, wenn die App danach fragt. Ihre E-Mail-Adresse muss bestätigt sein, bevor eine Bestellung durchgeht.\n3. Wählen Sie ein Paket, aktivieren Sie bei Bedarf Extras und schreiben Sie eine Anmerkung.\n4. Tippen Sie auf \"Bestellung aufgeben\". Nutzen Sie WLAN und lassen Sie die App offen, bis Ihre Bestellnummer erscheint — Ihr Scan ist ein großer Upload.\n5. Tippen Sie auf \"Jetzt bezahlen\". Sobald die Zahlung eingegangen ist, beginnen wir zu zeichnen."
+            "value": "1. Scannen Sie das Objekt, öffnen Sie es dann und tippen Sie auf \"Grundriss bestellen\".\n2. Melden Sie sich an, wenn die App danach fragt. Ihre E-Mail-Adresse muss bestätigt sein, bevor eine Bestellung durchgeht.\n3. Wählen Sie ein Paket, aktivieren Sie bei Bedarf Extras und schreiben Sie eine Anmerkung.\n4. Tippen Sie auf \"Bestellung aufgeben\". Nutzen Sie WLAN und lassen Sie die App offen, bis Ihre Bestellnummer erscheint — Ihr Scan ist ein großer Upload.\n5. Bezahlen Sie sie. Bis dahin ist die Bestellung nicht aufgegeben; sobald die Zahlung eingegangen ist, beginnen wir zu zeichnen."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "1. Escanea la propiedad, luego ábrela y toca \"Pedir plano de planta\".\n2. Inicia sesión si la app te lo pide. Tu correo tiene que estar verificado para que el pedido se procese.\n3. Elige un paquete, activa los extras que quieras y escribe una nota.\n4. Toca \"Realizar pedido\". Usa Wi-Fi y deja la app abierta hasta que aparezca tu número de pedido — tu escaneo es un archivo grande y tarda en subir.\n5. Toca \"Pagar ahora\". Empezamos a dibujar en cuanto llega el pago."
+            "value": "1. Escanea la propiedad, luego ábrela y toca \"Pedir plano de planta\".\n2. Inicia sesión si la app te lo pide. Tu correo tiene que estar verificado para que el pedido se procese.\n3. Elige un paquete, activa los extras que quieras y escribe una nota.\n4. Toca \"Realizar pedido\". Usa Wi-Fi y deja la app abierta hasta que aparezca tu número de pedido — tu escaneo es un archivo grande y tarda en subir.\n5. Págalo. Hasta que se pague, el pedido no está realizado; empezamos a dibujar en cuanto llega el pago."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "1. Numérisez la propriété, puis ouvrez-la et touchez \"Commander le plan d'étage\".\n2. Connectez-vous si l'app le demande. Votre courriel doit être vérifié pour que la commande passe.\n3. Choisissez un forfait, activez les options voulues, écrivez une note.\n4. Touchez \"Passer la commande\". Utilisez le Wi-Fi et laissez l'app ouverte jusqu'à ce que votre numéro de commande apparaisse — votre numérisation est un gros téléversement.\n5. Touchez \"Payer maintenant\". Nous commençons à dessiner dès que le paiement est reçu."
+            "value": "1. Numérisez la propriété, puis ouvrez-la et touchez \"Commander le plan d'étage\".\n2. Connectez-vous si l'app le demande. Votre courriel doit être vérifié pour que la commande passe.\n3. Choisissez un forfait, activez les options voulues, écrivez une note.\n4. Touchez \"Passer la commande\". Utilisez le Wi-Fi et laissez l'app ouverte jusqu'à ce que votre numéro de commande apparaisse — votre numérisation est un gros téléversement.\n5. Payez-la. Tant qu'elle n'est pas payée, la commande n'est pas passée; nous commençons à dessiner dès que le paiement est reçu."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "1. Scan de woning, open die daarna en tik op \"Plattegrond bestellen\".\n2. Log in als de app daarom vraagt. Je e-mailadres moet geverifieerd zijn voordat een bestelling doorgaat.\n3. Kies een pakket, zet eventuele extra's aan en schrijf een opmerking.\n4. Tik op \"Bestelling plaatsen\". Gebruik wifi en laat de app open tot je bestelnummer verschijnt — je scan is een grote upload.\n5. Tik op \"Nu betalen\". Zodra de betaling binnen is, beginnen we met tekenen."
+            "value": "1. Scan de woning, open die daarna en tik op \"Plattegrond bestellen\".\n2. Log in als de app daarom vraagt. Je e-mailadres moet geverifieerd zijn voordat een bestelling doorgaat.\n3. Kies een pakket, zet eventuele extra's aan en schrijf een opmerking.\n4. Tik op \"Bestelling plaatsen\". Gebruik wifi en laat de app open tot je bestelnummer verschijnt — je scan is een grote upload.\n5. Betaal de bestelling. Tot die betaald is, is ze niet geplaatst; zodra de betaling binnen is, beginnen we met tekenen."
           }
         },
         "sk": {
           "stringUnit": {
             "state": "translated",
-            "value": "1. Naskenujte nehnuteľnosť, potom ju otvorte a ťuknite na \"Objednať pôdorys\".\n2. Ak si to aplikácia vypýta, prihláste sa. Aby objednávka prešla, musí byť váš e-mail overený.\n3. Vyberte balík, zapnite prípadné doplnky, napíšte poznámku.\n4. Ťuknite na \"Odoslať objednávku\". Použite Wi-Fi a nechajte aplikáciu otvorenú, kým sa nezobrazí číslo objednávky — sken je veľký objem dát na nahratie.\n5. Ťuknite na \"Zaplatiť teraz\". Kresliť začneme hneď po prijatí platby."
+            "value": "1. Naskenujte nehnuteľnosť, potom ju otvorte a ťuknite na \"Objednať pôdorys\".\n2. Ak si to aplikácia vypýta, prihláste sa. Aby objednávka prešla, musí byť váš e-mail overený.\n3. Vyberte balík, zapnite prípadné doplnky, napíšte poznámku.\n4. Ťuknite na \"Odoslať objednávku\". Použite Wi-Fi a nechajte aplikáciu otvorenú, kým sa nezobrazí číslo objednávky — sken je veľký objem dát na nahratie.\n5. Zaplaťte ju. Kým nie je zaplatená, objednávka neplatí; kresliť začneme hneď po prijatí platby."
           }
         },
         "vi": {
           "stringUnit": {
             "state": "translated",
-            "value": "1. Quét xong, bạn mở dự án rồi bấm \"Đặt làm mặt bằng\".\n2. App hỏi thì đăng nhập. Tài khoản cần xác minh email thì đơn mới đi được.\n3. Chọn gói, bật thêm dịch vụ nếu cần, viết ghi chú.\n4. Bấm \"Đặt hàng\". Dùng Wi-Fi và để app mở tới khi số đơn hiện ra nhé — bản quét khá nặng.\n5. Bấm \"Thanh toán ngay\". Nhận được tiền là đội ngũ bắt đầu vẽ."
+            "value": "1. Quét xong, bạn mở dự án rồi bấm \"Đặt làm mặt bằng\".\n2. App hỏi thì đăng nhập. Tài khoản cần xác minh email thì đơn mới đi được.\n3. Chọn gói, bật thêm dịch vụ nếu cần, viết ghi chú.\n4. Bấm \"Đặt hàng\". Dùng Wi-Fi và để app mở tới khi số đơn hiện ra nhé — bản quét khá nặng.\n5. Thanh toán. Chưa thanh toán thì đơn chưa được đặt; nhận được tiền là đội ngũ bắt đầu vẽ."
           }
         }
       }
@@ -608,6 +608,53 @@
           "stringUnit": {
             "state": "translated",
             "value": "Đã gửi mã mới."
+          }
+        }
+      }
+    },
+    "A payment for this order is still being processed. Please check again in a few minutes.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Platba za tuto objednávku se ještě zpracovává. Podívejte se znovu za pár minut."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eine Zahlung für diese Bestellung wird noch verarbeitet. Bitte schauen Sie in ein paar Minuten noch einmal nach."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un pago de este pedido aún se está procesando. Vuelve a mirar en unos minutos."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un paiement pour cette commande est encore en cours de traitement. Revenez dans quelques minutes."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Er wordt nog een betaling voor deze bestelling verwerkt. Kijk over een paar minuten opnieuw."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Platba za túto objednávku sa ešte spracúva. Pozrite sa znova o pár minút."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Một khoản thanh toán cho đơn này đang được xử lý. Vui lòng xem lại sau vài phút."
           }
         }
       }
@@ -1176,6 +1223,53 @@
         }
       }
     },
+    "Added to your order. It is not placed until it is paid — you can pay in the Orders tab.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Přidáno k vaší objednávce. Objednávka platí až po zaplacení — zaplatit můžete na záložce Objednávky."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zu Ihrer Bestellung hinzugefügt. Sie ist erst mit der Bezahlung aufgegeben — bezahlen können Sie im Tab \"Bestellungen\"."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Añadido a tu pedido. No se realiza hasta que se paga — puedes pagar en la pestaña Pedidos."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "C'est ajouté à votre commande. Elle n'est passée qu'une fois payée — vous pouvez payer dans l'onglet Commandes."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toegevoegd aan je bestelling. Die is pas geplaatst als er betaald is — betalen kan in het tabblad Bestellingen."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pridané k vašej objednávke. Objednávka platí až po zaplatení — zaplatiť môžete na karte Objednávky."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đã thêm vào đơn của bạn. Đơn chỉ được đặt khi đã thanh toán — bạn thanh toán ở tab Đơn hàng."
+          }
+        }
+      }
+    },
     "Adding to: %@": {
       "extractionState": "manual",
       "localizations": {
@@ -1505,6 +1599,53 @@
         }
       }
     },
+    "An order awaiting payment: open it in the Orders tab and tap \"Cancel order\" — nothing is charged and its scans go back to \"New\". Any other order: write to %@ with your order number and we will sort it out. The full terms are in the Account tab, under Legal & Privacy.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Objednávka, která čeká na platbu: otevřete ji na záložce Objednávky a klepněte na \"Zrušit objednávku\" — nic se neúčtuje a její skeny jsou znovu \"Nový\". Jakákoli jiná objednávka: napište na %@ a uveďte číslo objednávky — vyřešíme to. Úplné podmínky najdete na záložce Účet v sekci Právní informace a soukromí."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eine Bestellung mit ausstehender Zahlung: Öffnen Sie sie im Tab \"Bestellungen\" und tippen Sie auf \"Bestellung stornieren\" — es wird nichts berechnet, und ihre Scans sind wieder \"Neu\". Jede andere Bestellung: Schreiben Sie an %@ mit Ihrer Bestellnummer, und wir kümmern uns darum. Die vollständigen Bedingungen finden Sie im Tab \"Konto\" unter Rechtliches & Datenschutz."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un pedido pendiente de pago: ábrelo en la pestaña Pedidos y toca \"Cancelar pedido\" — no se cobra nada y sus escaneos vuelven a \"Nuevo\". Cualquier otro pedido: escribe a %@ con tu número de pedido y lo resolvemos. Los términos completos están en la pestaña Cuenta, en Legal y privacidad."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Une commande en attente de paiement : ouvrez-la dans l'onglet Commandes et touchez \"Annuler la commande\" — rien n'est débité et ses numérisations redeviennent \"Nouveau\". Toute autre commande : écrivez à %@ avec votre numéro de commande et nous nous en occupons. Les conditions complètes sont dans l'onglet Compte, sous Mentions légales et confidentialité."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Een bestelling die wacht op betaling: open die in het tabblad Bestellingen en tik op \"Bestelling annuleren\" — er wordt niets in rekening gebracht en de scans staan weer op \"Nieuw\". Elke andere bestelling: mail naar %@ met je bestelnummer, dan lossen we het op. De volledige voorwaarden vind je in het tabblad Account, onder Juridisch & privacy."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Objednávka, ktorá čaká na platbu: otvorte ju na karte Objednávky a ťuknite na \"Zrušiť objednávku\" — nič sa neúčtuje a jej skeny sú znova \"Nový\". Akákoľvek iná objednávka: napíšte na %@ a uveďte číslo objednávky — vyriešime to. Úplné podmienky nájdete na karte Účet v časti Právne informácie a súkromie."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đơn đang chờ thanh toán: mở đơn ở tab Đơn hàng rồi bấm \"Hủy đơn\" — bạn không mất tiền và các bản quét của đơn về lại \"Mới\". Đơn khác: bạn viết cho %@ kèm số đơn nhé. Điều khoản đầy đủ ở tab Tài khoản, mục Legal & Privacy."
+          }
+        }
+      }
+    },
     "Anything we should know?": {
       "extractionState": "manual",
       "localizations": {
@@ -1689,6 +1830,53 @@
           "stringUnit": {
             "state": "translated",
             "value": "Tránh chĩa lâu vào gương và kính lớn."
+          }
+        }
+      }
+    },
+    "Awaiting payment": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Čeká na platbu"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zahlung ausstehend"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pendiente de pago"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paiement en attente"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wacht op betaling"
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Čaká na platbu"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chờ thanh toán"
           }
         }
       }
@@ -2112,6 +2300,241 @@
           "stringUnit": {
             "state": "translated",
             "value": "Hủy"
+          }
+        }
+      }
+    },
+    "Cancel order": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zrušit objednávku"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bestellung stornieren"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancelar pedido"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Annuler la commande"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bestelling annuleren"
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zrušiť objednávku"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hủy đơn"
+          }
+        }
+      }
+    },
+    "Cancel this order?": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zrušit tuto objednávku?"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diese Bestellung stornieren?"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Cancelar este pedido?"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Annuler cette commande?"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deze bestelling annuleren?"
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zrušiť túto objednávku?"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hủy đơn này?"
+          }
+        }
+      }
+    },
+    "Cancelled": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zrušeno"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Storniert"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancelado"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Annulée"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geannuleerd"
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zrušená"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đã hủy"
+          }
+        }
+      }
+    },
+    "Cancelled before it was paid — nothing was charged. Its scans are back to \"New\", so you can order them again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zrušeno před zaplacením — nic nebylo účtováno. Její skeny jsou znovu \"Nový\", takže je můžete objednat znovu."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vor der Bezahlung storniert — es wurde nichts berechnet. Ihre Scans sind wieder \"Neu\", Sie können sie also erneut bestellen."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancelado antes de pagarse — no se cobró nada. Sus escaneos vuelven a estar en \"Nuevo\", así que puedes pedirlos otra vez."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Annulée avant d'être payée — rien n'a été débité. Ses numérisations sont redevenues \"Nouveau\", vous pouvez donc les commander de nouveau."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geannuleerd voordat er betaald is — er is niets in rekening gebracht. De scans staan weer op \"Nieuw\", dus je kunt ze opnieuw bestellen."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zrušená pred zaplatením — nič sa neúčtovalo. Jej skeny sú znova \"Nový\", takže ich môžete objednať znova."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đã hủy khi chưa thanh toán — bạn không mất tiền. Các bản quét của đơn đã về lại \"Mới\", bạn có thể đặt lại."
+          }
+        }
+      }
+    },
+    "Cancelling…": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ruší se…"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wird storniert…"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancelando…"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Annulation…"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Annuleren…"
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ruší sa…"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đang hủy…"
           }
         }
       }
@@ -5876,6 +6299,53 @@
         }
       }
     },
+    "It has not been paid, so nothing is charged. Its scans go back to \"New\", ready to order again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nebyla zaplacena, takže se nic neúčtuje. Její skeny budou znovu \"Nový\" a můžete je objednat znovu."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sie wurde nicht bezahlt, es wird also nichts berechnet. Ihre Scans sind wieder \"Neu\" und können erneut bestellt werden."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se ha pagado, así que no se cobra nada. Sus escaneos vuelven a \"Nuevo\", listos para pedirlos otra vez."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elle n'a pas été payée, rien n'est donc débité. Ses numérisations redeviennent \"Nouveau\", prêtes à être commandées de nouveau."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Er is niet voor betaald, dus er wordt niets in rekening gebracht. De scans staan weer op \"Nieuw\" en kun je opnieuw bestellen."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nebola zaplatená, takže sa nič neúčtuje. Jej skeny budú znova \"Nový\" a môžete ich objednať znova."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đơn chưa thanh toán nên bạn không mất tiền. Các bản quét của đơn sẽ về lại \"Mới\", đặt lại được."
+          }
+        }
+      }
+    },
     "Just scan it. There is no extra charge, even after your drawing has been delivered. Open the property, tap \"Scan more\", scan what you missed, then tap \"Send extra scan\". You can also start from the Orders tab — tap \"Add a scan\" and we take you to the right property. Please do not place a second order.": {
       "extractionState": "manual",
       "localizations": {
@@ -5966,6 +6436,53 @@
           "stringUnit": {
             "state": "translated",
             "value": "Giữ cách bề mặt khoảng 40cm trở lên — dí sát dưới ~30cm là LiDAR bắt đầu tạo lỗ thủng. App hiện \"Lùi ra xa một chút\" thì lùi lại."
+          }
+        }
+      }
+    },
+    "Keep order": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ponechat objednávku"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bestellung behalten"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mantener pedido"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Garder la commande"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bestelling houden"
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ponechať objednávku"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Giữ đơn"
           }
         }
       }
@@ -8038,49 +8555,49 @@
         }
       }
     },
-    "No — one house, one order. Once you have ordered, later scans go into that same order through \"Send extra scan\", and they never cost extra: the price is per order, not per scan.": {
+    "No — one house, one order. Once you have ordered, later scans go into that same order through \"Send extra scan\", and they never cost extra: the price is per order, not per scan. If an unpaid order is cancelled, its scans go back to \"New\" and you can order them again.": {
       "extractionState": "manual",
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ne — jeden dům, jedna objednávka. Jakmile jednou objednáte, pozdější skeny jdou do stejné objednávky přes \"Odeslat doplňující sken\" a nikdy nestojí nic navíc: cena je za objednávku, ne za sken."
+            "value": "Ne — jeden dům, jedna objednávka. Jakmile jednou objednáte, pozdější skeny jdou do stejné objednávky přes \"Odeslat doplňující sken\" a nikdy nestojí nic navíc: cena je za objednávku, ne za sken. Když se nezaplacená objednávka zruší, její skeny jsou znovu \"Nový\" a můžete je objednat znovu."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Nein — ein Haus, eine Bestellung. Sobald Sie bestellt haben, gehen spätere Scans über \"Zusatz-Scan senden\" in dieselbe Bestellung — und sie kosten nie extra: Der Preis gilt pro Bestellung, nicht pro Scan."
+            "value": "Nein — ein Haus, eine Bestellung. Sobald Sie bestellt haben, gehen spätere Scans über \"Zusatz-Scan senden\" in dieselbe Bestellung — und sie kosten nie extra: Der Preis gilt pro Bestellung, nicht pro Scan. Wird eine unbezahlte Bestellung storniert, sind ihre Scans wieder \"Neu\" und Sie können sie erneut bestellen."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "No — una casa, un pedido. Una vez que hayas pedido, los escaneos posteriores entran en ese mismo pedido con \"Enviar escaneo adicional\", y nunca cuestan extra: el precio es por pedido, no por escaneo."
+            "value": "No — una casa, un pedido. Una vez que hayas pedido, los escaneos posteriores entran en ese mismo pedido con \"Enviar escaneo adicional\", y nunca cuestan extra: el precio es por pedido, no por escaneo. Si se cancela un pedido sin pagar, sus escaneos vuelven a \"Nuevo\" y puedes pedirlos otra vez."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Non — une maison, une commande. Une fois la commande passée, les numérisations suivantes rejoignent cette même commande via \"Envoyer une numérisation supplémentaire\", et elles ne coûtent jamais plus : le prix est par commande, pas par numérisation."
+            "value": "Non — une maison, une commande. Une fois la commande passée, les numérisations suivantes rejoignent cette même commande via \"Envoyer une numérisation supplémentaire\", et elles ne coûtent jamais plus : le prix est par commande, pas par numérisation. Si une commande non payée est annulée, ses numérisations redeviennent \"Nouveau\" et vous pouvez les commander de nouveau."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Nee — één huis, één bestelling. Heb je eenmaal besteld, dan gaan latere scans via \"Extra scan versturen\" in diezelfde bestelling, en dat kost nooit extra: de prijs is per bestelling, niet per scan."
+            "value": "Nee — één huis, één bestelling. Heb je eenmaal besteld, dan gaan latere scans via \"Extra scan versturen\" in diezelfde bestelling, en dat kost nooit extra: de prijs is per bestelling, niet per scan. Wordt een onbetaalde bestelling geannuleerd, dan staan de scans weer op \"Nieuw\" en kun je ze opnieuw bestellen."
           }
         },
         "sk": {
           "stringUnit": {
             "state": "translated",
-            "value": "Nie — jeden dom, jedna objednávka. Keď už máte objednané, ďalšie skeny idú do tej istej objednávky cez \"Poslať ďalší sken\" a nikdy nestoja nič navyše: cena je za objednávku, nie za sken."
+            "value": "Nie — jeden dom, jedna objednávka. Keď už máte objednané, ďalšie skeny idú do tej istej objednávky cez \"Poslať ďalší sken\" a nikdy nestoja nič navyše: cena je za objednávku, nie za sken. Keď sa nezaplatená objednávka zruší, jej skeny sú znova \"Nový\" a môžete ich objednať znova."
           }
         },
         "vi": {
           "stringUnit": {
             "state": "translated",
-            "value": "Không — một căn nhà một đơn thôi. Đặt rồi thì bản quét sau đi vào đúng đơn đó qua nút \"Gửi bổ sung bản quét\", và không tính thêm tiền — giá tính theo đơn chứ không theo số bản quét."
+            "value": "Không — một căn nhà một đơn thôi. Đặt rồi thì bản quét sau đi vào đúng đơn đó qua nút \"Gửi bổ sung bản quét\", và không tính thêm tiền — giá tính theo đơn chứ không theo số bản quét. Nếu một đơn chưa thanh toán bị hủy, các bản quét của đơn về lại \"Mới\" và bạn đặt lại được."
           }
         }
       }
@@ -8175,6 +8692,100 @@
           "stringUnit": {
             "state": "translated",
             "value": "Không thấy trên bản đồ — vẫn quét được bình thường."
+          }
+        }
+      }
+    },
+    "Not placed until it is paid. Pay in the Orders tab.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Objednávka platí až po zaplacení. Zaplaťte na záložce Objednávky."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Erst mit der Bezahlung aufgegeben. Bezahlen Sie im Tab \"Bestellungen\"."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se realiza hasta que se paga. Paga en la pestaña Pedidos."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Commande passée seulement une fois payée. Payez dans l'onglet Commandes."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pas geplaatst als er betaald is. Betaal in het tabblad Bestellingen."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Objednávka platí až po zaplatení. Zaplaťte na karte Objednávky."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đơn chỉ được đặt khi đã thanh toán. Thanh toán ở tab Đơn hàng."
+          }
+        }
+      }
+    },
+    "Not placed yet — we start drawing as soon as it is paid.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Objednávka ještě neplatí — kreslit začneme, jakmile bude zaplacená."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bestellung noch nicht aufgegeben — wir beginnen zu zeichnen, sobald sie bezahlt ist."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pedido aún no realizado — empezamos a dibujar en cuanto esté pagado."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Commande pas encore passée — nous commençons à dessiner dès qu'elle est payée."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bestelling nog niet geplaatst — we beginnen met tekenen zodra ze betaald is."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Objednávka ešte neplatí — kresliť začneme, hneď ako bude zaplatená."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đơn chưa được đặt — chúng tôi bắt đầu vẽ ngay khi đơn được thanh toán."
           }
         }
       }
@@ -8555,6 +9166,53 @@
         }
       }
     },
+    "Order %@ was cancelled before it was paid. Close this screen: its scans are back to \"New\" and can be ordered again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Objednávka %@ byla zrušena před zaplacením. Zavřete tuto obrazovku: její skeny jsou znovu \"Nový\" a lze je objednat znovu."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bestellung %@ wurde vor der Bezahlung storniert. Schließen Sie diesen Bildschirm: Ihre Scans sind wieder \"Neu\" und können erneut bestellt werden."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El pedido %@ se canceló antes de pagarse. Cierra esta pantalla: sus escaneos vuelven a estar en \"Nuevo\" y se pueden pedir otra vez."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La commande %@ a été annulée avant d'être payée. Fermez cet écran : ses numérisations sont redevenues \"Nouveau\" et peuvent être commandées de nouveau."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bestelling %@ is geannuleerd voordat er betaald is. Sluit dit scherm: de scans staan weer op \"Nieuw\" en kunnen opnieuw besteld worden."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Objednávka %@ bola zrušená pred zaplatením. Zatvorte túto obrazovku: jej skeny sú znova \"Nový\" a dajú sa objednať znova."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đơn %@ đã bị hủy khi chưa thanh toán. Hãy đóng màn này: các bản quét của đơn đã về lại \"Mới\" và đặt lại được."
+          }
+        }
+      }
+    },
     "Order Floor Plan": {
       "extractionState": "manual",
       "localizations": {
@@ -8833,6 +9491,53 @@
           "stringUnit": {
             "state": "translated",
             "value": "Đặt hàng sau"
+          }
+        }
+      }
+    },
+    "Order not cancelled": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Objednávka nezrušena"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bestellung nicht storniert"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pedido no cancelado"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Commande non annulée"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bestelling niet geannuleerd"
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Objednávka nezrušená"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chưa hủy được đơn"
           }
         }
       }
@@ -9538,6 +10243,53 @@
           "stringUnit": {
             "state": "translated",
             "value": "Đã đổi mật khẩu!"
+          }
+        }
+      }
+    },
+    "Pay $%lld": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zaplatit %lld $"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "$%lld bezahlen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pagar $%lld"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Payer %lld $"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "$%lld betalen"
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zaplatiť $%lld"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thanh toán $%lld"
           }
         }
       }
@@ -13537,53 +14289,6 @@
         }
       }
     },
-    "Tap \"Pay Now\" — on the screen right after you order, or in the Orders tab. You pay by card in the app, or on the payment page in your browser. No button yet? Give it a few minutes; the link reaches your email.": {
-      "extractionState": "manual",
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Klepněte na \"Zaplatit nyní\" — na obrazovce hned po objednání, nebo na záložce Objednávky. Zaplatíte kartou v aplikaci, nebo na platební stránce ve vašem prohlížeči. Tlačítko zatím nikde? Dejte tomu pár minut; odkaz vám dorazí na e-mail."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tippen Sie auf \"Jetzt bezahlen\" — auf dem Bildschirm direkt nach der Bestellung oder im Tab \"Bestellungen\". Sie bezahlen per Karte in der App oder auf der Zahlungsseite in Ihrem Browser. Noch kein Button? Warten Sie ein paar Minuten — der Link kommt per E-Mail."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Toca \"Pagar ahora\" — en la pantalla justo después de pedir, o en la pestaña Pedidos. Pagas con tarjeta en la app, o en la página de pago en tu navegador. ¿Aún no ves el botón? Dale unos minutos; el enlace llegará a tu correo."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Touchez \"Payer maintenant\" — sur l'écran juste après la commande, ou dans l'onglet Commandes. Vous payez par carte dans l'app, ou sur la page de paiement dans votre navigateur. Pas encore de bouton? Patientez quelques minutes; le lien arrive dans votre boîte courriel."
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tik op \"Nu betalen\" — op het scherm direct na het bestellen, of in het tabblad Bestellingen. Je betaalt met je betaalkaart in de app, of op de betaalpagina in je browser. Nog geen knop? Geef het een paar minuten; de link komt in je mailbox."
-          }
-        },
-        "sk": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ťuknite na \"Zaplatiť teraz\" — na obrazovke hneď po objednaní alebo na karte Objednávky. Zaplatíte platobnou kartou v aplikácii alebo na platobnej stránke vo vašom prehliadači. Tlačidlo ešte nevidíte? Počkajte pár minút; odkaz vám príde na e-mail."
-          }
-        },
-        "vi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Bạn bấm \"Thanh toán ngay\" — ở màn hình ngay sau khi đặt, hoặc ở tab Đơn hàng. Bạn trả bằng thẻ ngay trong app, hoặc ở trang thanh toán trên trình duyệt. Chưa thấy nút thì đợi vài phút, link sẽ tới email của bạn."
-          }
-        }
-      }
-    },
     "Tap Stop & Save, NAME the scan and tap Save — the scan is still recording until you do. Only then put the phone down.": {
       "extractionState": "manual",
       "localizations": {
@@ -13674,6 +14379,53 @@
           "stringUnit": {
             "state": "translated",
             "value": "Bấm nút Scan ở giữa thanh dưới để quét không gian đầu tiên. Mỗi bản quét sẽ tự vào dự án theo địa chỉ bạn nhập."
+          }
+        }
+      }
+    },
+    "Tap the pay button — on the screen right after you order, or on the order in the Orders tab. You pay by card in the app, or on the payment page in your browser. Your order is placed once it is paid; an order left unpaid for 7 days is cancelled. No button yet? Give it a few minutes; the link reaches your email.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klepněte na tlačítko pro platbu — na obrazovce hned po objednání, nebo v objednávce na záložce Objednávky. Zaplatíte kartou v aplikaci, nebo na platební stránce ve vašem prohlížeči. Objednávka platí, jakmile je zaplacená; objednávka nezaplacená 7 dní se zruší. Tlačítko zatím nikde? Dejte tomu pár minut; odkaz vám dorazí na e-mail."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tippen Sie auf den Bezahl-Button — auf dem Bildschirm direkt nach der Bestellung oder in der Bestellung im Tab \"Bestellungen\". Sie bezahlen per Karte in der App oder auf der Zahlungsseite in Ihrem Browser. Aufgegeben ist Ihre Bestellung, sobald sie bezahlt ist; eine Bestellung, die 7 Tage unbezahlt bleibt, wird storniert. Noch kein Button? Warten Sie ein paar Minuten — der Link kommt per E-Mail."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toca el botón de pago — en la pantalla justo después de pedir, o en el pedido, en la pestaña Pedidos. Pagas con tarjeta en la app, o en la página de pago en tu navegador. Tu pedido se realiza cuando está pagado; un pedido sin pagar durante 7 días se cancela. ¿Aún no ves el botón? Dale unos minutos; el enlace llegará a tu correo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Touchez le bouton de paiement — sur l'écran juste après la commande, ou dans la commande, dans l'onglet Commandes. Vous payez par carte dans l'app, ou sur la page de paiement dans votre navigateur. Votre commande est passée une fois payée; une commande non payée pendant 7 jours est annulée. Pas encore de bouton? Patientez quelques minutes; le lien arrive dans votre boîte courriel."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tik op de betaalknop — op het scherm direct na het bestellen, of in de bestelling in het tabblad Bestellingen. Je betaalt met je betaalkaart in de app, of op de betaalpagina in je browser. Je bestelling is geplaatst zodra ze betaald is; een bestelling die 7 dagen onbetaald blijft, wordt geannuleerd. Nog geen knop? Geef het een paar minuten; de link komt in je mailbox."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ťuknite na tlačidlo platby — na obrazovke hneď po objednaní alebo v objednávke na karte Objednávky. Zaplatíte platobnou kartou v aplikácii alebo na platobnej stránke vo vašom prehliadači. Objednávka platí, keď je zaplatená; objednávka nezaplatená 7 dní sa zruší. Tlačidlo ešte nevidíte? Počkajte pár minút; odkaz vám príde na e-mail."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bạn bấm nút thanh toán — ở màn hình ngay sau khi đặt, hoặc trong đơn ở tab Đơn hàng. Bạn trả bằng thẻ ngay trong app, hoặc ở trang thanh toán trên trình duyệt. Thanh toán xong thì đơn mới được đặt; đơn để 7 ngày chưa thanh toán sẽ bị hủy. Chưa thấy nút thì đợi vài phút, link sẽ tới email của bạn."
           }
         }
       }
@@ -13866,49 +14618,49 @@
         }
       }
     },
-    "The Orders tab. Each order carries a badge — Processing, On hold, Delivered or Refunded. The search box finds an order by property name, order number or scan name.": {
+    "The Orders tab. Each order carries a badge — Awaiting payment, Processing, On hold, Delivered, Refunded or Cancelled. The search box finds an order by property name, order number or scan name.": {
       "extractionState": "manual",
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Na záložce Objednávky. Každá objednávka má štítek — Zpracovává se, Pozastaveno, Doručeno nebo Vráceno. Vyhledávací pole najde objednávku podle názvu nemovitosti, čísla objednávky nebo názvu skenu."
+            "value": "Na záložce Objednávky. Každá objednávka má štítek — Čeká na platbu, Zpracovává se, Pozastaveno, Doručeno, Vráceno nebo Zrušeno. Vyhledávací pole najde objednávku podle názvu nemovitosti, čísla objednávky nebo názvu skenu."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Im Tab \"Bestellungen\". Jede Bestellung hat einen Status — In Bearbeitung, Wartend, Geliefert oder Erstattet. Das Suchfeld findet Bestellungen nach Objektnamen, Bestellnummer oder Scan-Namen."
+            "value": "Im Tab \"Bestellungen\". Jede Bestellung hat einen Status — Zahlung ausstehend, In Bearbeitung, Wartend, Geliefert, Erstattet oder Storniert. Das Suchfeld findet Bestellungen nach Objektnamen, Bestellnummer oder Scan-Namen."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "En la pestaña Pedidos. Cada pedido lleva una etiqueta — En proceso, En espera, Entregado o Reembolsado. El buscador encuentra un pedido por nombre de la propiedad, por número de pedido o por nombre de escaneo."
+            "value": "En la pestaña Pedidos. Cada pedido lleva una etiqueta — Pendiente de pago, En proceso, En espera, Entregado, Reembolsado o Cancelado. El buscador encuentra un pedido por nombre de la propiedad, por número de pedido o por nombre de escaneo."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Dans l'onglet Commandes. Chaque commande porte une étiquette — En traitement, En attente, Livrée ou Remboursée. Le champ de recherche trouve une commande par nom de propriété, par numéro de commande ou par nom de numérisation."
+            "value": "Dans l'onglet Commandes. Chaque commande porte une étiquette — Paiement en attente, En traitement, En attente, Livrée, Remboursée ou Annulée. Le champ de recherche trouve une commande par nom de propriété, par numéro de commande ou par nom de numérisation."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "In het tabblad Bestellingen. Elke bestelling heeft een label — In behandeling, In de wacht, Geleverd of Terugbetaald. Via het zoekveld vind je een bestelling op woningnaam, bestelnummer of scannaam."
+            "value": "In het tabblad Bestellingen. Elke bestelling heeft een label — Wacht op betaling, In behandeling, In de wacht, Geleverd, Terugbetaald of Geannuleerd. Via het zoekveld vind je een bestelling op woningnaam, bestelnummer of scannaam."
           }
         },
         "sk": {
           "stringUnit": {
             "state": "translated",
-            "value": "Na karte Objednávky. Každá objednávka má štítok — Spracúva sa, Pozastavená, Doručená alebo Refundovaná. Vyhľadávacie pole nájde objednávku podľa názvu nehnuteľnosti, čísla objednávky alebo názvu skenu."
+            "value": "Na karte Objednávky. Každá objednávka má štítok — Čaká na platbu, Spracúva sa, Pozastavená, Doručená, Refundovaná alebo Zrušená. Vyhľadávacie pole nájde objednávku podľa názvu nehnuteľnosti, čísla objednávky alebo názvu skenu."
           }
         },
         "vi": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tab Đơn hàng. Mỗi đơn có một nhãn — Đang xử lý, Tạm giữ, Đã giao hoặc Hoàn tiền. Ô tìm kiếm tìm được theo tên dự án, số đơn hoặc tên bản quét."
+            "value": "Tab Đơn hàng. Mỗi đơn có một nhãn — Chờ thanh toán, Đang xử lý, Tạm giữ, Đã giao, Hoàn tiền hoặc Đã hủy. Ô tìm kiếm tìm được theo tên dự án, số đơn hoặc tên bản quét."
           }
         }
       }
@@ -14054,53 +14806,6 @@
         }
       }
     },
-    "There is no cancel button in the app. Write to %@ with your order number and we will sort it out. The full terms are in the Account tab, under Legal & Privacy.": {
-      "extractionState": "manual",
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "V aplikaci není tlačítko pro zrušení. Napište na %@ a uveďte číslo objednávky — vyřešíme to. Úplné podmínky najdete na záložce Účet v sekci Právní informace a soukromí."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Einen Storno-Button gibt es in der App nicht. Schreiben Sie an %@ mit Ihrer Bestellnummer, und wir kümmern uns darum. Die vollständigen Bedingungen finden Sie im Tab \"Konto\" unter Rechtliches & Datenschutz."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "En la app no hay botón de cancelar. Escribe a %@ con tu número de pedido y lo resolvemos. Los términos completos están en la pestaña Cuenta, en Legal y privacidad."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Il n'y a pas de bouton d'annulation dans l'app. Écrivez à %@ avec votre numéro de commande et nous nous en occupons. Les conditions complètes sont dans l'onglet Compte, sous Mentions légales et confidentialité."
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Er zit geen annuleerknop in de app. Mail naar %@ met je bestelnummer, dan lossen we het op. De volledige voorwaarden vind je in het tabblad Account, onder Juridisch & privacy."
-          }
-        },
-        "sk": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "V aplikácii nie je tlačidlo na zrušenie. Napíšte na %@ a uveďte číslo objednávky — vyriešime to. Úplné podmienky nájdete na karte Účet v časti Právne informácie a súkromie."
-          }
-        },
-        "vi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "App không có nút huỷ. Bạn viết cho %@ kèm số đơn nhé. Điều khoản đầy đủ ở tab Tài khoản, mục Legal & Privacy."
-          }
-        }
-      }
-    },
     "These will be added to order %@ — the one you already placed for this property. No extra charge.": {
       "extractionState": "manual",
       "localizations": {
@@ -14195,6 +14900,53 @@
         }
       }
     },
+    "This order can't be cancelled in the app. Please contact our team.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tuto objednávku nelze zrušit v aplikaci. Kontaktujte prosím náš tým."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diese Bestellung kann nicht in der App storniert werden. Bitte wenden Sie sich an unser Team."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este pedido no se puede cancelar en la app. Ponte en contacto con nuestro equipo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cette commande ne peut pas être annulée dans l'app. Veuillez contacter notre équipe."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deze bestelling kan niet in de app worden geannuleerd. Neem contact op met ons team."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Túto objednávku nie je možné zrušiť v aplikácii. Kontaktujte, prosím, náš tím."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đơn này không hủy được trong app. Vui lòng liên hệ với chúng tôi."
+          }
+        }
+      }
+    },
     "This order does not include the Virtual Tour add-on.": {
       "extractionState": "manual",
       "localizations": {
@@ -14238,6 +14990,53 @@
           "stringUnit": {
             "state": "translated",
             "value": "Đơn này không có gói Virtual Tour."
+          }
+        }
+      }
+    },
+    "This order has already been paid.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tato objednávka už byla zaplacena."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diese Bestellung wurde bereits bezahlt."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este pedido ya se ha pagado."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cette commande a déjà été payée."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deze bestelling is al betaald."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Táto objednávka už bola zaplatená."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đơn này đã được thanh toán."
           }
         }
       }
@@ -14379,6 +15178,53 @@
           "stringUnit": {
             "state": "translated",
             "value": "Đơn này đã giao rồi. Đội xử lý đã nhận được bản quét mới của bạn và sẽ liên hệ lại — không tính thêm phí."
+          }
+        }
+      }
+    },
+    "This order was cancelled, but a payment reached us afterwards. Our team will refund it.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tato objednávka byla zrušena, ale potom nám ještě přišla platba. Náš tým ji vrátí."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diese Bestellung wurde storniert, doch danach ist noch eine Zahlung bei uns eingegangen. Unser Team erstattet sie."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este pedido se canceló, pero después nos llegó un pago. Nuestro equipo lo reembolsará."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cette commande a été annulée, mais un paiement nous est parvenu ensuite. Notre équipe va le rembourser."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deze bestelling is geannuleerd, maar daarna kwam er toch een betaling binnen. Ons team betaalt die terug."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Táto objednávka bola zrušená, ale potom nám ešte prišla platba. Náš tím ju vráti."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đơn này đã bị hủy nhưng sau đó chúng tôi vẫn nhận được một khoản thanh toán. Chúng tôi sẽ hoàn lại khoản đó."
           }
         }
       }
@@ -15276,6 +16122,53 @@
         }
       }
     },
+    "Unpaid orders are cancelled after 7 days.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nezaplacené objednávky se po 7 dnech zruší."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unbezahlte Bestellungen werden nach 7 Tagen storniert."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los pedidos sin pagar se cancelan a los 7 días."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les commandes non payées sont annulées après 7 jours."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Onbetaalde bestellingen worden na 7 dagen geannuleerd."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nezaplatené objednávky sa po 7 dňoch zrušia."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đơn chưa thanh toán sẽ tự hủy sau 7 ngày."
+          }
+        }
+      }
+    },
     "Upload failed. Please try again.": {
       "extractionState": "manual",
       "localizations": {
@@ -16122,6 +17015,53 @@
         }
       }
     },
+    "We couldn't cancel this order right now. Please try again in a few minutes.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tuto objednávku se teď nepodařilo zrušit. Zkuste to prosím za pár minut znovu."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wir konnten diese Bestellung gerade nicht stornieren. Bitte versuchen Sie es in ein paar Minuten erneut."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No pudimos cancelar este pedido ahora. Inténtalo de nuevo en unos minutos."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nous n'avons pas pu annuler cette commande pour le moment. Réessayez dans quelques minutes."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "We konden deze bestelling nu niet annuleren. Probeer het over een paar minuten opnieuw."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Túto objednávku sa teraz nepodarilo zrušiť. Skúste to, prosím, o pár minút znova."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hiện chưa hủy được đơn này. Vui lòng thử lại sau vài phút."
+          }
+        }
+      }
+    },
     "We couldn't find order %@ on your account. Please sign in with the account that placed it.": {
       "extractionState": "manual",
       "localizations": {
@@ -16917,6 +17857,53 @@
           "stringUnit": {
             "state": "translated",
             "value": "Được. Bản vẽ sai ở khu bạn đã quét thì vào tab Đơn hàng, bấm \"Yêu cầu sửa\", nói rõ chỗ cần sửa và đính ảnh hoặc PDF đánh dấu (tối đa 10 file). Lỗi bên chúng tôi thì sửa miễn phí, trong 90 ngày kể từ ngày giao và tối đa 3 lần mỗi đơn. Còn nếu bạn quét sót hẳn một khu thì cứ gửi bổ sung như bình thường, vẫn miễn phí — chúng tôi vẽ thêm rồi gửi lại bản cập nhật, trong lúc đó link tải bản cũ tạm ngưng. Còn muốn thứ khác với đơn ban đầu — đổi gói, thêm dịch vụ — thì đó là công mới, chúng tôi báo giá riêng."
+          }
+        }
+      }
+    },
+    "You can also pay later in the Orders tab.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zaplatit můžete i později na záložce Objednávky."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sie können auch später im Tab \"Bestellungen\" bezahlen."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "También puedes pagar más tarde en la pestaña Pedidos."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vous pouvez aussi payer plus tard dans l'onglet Commandes."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Je kunt ook later betalen in het tabblad Bestellingen."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zaplatiť môžete aj neskôr na karte Objednávky."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bạn cũng có thể thanh toán sau ở tab Đơn hàng."
           }
         }
       }

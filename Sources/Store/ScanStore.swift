@@ -5,6 +5,13 @@ import SwiftUI
 final class ScanStore: ObservableObject {
     @Published private(set) var records: [ScanRecord] = []
     @Published private(set) var projects: [ScanProject] = []
+    /// Order NUMBERS this device knows are AWAITING PAYMENT (Orders v2 B: unpaid = not placed).
+    /// Their scans read "Awaiting payment" instead of "Ordered" (owner 25/09, mockup 39) — the stamp
+    /// `cloudOrderNumber` itself is unchanged: the unpaid order still reserves the scan.
+    /// Written only from what the server said: the Place order reply, a supplement reply and every
+    /// order list (`syncOrders`). An order not in a list is left alone (another account's).
+    @Published private(set) var awaitingOrderNumbers: Set<String>
+    private static let awaitingKey = "awaitingOrderNumbers.v1"
 
     /// Số việc đang "đụng vào" dữ liệu bản quét: phiên quét đang mở, hoặc đang lưu.
     /// `purgeDelivered` phải đứng NGOÀI cửa sổ này.
@@ -66,6 +73,7 @@ final class ScanStore: ObservableObject {
     }
 
     init() {
+        awaitingOrderNumbers = Set(UserDefaults.standard.stringArray(forKey: Self.awaitingKey) ?? [])
         try? fileManager.createDirectory(at: rootURL, withIntermediateDirectories: true)
         loadProjects()
         reload()
@@ -524,6 +532,8 @@ final class ScanStore: ObservableObject {
         update(record) { $0.cloudScanId = cloudScanId }
     }
 
+    /// Stamps a scan as being in that order (Place order / supplement). Cleared only when an unpaid
+    /// order is cancelled or expires (`releaseStamps`, Orders v2 B).
     func setOrderNumber(_ record: ScanRecord, orderNumber: String) {
         update(record) { $0.cloudOrderNumber = orderNumber }
     }
@@ -570,6 +580,87 @@ final class ScanStore: ObservableObject {
             .filter { $0.cloudOrderNumber == orderNumber }
             .max { $0.createdAt < $1.createdAt }
         return project(with: match?.projectId)
+    }
+
+    // MARK: - Orders v2 B: unpaid = not placed
+
+    /// The scan sits in an order that is not paid yet: "Awaiting payment", ✗ "Ordered". Still
+    /// "ordered" for every RULE of the app (1 house 1 order, the order buttons, the counts): the
+    /// unpaid order reserves it until it is paid, cancelled or expired.
+    func isAwaitingPayment(_ record: ScanRecord) -> Bool {
+        guard let number = record.cloudOrderNumber else { return false }
+        return awaitingOrderNumbers.contains(number)
+    }
+
+    /// Some scan on this device is stamped with an order known to be unpaid — the only case in
+    /// which a cancel or the 7-day expiry can change something here (`RootView` asks the server).
+    var hasAwaitingStamps: Bool {
+        guard !awaitingOrderNumbers.isEmpty else { return false }
+        return records.contains { isAwaitingPayment($0) }
+    }
+
+    /// Place order / supplement reply: the server's status for that order number.
+    func noteOrderStatus(orderNumber: String, status: String?) {
+        var numbers = awaitingOrderNumbers
+        if status == "awaiting_payment" {
+            numbers.insert(orderNumber)
+        } else {
+            numbers.remove(orderNumber)
+        }
+        setAwaiting(numbers)
+    }
+
+    /// An order list from the server (any account): awaiting numbers follow each listed order, and
+    /// every CANCELLED order releases its scans here.
+    /// 🔴 Positive signals only. ✗ infer a cancel from an order's ABSENCE: the list is the signed-in
+    /// account's, and this device may hold another account's scans (PLAN-DON-HANG-V2.md §4a).
+    func syncOrders(_ orders: [OrderDTO]) {
+        var numbers = awaitingOrderNumbers
+        for order in orders {
+            if order.isAwaitingPayment {
+                numbers.insert(order.orderNumber)
+            } else {
+                numbers.remove(order.orderNumber)
+            }
+        }
+        setAwaiting(numbers)
+        for order in orders where order.isCancelled {
+            // `scanIds` of a cancelled order = the scans released at the cancel. Absent = old
+            // server: nothing is released (✗ `allScanIds`, whose `scanId` fallback is not that list).
+            releaseStamps(orderNumber: order.orderNumber, scanIds: order.scanIds ?? [])
+        }
+    }
+
+    /// `POST orders/{id}/cancel` answered 200: its released scans are "New" again.
+    func releaseCancelledOrder(orderNumber: String, scanIds: [String]) {
+        var numbers = awaitingOrderNumbers
+        numbers.remove(orderNumber)
+        setAwaiting(numbers)
+        releaseStamps(orderNumber: orderNumber, scanIds: scanIds)
+    }
+
+    /// Clears `cloudOrderNumber` where the scan was released by THAT order: `cloudScanId` in the
+    /// server's list AND the stamp is still that order's number — a released scan may already sit
+    /// in a newer order (placed from another device), whose stamp must stay.
+    /// The ONLY code that ever sets a stamp back to nil. Every reader of the stamp (Home count and
+    /// badge, ScanRow, ProjectView buttons, ScanDetailView card, OrderSheet floors, the preview's
+    /// supplement label) then reads the scan as "New" — it can be ordered again.
+    private func releaseStamps(orderNumber: String, scanIds: [String]) {
+        guard !scanIds.isEmpty else { return }
+        let released = Set(scanIds)
+        let targets = records.filter { record in
+            guard record.cloudOrderNumber == orderNumber, let cloudId = record.cloudScanId else { return false }
+            return released.contains(cloudId)
+        }
+        for record in targets {
+            update(record) { $0.cloudOrderNumber = nil }
+        }
+    }
+
+    private func setAwaiting(_ numbers: Set<String>) {
+        guard numbers != awaitingOrderNumbers else { return }
+        awaitingOrderNumbers = numbers
+        UserDefaults.standard.set(Array(numbers).sorted(), forKey: Self.awaitingKey)
     }
 
     private func update(_ record: ScanRecord, _ mutate: (inout ScanRecord) -> Void) {

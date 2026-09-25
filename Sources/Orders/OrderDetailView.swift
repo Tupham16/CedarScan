@@ -32,6 +32,13 @@ struct OrderDetailView: View {
     let onOpenProject: (ScanProject) -> Void
     @State private var revisionOrder: OrderDTO?
     @State private var tourOrder: OrderDTO? // mở màn thêm ảnh Virtual Tour
+    /// Orders v2 B: the "Cancel this order?" alert · a cancel in flight (up to ~45 s on the
+    /// server) · why the last one was refused.
+    @State private var confirmCancel = false
+    @State private var cancelling = false
+    @State private var cancelError: String?
+    /// Read only: a card payment of this order being prepared / settled / just completed.
+    @ObservedObject private var flow = PaymentFlow.shared
     @Environment(\.dynamicTypeSize) private var typeSize
 
     /// `nil` = gone from the list (a refresh) or not this account's (sign-out, account switch):
@@ -68,6 +75,24 @@ struct OrderDetailView: View {
             TourPhotosView(orderId: order.orderId)
                 .onDisappear { Task { await reload() } }
         }
+        .alert(String(localized: "Cancel this order?"), isPresented: $confirmCancel) {
+            Button(String(localized: "Cancel order"), role: .destructive) {
+                // The LIVE order: a reload while the alert was up may have made it paid.
+                if let order, canCancel(order) { cancelOrder(order) }
+            }
+            Button(String(localized: "Keep order"), role: .cancel) {}
+        } message: {
+            Text(String(localized: "It has not been paid, so nothing is charged. Its scans go back to \"New\", ready to order again."))
+        }
+        .alert(String(localized: "Order not cancelled"), isPresented: cancelErrorShown) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(cancelError ?? "")
+        }
+    }
+
+    private var cancelErrorShown: Binding<Bool> {
+        Binding(get: { cancelError != nil }, set: { if !$0 { cancelError = nil } })
     }
 
     private func content(_ order: OrderDTO) -> some View {
@@ -83,6 +108,7 @@ struct OrderDetailView: View {
             files(order)
             orderedItems(order)
             followUps(order)
+            cancelRow(order)
         }
         .padding(.horizontal, 16)
         .padding(.top, 6)
@@ -110,10 +136,41 @@ struct OrderDetailView: View {
                 }
             }
             summaryLine(order)
+            stateNote(order)
             payNow(order)
         }
         .padding(EdgeInsets(top: 14, leading: 16, bottom: 15, trailing: 16))
         .detailCard()
+    }
+
+    /// Orders v2 B (mockup 34/35): why an awaiting order is not being drawn, and what a cancelled
+    /// one means. `WrappedText`: a sentence the customer must read whole (trap #44).
+    @ViewBuilder
+    private func stateNote(_ order: OrderDTO) -> some View {
+        if showsUnpaidState(order) {
+            WrappedText(PayFirstCopy.notPlaced(expires: order.payBy != nil), style: .subheadline)
+                .padding(.top, 2)
+        } else if order.status == "cancelled" {
+            // `paid` on a cancelled order = money that arrived after the cancel (staff are alerted
+            // and refund it — server "TRẢ SAU KHI HUỶ"); once refunded it reads "refunded".
+            WrappedText(
+                order.paid == true
+                    ? String(localized: "This order was cancelled, but a payment reached us afterwards. Our team will refund it.")
+                    : String(localized: "Cancelled before it was paid — nothing was charged. Its scans are back to \"New\", so you can order them again."),
+                style: .subheadline
+            )
+            .padding(.top, 2)
+        }
+    }
+
+    /// Awaiting payment and not just paid in the card sheet (`PaymentFlow` knows before the list).
+    private func showsUnpaidState(_ order: OrderDTO) -> Bool {
+        order.isAwaitingPayment && !flow.paidOrderIds.contains(order.orderId)
+    }
+
+    /// A card payment of THIS order is being prepared or settled.
+    private func paymentBusy(_ order: OrderDTO) -> Bool {
+        flow.loadingOrderId == order.orderId || flow.settlingOrderIds.contains(order.orderId)
     }
 
     private func orderNumber(_ order: OrderDTO) -> some View {
@@ -167,16 +224,37 @@ struct OrderDetailView: View {
                 orderId: order.orderId,
                 payURL: payURL,
                 payInApp: order.payInApp == true,
-                onPaid: { Task { await reload() } }
+                onPaid: { Task { await reload() } },
+                // Cancelled (or being cancelled) meanwhile: show its state, ✗ the pay page.
+                onOrderChanged: { Task { await reload() } }
             ) {
-                Label(String(localized: "Pay Now"), systemImage: "creditcard")
+                Label(payLabel(order), systemImage: "creditcard")
                     .font(.subheadline.weight(.semibold))
                     .frame(maxWidth: .infinity, minHeight: 44)
             }
-            .buttonStyle(FogPrimary(radius: 12))
+            // `busy`: while THIS order's sheet is prepared / settled the button stays blue at 62%
+            // with a white spinner (mockup 19); on the grey disabled fill a white spinner vanished.
+            .buttonStyle(FogPrimary(radius: 12, busy: paymentBusy(order)))
             .tint(.white) // loading spinner on the blue fill
+            // Not while a cancel runs: the sheet would be refused (`cancel_in_progress`) anyway.
+            .disabled(cancelling)
             .padding(.top, 6)
+        } else if showsUnpaidState(order) {
+            // Awaiting payment but no pay link (WordPress failed at creation): staff send it by
+            // hand — same sentence as the placed screen.
+            Text(String(localized: "We will email you a payment link shortly."))
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .padding(.top, 2)
         }
+    }
+
+    /// "Pay $129" for an order awaiting payment (mockup 34); "Pay Now" for the older ones.
+    private func payLabel(_ order: OrderDTO) -> String {
+        if order.isAwaitingPayment, let total = order.total, total > 0 {
+            return String(localized: "Pay $\(total)")
+        }
+        return String(localized: "Pay Now")
     }
 
     // MARK: Files
@@ -410,6 +488,82 @@ struct OrderDetailView: View {
         }
     }
 
+    // MARK: Cancel (Orders v2 B)
+
+    /// "Cancel order" ghost (mockup 34/35), only while the order awaits payment: an older-rule
+    /// unpaid order has no Cancel (the server answers `not_cancellable`), a paid one never.
+    @ViewBuilder
+    private func cancelRow(_ order: OrderDTO) -> some View {
+        if showsUnpaidState(order) {
+            Button {
+                confirmCancel = true
+            } label: {
+                if cancelling {
+                    HStack(spacing: 8) {
+                        ProgressView()
+                        Text(String(localized: "Cancelling…"))
+                    }
+                    .font(.footnote.weight(.semibold))
+                    .padding(8)
+                    .frame(maxWidth: .infinity, minHeight: 36)
+                } else {
+                    ghostLabel(String(localized: "Cancel order"), systemImage: "xmark.circle")
+                }
+            }
+            .buttonStyle(FogGhost())
+            // No second tap while one runs (the server would only wait for the first), and not
+            // while this order's card payment is being prepared or settled.
+            .disabled(cancelling || paymentBusy(order))
+            .padding(.top, 12)
+        }
+    }
+
+    private func canCancel(_ order: OrderDTO) -> Bool {
+        showsUnpaidState(order) && !cancelling && !paymentBusy(order)
+    }
+
+    /// `POST orders/{id}/cancel` (up to ~45 s). Its own task, ✗ tied to this screen: Back during
+    /// the wait must not cancel it half way — the stamps must be released when it answers.
+    private func cancelOrder(_ order: OrderDTO) {
+        guard !cancelling else { return }
+        cancelling = true
+        let orderId = order.orderId
+        let number = order.orderNumber
+        Task { @MainActor in
+            var failure: String?
+            do {
+                let reply = try await APIClient.shared.cancelOrder(orderId: orderId)
+                // Its scans are "New" again on this device (only those still stamped with it).
+                store.releaseCancelledOrder(orderNumber: reply.orderNumber ?? number, scanIds: reply.scanIds ?? [])
+            } catch {
+                failure = Self.cancelFailure(error)
+            }
+            cancelling = false
+            cancelError = failure
+            // Whatever happened: a refusal means "paid" or "try later", a timeout may hide a cancel
+            // that went through — the list says which (and releases stamps for a cancel it shows).
+            await reload()
+        }
+    }
+
+    /// The refusal in the customer's words (server codes, PLAN-DON-HANG-V2.md §4a). nil = nothing
+    /// to say: the request was dropped, or the order is gone (the reload pops this screen).
+    private static func cancelFailure(_ error: Error) -> String? {
+        if error is CancellationError || (error as? URLError)?.code == .cancelled { return nil }
+        let api = error as? APIError
+        switch api?.code {
+        case "already_paid":
+            return String(localized: "This order has already been paid.")
+        case "payment_processing":
+            return String(localized: "A payment for this order is still being processed. Please check again in a few minutes.")
+        case "not_cancellable":
+            return String(localized: "This order can't be cancelled in the app. Please contact our team.")
+        default:
+            if api?.statusCode == 404 { return nil }
+            return String(localized: "We couldn't cancel this order right now. Please try again in a few minutes.")
+        }
+    }
+
     /// Dự án TRÊN MÁY NÀY của đơn — `nil` thì KHÔNG hiện nút "Thêm bản quét".
     ///
     /// Hai ca trả nil, cả hai là hành vi ĐÚNG chứ ✗ lỗi:
@@ -420,8 +574,10 @@ struct OrderDetailView: View {
     ///  · **Máy này không giữ dự án đó** — khách xoá rồi, hoặc đang dùng máy khác. Không có bản
     ///    quét gốc trên máy thì cũng chẳng có gì để quét bổ sung vào.
     ///  · **Dự án đó nay thuộc về một số đơn KHÁC** — xem khối 🔴 ngay dưới.
+    ///  · **Đơn đã huỷ khi chưa trả (Orders v2 B)** — cùng lý do với đơn hoàn tiền: server từ
+    ///    chối (`order_closed`), và bản quét của nó đã về "New" để đặt đơn mới.
     private func supplementProject(for order: OrderDTO) -> ScanProject? {
-        guard order.status != "refunded" else { return nil }
+        guard order.status != "refunded", !order.isCancelled else { return nil }
         guard let project = store.project(withOrderNumber: order.orderNumber) else { return nil }
         // 🔴 CHỐT CHỐNG GỬI NHẦM ĐƠN. Nút này chỉ ĐIỀU HƯỚNG; việc gửi ở trang dự án lại hỏi
         // `ScanStore.orderNumber(ofProject:)`, hàm đó lấy số đơn của bản quét MỚI NHẤT. Một dự án
@@ -463,6 +619,17 @@ struct OrderDetailView: View {
     /// 1px divider inside a card.
     private static var hairline: some View {
         Theme.hairline.frame(height: 1)
+    }
+}
+
+/// Orders v2 B wording shared by the order detail and the placed screen (`OrderSheet`).
+enum PayFirstCopy {
+    /// Mockup 34/35. The 7-day sentence only when the server gave a `payBy`: a test account's
+    /// order never expires (the App Review demo order), and there the sentence would be false.
+    static func notPlaced(expires: Bool) -> String {
+        let first = String(localized: "Not placed yet — we start drawing as soon as it is paid.")
+        guard expires else { return first }
+        return first + " " + String(localized: "Unpaid orders are cancelled after 7 days.")
     }
 }
 

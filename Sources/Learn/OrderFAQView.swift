@@ -35,7 +35,9 @@ import SwiftUI
 ///    vẫn trả `order_delivered` ⇒ app vẫn xử đúng (mở `RevisionSheet`) nhưng VĂN BẢN NÓI SAI.
 ///    Trạng thái deploy ghi ở `C:\\Block\\order-webapp\\HANDOFF.md` §1;
 ///  · suất miễn phí tính theo CẢ tài khoản LẪN thiết bị — `LegalDoc`, mục định danh thiết bị;
-///  · tên bốn trạng thái đơn — `OrdersView.StatusBadge`;
+///  · tên các trạng thái đơn — `OrdersView.StatusBadge` (Orders v2 B thêm "Awaiting payment" +
+///    "Cancelled"; "chưa trả = chưa đặt", nút "Cancel order" + tự huỷ sau 7 ngày — server
+///    `lib/pay-first.ts`, `PAY_FIRST_DAYS`);
 ///  · email liên hệ — `LegalDoc.contactEmail`, ✗ gõ lại chuỗi email vào đây.
 ///    🔴 KIỂU TÊN LÀ `LegalDoc`, ✗ `LegalView` — `LegalView.swift` chỉ là TÊN FILE, trong đó khai
 ///    `enum LegalDoc`. Bản nháp đầu của file này viết `LegalView.contactEmail` và đó là lỗi
@@ -161,7 +163,7 @@ struct OrderFAQContent: View {
                     2. Sign in if the app asks. Your email has to be verified before an order goes through.
                     3. Pick a package, switch on any add-ons, write a note.
                     4. Tap "Place order". Use Wi-Fi and leave the app open until your order number appears — your scan is a big upload.
-                    5. Tap "Pay Now". We start drawing once the payment lands.
+                    5. Pay for it. Until it is paid the order is not placed; we start drawing once the payment lands.
                     """)
             ),
             FAQItem(
@@ -172,7 +174,7 @@ struct OrderFAQContent: View {
             FAQItem(
                 id: "one-order",
                 question: String(localized: "Do I need one order per floor?"),
-                answer: String(localized: "No — one house, one order. Once you have ordered, later scans go into that same order through \"Send extra scan\", and they never cost extra: the price is per order, not per scan.")
+                answer: String(localized: "No — one house, one order. Once you have ordered, later scans go into that same order through \"Send extra scan\", and they never cost extra: the price is per order, not per scan. If an unpaid order is cancelled, its scans go back to \"New\" and you can order them again.")
             ),
             FAQItem(
                 id: "free",
@@ -230,12 +232,12 @@ struct OrderFAQContent: View {
             FAQItem(
                 id: "pay",
                 question: String(localized: "Where do I pay?"),
-                answer: String(localized: "Tap \"Pay Now\" — on the screen right after you order, or in the Orders tab. You pay by card in the app, or on the payment page in your browser. No button yet? Give it a few minutes; the link reaches your email.")
+                answer: String(localized: "Tap the pay button — on the screen right after you order, or on the order in the Orders tab. You pay by card in the app, or on the payment page in your browser. Your order is placed once it is paid; an order left unpaid for 7 days is cancelled. No button yet? Give it a few minutes; the link reaches your email.")
             ),
             FAQItem(
                 id: "track",
                 question: String(localized: "How do I follow my order?"),
-                answer: String(localized: "The Orders tab. Each order carries a badge — Processing, On hold, Delivered or Refunded. The search box finds an order by property name, order number or scan name.")
+                answer: String(localized: "The Orders tab. Each order carries a badge — Awaiting payment, Processing, On hold, Delivered, Refunded or Cancelled. The search box finds an order by property name, order number or scan name.")
             ),
             FAQItem(
                 id: "formats",
@@ -250,7 +252,7 @@ struct OrderFAQContent: View {
             FAQItem(
                 id: "cancel",
                 question: String(localized: "I want to cancel or get a refund"),
-                answer: String(localized: "There is no cancel button in the app. Write to \(LegalDoc.contactEmail) with your order number and we will sort it out. The full terms are in the Account tab, under Legal & Privacy.")
+                answer: String(localized: "An order awaiting payment: open it in the Orders tab and tap \"Cancel order\" — nothing is charged and its scans go back to \"New\". Any other order: write to \(LegalDoc.contactEmail) with your order number and we will sort it out. The full terms are in the Account tab, under Legal & Privacy.")
             ),
         ]
     )

@@ -64,6 +64,10 @@ struct OrderScanResponse: Decodable {
     /// Server hint: this order can be paid in the app (Stripe PaymentSheet) — see `PaymentFlow`.
     /// nil/false (older server, switch off) = open `paymentUrl` in the browser as before.
     let payInApp: Bool?
+    /// Orders v2 B (the app sends `payFirst: true`): `status` is `"awaiting_payment"` = NOT placed
+    /// until paid, or `"received"` = placed at once (free / 100% coupon). `payBy` = when an unpaid
+    /// order cancels itself; nil when there is nothing to pay, and for test accounts (never expire).
+    let payBy: String?
 }
 
 /// Kết quả "gửi bổ sung bản quét" (`POST orders/{id}/supplement-scan`).
@@ -206,8 +210,23 @@ struct OrderDTO: Decodable, Identifiable {
     /// response nếu thiếu một field non-optional → mất sạch danh sách đơn VÀ tắt luôn
     /// purgeDeliveredScans (nó nuốt lỗi bằng `try?`).
     let texturedScans: [TexturedScanDTO]?
+    /// Orders v2 B ("unpaid = not placed", PLAN-DON-HANG-V2.md §4a). `status` may be
+    /// `"awaiting_payment"` (not placed until paid) or `"cancelled"` (cancelled unpaid: by the
+    /// customer, after 7 days, or at account deletion). `payBy` = when an awaiting order cancels
+    /// itself (nil for test accounts: they never expire). A cancelled order carries in `scanIds`
+    /// the scans RELEASED at the cancel (see `ScanStore.syncOrders`). Optional: older servers.
+    let payBy: String?
+    let cancelledAt: String?
+    let cancelReason: String?
 
     var id: String { orderId }
+
+    /// Not placed until paid: Pay or Cancel in the order detail.
+    var isAwaitingPayment: Bool { status == "awaiting_payment" }
+
+    /// Cancelled unpaid. `cancelledAt` too: a cancelled order paid late and refunded reads
+    /// "refunded", and its released scans still need their stamps cleared.
+    var isCancelled: Bool { status == "cancelled" || cancelledAt != nil }
 
     var files: [DeliveryFileDTO] { deliveryFiles ?? [] }
 
@@ -273,6 +292,17 @@ struct OrderDTO: Decodable, Identifiable {
 
 struct OrdersResponse: Decodable {
     let orders: [OrderDTO]
+}
+
+/// `POST orders/{id}/cancel` (200). `scanIds` = the scans released back to the customer: the app
+/// clears its local stamp on exactly those (`ScanStore.releaseCancelledOrder`). Optional fields:
+/// a decode failure after a cancel that DID happen would read as a failure.
+struct CancelOrderResponse: Decodable {
+    let ok: Bool?
+    let orderId: String?
+    let orderNumber: String?
+    let status: String?
+    let scanIds: [String]?
 }
 
 // MARK: Virtual Tour (khách upload ảnh listing theo phòng)
@@ -372,7 +402,8 @@ final class APIClient {
         path: String,
         method: String,
         json: [String: Any]?,
-        query: [String: String]? = nil
+        query: [String: String]? = nil,
+        timeout: TimeInterval = 30
     ) throws -> URLRequest {
         var url = baseURL.appendingPathComponent(path)
         // Query PHẢI dựng bằng URLComponents, đừng nối "path?a=b" vào `appendingPathComponent` —
@@ -384,7 +415,7 @@ final class APIClient {
         }
         var request = URLRequest(url: url)
         request.httpMethod = method
-        request.timeoutInterval = 30
+        request.timeoutInterval = timeout
         if let token {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
@@ -399,9 +430,10 @@ final class APIClient {
         _ path: String,
         method: String = "GET",
         json: [String: Any]? = nil,
-        query: [String: String]? = nil
+        query: [String: String]? = nil,
+        timeout: TimeInterval = 30
     ) async throws -> T {
-        let request = try makeRequest(path: path, method: method, json: json, query: query)
+        let request = try makeRequest(path: path, method: method, json: json, query: query, timeout: timeout)
         let (data, response) = try await URLSession.shared.data(for: request)
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
         if !(200...299).contains(status) {
@@ -538,11 +570,27 @@ final class APIClient {
             "projectName": projectName,
             "coupon": coupon,
             "deviceId": DeviceID.current,
+            // Orders v2 B: this build knows "unpaid = not placed" (server `lib/pay-first.ts`). A
+            // paid order then waits as "Awaiting payment" (hidden from the team, Pay or Cancel,
+            // cancelled by itself after 7 days) instead of being worked on before payment.
+            // 🔴 ALWAYS sent: the Cancel button, the placed screen and the stamp release all assume it.
+            "payFirst": true,
         ])
     }
 
+    /// `include=cancelled`: orders cancelled unpaid are listed too (status `cancelled`, `scanIds` =
+    /// the released scans) so the app can clear its stamps (`ScanStore.syncOrders`). Every caller
+    /// of this function gets them — read `OrderDTO.isCancelled` before acting on an order.
     func listOrders() async throws -> OrdersResponse {
-        try await send("orders")
+        try await send("orders", query: ["include": "cancelled"])
+    }
+
+    /// Cancel an order still AWAITING PAYMENT (Orders v2 B). The server first shuts every channel
+    /// that could still take money (the card sheet, the Woo pay page) and can take ~45 s when
+    /// WordPress is slow; a second call waits for the first. Refusals: 409 `code` `already_paid` /
+    /// `payment_processing` / `not_cancellable` / `try_again`, 502 `try_again`, 404, 429.
+    func cancelOrder(orderId: String) async throws -> CancelOrderResponse {
+        try await send("orders/\(orderId)/cancel", method: "POST", json: [:], timeout: 90)
     }
 
     // MARK: In-app payment — callers: `PaymentFlow` only

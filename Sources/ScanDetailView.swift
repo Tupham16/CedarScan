@@ -122,6 +122,10 @@ struct ScanDetailView: View {
     @State private var showOrderSheet = false
     /// Màn "Gửi bổ sung bản quét" — mở khi dự án của bản quét này ĐÃ có đơn.
     @State private var showSupplementSheet = false
+    /// `supplementOrderNumber` when that sheet opened — a FALLBACK only, for when the live one turns
+    /// nil while it is up (Orders v2 B: that unpaid order was cancelled, its stamps released).
+    /// Without it the sheet would go blank (trap #20a). Live wins otherwise.
+    @State private var supplementNumberAtOpen: String?
     /// Đã tự mở form đặt hàng lần nào chưa (chỉ có nghĩa khi `autoOpenOrder`).
     ///
     /// 🔴 BẮT BUỘC. `.task` KHÔNG phải "chạy một lần" — SwiftUI huỷ nó ở `onDisappear` và chạy
@@ -428,7 +432,7 @@ struct ScanDetailView: View {
         // (khác `ProjectView`): nội dung chỉ phụ thuộc `current` + `supplementOrderNumber`, cả
         // hai đã có giá trị từ trước khi cờ lật — không có khe nil như ca `orderTarget`.
         .sheet(isPresented: $showSupplementSheet) {
-            if let orderNumber = supplementOrderNumber {
+            if let orderNumber = supplementOrderNumber ?? supplementNumberAtOpen {
                 SupplementSheet(records: [current], orderNumber: orderNumber)
             }
         }
@@ -547,6 +551,7 @@ struct ScanDetailView: View {
                 // gửi bổ sung có ĐÚNG MỘT chỗ tải lên thay vì hai, và màn này khỏi phải nhân
                 // đôi máy trạng thái `uploader.phase`.
                 Button {
+                    supplementNumberAtOpen = supplementNumber
                     showSupplementSheet = true
                 } label: {
                     Label(
@@ -613,19 +618,23 @@ struct ScanDetailView: View {
         // Fog: on `Theme.bg`, no material strip (mockup) — nothing scrolls under this card.
     }
 
-    /// "Floor plan ordered" (Fog): card with an `accentTint` icon tile.
+    /// "Floor plan ordered" (Fog): card with an `accentTint` icon tile. Orders v2 B: while its order
+    /// awaits payment, "Awaiting payment" on a `warn` tile (owner 25/09, mockup 39).
     private func orderedCard(_ orderNumber: String) -> some View {
         let shape = RoundedRectangle(cornerRadius: 16, style: .continuous)
+        let unpaid = store.isAwaitingPayment(current)
         return HStack(spacing: 12) {
-            Image(systemName: "shippingbox")
+            Image(systemName: unpaid ? "creditcard" : "shippingbox")
                 .font(.system(size: 20))
-                .foregroundStyle(Theme.accentText)
+                .foregroundStyle(unpaid ? Theme.Badge.warn.fg : Theme.accentText)
                 .frame(width: 40, height: 40)
-                .background(Theme.accentTint, in: RoundedRectangle(cornerRadius: 11, style: .continuous))
+                .background(unpaid ? Theme.Badge.warn.bg : Theme.accentTint, in: RoundedRectangle(cornerRadius: 11, style: .continuous))
             VStack(alignment: .leading, spacing: 2) {
-                Text(String(localized: "Floor plan ordered") + " · \(orderNumber)")
+                Text((unpaid ? String(localized: "Awaiting payment") : String(localized: "Floor plan ordered")) + " · \(orderNumber)")
                     .font(.subheadline.weight(.semibold))
-                Text(String(localized: "Track progress in the Orders tab."))
+                Text(unpaid
+                     ? String(localized: "Not placed until it is paid. Pay in the Orders tab.")
+                     : String(localized: "Track progress in the Orders tab."))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -697,7 +706,8 @@ struct ScanDetailView: View {
         // mô tả: *"khi bấm vào đó rồi quét xong thì cái nút đặt hàng ngay nên sửa lại là Gửi bổ
         // sung bản quét"*. Nhãn nút ở màn preview và hành động ở đây đọc CÙNG một điều kiện
         // (`ScanStore.orderNumber(ofProject:)`) nên không thể nói một đằng làm một nẻo.
-        if supplementOrderNumber != nil {
+        if let number = supplementOrderNumber {
+            supplementNumberAtOpen = number
             showSupplementSheet = true
             return
         }
@@ -1133,6 +1143,8 @@ struct OrderSheet: View {
     /// "already ordered"). Nên khoá nút Hủy + không cancel ở onDisappear khi cờ này bật.
     @State private var placingOrder = false
     @State private var showTourPhotos = false // mở màn thêm ảnh Virtual Tour ngay sau khi đặt
+    /// Read only: the card sheet paid this order (the placed screen then says "Order placed!").
+    @ObservedObject private var flow = PaymentFlow.shared
 
     /// Ngôn ngữ bản vẽ — list cố định (chủ app chốt 2026-07-21). Giá trị gửi lên server = chính chuỗi
     /// này (đội vẽ đọc để biết viết bản vẽ bằng ngôn ngữ/biến thể nào).
@@ -1835,16 +1847,34 @@ struct OrderSheet: View {
         }
     }
 
-    @ViewBuilder
+    /// Orders v2 B: a paid order is NOT placed until paid (`status == "awaiting_payment"`), so this
+    /// screen must not say "Order placed!" before the money lands (mockup 39). Free / 100% coupon
+    /// orders come back "received" = placed at once. Paid in the sheet here = placed.
+    private func awaitsPayment(_ order: OrderScanResponse) -> Bool {
+        order.status == "awaiting_payment" && !flow.paidOrderIds.contains(order.orderId)
+    }
+
+    /// A plain function first, so the state is a parameter: a local `let` inside a ViewBuilder is
+    /// where this CI has died of "type-check timeout" (`ScanAddressView`).
     private func successContent(_ order: OrderScanResponse) -> some View {
+        successBody(order, unpaid: awaitsPayment(order))
+    }
+
+    /// Fog: tick on an `ok` disc; a card on a `warn` disc while the order awaits payment.
+    private func successDisc(unpaid: Bool) -> some View {
+        let kind = unpaid ? Theme.Badge.warn : Theme.Badge.ok
+        return Image(systemName: unpaid ? "creditcard" : "checkmark")
+            .font(.system(size: unpaid ? 28 : 30, weight: unpaid ? .semibold : .bold))
+            .foregroundStyle(kind.fg)
+            .frame(width: 76, height: 76)
+            .background(Circle().fill(kind.bg))
+    }
+
+    @ViewBuilder
+    private func successBody(_ order: OrderScanResponse, unpaid: Bool) -> some View {
         VStack(spacing: 14) {
-            // Fog: tick on an `ok` disc.
-            Image(systemName: "checkmark")
-                .font(.system(size: 30, weight: .bold))
-                .foregroundStyle(Theme.Badge.ok.fg)
-                .frame(width: 76, height: 76)
-                .background(Circle().fill(Theme.Badge.ok.bg))
-            Text(String(localized: "Order placed!"))
+            successDisc(unpaid: unpaid)
+            Text(unpaid ? String(localized: "Awaiting payment") : String(localized: "Order placed!"))
                 .font(.title3.weight(.bold))
                 .multilineTextAlignment(.center)
             Text(order.orderNumber)
@@ -1866,44 +1896,8 @@ struct OrderSheet: View {
                     .foregroundStyle(Theme.Badge.warn.fg)
                     .multilineTextAlignment(.center)
             }
-            // Câu "Đội ngũ Cedar247 sẽ bắt đầu…" (CẢ HAI nhánh free/trả tiền) ĐÃ BỎ 2026-09-01
-            // theo chủ app — thay bằng lời cảm ơn, GIỮ đúng dòng "Theo dõi…". Việc "trả tiền ở
-            // bước sau" vẫn hiện qua nút "Thanh toán ngay" / câu "gửi link qua email" ngay dưới.
-            Text(String(localized: "Thank you for choosing Cedar247!"))
-                .font(.subheadline.weight(.medium))
-                .multilineTextAlignment(.center)
-                .padding(.horizontal)
-            Text(String(localized: "Track progress in the Orders tab."))
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal)
-
-            // The card sheet opens by itself right after Place order when the server offers in-app
-            // payment; closing it leaves this button. Otherwise the browser, as before — `PaymentFlow`.
-            if let payURL = httpsURL(order.paymentUrl) {
-                PayNowButton(
-                    orderId: order.orderId,
-                    payURL: payURL,
-                    payInApp: order.payInApp == true,
-                    opensOnAppear: true
-                ) {
-                    Label(String(localized: "Pay Now"), systemImage: "creditcard.fill")
-                        .font(.headline)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .padding(.horizontal, 12)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                }
-                // Restyled here only; ✗ edit `PaymentFlow.swift`. Loading = disabled = grey, so the
-                // spinner keeps its default grey (white would vanish on it).
-                .buttonStyle(FogPrimary())
-            } else if order.free != true {
-                Text(String(localized: "We will email you a payment link shortly."))
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-            }
+            successNotes(order, unpaid: unpaid)
+            successPay(order, unpaid: unpaid)
 
             // Đơn có Virtual Tour → mời khách thêm ảnh phòng ngay (làm sớm = giao sớm)
             if order.hasTour == true {
@@ -1927,6 +1921,79 @@ struct OrderSheet: View {
                 .multilineTextAlignment(.center)
             }
         }
+    }
+
+    /// What happens next: the not-placed sentence while it awaits payment, else the thanks.
+    @ViewBuilder
+    private func successNotes(_ order: OrderScanResponse, unpaid: Bool) -> some View {
+        if unpaid {
+            // Orders v2 B: the same sentence as the order detail (mockup 34). `WrappedText`:
+            // a sentence the customer must read whole (trap #44).
+            WrappedText(PayFirstCopy.notPlaced(expires: order.payBy != nil), style: .subheadline, alignment: .center)
+                .padding(.horizontal)
+        } else {
+            // Câu "Đội ngũ Cedar247 sẽ bắt đầu…" (CẢ HAI nhánh free/trả tiền) ĐÃ BỎ 2026-09-01
+            // theo chủ app — thay bằng lời cảm ơn, GIỮ đúng dòng "Theo dõi…". Việc "trả tiền ở
+            // bước sau" vẫn hiện qua nút "Thanh toán ngay" / câu "gửi link qua email" ngay dưới.
+            Text(String(localized: "Thank you for choosing Cedar247!"))
+                .font(.subheadline.weight(.medium))
+                .multilineTextAlignment(.center)
+                .padding(.horizontal)
+            Text(String(localized: "Track progress in the Orders tab."))
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal)
+        }
+    }
+
+    @ViewBuilder
+    private func successPay(_ order: OrderScanResponse, unpaid: Bool) -> some View {
+        // The card sheet opens by itself right after Place order when the server offers in-app
+        // payment; closing it leaves this button. Otherwise the browser, as before — `PaymentFlow`.
+        if let payURL = httpsURL(order.paymentUrl) {
+            PayNowButton(
+                orderId: order.orderId,
+                payURL: payURL,
+                payInApp: order.payInApp == true,
+                opensOnAppear: true,
+                // Paid = placed: its scans read "Ordered" at once (Home, property page).
+                onPaid: { store.noteOrderStatus(orderNumber: order.orderNumber, status: "received") },
+                // Cancelled / being cancelled seconds after it was placed (only another device
+                // can do that): nothing to reload here, the Orders tab shows it. ✗ the browser.
+                onOrderChanged: {}
+            ) {
+                Label(payLabel(order), systemImage: "creditcard.fill")
+                    .font(.headline)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, 12)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+            }
+            // Restyled here only; ✗ edit `PaymentFlow.swift`. Loading = disabled = grey, so the
+            // spinner keeps its default grey (white would vanish on it).
+            .buttonStyle(FogPrimary())
+            if unpaid {
+                Text(String(localized: "You can also pay later in the Orders tab."))
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal)
+            }
+        } else if order.free != true {
+            Text(String(localized: "We will email you a payment link shortly."))
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+            .multilineTextAlignment(.center)
+        }
+    }
+
+    /// "Pay $129" while the order awaits payment (same label as the order detail).
+    private func payLabel(_ order: OrderScanResponse) -> String {
+        if order.status == "awaiting_payment", let total = order.total, total > 0 {
+            return String(localized: "Pay $\(total)")
+        }
+        return String(localized: "Pay Now")
     }
 
     private func submit() {
@@ -2047,7 +2114,9 @@ struct OrderSheet: View {
                 // `ProjectView` đã đoán sai đúng kiểu đó: nó đóng dấu lên MỌI bản quét chưa đặt
                 // của dự án, kể cả tầng khách vừa BỎ CHỌN ngay trong form này. Tầng đó chưa hề
                 // lên server nhưng mang nhãn "Đã đặt · #LS-…", mất luôn nút đặt hàng VĨNH VIỄN
-                // (không code nào trả `cloudOrderNumber` về nil) và rơi khỏi `otherScans` nên
+                // (`cloudOrderNumber` chỉ về nil khi một đơn CHƯA TRẢ bị huỷ, và chỉ cho bản quét
+                // server trả lại — tầng chưa hề lên server không bao giờ nằm trong đó) và rơi khỏi
+                // `otherScans` nên
                 // không gộp được vào đơn nào về sau — khách trả tiền cho "cả căn" mà đội vẽ
                 // không bao giờ nhận được tầng ấy.
                 //
@@ -2059,6 +2128,9 @@ struct OrderSheet: View {
                 for extra in extras {
                     store.setOrderNumber(extra, orderNumber: result.orderNumber)
                 }
+                // Orders v2 B: an order awaiting payment reserves these scans (still stamped) but
+                // is not placed — they read "Awaiting payment" until it is paid or cancelled.
+                store.noteOrderStatus(orderNumber: result.orderNumber, status: result.status)
             } catch {
                 errorMessage = error.localizedDescription
             }

@@ -111,6 +111,10 @@ struct ProjectView: View {
     private struct SupplementTarget: Identifiable {
         let id = UUID()
         let scanIds: [UUID]
+        /// The project's order number when the sheet opened — a FALLBACK only, for when the live
+        /// one turns nil while the sheet is up (Orders v2 B: that unpaid order was cancelled and
+        /// its stamps released). Live wins otherwise; see `supplementSheetBody`.
+        let orderNumberAtOpen: String
     }
     @State private var supplementTarget: SupplementTarget?
     /// Cổng đăng nhập/xác minh mở tại chỗ — xem `AccountGateSheet`.
@@ -557,8 +561,8 @@ struct ProjectView: View {
         // NHẤT bật sheet (sheet(item:) hiện khi item != nil), nên target phải đủ dữ liệu ngay.
         let ids = orderableScans.map(\.id)
         guard !ids.isEmpty else { return }
-        if projectOrderNumber != nil {
-            supplementTarget = SupplementTarget(scanIds: ids)
+        if let orderNumber = projectOrderNumber {
+            supplementTarget = SupplementTarget(scanIds: ids, orderNumberAtOpen: orderNumber)
         } else {
             orderTarget = OrderSheetTarget(scanIds: ids)
         }
@@ -591,10 +595,13 @@ struct ProjectView: View {
     /// Nội dung màn GỬI BỔ SUNG. Cùng khuôn `orderSheetBody`: danh tính chốt lúc mở, giá trị đọc
     /// sống. `projectOrderNumber` đọc lại ở đây (✗ chụp vào target) vì nó là thứ QUYẾT ĐỊNH gửi
     /// vào đơn nào — chụp một số đơn cũ rồi gửi vào đó là nhét file sang nhầm đơn.
+    /// Orders v2 B: a stamp release while the sheet is up (a foreground sync, an Orders refresh)
+    /// makes `projectOrderNumber` nil — without the fallback the sheet would go blank (trap #20a).
+    /// With it the sheet stays; sending finds the order cancelled and says so.
     @ViewBuilder
     private func supplementSheetBody(_ target: SupplementTarget) -> some View {
-        if let orderNumber = projectOrderNumber, !liveScans(of: target).isEmpty {
-            SupplementSheet(records: liveScans(of: target), orderNumber: orderNumber)
+        if !liveScans(of: target).isEmpty {
+            SupplementSheet(records: liveScans(of: target), orderNumber: projectOrderNumber ?? target.orderNumberAtOpen)
         }
     }
 

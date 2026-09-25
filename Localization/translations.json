@@ -1777,18 +1777,6 @@
    }
   },
   {
-   "key": "1. Scan the property, then open it and tap \"Order Floor Plan\".\n2. Sign in if the app asks. Your email has to be verified before an order goes through.\n3. Pick a package, switch on any add-ons, write a note.\n4. Tap \"Place order\". Use Wi-Fi and leave the app open until your order number appears — your scan is a big upload.\n5. Tap \"Pay Now\". We start drawing once the payment lands.",
-   "translations": {
-    "vi": "1. Quét xong, bạn mở dự án rồi bấm \"Đặt làm mặt bằng\".\n2. App hỏi thì đăng nhập. Tài khoản cần xác minh email thì đơn mới đi được.\n3. Chọn gói, bật thêm dịch vụ nếu cần, viết ghi chú.\n4. Bấm \"Đặt hàng\". Dùng Wi-Fi và để app mở tới khi số đơn hiện ra nhé — bản quét khá nặng.\n5. Bấm \"Thanh toán ngay\". Nhận được tiền là đội ngũ bắt đầu vẽ.",
-    "fr": "1. Numérisez la propriété, puis ouvrez-la et touchez \"Commander le plan d'étage\".\n2. Connectez-vous si l'app le demande. Votre courriel doit être vérifié pour que la commande passe.\n3. Choisissez un forfait, activez les options voulues, écrivez une note.\n4. Touchez \"Passer la commande\". Utilisez le Wi-Fi et laissez l'app ouverte jusqu'à ce que votre numéro de commande apparaisse — votre numérisation est un gros téléversement.\n5. Touchez \"Payer maintenant\". Nous commençons à dessiner dès que le paiement est reçu.",
-    "de": "1. Scannen Sie das Objekt, öffnen Sie es dann und tippen Sie auf \"Grundriss bestellen\".\n2. Melden Sie sich an, wenn die App danach fragt. Ihre E-Mail-Adresse muss bestätigt sein, bevor eine Bestellung durchgeht.\n3. Wählen Sie ein Paket, aktivieren Sie bei Bedarf Extras und schreiben Sie eine Anmerkung.\n4. Tippen Sie auf \"Bestellung aufgeben\". Nutzen Sie WLAN und lassen Sie die App offen, bis Ihre Bestellnummer erscheint — Ihr Scan ist ein großer Upload.\n5. Tippen Sie auf \"Jetzt bezahlen\". Sobald die Zahlung eingegangen ist, beginnen wir zu zeichnen.",
-    "cs": "1. Naskenujte nemovitost, pak ji otevřete a klepněte na \"Objednat půdorys\".\n2. Pokud vás aplikace vyzve, přihlaste se. Aby objednávka prošla, musí být váš e-mail ověřený.\n3. Vyberte balíček, zapněte případné doplňky, napište poznámku.\n4. Klepněte na \"Odeslat objednávku\". Použijte Wi-Fi a nechte aplikaci otevřenou, dokud se nezobrazí číslo objednávky — sken je velký objem dat.\n5. Klepněte na \"Zaplatit nyní\". Jakmile platba dorazí, začneme kreslit.",
-    "sk": "1. Naskenujte nehnuteľnosť, potom ju otvorte a ťuknite na \"Objednať pôdorys\".\n2. Ak si to aplikácia vypýta, prihláste sa. Aby objednávka prešla, musí byť váš e-mail overený.\n3. Vyberte balík, zapnite prípadné doplnky, napíšte poznámku.\n4. Ťuknite na \"Odoslať objednávku\". Použite Wi-Fi a nechajte aplikáciu otvorenú, kým sa nezobrazí číslo objednávky — sken je veľký objem dát na nahratie.\n5. Ťuknite na \"Zaplatiť teraz\". Kresliť začneme hneď po prijatí platby.",
-    "es": "1. Escanea la propiedad, luego ábrela y toca \"Pedir plano de planta\".\n2. Inicia sesión si la app te lo pide. Tu correo tiene que estar verificado para que el pedido se procese.\n3. Elige un paquete, activa los extras que quieras y escribe una nota.\n4. Toca \"Realizar pedido\". Usa Wi-Fi y deja la app abierta hasta que aparezca tu número de pedido — tu escaneo es un archivo grande y tarda en subir.\n5. Toca \"Pagar ahora\". Empezamos a dibujar en cuanto llega el pago.",
-    "nl": "1. Scan de woning, open die daarna en tik op \"Plattegrond bestellen\".\n2. Log in als de app daarom vraagt. Je e-mailadres moet geverifieerd zijn voordat een bestelling doorgaat.\n3. Kies een pakket, zet eventuele extra's aan en schrijf een opmerking.\n4. Tik op \"Bestelling plaatsen\". Gebruik wifi en laat de app open tot je bestelnummer verschijnt — je scan is een grote upload.\n5. Tik op \"Nu betalen\". Zodra de betaling binnen is, beginnen we met tekenen."
-   }
-  },
-  {
    "key": "My house has several floors — how does that work?",
    "translations": {
     "vi": "Nhà tôi nhiều tầng thì sao?",
@@ -1822,18 +1810,6 @@
     "sk": "Potrebujem na každé podlažie samostatnú objednávku?",
     "es": "¿Necesito un pedido por cada planta?",
     "nl": "Heb ik voor elke verdieping een aparte bestelling nodig?"
-   }
-  },
-  {
-   "key": "No — one house, one order. Once you have ordered, later scans go into that same order through \"Send extra scan\", and they never cost extra: the price is per order, not per scan.",
-   "translations": {
-    "vi": "Không — một căn nhà một đơn thôi. Đặt rồi thì bản quét sau đi vào đúng đơn đó qua nút \"Gửi bổ sung bản quét\", và không tính thêm tiền — giá tính theo đơn chứ không theo số bản quét.",
-    "fr": "Non — une maison, une commande. Une fois la commande passée, les numérisations suivantes rejoignent cette même commande via \"Envoyer une numérisation supplémentaire\", et elles ne coûtent jamais plus : le prix est par commande, pas par numérisation.",
-    "de": "Nein — ein Haus, eine Bestellung. Sobald Sie bestellt haben, gehen spätere Scans über \"Zusatz-Scan senden\" in dieselbe Bestellung — und sie kosten nie extra: Der Preis gilt pro Bestellung, nicht pro Scan.",
-    "cs": "Ne — jeden dům, jedna objednávka. Jakmile jednou objednáte, pozdější skeny jdou do stejné objednávky přes \"Odeslat doplňující sken\" a nikdy nestojí nic navíc: cena je za objednávku, ne za sken.",
-    "sk": "Nie — jeden dom, jedna objednávka. Keď už máte objednané, ďalšie skeny idú do tej istej objednávky cez \"Poslať ďalší sken\" a nikdy nestoja nič navyše: cena je za objednávku, nie za sken.",
-    "es": "No — una casa, un pedido. Una vez que hayas pedido, los escaneos posteriores entran en ese mismo pedido con \"Enviar escaneo adicional\", y nunca cuestan extra: el precio es por pedido, no por escaneo.",
-    "nl": "Nee — één huis, één bestelling. Heb je eenmaal besteld, dan gaan latere scans via \"Extra scan versturen\" in diezelfde bestelling, en dat kost nooit extra: de prijs is per bestelling, niet per scan."
    }
   },
   {
@@ -2041,18 +2017,6 @@
    }
   },
   {
-   "key": "Tap \"Pay Now\" — on the screen right after you order, or in the Orders tab. You pay by card in the app, or on the payment page in your browser. No button yet? Give it a few minutes; the link reaches your email.",
-   "translations": {
-    "vi": "Bạn bấm \"Thanh toán ngay\" — ở màn hình ngay sau khi đặt, hoặc ở tab Đơn hàng. Bạn trả bằng thẻ ngay trong app, hoặc ở trang thanh toán trên trình duyệt. Chưa thấy nút thì đợi vài phút, link sẽ tới email của bạn.",
-    "fr": "Touchez \"Payer maintenant\" — sur l'écran juste après la commande, ou dans l'onglet Commandes. Vous payez par carte dans l'app, ou sur la page de paiement dans votre navigateur. Pas encore de bouton? Patientez quelques minutes; le lien arrive dans votre boîte courriel.",
-    "de": "Tippen Sie auf \"Jetzt bezahlen\" — auf dem Bildschirm direkt nach der Bestellung oder im Tab \"Bestellungen\". Sie bezahlen per Karte in der App oder auf der Zahlungsseite in Ihrem Browser. Noch kein Button? Warten Sie ein paar Minuten — der Link kommt per E-Mail.",
-    "cs": "Klepněte na \"Zaplatit nyní\" — na obrazovce hned po objednání, nebo na záložce Objednávky. Zaplatíte kartou v aplikaci, nebo na platební stránce ve vašem prohlížeči. Tlačítko zatím nikde? Dejte tomu pár minut; odkaz vám dorazí na e-mail.",
-    "sk": "Ťuknite na \"Zaplatiť teraz\" — na obrazovke hneď po objednaní alebo na karte Objednávky. Zaplatíte platobnou kartou v aplikácii alebo na platobnej stránke vo vašom prehliadači. Tlačidlo ešte nevidíte? Počkajte pár minút; odkaz vám príde na e-mail.",
-    "es": "Toca \"Pagar ahora\" — en la pantalla justo después de pedir, o en la pestaña Pedidos. Pagas con tarjeta en la app, o en la página de pago en tu navegador. ¿Aún no ves el botón? Dale unos minutos; el enlace llegará a tu correo.",
-    "nl": "Tik op \"Nu betalen\" — op het scherm direct na het bestellen, of in het tabblad Bestellingen. Je betaalt met je betaalkaart in de app, of op de betaalpagina in je browser. Nog geen knop? Geef het een paar minuten; de link komt in je mailbox."
-   }
-  },
-  {
    "key": "How do I follow my order?",
    "translations": {
     "vi": "Tôi theo dõi đơn ở đâu?",
@@ -2062,18 +2026,6 @@
     "sk": "Ako sledujem svoju objednávku?",
     "es": "¿Cómo sigo mi pedido?",
     "nl": "Hoe volg ik mijn bestelling?"
-   }
-  },
-  {
-   "key": "The Orders tab. Each order carries a badge — Processing, On hold, Delivered or Refunded. The search box finds an order by property name, order number or scan name.",
-   "translations": {
-    "vi": "Tab Đơn hàng. Mỗi đơn có một nhãn — Đang xử lý, Tạm giữ, Đã giao hoặc Hoàn tiền. Ô tìm kiếm tìm được theo tên dự án, số đơn hoặc tên bản quét.",
-    "fr": "Dans l'onglet Commandes. Chaque commande porte une étiquette — En traitement, En attente, Livrée ou Remboursée. Le champ de recherche trouve une commande par nom de propriété, par numéro de commande ou par nom de numérisation.",
-    "de": "Im Tab \"Bestellungen\". Jede Bestellung hat einen Status — In Bearbeitung, Wartend, Geliefert oder Erstattet. Das Suchfeld findet Bestellungen nach Objektnamen, Bestellnummer oder Scan-Namen.",
-    "cs": "Na záložce Objednávky. Každá objednávka má štítek — Zpracovává se, Pozastaveno, Doručeno nebo Vráceno. Vyhledávací pole najde objednávku podle názvu nemovitosti, čísla objednávky nebo názvu skenu.",
-    "sk": "Na karte Objednávky. Každá objednávka má štítok — Spracúva sa, Pozastavená, Doručená alebo Refundovaná. Vyhľadávacie pole nájde objednávku podľa názvu nehnuteľnosti, čísla objednávky alebo názvu skenu.",
-    "es": "En la pestaña Pedidos. Cada pedido lleva una etiqueta — En proceso, En espera, Entregado o Reembolsado. El buscador encuentra un pedido por nombre de la propiedad, por número de pedido o por nombre de escaneo.",
-    "nl": "In het tabblad Bestellingen. Elke bestelling heeft een label — In behandeling, In de wacht, Geleverd of Terugbetaald. Via het zoekveld vind je een bestelling op woningnaam, bestelnummer of scannaam."
    }
   },
   {
@@ -2134,18 +2086,6 @@
     "sk": "Chcem zrušiť objednávku alebo dostať peniaze späť",
     "es": "Quiero cancelar o solicitar un reembolso",
     "nl": "Ik wil annuleren of mijn geld terug"
-   }
-  },
-  {
-   "key": "There is no cancel button in the app. Write to %@ with your order number and we will sort it out. The full terms are in the Account tab, under Legal & Privacy.",
-   "translations": {
-    "vi": "App không có nút huỷ. Bạn viết cho %@ kèm số đơn nhé. Điều khoản đầy đủ ở tab Tài khoản, mục Legal & Privacy.",
-    "fr": "Il n'y a pas de bouton d'annulation dans l'app. Écrivez à %@ avec votre numéro de commande et nous nous en occupons. Les conditions complètes sont dans l'onglet Compte, sous Mentions légales et confidentialité.",
-    "de": "Einen Storno-Button gibt es in der App nicht. Schreiben Sie an %@ mit Ihrer Bestellnummer, und wir kümmern uns darum. Die vollständigen Bedingungen finden Sie im Tab \"Konto\" unter Rechtliches & Datenschutz.",
-    "cs": "V aplikaci není tlačítko pro zrušení. Napište na %@ a uveďte číslo objednávky — vyřešíme to. Úplné podmínky najdete na záložce Účet v sekci Právní informace a soukromí.",
-    "sk": "V aplikácii nie je tlačidlo na zrušenie. Napíšte na %@ a uveďte číslo objednávky — vyriešime to. Úplné podmienky nájdete na karte Účet v časti Právne informácie a súkromie.",
-    "es": "En la app no hay botón de cancelar. Escribe a %@ con tu número de pedido y lo resolvemos. Los términos completos están en la pestaña Cuenta, en Legal y privacidad.",
-    "nl": "Er zit geen annuleerknop in de app. Mail naar %@ met je bestelnummer, dan lossen we het op. De volledige voorwaarden vind je in het tabblad Account, onder Juridisch & privacy."
    }
   },
   {
@@ -4438,6 +4378,318 @@
     "sk": "Objednané služby",
     "es": "Lo que pediste",
     "nl": "Wat je hebt besteld"
+   }
+  },
+  {
+   "key": "1. Scan the property, then open it and tap \"Order Floor Plan\".\n2. Sign in if the app asks. Your email has to be verified before an order goes through.\n3. Pick a package, switch on any add-ons, write a note.\n4. Tap \"Place order\". Use Wi-Fi and leave the app open until your order number appears — your scan is a big upload.\n5. Pay for it. Until it is paid the order is not placed; we start drawing once the payment lands.",
+   "translations": {
+    "vi": "1. Quét xong, bạn mở dự án rồi bấm \"Đặt làm mặt bằng\".\n2. App hỏi thì đăng nhập. Tài khoản cần xác minh email thì đơn mới đi được.\n3. Chọn gói, bật thêm dịch vụ nếu cần, viết ghi chú.\n4. Bấm \"Đặt hàng\". Dùng Wi-Fi và để app mở tới khi số đơn hiện ra nhé — bản quét khá nặng.\n5. Thanh toán. Chưa thanh toán thì đơn chưa được đặt; nhận được tiền là đội ngũ bắt đầu vẽ.",
+    "fr": "1. Numérisez la propriété, puis ouvrez-la et touchez \"Commander le plan d'étage\".\n2. Connectez-vous si l'app le demande. Votre courriel doit être vérifié pour que la commande passe.\n3. Choisissez un forfait, activez les options voulues, écrivez une note.\n4. Touchez \"Passer la commande\". Utilisez le Wi-Fi et laissez l'app ouverte jusqu'à ce que votre numéro de commande apparaisse — votre numérisation est un gros téléversement.\n5. Payez-la. Tant qu'elle n'est pas payée, la commande n'est pas passée; nous commençons à dessiner dès que le paiement est reçu.",
+    "de": "1. Scannen Sie das Objekt, öffnen Sie es dann und tippen Sie auf \"Grundriss bestellen\".\n2. Melden Sie sich an, wenn die App danach fragt. Ihre E-Mail-Adresse muss bestätigt sein, bevor eine Bestellung durchgeht.\n3. Wählen Sie ein Paket, aktivieren Sie bei Bedarf Extras und schreiben Sie eine Anmerkung.\n4. Tippen Sie auf \"Bestellung aufgeben\". Nutzen Sie WLAN und lassen Sie die App offen, bis Ihre Bestellnummer erscheint — Ihr Scan ist ein großer Upload.\n5. Bezahlen Sie sie. Bis dahin ist die Bestellung nicht aufgegeben; sobald die Zahlung eingegangen ist, beginnen wir zu zeichnen.",
+    "cs": "1. Naskenujte nemovitost, pak ji otevřete a klepněte na \"Objednat půdorys\".\n2. Pokud vás aplikace vyzve, přihlaste se. Aby objednávka prošla, musí být váš e-mail ověřený.\n3. Vyberte balíček, zapněte případné doplňky, napište poznámku.\n4. Klepněte na \"Odeslat objednávku\". Použijte Wi-Fi a nechte aplikaci otevřenou, dokud se nezobrazí číslo objednávky — sken je velký objem dat.\n5. Zaplaťte ji. Dokud není zaplacená, objednávka neplatí; jakmile platba dorazí, začneme kreslit.",
+    "sk": "1. Naskenujte nehnuteľnosť, potom ju otvorte a ťuknite na \"Objednať pôdorys\".\n2. Ak si to aplikácia vypýta, prihláste sa. Aby objednávka prešla, musí byť váš e-mail overený.\n3. Vyberte balík, zapnite prípadné doplnky, napíšte poznámku.\n4. Ťuknite na \"Odoslať objednávku\". Použite Wi-Fi a nechajte aplikáciu otvorenú, kým sa nezobrazí číslo objednávky — sken je veľký objem dát na nahratie.\n5. Zaplaťte ju. Kým nie je zaplatená, objednávka neplatí; kresliť začneme hneď po prijatí platby.",
+    "es": "1. Escanea la propiedad, luego ábrela y toca \"Pedir plano de planta\".\n2. Inicia sesión si la app te lo pide. Tu correo tiene que estar verificado para que el pedido se procese.\n3. Elige un paquete, activa los extras que quieras y escribe una nota.\n4. Toca \"Realizar pedido\". Usa Wi-Fi y deja la app abierta hasta que aparezca tu número de pedido — tu escaneo es un archivo grande y tarda en subir.\n5. Págalo. Hasta que se pague, el pedido no está realizado; empezamos a dibujar en cuanto llega el pago.",
+    "nl": "1. Scan de woning, open die daarna en tik op \"Plattegrond bestellen\".\n2. Log in als de app daarom vraagt. Je e-mailadres moet geverifieerd zijn voordat een bestelling doorgaat.\n3. Kies een pakket, zet eventuele extra's aan en schrijf een opmerking.\n4. Tik op \"Bestelling plaatsen\". Gebruik wifi en laat de app open tot je bestelnummer verschijnt — je scan is een grote upload.\n5. Betaal de bestelling. Tot die betaald is, is ze niet geplaatst; zodra de betaling binnen is, beginnen we met tekenen."
+   }
+  },
+  {
+   "key": "No — one house, one order. Once you have ordered, later scans go into that same order through \"Send extra scan\", and they never cost extra: the price is per order, not per scan. If an unpaid order is cancelled, its scans go back to \"New\" and you can order them again.",
+   "translations": {
+    "vi": "Không — một căn nhà một đơn thôi. Đặt rồi thì bản quét sau đi vào đúng đơn đó qua nút \"Gửi bổ sung bản quét\", và không tính thêm tiền — giá tính theo đơn chứ không theo số bản quét. Nếu một đơn chưa thanh toán bị hủy, các bản quét của đơn về lại \"Mới\" và bạn đặt lại được.",
+    "fr": "Non — une maison, une commande. Une fois la commande passée, les numérisations suivantes rejoignent cette même commande via \"Envoyer une numérisation supplémentaire\", et elles ne coûtent jamais plus : le prix est par commande, pas par numérisation. Si une commande non payée est annulée, ses numérisations redeviennent \"Nouveau\" et vous pouvez les commander de nouveau.",
+    "de": "Nein — ein Haus, eine Bestellung. Sobald Sie bestellt haben, gehen spätere Scans über \"Zusatz-Scan senden\" in dieselbe Bestellung — und sie kosten nie extra: Der Preis gilt pro Bestellung, nicht pro Scan. Wird eine unbezahlte Bestellung storniert, sind ihre Scans wieder \"Neu\" und Sie können sie erneut bestellen.",
+    "cs": "Ne — jeden dům, jedna objednávka. Jakmile jednou objednáte, pozdější skeny jdou do stejné objednávky přes \"Odeslat doplňující sken\" a nikdy nestojí nic navíc: cena je za objednávku, ne za sken. Když se nezaplacená objednávka zruší, její skeny jsou znovu \"Nový\" a můžete je objednat znovu.",
+    "sk": "Nie — jeden dom, jedna objednávka. Keď už máte objednané, ďalšie skeny idú do tej istej objednávky cez \"Poslať ďalší sken\" a nikdy nestoja nič navyše: cena je za objednávku, nie za sken. Keď sa nezaplatená objednávka zruší, jej skeny sú znova \"Nový\" a môžete ich objednať znova.",
+    "es": "No — una casa, un pedido. Una vez que hayas pedido, los escaneos posteriores entran en ese mismo pedido con \"Enviar escaneo adicional\", y nunca cuestan extra: el precio es por pedido, no por escaneo. Si se cancela un pedido sin pagar, sus escaneos vuelven a \"Nuevo\" y puedes pedirlos otra vez.",
+    "nl": "Nee — één huis, één bestelling. Heb je eenmaal besteld, dan gaan latere scans via \"Extra scan versturen\" in diezelfde bestelling, en dat kost nooit extra: de prijs is per bestelling, niet per scan. Wordt een onbetaalde bestelling geannuleerd, dan staan de scans weer op \"Nieuw\" en kun je ze opnieuw bestellen."
+   }
+  },
+  {
+   "key": "Tap the pay button — on the screen right after you order, or on the order in the Orders tab. You pay by card in the app, or on the payment page in your browser. Your order is placed once it is paid; an order left unpaid for 7 days is cancelled. No button yet? Give it a few minutes; the link reaches your email.",
+   "translations": {
+    "vi": "Bạn bấm nút thanh toán — ở màn hình ngay sau khi đặt, hoặc trong đơn ở tab Đơn hàng. Bạn trả bằng thẻ ngay trong app, hoặc ở trang thanh toán trên trình duyệt. Thanh toán xong thì đơn mới được đặt; đơn để 7 ngày chưa thanh toán sẽ bị hủy. Chưa thấy nút thì đợi vài phút, link sẽ tới email của bạn.",
+    "fr": "Touchez le bouton de paiement — sur l'écran juste après la commande, ou dans la commande, dans l'onglet Commandes. Vous payez par carte dans l'app, ou sur la page de paiement dans votre navigateur. Votre commande est passée une fois payée; une commande non payée pendant 7 jours est annulée. Pas encore de bouton? Patientez quelques minutes; le lien arrive dans votre boîte courriel.",
+    "de": "Tippen Sie auf den Bezahl-Button — auf dem Bildschirm direkt nach der Bestellung oder in der Bestellung im Tab \"Bestellungen\". Sie bezahlen per Karte in der App oder auf der Zahlungsseite in Ihrem Browser. Aufgegeben ist Ihre Bestellung, sobald sie bezahlt ist; eine Bestellung, die 7 Tage unbezahlt bleibt, wird storniert. Noch kein Button? Warten Sie ein paar Minuten — der Link kommt per E-Mail.",
+    "cs": "Klepněte na tlačítko pro platbu — na obrazovce hned po objednání, nebo v objednávce na záložce Objednávky. Zaplatíte kartou v aplikaci, nebo na platební stránce ve vašem prohlížeči. Objednávka platí, jakmile je zaplacená; objednávka nezaplacená 7 dní se zruší. Tlačítko zatím nikde? Dejte tomu pár minut; odkaz vám dorazí na e-mail.",
+    "sk": "Ťuknite na tlačidlo platby — na obrazovke hneď po objednaní alebo v objednávke na karte Objednávky. Zaplatíte platobnou kartou v aplikácii alebo na platobnej stránke vo vašom prehliadači. Objednávka platí, keď je zaplatená; objednávka nezaplatená 7 dní sa zruší. Tlačidlo ešte nevidíte? Počkajte pár minút; odkaz vám príde na e-mail.",
+    "es": "Toca el botón de pago — en la pantalla justo después de pedir, o en el pedido, en la pestaña Pedidos. Pagas con tarjeta en la app, o en la página de pago en tu navegador. Tu pedido se realiza cuando está pagado; un pedido sin pagar durante 7 días se cancela. ¿Aún no ves el botón? Dale unos minutos; el enlace llegará a tu correo.",
+    "nl": "Tik op de betaalknop — op het scherm direct na het bestellen, of in de bestelling in het tabblad Bestellingen. Je betaalt met je betaalkaart in de app, of op de betaalpagina in je browser. Je bestelling is geplaatst zodra ze betaald is; een bestelling die 7 dagen onbetaald blijft, wordt geannuleerd. Nog geen knop? Geef het een paar minuten; de link komt in je mailbox."
+   }
+  },
+  {
+   "key": "The Orders tab. Each order carries a badge — Awaiting payment, Processing, On hold, Delivered, Refunded or Cancelled. The search box finds an order by property name, order number or scan name.",
+   "translations": {
+    "vi": "Tab Đơn hàng. Mỗi đơn có một nhãn — Chờ thanh toán, Đang xử lý, Tạm giữ, Đã giao, Hoàn tiền hoặc Đã hủy. Ô tìm kiếm tìm được theo tên dự án, số đơn hoặc tên bản quét.",
+    "fr": "Dans l'onglet Commandes. Chaque commande porte une étiquette — Paiement en attente, En traitement, En attente, Livrée, Remboursée ou Annulée. Le champ de recherche trouve une commande par nom de propriété, par numéro de commande ou par nom de numérisation.",
+    "de": "Im Tab \"Bestellungen\". Jede Bestellung hat einen Status — Zahlung ausstehend, In Bearbeitung, Wartend, Geliefert, Erstattet oder Storniert. Das Suchfeld findet Bestellungen nach Objektnamen, Bestellnummer oder Scan-Namen.",
+    "cs": "Na záložce Objednávky. Každá objednávka má štítek — Čeká na platbu, Zpracovává se, Pozastaveno, Doručeno, Vráceno nebo Zrušeno. Vyhledávací pole najde objednávku podle názvu nemovitosti, čísla objednávky nebo názvu skenu.",
+    "sk": "Na karte Objednávky. Každá objednávka má štítok — Čaká na platbu, Spracúva sa, Pozastavená, Doručená, Refundovaná alebo Zrušená. Vyhľadávacie pole nájde objednávku podľa názvu nehnuteľnosti, čísla objednávky alebo názvu skenu.",
+    "es": "En la pestaña Pedidos. Cada pedido lleva una etiqueta — Pendiente de pago, En proceso, En espera, Entregado, Reembolsado o Cancelado. El buscador encuentra un pedido por nombre de la propiedad, por número de pedido o por nombre de escaneo.",
+    "nl": "In het tabblad Bestellingen. Elke bestelling heeft een label — Wacht op betaling, In behandeling, In de wacht, Geleverd, Terugbetaald of Geannuleerd. Via het zoekveld vind je een bestelling op woningnaam, bestelnummer of scannaam."
+   }
+  },
+  {
+   "key": "An order awaiting payment: open it in the Orders tab and tap \"Cancel order\" — nothing is charged and its scans go back to \"New\". Any other order: write to %@ with your order number and we will sort it out. The full terms are in the Account tab, under Legal & Privacy.",
+   "translations": {
+    "vi": "Đơn đang chờ thanh toán: mở đơn ở tab Đơn hàng rồi bấm \"Hủy đơn\" — bạn không mất tiền và các bản quét của đơn về lại \"Mới\". Đơn khác: bạn viết cho %@ kèm số đơn nhé. Điều khoản đầy đủ ở tab Tài khoản, mục Legal & Privacy.",
+    "fr": "Une commande en attente de paiement : ouvrez-la dans l'onglet Commandes et touchez \"Annuler la commande\" — rien n'est débité et ses numérisations redeviennent \"Nouveau\". Toute autre commande : écrivez à %@ avec votre numéro de commande et nous nous en occupons. Les conditions complètes sont dans l'onglet Compte, sous Mentions légales et confidentialité.",
+    "de": "Eine Bestellung mit ausstehender Zahlung: Öffnen Sie sie im Tab \"Bestellungen\" und tippen Sie auf \"Bestellung stornieren\" — es wird nichts berechnet, und ihre Scans sind wieder \"Neu\". Jede andere Bestellung: Schreiben Sie an %@ mit Ihrer Bestellnummer, und wir kümmern uns darum. Die vollständigen Bedingungen finden Sie im Tab \"Konto\" unter Rechtliches & Datenschutz.",
+    "cs": "Objednávka, která čeká na platbu: otevřete ji na záložce Objednávky a klepněte na \"Zrušit objednávku\" — nic se neúčtuje a její skeny jsou znovu \"Nový\". Jakákoli jiná objednávka: napište na %@ a uveďte číslo objednávky — vyřešíme to. Úplné podmínky najdete na záložce Účet v sekci Právní informace a soukromí.",
+    "sk": "Objednávka, ktorá čaká na platbu: otvorte ju na karte Objednávky a ťuknite na \"Zrušiť objednávku\" — nič sa neúčtuje a jej skeny sú znova \"Nový\". Akákoľvek iná objednávka: napíšte na %@ a uveďte číslo objednávky — vyriešime to. Úplné podmienky nájdete na karte Účet v časti Právne informácie a súkromie.",
+    "es": "Un pedido pendiente de pago: ábrelo en la pestaña Pedidos y toca \"Cancelar pedido\" — no se cobra nada y sus escaneos vuelven a \"Nuevo\". Cualquier otro pedido: escribe a %@ con tu número de pedido y lo resolvemos. Los términos completos están en la pestaña Cuenta, en Legal y privacidad.",
+    "nl": "Een bestelling die wacht op betaling: open die in het tabblad Bestellingen en tik op \"Bestelling annuleren\" — er wordt niets in rekening gebracht en de scans staan weer op \"Nieuw\". Elke andere bestelling: mail naar %@ met je bestelnummer, dan lossen we het op. De volledige voorwaarden vind je in het tabblad Account, onder Juridisch & privacy."
+   }
+  },
+  {
+   "key": "Awaiting payment",
+   "translations": {
+    "vi": "Chờ thanh toán",
+    "fr": "Paiement en attente",
+    "de": "Zahlung ausstehend",
+    "cs": "Čeká na platbu",
+    "sk": "Čaká na platbu",
+    "es": "Pendiente de pago",
+    "nl": "Wacht op betaling"
+   }
+  },
+  {
+   "key": "Cancelled",
+   "translations": {
+    "vi": "Đã hủy",
+    "fr": "Annulée",
+    "de": "Storniert",
+    "cs": "Zrušeno",
+    "sk": "Zrušená",
+    "es": "Cancelado",
+    "nl": "Geannuleerd"
+   }
+  },
+  {
+   "key": "Pay $%lld",
+   "translations": {
+    "vi": "Thanh toán $%lld",
+    "fr": "Payer %lld $",
+    "de": "$%lld bezahlen",
+    "cs": "Zaplatit %lld $",
+    "sk": "Zaplatiť $%lld",
+    "es": "Pagar $%lld",
+    "nl": "$%lld betalen"
+   }
+  },
+  {
+   "key": "Not placed yet — we start drawing as soon as it is paid.",
+   "translations": {
+    "vi": "Đơn chưa được đặt — chúng tôi bắt đầu vẽ ngay khi đơn được thanh toán.",
+    "fr": "Commande pas encore passée — nous commençons à dessiner dès qu'elle est payée.",
+    "de": "Bestellung noch nicht aufgegeben — wir beginnen zu zeichnen, sobald sie bezahlt ist.",
+    "cs": "Objednávka ještě neplatí — kreslit začneme, jakmile bude zaplacená.",
+    "sk": "Objednávka ešte neplatí — kresliť začneme, hneď ako bude zaplatená.",
+    "es": "Pedido aún no realizado — empezamos a dibujar en cuanto esté pagado.",
+    "nl": "Bestelling nog niet geplaatst — we beginnen met tekenen zodra ze betaald is."
+   }
+  },
+  {
+   "key": "Unpaid orders are cancelled after 7 days.",
+   "translations": {
+    "vi": "Đơn chưa thanh toán sẽ tự hủy sau 7 ngày.",
+    "fr": "Les commandes non payées sont annulées après 7 jours.",
+    "de": "Unbezahlte Bestellungen werden nach 7 Tagen storniert.",
+    "cs": "Nezaplacené objednávky se po 7 dnech zruší.",
+    "sk": "Nezaplatené objednávky sa po 7 dňoch zrušia.",
+    "es": "Los pedidos sin pagar se cancelan a los 7 días.",
+    "nl": "Onbetaalde bestellingen worden na 7 dagen geannuleerd."
+   }
+  },
+  {
+   "key": "You can also pay later in the Orders tab.",
+   "translations": {
+    "vi": "Bạn cũng có thể thanh toán sau ở tab Đơn hàng.",
+    "fr": "Vous pouvez aussi payer plus tard dans l'onglet Commandes.",
+    "de": "Sie können auch später im Tab \"Bestellungen\" bezahlen.",
+    "cs": "Zaplatit můžete i později na záložce Objednávky.",
+    "sk": "Zaplatiť môžete aj neskôr na karte Objednávky.",
+    "es": "También puedes pagar más tarde en la pestaña Pedidos.",
+    "nl": "Je kunt ook later betalen in het tabblad Bestellingen."
+   }
+  },
+  {
+   "key": "Cancel order",
+   "translations": {
+    "vi": "Hủy đơn",
+    "fr": "Annuler la commande",
+    "de": "Bestellung stornieren",
+    "cs": "Zrušit objednávku",
+    "sk": "Zrušiť objednávku",
+    "es": "Cancelar pedido",
+    "nl": "Bestelling annuleren"
+   }
+  },
+  {
+   "key": "Cancelling…",
+   "translations": {
+    "vi": "Đang hủy…",
+    "fr": "Annulation…",
+    "de": "Wird storniert…",
+    "cs": "Ruší se…",
+    "sk": "Ruší sa…",
+    "es": "Cancelando…",
+    "nl": "Annuleren…"
+   }
+  },
+  {
+   "key": "Cancel this order?",
+   "translations": {
+    "vi": "Hủy đơn này?",
+    "fr": "Annuler cette commande?",
+    "de": "Diese Bestellung stornieren?",
+    "cs": "Zrušit tuto objednávku?",
+    "sk": "Zrušiť túto objednávku?",
+    "es": "¿Cancelar este pedido?",
+    "nl": "Deze bestelling annuleren?"
+   }
+  },
+  {
+   "key": "It has not been paid, so nothing is charged. Its scans go back to \"New\", ready to order again.",
+   "translations": {
+    "vi": "Đơn chưa thanh toán nên bạn không mất tiền. Các bản quét của đơn sẽ về lại \"Mới\", đặt lại được.",
+    "fr": "Elle n'a pas été payée, rien n'est donc débité. Ses numérisations redeviennent \"Nouveau\", prêtes à être commandées de nouveau.",
+    "de": "Sie wurde nicht bezahlt, es wird also nichts berechnet. Ihre Scans sind wieder \"Neu\" und können erneut bestellt werden.",
+    "cs": "Nebyla zaplacena, takže se nic neúčtuje. Její skeny budou znovu \"Nový\" a můžete je objednat znovu.",
+    "sk": "Nebola zaplatená, takže sa nič neúčtuje. Jej skeny budú znova \"Nový\" a môžete ich objednať znova.",
+    "es": "No se ha pagado, así que no se cobra nada. Sus escaneos vuelven a \"Nuevo\", listos para pedirlos otra vez.",
+    "nl": "Er is niet voor betaald, dus er wordt niets in rekening gebracht. De scans staan weer op \"Nieuw\" en kun je opnieuw bestellen."
+   }
+  },
+  {
+   "key": "Keep order",
+   "translations": {
+    "vi": "Giữ đơn",
+    "fr": "Garder la commande",
+    "de": "Bestellung behalten",
+    "cs": "Ponechat objednávku",
+    "sk": "Ponechať objednávku",
+    "es": "Mantener pedido",
+    "nl": "Bestelling houden"
+   }
+  },
+  {
+   "key": "Order not cancelled",
+   "translations": {
+    "vi": "Chưa hủy được đơn",
+    "fr": "Commande non annulée",
+    "de": "Bestellung nicht storniert",
+    "cs": "Objednávka nezrušena",
+    "sk": "Objednávka nezrušená",
+    "es": "Pedido no cancelado",
+    "nl": "Bestelling niet geannuleerd"
+   }
+  },
+  {
+   "key": "This order has already been paid.",
+   "translations": {
+    "vi": "Đơn này đã được thanh toán.",
+    "fr": "Cette commande a déjà été payée.",
+    "de": "Diese Bestellung wurde bereits bezahlt.",
+    "cs": "Tato objednávka už byla zaplacena.",
+    "sk": "Táto objednávka už bola zaplatená.",
+    "es": "Este pedido ya se ha pagado.",
+    "nl": "Deze bestelling is al betaald."
+   }
+  },
+  {
+   "key": "A payment for this order is still being processed. Please check again in a few minutes.",
+   "translations": {
+    "vi": "Một khoản thanh toán cho đơn này đang được xử lý. Vui lòng xem lại sau vài phút.",
+    "fr": "Un paiement pour cette commande est encore en cours de traitement. Revenez dans quelques minutes.",
+    "de": "Eine Zahlung für diese Bestellung wird noch verarbeitet. Bitte schauen Sie in ein paar Minuten noch einmal nach.",
+    "cs": "Platba za tuto objednávku se ještě zpracovává. Podívejte se znovu za pár minut.",
+    "sk": "Platba za túto objednávku sa ešte spracúva. Pozrite sa znova o pár minút.",
+    "es": "Un pago de este pedido aún se está procesando. Vuelve a mirar en unos minutos.",
+    "nl": "Er wordt nog een betaling voor deze bestelling verwerkt. Kijk over een paar minuten opnieuw."
+   }
+  },
+  {
+   "key": "This order can't be cancelled in the app. Please contact our team.",
+   "translations": {
+    "vi": "Đơn này không hủy được trong app. Vui lòng liên hệ với chúng tôi.",
+    "fr": "Cette commande ne peut pas être annulée dans l'app. Veuillez contacter notre équipe.",
+    "de": "Diese Bestellung kann nicht in der App storniert werden. Bitte wenden Sie sich an unser Team.",
+    "cs": "Tuto objednávku nelze zrušit v aplikaci. Kontaktujte prosím náš tým.",
+    "sk": "Túto objednávku nie je možné zrušiť v aplikácii. Kontaktujte, prosím, náš tím.",
+    "es": "Este pedido no se puede cancelar en la app. Ponte en contacto con nuestro equipo.",
+    "nl": "Deze bestelling kan niet in de app worden geannuleerd. Neem contact op met ons team."
+   }
+  },
+  {
+   "key": "We couldn't cancel this order right now. Please try again in a few minutes.",
+   "translations": {
+    "vi": "Hiện chưa hủy được đơn này. Vui lòng thử lại sau vài phút.",
+    "fr": "Nous n'avons pas pu annuler cette commande pour le moment. Réessayez dans quelques minutes.",
+    "de": "Wir konnten diese Bestellung gerade nicht stornieren. Bitte versuchen Sie es in ein paar Minuten erneut.",
+    "cs": "Tuto objednávku se teď nepodařilo zrušit. Zkuste to prosím za pár minut znovu.",
+    "sk": "Túto objednávku sa teraz nepodarilo zrušiť. Skúste to, prosím, o pár minút znova.",
+    "es": "No pudimos cancelar este pedido ahora. Inténtalo de nuevo en unos minutos.",
+    "nl": "We konden deze bestelling nu niet annuleren. Probeer het over een paar minuten opnieuw."
+   }
+  },
+  {
+   "key": "Cancelled before it was paid — nothing was charged. Its scans are back to \"New\", so you can order them again.",
+   "translations": {
+    "vi": "Đã hủy khi chưa thanh toán — bạn không mất tiền. Các bản quét của đơn đã về lại \"Mới\", bạn có thể đặt lại.",
+    "fr": "Annulée avant d'être payée — rien n'a été débité. Ses numérisations sont redevenues \"Nouveau\", vous pouvez donc les commander de nouveau.",
+    "de": "Vor der Bezahlung storniert — es wurde nichts berechnet. Ihre Scans sind wieder \"Neu\", Sie können sie also erneut bestellen.",
+    "cs": "Zrušeno před zaplacením — nic nebylo účtováno. Její skeny jsou znovu \"Nový\", takže je můžete objednat znovu.",
+    "sk": "Zrušená pred zaplatením — nič sa neúčtovalo. Jej skeny sú znova \"Nový\", takže ich môžete objednať znova.",
+    "es": "Cancelado antes de pagarse — no se cobró nada. Sus escaneos vuelven a estar en \"Nuevo\", así que puedes pedirlos otra vez.",
+    "nl": "Geannuleerd voordat er betaald is — er is niets in rekening gebracht. De scans staan weer op \"Nieuw\", dus je kunt ze opnieuw bestellen."
+   }
+  },
+  {
+   "key": "This order was cancelled, but a payment reached us afterwards. Our team will refund it.",
+   "translations": {
+    "vi": "Đơn này đã bị hủy nhưng sau đó chúng tôi vẫn nhận được một khoản thanh toán. Chúng tôi sẽ hoàn lại khoản đó.",
+    "fr": "Cette commande a été annulée, mais un paiement nous est parvenu ensuite. Notre équipe va le rembourser.",
+    "de": "Diese Bestellung wurde storniert, doch danach ist noch eine Zahlung bei uns eingegangen. Unser Team erstattet sie.",
+    "cs": "Tato objednávka byla zrušena, ale potom nám ještě přišla platba. Náš tým ji vrátí.",
+    "sk": "Táto objednávka bola zrušená, ale potom nám ešte prišla platba. Náš tím ju vráti.",
+    "es": "Este pedido se canceló, pero después nos llegó un pago. Nuestro equipo lo reembolsará.",
+    "nl": "Deze bestelling is geannuleerd, maar daarna kwam er toch een betaling binnen. Ons team betaalt die terug."
+   }
+  },
+  {
+   "key": "Not placed until it is paid. Pay in the Orders tab.",
+   "translations": {
+    "vi": "Đơn chỉ được đặt khi đã thanh toán. Thanh toán ở tab Đơn hàng.",
+    "fr": "Commande passée seulement une fois payée. Payez dans l'onglet Commandes.",
+    "de": "Erst mit der Bezahlung aufgegeben. Bezahlen Sie im Tab \"Bestellungen\".",
+    "cs": "Objednávka platí až po zaplacení. Zaplaťte na záložce Objednávky.",
+    "sk": "Objednávka platí až po zaplatení. Zaplaťte na karte Objednávky.",
+    "es": "No se realiza hasta que se paga. Paga en la pestaña Pedidos.",
+    "nl": "Pas geplaatst als er betaald is. Betaal in het tabblad Bestellingen."
+   }
+  },
+  {
+   "key": "Order %@ was cancelled before it was paid. Close this screen: its scans are back to \"New\" and can be ordered again.",
+   "translations": {
+    "vi": "Đơn %@ đã bị hủy khi chưa thanh toán. Hãy đóng màn này: các bản quét của đơn đã về lại \"Mới\" và đặt lại được.",
+    "fr": "La commande %@ a été annulée avant d'être payée. Fermez cet écran : ses numérisations sont redevenues \"Nouveau\" et peuvent être commandées de nouveau.",
+    "de": "Bestellung %@ wurde vor der Bezahlung storniert. Schließen Sie diesen Bildschirm: Ihre Scans sind wieder \"Neu\" und können erneut bestellt werden.",
+    "cs": "Objednávka %@ byla zrušena před zaplacením. Zavřete tuto obrazovku: její skeny jsou znovu \"Nový\" a lze je objednat znovu.",
+    "sk": "Objednávka %@ bola zrušená pred zaplatením. Zatvorte túto obrazovku: jej skeny sú znova \"Nový\" a dajú sa objednať znova.",
+    "es": "El pedido %@ se canceló antes de pagarse. Cierra esta pantalla: sus escaneos vuelven a estar en \"Nuevo\" y se pueden pedir otra vez.",
+    "nl": "Bestelling %@ is geannuleerd voordat er betaald is. Sluit dit scherm: de scans staan weer op \"Nieuw\" en kunnen opnieuw besteld worden."
+   }
+  },
+  {
+   "key": "Added to your order. It is not placed until it is paid — you can pay in the Orders tab.",
+   "translations": {
+    "vi": "Đã thêm vào đơn của bạn. Đơn chỉ được đặt khi đã thanh toán — bạn thanh toán ở tab Đơn hàng.",
+    "fr": "C'est ajouté à votre commande. Elle n'est passée qu'une fois payée — vous pouvez payer dans l'onglet Commandes.",
+    "de": "Zu Ihrer Bestellung hinzugefügt. Sie ist erst mit der Bezahlung aufgegeben — bezahlen können Sie im Tab \"Bestellungen\".",
+    "cs": "Přidáno k vaší objednávce. Objednávka platí až po zaplacení — zaplatit můžete na záložce Objednávky.",
+    "sk": "Pridané k vašej objednávke. Objednávka platí až po zaplatení — zaplatiť môžete na karte Objednávky.",
+    "es": "Añadido a tu pedido. No se realiza hasta que se paga — puedes pagar en la pestaña Pedidos.",
+    "nl": "Toegevoegd aan je bestelling. Die is pas geplaatst als er betaald is — betalen kan in het tabblad Bestellingen."
    }
   }
  ],

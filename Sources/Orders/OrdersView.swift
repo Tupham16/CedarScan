@@ -152,6 +152,9 @@ struct OrdersView: View {
         switch answer {
         case .success(let fresh):
             orders = fresh
+            // Orders v2 B: awaiting / cancelled states onto this device's scans (positive signals
+            // only — see `ScanStore.syncOrders`).
+            store.syncOrders(fresh)
             // An answer older than the failure shown is not the refresh that failed.
             if seq > failedSeq { errorMessage = nil }
             appliedSeq = seq
@@ -646,22 +649,26 @@ struct RevisionSheet: View {
 /// buộc, vì `.onHold` phải tách ra thì mới đếm riêng được), và nếu server thêm trạng thái thứ sáu
 /// mà không có ô "Khác" thì đơn đó KHÔNG nằm trong ô nào — khách mở tab Đơn hàng thấy nó ở "Tất
 /// cả" rồi bấm lọc là mất tích. Ô "Khác" chỉ hiện khi thật sự có đơn như vậy (xem `visibleFilters`).
+/// Orders v2 B added `awaiting_payment` (not placed until paid) and `cancelled` (cancelled unpaid;
+/// listed because the app asks `include=cancelled`) — one chip each, same rule.
 enum OrderFilter: String, CaseIterable, Identifiable {
-    case all, processing, onHold, ready, refunded, other
+    case all, awaitingPayment, processing, onHold, ready, refunded, cancelled, other
     var id: String { rawValue }
 
     /// Các trạng thái app BIẾT tên. Dùng cho ô "Khác" — đừng sửa một mình nó, phải sửa cùng `matches`.
     private static let known: Set<String> = [
-        "received", "in_production", "on_hold", "delivered", "refunded",
+        "received", "in_production", "on_hold", "delivered", "refunded", "awaiting_payment", "cancelled",
     ]
 
     var title: String {
         switch self {
         case .all: return String(localized: "All")
+        case .awaitingPayment: return String(localized: "Awaiting payment")
         case .processing: return String(localized: "Processing")
         case .onHold: return String(localized: "On hold")
         case .ready: return String(localized: "Ready")
         case .refunded: return String(localized: "Refunded")
+        case .cancelled: return String(localized: "Cancelled")
         case .other: return String(localized: "Other")
         }
     }
@@ -669,10 +676,12 @@ enum OrderFilter: String, CaseIterable, Identifiable {
     func matches(_ status: String) -> Bool {
         switch self {
         case .all: return true
+        case .awaitingPayment: return status == "awaiting_payment"
         case .processing: return status == "received" || status == "in_production"
         case .onHold: return status == "on_hold"
         case .ready: return status == "delivered"
         case .refunded: return status == "refunded"
+        case .cancelled: return status == "cancelled"
         case .other: return !Self.known.contains(status)
         }
     }
@@ -689,6 +698,11 @@ struct StatusBadge: View {
             return (String(localized: "On hold"), .warn)
         case "refunded":
             return (String(localized: "Refunded"), .danger)
+        // Orders v2 B: not placed until paid (Fog `warn`, mockups 34/35) · cancelled unpaid.
+        case "awaiting_payment":
+            return (String(localized: "Awaiting payment"), .warn)
+        case "cancelled":
+            return (String(localized: "Cancelled"), .neutral)
         // "in_production" VÀ "received"/mặc định đều hiện "Đang xử lý" — chủ app chốt bỏ nhãn
         // "Đã nhận" (khiến khách nôn nóng), gộp vào "đang xử lý".
         //

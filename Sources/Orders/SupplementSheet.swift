@@ -32,6 +32,8 @@ struct SupplementSheet: View {
         /// Đơn đã giao → đây là "Yêu cầu sửa", ✗ luồng này (chủ app chốt).
         case delivered(String)
         case failed(String)
+        /// Orders v2 B: the order was cancelled unpaid — nothing to retry, only Close.
+        case orderCancelled(String)
         case sent(Int)
     }
 
@@ -47,6 +49,10 @@ struct SupplementSheet: View {
     /// (`wasDelivered`/`movedToFix`), ✗ tự đoán trạng thái đơn ở phía app: app chỉ biết trạng
     /// thái qua `listOrders()`, tức cần mạng và có thể cũ.
     @State private var deliveredNote: String?
+    /// The order list fetched by `send()`. Applied to the store only when this sheet goes away
+    /// (Orders v2 B): releasing a cancelled order's stamps while it is up would empty it — its
+    /// caller builds it from the project's order number (trap #20a).
+    @State private var fetchedOrders: [OrderDTO]?
 
     var body: some View {
         NavigationStack {
@@ -72,7 +78,10 @@ struct SupplementSheet: View {
                     }
                 }
         }
-        .onDisappear { task?.cancel() }
+        .onDisappear {
+            task?.cancel()
+            if let fetchedOrders { store.syncOrders(fetchedOrders) }
+        }
     }
 
     private var isWorking: Bool {
@@ -163,6 +172,12 @@ struct SupplementSheet: View {
                     .foregroundStyle(.red)
                 Button(String(localized: "Try again")) { send() }
             }
+        case .orderCancelled(let message):
+            Section {
+                Text(message)
+                    .font(.subheadline)
+                Button(String(localized: "Close")) { dismiss() }
+            }
         }
     }
 
@@ -178,8 +193,16 @@ struct SupplementSheet: View {
             let order: OrderDTO
             do {
                 let list = try await APIClient.shared.listOrders()
+                fetchedOrders = list.orders
                 guard let found = list.orders.first(where: { $0.orderNumber == orderNumber }) else {
                     phase = .failed(String(localized: "We couldn't find order \(orderNumber) on your account. Please sign in with the account that placed it."))
+                    return
+                }
+                // Orders v2 B: cancelled unpaid (by the customer, after 7 days): the server refuses
+                // it (`order_closed`). Its scans go back to "New" when this sheet closes
+                // (`fetchedOrders`) — from there they are ordered like any new scan.
+                if found.isCancelled {
+                    phase = .orderCancelled(String(localized: "Order \(orderNumber) was cancelled before it was paid. Close this screen: its scans are back to \"New\" and can be ordered again."))
                     return
                 }
                 order = found
@@ -230,6 +253,11 @@ struct SupplementSheet: View {
                     extraScanIds: Array(cloudIds.dropFirst())
                 )
                 stamp(result)
+                // Orders v2 B: joined an order still awaiting payment → these scans read
+                // "Awaiting payment" too. No status (older server) = unknown: leave it.
+                if let status = result.status {
+                    store.noteOrderStatus(orderNumber: result.orderNumber, status: status)
+                }
                 deliveredNote = Self.deliveredNote(for: result)
                 // Đếm theo thứ SERVER xác nhận đã nằm trong đơn, ✗ theo số bản quét app gửi đi.
                 phase = .sent(result.scanIds?.count ?? records.count)
@@ -248,7 +276,12 @@ struct SupplementSheet: View {
     /// KHÔNG kéo thẻ về hàng sản xuất và việc phải xử lý tay — hứa "sẽ gửi lại bản vẽ cập nhật"
     /// lúc đó là hứa một thứ chưa ai cầm. Server cũ không trả hai khoá này (cả hai Optional) →
     /// `nil` → câu mặc định, đúng hành vi trước 19/08.
+    /// Orders v2 B: an order awaiting payment is hidden from the team and rings no bell, so "our
+    /// team has been notified" would be false — it is drawn once paid.
     private static func deliveredNote(for result: SupplementScanResponse) -> String? {
+        if result.status == "awaiting_payment" {
+            return String(localized: "Added to your order. It is not placed until it is paid — you can pay in the Orders tab.")
+        }
         guard result.wasDelivered == true else { return nil }
         if result.movedToFix == true {
             return String(localized: "This order was already delivered, so our team will draw the new area and send you an updated drawing — at no extra charge. While they work on it the download link for the previous drawing is temporarily unavailable.")
