@@ -116,7 +116,7 @@ enum Fog6 {
 
     /// Runs in `CedarScanApp.init`, before `ScanStore()` / `AccountStore()` read disk.
     static func seed() {
-        guard let screen else { return }
+        guard let screen, !AccentProbe.noSeed else { return }
         let fm = FileManager.default
         let scans = docs.appendingPathComponent("Scans", isDirectory: true)
         try? fm.removeItem(at: scans)

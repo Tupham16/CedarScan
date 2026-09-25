@@ -104,7 +104,7 @@ jobs:
           grep -h "PROBE " dark.log | sed 's/.*PROBE /PROBE /' > probe-dark.txt || true
           wc -l probe-*.txt
           for m in light dark; do
-            MSG=$( (cat facts.txt; grep -E " accent (probe-|sw-)" probe-$m.txt) | python3 -c "import sys; print(sys.stdin.read().replace('%','%25').replace('\n','%0A'))")
+            MSG=$( (cat facts.txt; grep -v " image " probe-$m.txt) | python3 -c "import sys; print(sys.stdin.read().replace('%','%25').replace('\n','%0A'))")
             echo "::notice title=${{ matrix.runtime }} $m::$MSG"
           done
 

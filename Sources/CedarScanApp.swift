@@ -35,6 +35,11 @@ struct CedarScanApp: App {
                 // khuôn present-bằng-UIKit ở 2.11/2.12 phải bơm tay và quên là trap). Đảo thứ tự
                 // hai dòng đó là cover mất `store`/`account`.
                 .scanCoverLayer()
+                .overlay(alignment: .top) {
+                    if AccentProbe.rootInfo {
+                        AccentProbeView(compact: true).background(Color(uiColor: .systemBackground))
+                    }
+                }
                 .environmentObject(store)
                 .environmentObject(account)
             }

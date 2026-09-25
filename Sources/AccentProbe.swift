@@ -8,6 +8,10 @@ enum AccentProbe {
     static let args = ProcessInfo.processInfo.arguments
     static let windowTint = args.contains("-accentWindowTint")
     static let rootTint = args.contains("-accentRootTint")
+    /// Skip `Fog6.seed()` (runs in `App.init`, before UIApplication adopts the accent).
+    static let noSeed = args.contains("-accentNoSeed")
+    /// Real app path (RootView): info lines + base swatches on top.
+    static let rootInfo = args.contains("-accentProbeInfo")
     static let light = UITraitCollection(userInterfaceStyle: .light)
     static let dark = UITraitCollection(userInterfaceStyle: .dark)
 
@@ -88,6 +92,7 @@ struct AccentProbeHooks: ViewModifier {
 /// Info lines + swatch rows: base, `.tint(candidate)`, `.accentColor(candidate)`.
 struct AccentProbeView: View {
     var showInfo = true
+    var compact = false
     @Environment(\.self) private var env
     @Environment(\.colorScheme) private var scheme
     @State private var lines: [String] = []
@@ -106,7 +111,7 @@ struct AccentProbeView: View {
                 }
             }
             AccentSwatches(tag: showInfo ? "base" : "sheet")
-            if showInfo {
+            if showInfo, !compact {
                 AccentSwatches(tag: "tint").tint(AccentProbe.candidate)
                 AccentSwatches(tag: "accentMod").accentColor(AccentProbe.candidate)
             }

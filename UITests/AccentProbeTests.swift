@@ -9,26 +9,23 @@ final class AccentProbeTests: XCTestCase {
 
     func testAccent() {
         continueAfterFailure = true
+        // Round 2: the real launch path (no harness seed in App.init) vs the harness.
+        run("root", [], raw: true)
+        run("root", ["-accentProbeInfo"], raw: true)
+        run("accent", ["-accentNoSeed"])
+        run("learn", ["-accentNoSeed"])
         run("accent", [])
-        run("accent", ["-accentWindowTint"])
-        run("accent-sheet", [])
-        run("accent-alert", [])
-        run("accent-alert", ["-accentRootTint"])
-        run("accent-alert", ["-accentWindowTint"])
         run("learn", [])
-        run("learn", ["-accentWindowTint"])
-        run("learn", ["-accentRootTint"])
-        run("order", [], end: true)
-        run("order", ["-accentWindowTint"], end: true)
         let a = XCTAttachment(string: out.joined(separator: "\n"))
         a.name = "probe-results"
         a.lifetime = .keepAlways
         add(a)
     }
 
-    private func run(_ screen: String, _ extra: [String], end: Bool = false) {
+    /// `raw`: no `-fog6shot`, i.e. the real app (RootView).
+    private func run(_ screen: String, _ extra: [String], end: Bool = false, raw: Bool = false) {
         let app = XCUIApplication()
-        app.launchArguments = ["-fog6shot", screen, "-AppleLanguages", "(en)", "-AppleLocale", "en_US"] + extra
+        app.launchArguments = (raw ? [] : ["-fog6shot", screen]) + ["-AppleLanguages", "(en)", "-AppleLocale", "en_US"] + extra
         app.launch()
         sleep(5)
         let tag = screen + extra.joined()
