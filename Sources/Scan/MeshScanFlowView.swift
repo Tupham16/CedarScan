@@ -87,6 +87,10 @@ struct MeshScanFlowView: View {
     @State private var showCameraDenied = false
     @State private var isSaving = false
     @State private var scanName = ""
+    /// 15-min tip (owner 26/09): shown once per scan, auto-dismissed. `longTipBuzzed` keeps
+    /// the haptic to one even if the tip re-appears after the naming overlay.
+    @State private var longTipDone = false
+    @State private var longTipBuzzed = false
     /// Khác nil = đã lưu xong, đang hiện màn preview. Phiên quét lúc này đã kết thúc hoàn toàn
     /// (`stopAndExport` đã pause ARSession) nên mọi đường thoát đều an toàn.
     @State private var savedRecord: ScanRecord?
@@ -197,6 +201,8 @@ struct MeshScanFlowView: View {
             if savedRecord == nil && !showNaming && !isSaving {
                 VStack {
                     topBar
+                    // Hidden debug flag only (7 taps on the version line in Account).
+                    TorchDebugReadout(torch: controller.torch)
                     Spacer()
                     bottomControls
                 }
@@ -281,6 +287,9 @@ struct MeshScanFlowView: View {
             Button(String(localized: "Keep scanning"), role: .cancel) {}
             // "Vẫn lưu phần đã có": mesh dưới ngưỡng (nếu >0 đỉnh) vẫn được xuất kèm video.
             Button(String(localized: "Save anyway")) {
+                // Hold: tracking recovery re-activates the coach behind the overlay; the torch
+                // must stay off there.
+                controller.torch.setHold(true)
                 controller.qualityMonitor.setActive(false)
                 showNaming = true
             }
@@ -312,7 +321,7 @@ struct MeshScanFlowView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
 
             if let startedAt = controller.startedAt {
-                ScanTimer(start: startedAt)
+                ScanTimer(start: startedAt, torch: controller.torch)
             }
 
             Button {
@@ -350,6 +359,7 @@ struct MeshScanFlowView: View {
 
     private var bottomControls: some View {
         VStack(spacing: 16) {
+            longScanTip
             warningBanner
             legendCard
             stopButton
@@ -457,6 +467,46 @@ struct MeshScanFlowView: View {
         }
     }
 
+    /// 15-min advisory — owner's choice INSTEAD of mid-scan autosave. Non-blocking, once,
+    /// 20 s (≈30 words, read while walking) or tap. 🔴 Wording must not contradict ScanGuideView ("Do NOT stop between floors —
+    /// walk up the stairs while scanning", "Missed a room?"): a natural break, never "stop now",
+    /// never on the stairs, next scan starts in an already-scanned room (overlap to align).
+    @ViewBuilder
+    private var longScanTip: some View {
+        // Hidden under the warning banners ("Model is full" already says the same thing).
+        if controller.longScanAdvisoryDue && !longTipDone && !controller.capReached
+            && !controller.trackingLost && !controller.isInterrupted {
+            let text = String(localized: "Long scan. When you finish this room (never on the stairs), tap \"Stop & Save\" and scan the rest as a new scan, starting in a room you already scanned.")
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: "clock")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(Color.white)
+                // UILabel wrapper: SwiftUI Text can cut wrapped lines here (trap #44).
+                LegendLabel(text: text, style: .footnote, weight: .semibold)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .fogGlass(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .contentShape(Rectangle())
+            .onTapGesture { longTipDone = true }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(text)
+            .accessibilityAddTraits(.isButton)
+            .task {
+                if !longTipBuzzed {
+                    longTipBuzzed = true
+                    let haptics = UserDefaults.standard.object(forKey: "scanCoachHaptics") == nil
+                        || UserDefaults.standard.bool(forKey: "scanCoachHaptics")
+                    if haptics { UIImpactFeedbackGenerator(style: .medium).impactOccurred() }
+                    UIAccessibility.post(notification: .announcement, argument: text)
+                }
+                try? await Task.sleep(for: .seconds(20))
+                if !Task.isCancelled { longTipDone = true }
+            }
+        }
+    }
+
     private func bannerLabel(_ text: String, color: Color) -> some View {
         Label {
             Text(text).font(.footnote.weight(.semibold))
@@ -487,6 +537,7 @@ struct MeshScanFlowView: View {
             },
             onBack: {
                 showNaming = false
+                controller.torch.setHold(false)
                 controller.qualityMonitor.setActive(true) // quét tiếp → bật lại coach
             }
         )
@@ -543,6 +594,7 @@ struct MeshScanFlowView: View {
             showEmptyMeshConfirm = true
         } else {
             // Tắt coach trong lúc đặt tên — không rung/nói "bật đèn" khi đang gõ chữ.
+            controller.torch.setHold(true)
             controller.qualityMonitor.setActive(false)
             showNaming = true
         }
@@ -650,8 +702,10 @@ struct MeshScanFlowView: View {
 }
 
 /// `● 04:12` since the scan started. The dot is static: no looping animation on a hot phone.
+/// A small flashlight glyph follows while the auto torch is lit (26/09) — the only torch UI.
 private struct ScanTimer: View {
     let start: Date
+    @ObservedObject var torch: AutoTorch
 
     var body: some View {
         HStack(spacing: 7) {
@@ -665,6 +719,11 @@ private struct ScanTimer: View {
                     .lineLimit(1)
                     // Spoken as a duration ("4 minutes, 12 seconds"), not as a time of day.
                     .accessibilityLabel(Duration.seconds(s).formatted(.units(allowed: [.minutes, .seconds], width: .wide)))
+            }
+            if torch.isOn {
+                Image(systemName: "flashlight.on.fill")
+                    .foregroundStyle(Color.yellow)
+                    .accessibilityLabel(String(localized: "Flashlight on"))
             }
         }
         .font(.subheadline.weight(.semibold).monospacedDigit())
@@ -681,6 +740,22 @@ private struct ScanTimer: View {
     /// `start + n` and float error could truncate to n − 1 (a skipped second).
     private static func seconds(_ interval: TimeInterval) -> Int {
         max(0, Int(interval.rounded()))
+    }
+}
+
+/// Auto-torch numbers (AutoTorch.debugLine) — only when the hidden debug flag is on.
+private struct TorchDebugReadout: View {
+    @ObservedObject var torch: AutoTorch
+
+    var body: some View {
+        if let line = torch.debugLine {
+            Text(verbatim: line)
+                .font(.caption2.monospaced())
+                .foregroundStyle(Color.white)
+                .padding(6)
+                .background(Color.black.opacity(0.6), in: RoundedRectangle(cornerRadius: 6))
+                .accessibilityHidden(true)
+        }
     }
 }
 

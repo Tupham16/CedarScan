@@ -1975,6 +1975,53 @@
         }
       }
     },
+    "Auto flashlight": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Automatická svítilna"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Automatische Taschenlampe"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Linterna automática"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lampe torche automatique"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Automatische zaklamp"
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Automatická baterka"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tự bật đèn flash"
+          }
+        }
+      }
+    },
     "Avoid pointing at mirrors and large glass for too long.": {
       "extractionState": "manual",
       "localizations": {
@@ -5312,6 +5359,53 @@
         }
       }
     },
+    "Flashlight on": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Svítilna zapnutá"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Taschenlampe an"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Linterna encendida"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lampe torche allumée"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zaklamp aan"
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Baterka zapnutá"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đèn flash đang bật"
+          }
+        }
+      }
+    },
     "Floor": {
       "extractionState": "manual",
       "localizations": {
@@ -7564,6 +7658,53 @@
           "stringUnit": {
             "state": "translated",
             "value": "CedarScan chưa được cấp quyền vị trí. Bật trong Cài đặt, hoặc cứ gõ địa chỉ bên dưới."
+          }
+        }
+      }
+    },
+    "Long scan. When you finish this room (never on the stairs), tap \"Stop & Save\" and scan the rest as a new scan, starting in a room you already scanned.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dlouhý sken. Až dokončíte tuto místnost (nikdy ne na schodech), klepněte na \"Zastavit a uložit\" a zbytek naskenujte jako nový sken — začněte v místnosti, kterou už máte naskenovanou."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Langer Scan. Wenn Sie diesen Raum fertig haben (nie auf der Treppe), tippen Sie auf \"Stoppen & Speichern\" und scannen Sie den Rest als neuen Scan — beginnen Sie in einem Raum, den Sie schon gescannt haben."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Escaneo largo. Cuando termines esta habitación (nunca en la escalera), toca \"Detener y guardar\" y escanea el resto como un escaneo nuevo, empezando en una habitación que ya escaneaste."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Numérisation longue. Quand vous finissez cette pièce (jamais dans l'escalier), touchez \"Arrêter et enregistrer\", puis numérisez le reste dans une nouvelle numérisation, en commençant dans une pièce déjà numérisée."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lange scan. Als je deze kamer af hebt (nooit op de trap), tik op \"Stoppen & opslaan\" en scan de rest als nieuwe scan, te beginnen in een kamer die je al hebt gescand."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dlhý sken. Keď dokončíte túto miestnosť (nikdy nie na schodoch), ťuknite na \"Zastaviť a uložiť\" a zvyšok naskenujte ako nový sken — začnite v miestnosti, ktorú už máte naskenovanú."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đã quét khá lâu. Xong phòng này (không dừng trên cầu thang) thì bấm \"Dừng & Lưu\", rồi quét phần còn lại thành một bản quét mới, bắt đầu từ một phòng đã quét."
           }
         }
       }

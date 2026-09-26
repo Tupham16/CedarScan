@@ -26,6 +26,10 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
     @Published private(set) var cameraDenied = false
     /// When `startSession()` ran; the scan screen's timer counts from here. nil = not started.
     @Published private(set) var startedAt: Date?
+    /// Scan timer passed `longScanAdvisorySec` — the scan screen shows its tip once.
+    @Published private(set) var longScanAdvisoryDue = false
+    /// 15-min advisory (owner 26/09, chosen INSTEAD of mid-scan autosave/recovery).
+    static let longScanAdvisorySec: TimeInterval = 15 * 60
 
     /// Số ảnh texture TỐI THIỂU để tin rằng MÁY TRẠM bake được → cho phép đường LƯU NHANH
     /// (mesh xám, bỏ bake màu-đỉnh). Buổi quét thật cho 200–800 ảnh (recorder 3Hz, cổng giãn
@@ -36,6 +40,8 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
 
     let arSession = ARSession()
     let qualityMonitor: ScanQualityMonitor
+    /// Auto flashlight (26/09) — see AutoTorch.
+    let torch: AutoTorch
     let quality: MeshQuality
 
     private var recorder: ScanVideoRecorder?
@@ -65,7 +71,9 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
     init(quality: MeshQuality) {
         self.quality = quality
         qualityMonitor = ScanQualityMonitor(arSession: arSession)
+        torch = AutoTorch(arSession: arSession)
         super.init()
+        qualityMonitor.torch = torch
     }
 
     var isSupported: Bool {
@@ -142,8 +150,11 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
         self.texShots = texShots
         wbDevice = ARWorldTrackingConfiguration.configurableCaptureDeviceForPrimaryCamera
         texShots.captureDevice = wbDevice
+        texShots.torch = torch
         texShots.start()
         scheduleWhiteBalanceLock()
+        // Before qualityMonitor.setActive(true), which forwards to the torch.
+        torch.start(device: wbDevice)
         qualityMonitor.start()
         qualityMonitor.setActive(true)
         // Buổi quét 10–30 phút: không được để auto-lock cắt ngang phiên AR.
@@ -152,7 +163,13 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
         // banner SwiftUI. Dùng isFull (trạng thái hiện tại) chứ không phải capReached
         // (sticky): ARKit dọn anchor có thể giải phóng chỗ → banner phải tự hạ.
         capPollTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
-            guard let self, let mesh = self.colorMesh else { return }
+            guard let self else { return }
+            // Same wall clock as the on-screen timer (ScanTimer counts from startedAt).
+            if !self.longScanAdvisoryDue, let start = self.startedAt,
+               Date().timeIntervalSince(start) >= Self.longScanAdvisorySec {
+                self.longScanAdvisoryDue = true
+            }
+            guard let mesh = self.colorMesh else { return }
             let full = mesh.isFull
             if full != self.capReached {
                 self.capReached = full
@@ -228,7 +245,8 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
         // Item 3 (26/09): scan-report.json (a few KB, temp file; ScanStore packs it into the
         // zip). nil on any failure — never blocks the save.
         let reportURL = report?.write(
-            hitCap: hitCap, vertexCount: vertexCount, fastSave: fastSave, shots: texshots?.stats
+            hitCap: hitCap, vertexCount: vertexCount, fastSave: fastSave, shots: texshots?.stats,
+            torch: torch.stats
         )
         report = nil
         let meshURL = await colorMesh?.exportColoredPLY(geometryOnly: fastSave, progress: progress)
@@ -281,6 +299,8 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
         // Both exits run this BEFORE arSession.pause(): the camera device outlives the session,
         // so a lock left behind would carry into the next scan's first seconds.
         releaseWhiteBalance()
+        // Same reason: a lit torch must not outlive the scan.
+        torch.stop()
         UIApplication.shared.isIdleTimerDisabled = false
     }
 

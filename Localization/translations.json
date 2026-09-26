@@ -4955,6 +4955,42 @@
     "es": "Los añadidos sin pagar se cancelan a los 7 días.",
     "nl": "Onbetaalde toevoegingen worden na 7 dagen geannuleerd."
    }
+  },
+  {
+   "key": "Auto flashlight",
+   "translations": {
+    "vi": "Tự bật đèn flash",
+    "fr": "Lampe torche automatique",
+    "de": "Automatische Taschenlampe",
+    "cs": "Automatická svítilna",
+    "sk": "Automatická baterka",
+    "es": "Linterna automática",
+    "nl": "Automatische zaklamp"
+   }
+  },
+  {
+   "key": "Flashlight on",
+   "translations": {
+    "vi": "Đèn flash đang bật",
+    "fr": "Lampe torche allumée",
+    "de": "Taschenlampe an",
+    "cs": "Svítilna zapnutá",
+    "sk": "Baterka zapnutá",
+    "es": "Linterna encendida",
+    "nl": "Zaklamp aan"
+   }
+  },
+  {
+   "key": "Long scan. When you finish this room (never on the stairs), tap \"Stop & Save\" and scan the rest as a new scan, starting in a room you already scanned.",
+   "translations": {
+    "vi": "Đã quét khá lâu. Xong phòng này (không dừng trên cầu thang) thì bấm \"Dừng & Lưu\", rồi quét phần còn lại thành một bản quét mới, bắt đầu từ một phòng đã quét.",
+    "fr": "Numérisation longue. Quand vous finissez cette pièce (jamais dans l'escalier), touchez \"Arrêter et enregistrer\", puis numérisez le reste dans une nouvelle numérisation, en commençant dans une pièce déjà numérisée.",
+    "de": "Langer Scan. Wenn Sie diesen Raum fertig haben (nie auf der Treppe), tippen Sie auf \"Stoppen & Speichern\" und scannen Sie den Rest als neuen Scan — beginnen Sie in einem Raum, den Sie schon gescannt haben.",
+    "cs": "Dlouhý sken. Až dokončíte tuto místnost (nikdy ne na schodech), klepněte na \"Zastavit a uložit\" a zbytek naskenujte jako nový sken — začněte v místnosti, kterou už máte naskenovanou.",
+    "sk": "Dlhý sken. Keď dokončíte túto miestnosť (nikdy nie na schodoch), ťuknite na \"Zastaviť a uložiť\" a zvyšok naskenujte ako nový sken — začnite v miestnosti, ktorú už máte naskenovanú.",
+    "es": "Escaneo largo. Cuando termines esta habitación (nunca en la escalera), toca \"Detener y guardar\" y escanea el resto como un escaneo nuevo, empezando en una habitación que ya escaneaste.",
+    "nl": "Lange scan. Als je deze kamer af hebt (nooit op de trap), tik op \"Stoppen & opslaan\" en scan de rest als nieuwe scan, te beginnen in een kamer die je al hebt gescand."
+   }
   }
  ],
  "infoplist": {

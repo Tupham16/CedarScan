@@ -9,6 +9,13 @@ struct AccountView: View {
     @State private var showDeleteAccount = false
     @AppStorage("scanCoachHaptics") private var scanCoachHaptics = true
     @AppStorage("scanCoachVoice") private var scanCoachVoice = false
+    /// Auto flashlight while scanning (AutoTorch reads the same key; default on).
+    @AppStorage("scanAutoTorch") private var scanAutoTorch = true
+    /// Hidden debug readout on the scan screen (7 taps on the version line) — owner testing via
+    /// AltStore has no console.
+    @AppStorage("scanDebugReadout") private var scanDebugReadout = false
+    @State private var versionTaps = 0
+    @State private var lastVersionTap = Date.distantPast
 
     var body: some View {
         NavigationStack {
@@ -73,6 +80,9 @@ struct AccountView: View {
                             Toggle(isOn: $scanCoachVoice) {
                                 Label(String(localized: "Voice coaching"), systemImage: "speaker.wave.2")
                             }
+                            Toggle(isOn: $scanAutoTorch) {
+                                Label(String(localized: "Auto flashlight"), systemImage: "flashlight.on.fill")
+                            }
                         } header: {
                             Text(String(localized: "Scan coaching"))
                         } footer: {
@@ -130,10 +140,22 @@ struct AccountView: View {
     /// hai màn chưa đăng nhập / chờ xác minh) — hai bản sao thì sớm muộn cũng lệch nhau, mà đây
     /// đúng là dòng phải tin được.
     private var versionLine: some View {
-        Text(verbatim: "CedarScan \(Self.appVersion)")
+        Text(verbatim: "CedarScan \(Self.appVersion)" + (scanDebugReadout ? " · debug" : ""))
             .font(.footnote)
             .foregroundStyle(.secondary)
             .frame(maxWidth: .infinity, alignment: .center)
+            .contentShape(Rectangle())
+            .onTapGesture {
+                // 7 taps in a row (≤ 1.5 s apart), not 7 over a whole visit.
+                let now = Date()
+                if now.timeIntervalSince(lastVersionTap) > 1.5 { versionTaps = 0 }
+                lastVersionTap = now
+                versionTaps += 1
+                if versionTaps >= 7 {
+                    versionTaps = 0
+                    scanDebugReadout.toggle()
+                }
+            }
     }
 
     /// Mục Legal & Privacy cho hai màn KHÔNG phải `List` (chưa đăng nhập / chờ xác minh).

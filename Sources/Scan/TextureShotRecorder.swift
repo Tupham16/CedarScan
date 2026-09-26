@@ -230,6 +230,10 @@ final class TextureShotRecorder {
         var bv: Float?
         /// AVCaptureDevice.deviceWhiteBalanceGains at capture [r, g, b].
         var wb: [Float]?
+        /// Auto torch (26/09): torch level at capture, 0 = off; nil = no torch device.
+        /// Torch-lit = harsh hotspot, 1/d² falloff, cold LED under a locked white balance —
+        /// the workstation may later prefer shots with 0. Finite 0…1 (AutoTorch.levelForShot).
+        var torch: Float?
     }
     private struct ShotsFile: Encodable {
         let version: Int
@@ -260,6 +264,8 @@ final class TextureShotRecorder {
     /// ARKit's configurable primary camera (set by MeshScanController) — only READ here, for
     /// the per-shot white-balance gains. nil = no gains recorded.
     weak var captureDevice: AVCaptureDevice?
+    /// Auto torch — per-shot `torch` level + skip frames right after a switch. nil = none.
+    weak var torch: AutoTorch?
 
     init(arSession: ARSession) {
         self.arSession = arSession
@@ -313,6 +319,8 @@ final class TextureShotRecorder {
         prevTickQuat = quat
         prevTickTime = frame.timestamp
         guard turnRate <= Self.maxTurnRateDegPerSec else { return }
+        // Torch just switched: exposure is still moving (over/under-exposed frame).
+        if let torch, torch.isSettling(at: frame.timestamp) { return }
 
         guard frame.timestamp - lastShotTime >= minInterval else { return }
 
@@ -408,7 +416,8 @@ final class TextureShotRecorder {
             dw: depthRaw != nil ? depthW : nil,
             dh: depthRaw != nil ? depthH : nil,
             exp: expo.exp, iso: expo.iso, bv: expo.bv,
-            wb: wbGains
+            wb: wbGains,
+            torch: torch?.levelForShot
         )
         // Item 1 (26/09): an anchor at the camera pose — ARKit moves it when it corrects the
         // map; `finish(finalAnchorPoses:)` writes its final pose as `m2`. Main thread (tick).
@@ -594,7 +603,9 @@ final class TextureShotRecorder {
                         + "pose of the shot read at scan stop (map corrections such as loop "
                         + "closure applied; same convention as m; m = pose at capture); "
                         + "exp = exposure time (s), iso = ISO, bv = EXIF BrightnessValue, "
-                        + "from ARFrame.exifData; wb = white-balance gains [r,g,b] at capture.",
+                        + "from ARFrame.exifData; wb = white-balance gains [r,g,b] at capture; "
+                        + "torch = flashlight level at capture (0 = off, key absent = no torch "
+                        + "device) — torch-lit shots have a hotspot/falloff and a cold tint.",
                     shots: self.metas
                 )
                 do {
@@ -647,6 +658,7 @@ final class TextureShotRecorder {
             if meta.depth != nil { stats.withDepth += 1 }
             if meta.exp != nil || meta.iso != nil { stats.withExposure += 1 }
             if meta.wb != nil { stats.withWhiteBalance += 1 }
+            if let l = meta.torch, l > 0 { stats.withTorch += 1 }
             guard let anchor = shotAnchors[meta.file],
                   let f = final[anchor.identifier] else { continue }
             let m2 = Self.columnMajor(f)

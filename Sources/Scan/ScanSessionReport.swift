@@ -181,6 +181,8 @@ final class ScanSessionReport {
         var withDepth = 0
         var withExposure = 0
         var withWhiteBalance = 0
+        /// Kept shots taken with the torch lit (auto torch, 26/09).
+        var withTorch = 0
         /// m ↔ m2 (pose at capture vs. final ARKit anchor pose at stop).
         var withFinalPose = 0
         var poseDelta: PoseDelta?
@@ -215,6 +217,8 @@ final class ScanSessionReport {
         let fastSave: Bool
         let textureShots: ShotStats?
         let whiteBalance: WhiteBalance
+        /// Auto torch (26/09): status, level, switch counts, lit seconds.
+        let torch: AutoTorch.Stats
     }
 
     private struct WhiteBalance: Encodable {
@@ -225,7 +229,9 @@ final class ScanSessionReport {
     }
 
     /// Writes the report to a temp file; nil on any failure (the scan saves without it).
-    func write(hitCap: Bool, vertexCount: Int, fastSave: Bool, shots: ShotStats?) -> URL? {
+    func write(
+        hitCap: Bool, vertexCount: Int, fastSave: Bool, shots: ShotStats?, torch: AutoTorch.Stats
+    ) -> URL? {
         markStopped()
         let secs = trackingSeconds.compactMapValues { Self.fin($0) }
         let file = File(
@@ -254,7 +260,13 @@ final class ScanSessionReport {
                 lockedAt: whiteBalanceLockedAt.flatMap { Self.fin($0) },
                 gains: whiteBalanceGains.flatMap { g in g.allSatisfy { $0.isFinite } ? g : nil },
                 relocks: whiteBalanceRelocks
-            )
+            ),
+            torch: {
+                var t = torch
+                t.onSec = Self.fin(t.onSec) ?? 0
+                t.level = t.level.flatMap { $0.isFinite ? $0 : nil }
+                return t
+            }()
         )
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("scan-report-\(UUID().uuidString.prefix(8)).json")

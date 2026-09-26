@@ -79,6 +79,9 @@ final class ScanQualityMonitor: NSObject, ObservableObject {
     /// KHÔNG suy từ frame.sceneDepth != nil: giữ cờ tường minh thì người thêm luồng quét mới
     /// sau này phải tự quyết định, thay vì âm thầm thừa hưởng một hành vi không ai chọn.
     var tooCloseCoachEnabled = false
+    /// Auto torch (MeshScanController). When it can light the room, "Turn on lights" stays
+    /// quiet; setActive is forwarded so the torch runs exactly when the coach does.
+    weak var torch: AutoTorch?
 
     // Trạng thái cảnh báo (debounce để không nhấp nháy)
     private var overspeedSince: TimeInterval = -1
@@ -125,6 +128,7 @@ final class ScanQualityMonitor: NSObject, ObservableObject {
 
     func setActive(_ active: Bool) {
         isActive = active
+        torch?.setActive(active)
         if !active {
             alert = nil
             poses.removeAll()
@@ -189,7 +193,9 @@ final class ScanQualityMonitor: NSObject, ObservableObject {
         // Debounce từng điều kiện
         updateCondition(&overspeedSince, active: Double(speed) > config.maxSpeedSoft, now: t)
         updateCondition(&overRotationSince, active: Double(rotationDps) > config.maxRotationSoft, now: t)
-        updateCondition(&lowLightSince, active: (light ?? .greatestFiniteMagnitude) < config.lowLightSoft, now: t)
+        // Coach only where the torch cannot help (no torch, iOS cut it, switched off).
+        let torchCovers = torch?.coversLowLight ?? false
+        updateCondition(&lowLightSince, active: !torchCovers && (light ?? .greatestFiniteMagnitude) < config.lowLightSoft, now: t)
         updateCondition(&limitedSince, active: trackingLimited, now: t)
         // Bỏ qua hẳn khi coach tắt — khỏi tốn lock CVPixelBuffer mỗi tick.
         let frontDepth: Float = tooCloseCoachEnabled
