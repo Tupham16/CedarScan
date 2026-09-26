@@ -12,7 +12,7 @@ struct OrdersView: View {
     /// Passed by hand for the same reason (it was `@EnvironmentObject` while the tab pushed nothing).
     @ObservedObject var account: AccountStore
     /// Nhảy sang tab Home và mở dự án — `RootView.requestOpenProject`. Tab này ✗ tự đổi tab.
-    let onOpenProject: (ScanProject) -> Void
+    let onOpenProject: (_ project: ScanProject, _ startScan: Bool) -> Void
     /// Pushed orders: 0 or 1 entry, IDs only (`OrderRoute`).
     @State private var path: [OrderRoute] = []
     @State private var orders: [OrderDTO] = []
@@ -287,7 +287,8 @@ struct OrdersView: View {
         return keys.compactMap { $0 }
     }
 
-    private static func nonBlank(_ text: String?) -> String? {
+    /// Also `OrderDetailView.recreatedName(of:)` (same title chain for a recreated property).
+    static func nonBlank(_ text: String?) -> String? {
         let trimmed = text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         return trimmed.isEmpty ? nil : trimmed
     }

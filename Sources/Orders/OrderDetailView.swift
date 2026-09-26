@@ -31,8 +31,9 @@ struct OrderDetailView: View {
     @ObservedObject var account: AccountStore
     /// `OrdersView.load()`.
     let reload: () async -> Void
-    /// Nhảy sang tab Home và mở dự án — `RootView.requestOpenProject`.
-    let onOpenProject: (ScanProject) -> Void
+    /// Nhảy sang tab Home và mở dự án — `RootView.requestOpenProject`. `startScan`: open the
+    /// scanner there too (the property has no scans on this device).
+    let onOpenProject: (_ project: ScanProject, _ startScan: Bool) -> Void
     @State private var revisionOrder: OrderDTO?
     @State private var tourOrder: OrderDTO? // mở màn thêm ảnh Virtual Tour
     /// Orders v2 B: the "Cancel this order?" alert · why the last cancel was refused. A cancel in
@@ -711,7 +712,7 @@ struct OrderDetailView: View {
     /// avoids an empty row (stray spacing); each button keeps its own condition.
     @ViewBuilder
     private func followUps(_ order: OrderDTO) -> some View {
-        if order.deliveredAt != nil || supplementTarget(for: order) != nil {
+        if order.deliveredAt != nil || addScanRoute(for: order) != nil {
             HStack(spacing: 8) {
                 // 🔴 "YÊU CẦU SỬA" GÁC THEO `deliveredAt`, ✗ theo `status == "delivered"` —
                 // sửa 19/08, vòng soi đối kháng bắt.
@@ -742,9 +743,14 @@ struct OrderDetailView: View {
                 // 🔴 CHỈ ĐIỀU HƯỚNG, ✗ gửi gì cả. Việc gửi vẫn là `SupplementSheet` ở trang dự án
                 // — LỐI VÀO DUY NHẤT, ✗ nhân bản luồng gửi ở tab này (thứ trôi được giữa hai bản
                 // sao là cú ĐÓNG DẤU số đơn, mà thiếu dấu = khách TRẢ TIỀN HAI LẦN).
-                if let project = supplementTarget(for: order) {
+                //
+                // Since 26/09 (owner, "cách 1") it also shows when this device has NO property for
+                // the order (deleted on Home, another iPhone): the tap recreates one BOUND to the
+                // order (`ScanStore.projectForAddScan`) and opens the scanner in it. Still no send
+                // here — the binding only makes that property's scans read "Send extra scan".
+                if addScanRoute(for: order) != nil {
                     Button {
-                        onOpenProject(project)
+                        addScan(order)
                     } label: {
                         ghostLabel(String(localized: "Add a scan"), systemImage: "plus.viewfinder")
                     }
@@ -844,28 +850,60 @@ struct OrderDetailView: View {
         }
     }
 
+    /// Where "Add a scan" goes: the property on this device (`.project`), or a new one bound to the
+    /// order (`.recreate`). `nil` = hidden.
+    private enum AddScanRoute {
+        case project(ScanProject)
+        case recreate
+    }
+
     /// `supplementProject`, and not while this device cancels the order (or just did): a scan sent
     /// then would join an order about to be cancelled (Orders v2 B).
-    private func supplementTarget(for order: OrderDTO) -> ScanProject? {
+    private func addScanRoute(for order: OrderDTO) -> AddScanRoute? {
         guard !cancelling(order), !store.cancelledOrderIds.contains(order.orderId) else { return nil }
         return supplementProject(for: order)
     }
 
-    /// Dự án TRÊN MÁY NÀY của đơn — `nil` thì KHÔNG hiện nút "Thêm bản quét".
+    /// The tap: re-decided LIVE (a reload may have changed the order), the property found or
+    /// created by the store (idempotent: a double tap finds the first one), then Home opens it.
+    /// A property with no scans on this device opens straight into the scanner — nothing else to
+    /// do there (owner: "opens the scanner directly, like Scan more").
+    private func addScan(_ order: OrderDTO) {
+        guard let route = addScanRoute(for: order) else { return }
+        let project: ScanProject?
+        switch route {
+        case .project(let found):
+            project = found
+        case .recreate:
+            project = store.projectForAddScan(orderNumber: order.orderNumber, name: Self.recreatedName(of: order))
+        }
+        guard let project else { return }
+        onOpenProject(project, store.scans(in: project).isEmpty)
+    }
+
+    /// Name of a recreated property: the Orders row title without the local name (there is none)
+    /// — `OrdersView.title(of:)`.
+    private static func recreatedName(of order: OrderDTO) -> String {
+        OrdersView.nonBlank(order.projectName) ?? OrdersView.nonBlank(order.scanName) ?? order.orderNumber
+    }
+
+    /// Dự án TRÊN MÁY NÀY của đơn (`.project`), none here (`.recreate`) — `nil` thì KHÔNG hiện nút
+    /// "Thêm bản quét".
     ///
     /// Hai ca trả nil, cả hai là hành vi ĐÚNG chứ ✗ lỗi:
     ///  · **Đơn đã hoàn tiền** — `supplement-scan` từ chối bằng `order_closed`, nên hiện nút là
     ///    dẫn khách đi quét 10–30 phút rồi tải 40–200MB lên để nhận một lời từ chối. Chặn ở đây,
     ///    chỗ RẺ NHẤT. (Đơn ĐÃ GIAO thì KHÔNG chặn: server nhận nó từ 19/08 — xem
     ///    `supplement-scan/route.ts`, chủ app chốt "đã đặt hay đã giao đều không tính phí".)
-    ///  · **Máy này không giữ dự án đó** — khách xoá rồi, hoặc đang dùng máy khác. Không có bản
-    ///    quét gốc trên máy thì cũng chẳng có gì để quét bổ sung vào.
+    ///  · ~~**Máy này không giữ dự án đó**~~ — since 26/09 (owner, "cách 1") that case is
+    ///    `.recreate`, ✗ nil: the customer deleted the property or uses another iPhone, and hiding
+    ///    the button left NO way to send a supplement into the order.
     ///  · **Dự án đó nay thuộc về một số đơn KHÁC** — xem khối 🔴 ngay dưới.
     ///  · **Đơn đã huỷ khi chưa trả (Orders v2 B)** — cùng lý do với đơn hoàn tiền: server từ
     ///    chối (`order_closed`), và bản quét của nó đã về "New" để đặt đơn mới.
-    private func supplementProject(for order: OrderDTO) -> ScanProject? {
+    private func supplementProject(for order: OrderDTO) -> AddScanRoute? {
         guard order.status != "refunded", !order.isCancelled else { return nil }
-        guard let project = store.project(withOrderNumber: order.orderNumber) else { return nil }
+        guard let project = store.project(withOrderNumber: order.orderNumber) else { return .recreate }
         // 🔴 CHỐT CHỐNG GỬI NHẦM ĐƠN. Nút này chỉ ĐIỀU HƯỚNG; việc gửi ở trang dự án lại hỏi
         // `ScanStore.orderNumber(ofProject:)`, hàm đó lấy số đơn của bản quét MỚI NHẤT. Một dự án
         // ôm HAI số đơn là chuyện tới được trong app hôm nay (kéo một bản quét đã đặt lẻ vào một
@@ -874,7 +912,7 @@ struct OrderDetailView: View {
         // ⇒ Chỉ hiện nút khi hai chiều đồng ý với nhau. Lệch thì ẨN — khách vẫn còn đường vào từ
         // tab Home, và ẩn một nút còn hơn gửi nhầm không ai biết.
         guard store.orderNumber(ofProject: project.id) == order.orderNumber else { return nil }
-        return project
+        return .project(project)
     }
 
     private func ghostLabel(_ title: String, systemImage: String) -> some View {

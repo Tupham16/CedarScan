@@ -36,6 +36,8 @@ enum RootTab: Hashable { case home, orders, scan, learn, account }
 struct OpenProjectRequest: Equatable {
     let seq: Int
     let projectId: UUID
+    /// Open the scanner in it too (`ProjectScanIntent`): the property has no scans on this device.
+    let startScan: Bool
 }
 
 struct RootView: View {
@@ -193,9 +195,9 @@ struct RootView: View {
     /// ✗ ai đọc lời cấm của đĩa SCAN rồi gỡ hàm này đi.
     ///
     /// Cú ĐẨY màn thì `HomeView` hoãn một nhịp rồi mới làm — lý do ở chỗ nó bắt `onChange`.
-    private func requestOpenProject(_ project: ScanProject) {
+    private func requestOpenProject(_ project: ScanProject, startScan: Bool) {
         openProjectSeq += 1
-        openProjectRequest = OpenProjectRequest(seq: openProjectSeq, projectId: project.id)
+        openProjectRequest = OpenProjectRequest(seq: openProjectSeq, projectId: project.id, startScan: startScan)
         tab = .home
     }
 

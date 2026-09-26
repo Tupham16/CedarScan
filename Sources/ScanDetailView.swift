@@ -21,6 +21,12 @@ struct ScanOrderIntent: Hashable {
     let record: ScanRecord
 }
 
+/// "Add a scan" in the Orders tab on a property with no scans on this device: push
+/// `ProjectView(autoScan: true)` (opens the scanner once). Own type for the reason above.
+struct ProjectScanIntent: Hashable {
+    let project: ScanProject
+}
+
 /// Thứ cần để mở trình xem 3D GỘP (`ModelViewerScreen`) — chốt lúc khách BẤM, ✗ đọc sống.
 ///
 /// 🔴 `id = UUID()` và dùng qua `.fullScreenCover(item:)`, ✗ một cờ `Bool` + mấy `@State` đọc

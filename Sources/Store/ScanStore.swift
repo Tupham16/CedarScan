@@ -578,12 +578,17 @@ final class ScanStore: ObservableObject {
     /// Dự án mang NHIỀU số đơn khác nhau là dữ liệu ĐỜI CŨ (tạo trước quy tắc trên) → lấy đơn
     /// của bản quét MỚI NHẤT. Sau khi tính năng này ra thì ca đó không sinh thêm được nữa.
     /// `projectId == nil` (bản quét lẻ, chưa vào dự án) → nil: không có dự án thì không có quy tắc.
+    ///
+    /// No stamped scan ⇒ the property's own binding (`ScanProject.orderNumber`, set by "Add a scan"
+    /// in Orders when this device had no property for that order). A stamped scan still wins: it is
+    /// what the anti-misroute guard in `OrderDetailView.addScanRoute` compares against.
     func orderNumber(ofProject projectId: UUID?) -> String? {
         guard let projectId else { return nil }
-        return records
+        let stamped = records
             .filter { $0.projectId == projectId && $0.cloudOrderNumber != nil }
             .max { $0.createdAt < $1.createdAt }?
             .cloudOrderNumber
+        return stamped ?? project(with: projectId)?.orderNumber
     }
 
     /// Dự án TRÊN MÁY NÀY chứa bản quét của số đơn đã cho — `nil` = máy này không giữ dự án đó.
@@ -604,7 +609,31 @@ final class ScanStore: ObservableObject {
         let match = records
             .filter { $0.cloudOrderNumber == orderNumber }
             .max { $0.createdAt < $1.createdAt }
-        return project(with: match?.projectId)
+        if let project = project(with: match?.projectId) { return project }
+        // A property recreated for this order (`ScanProject.orderNumber`), none of its scans sent yet.
+        return projects.first { $0.orderNumber == orderNumber }
+    }
+
+    /// "Add a scan" in the Orders tab (owner 26/09 "cách 1"): the property of that order on this
+    /// device, or — none here (deleted on Home, another iPhone) — a new EMPTY one BOUND to it, so
+    /// its scans offer "Send extra scan" into that order, ✗ "Order" (a second paid order).
+    /// Idempotent: a second tap finds the first one through `project(withOrderNumber:)`.
+    /// Returns nil when the property found maps to ANOTHER order (the caller hides the button for
+    /// that case; this is the check again at tap time).
+    func projectForAddScan(orderNumber: String, name: String) -> ScanProject? {
+        if let existing = project(withOrderNumber: orderNumber) {
+            return self.orderNumber(ofProject: existing.id) == orderNumber ? existing : nil
+        }
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let project = ScanProject(
+            id: UUID(),
+            name: trimmed.isEmpty ? orderNumber : trimmed,
+            createdAt: Date(),
+            orderNumber: orderNumber
+        )
+        projects.insert(project, at: 0)
+        persistProjects()
+        return project
     }
 
     // MARK: - Orders v2 B: unpaid = not placed
@@ -665,6 +694,7 @@ final class ScanStore: ObservableObject {
             numbers.remove(order.orderNumber)
             setAwaiting(numbers)
             releaseStamps(orderNumber: order.orderNumber, scanIds: order.scanIds ?? [])
+            releaseBinding(orderNumber: order.orderNumber)
         }
     }
 
@@ -684,6 +714,7 @@ final class ScanStore: ObservableObject {
         numbers.remove(orderNumber)
         setAwaiting(numbers)
         releaseStamps(orderNumber: orderNumber, scanIds: scanIds)
+        releaseBinding(orderNumber: orderNumber)
     }
 
     /// The account was deleted: the server cancelled its unpaid orders, and their list can never be
@@ -709,6 +740,18 @@ final class ScanStore: ObservableObject {
         for record in targets {
             update(record) { $0.cloudOrderNumber = nil }
         }
+    }
+
+    /// A cancelled order also unbinds a property recreated for it (`ScanProject.orderNumber`):
+    /// its scans are "New" like the released ones, ✗ "Send extra scan" into a closed order
+    /// (`order_closed`) forever. Same positive signal as `releaseStamps`; no scanIds needed (the
+    /// binding is to the number itself).
+    private func releaseBinding(orderNumber: String) {
+        guard projects.contains(where: { $0.orderNumber == orderNumber }) else { return }
+        for index in projects.indices where projects[index].orderNumber == orderNumber {
+            projects[index].orderNumber = nil
+        }
+        persistProjects()
     }
 
     private func setAwaiting(_ numbers: Set<String>) {

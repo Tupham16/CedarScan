@@ -328,6 +328,19 @@ struct HomeView: View {
                     account: account,
                     projectId: project.id,
                     projectName: project.name,
+                    autoScan: false,
+                    path: $path
+                )
+            }
+            // "Add a scan" (Orders) on a property with no scans here: the same ProjectView, opened
+            // into the scanner. Its own TYPE, ✗ a shared flag — `ScanOrderIntent`'s reason.
+            .navigationDestination(for: ProjectScanIntent.self) { intent in
+                ProjectView(
+                    store: store,
+                    account: account,
+                    projectId: intent.project.id,
+                    projectName: intent.project.name,
+                    autoScan: true,
                     path: $path
                 )
             }
@@ -689,16 +702,27 @@ struct HomeView: View {
     ///
     /// 🔴 GÁC `isMeshScanning`: đang quét mà pop cả stack là mất 10–30 phút đi bộ. Cùng lý do với
     /// `ProjectView.leaveDeadProject`. Ca này tới được thật — lớp phủ quét vẽ đè cả tab.
+    ///
+    /// `startScan` (26/09): push `ProjectScanIntent` — that ProjectView opens the scanner itself.
+    /// Also gated on `ScanCoverModel.blocksInput`: a scan opened from a ProjectView (this path, or
+    /// its Scan more) does not set `isMeshScanning` HERE, and popping that ProjectView mid-scan
+    /// strands the cover (`ProjectView.leaveDeadProject`). A second request (double tap) during it
+    /// is dropped.
     private func openProject(_ request: OpenProjectRequest?) {
         guard let request else { return }
         Task { @MainActor in
-            guard !isMeshScanning else { return }
+            guard !isMeshScanning, !ScanCoverModel.shared.blocksInput else { return }
             guard store.project(with: request.projectId) != nil else { return }
             path = NavigationPath()
             // Nhịp thứ hai: lúc này stack đã thật sự về gốc.
             Task { @MainActor in
-                guard !isMeshScanning, let project = store.project(with: request.projectId) else { return }
-                path.append(project)
+                guard !isMeshScanning, !ScanCoverModel.shared.blocksInput,
+                      let project = store.project(with: request.projectId) else { return }
+                if request.startScan {
+                    path.append(ProjectScanIntent(project: project))
+                } else {
+                    path.append(project)
+                }
             }
         }
     }

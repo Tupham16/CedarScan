@@ -65,6 +65,9 @@ struct ProjectView: View {
     /// ở host chưa nối thì AN TOÀN (chỉ trả giá trị hiện có) — lý do ở `ScanDetailView.ShareSnapshot`.
     /// Chi tiết + stack: SESSION-HANDOFF §CRASH ĐANG MỞ.
     let projectName: String
+    /// Pushed as `ProjectScanIntent` ("Add a scan" in Orders, property empty on this device): open
+    /// the scanner once, as "Scan more" does. No default (trap #13).
+    let autoScan: Bool
     /// Đường dẫn điều hướng của NavigationStack đang chứa màn này (sở hữu bởi HomeView) — cần
     /// để màn preview sau khi quét đẩy được sang trang bản quét.
     @Binding var path: NavigationPath
@@ -76,6 +79,8 @@ struct ProjectView: View {
     @State private var startAfterGuide = false
     /// Khách bấm "Quét thêm khu vực còn thiếu" ở màn preview → mở lại phiên quét cho CÙNG căn.
     @State private var pendingScanMore = false
+    /// `autoScan` already done: `.task` runs again on every re-appear (back from a scan page).
+    @State private var didAutoScan = false
     /// Bản quét khách vừa bấm "Đặt hàng ngay" ở màn preview.
     @State private var pendingOrderRecord: ScanRecord?
     @State private var meshCapFollowUp = false
@@ -241,6 +246,17 @@ struct ProjectView: View {
             .onChange(of: isMeshScanning) { _, presented in
                 if !presented && project == nil { leaveDeadProject() }
             }
+            .task { autoScanIfNeeded() }
+    }
+
+    /// `autoScan`: the "Scan more" button's action, once. Same shape as
+    /// `ScanDetailView.autoOpenOrderIfNeeded` (a pushed screen presenting from its first `.task`).
+    /// No LiDAR ⇒ nothing: the screen already shows why (`unsupportedNote`, button disabled).
+    private func autoScanIfNeeded() {
+        guard autoScan, !didAutoScan else { return }
+        didAutoScan = true
+        guard project != nil, isSupported, !isMeshScanning, !scanCover.blocksInput else { return }
+        scanMoreTapped()
     }
 
     /// Thoát khỏi một dự án đã bị dọn mất — HOÃN MỘT NHỊP, không `dismiss()` ngay tại chỗ.
@@ -689,6 +705,19 @@ struct ProjectView: View {
         path.append(ScanOrderIntent(record: record))
     }
 
+    /// "Scan more" (the button, and `autoScanIfNeeded`).
+    /// Guide lần đầu Y HỆT HomeView. Trước P3 màn này KHÔNG hề kiểm seenKey: khách tạo Dự án trước
+    /// rồi quét từ đây sẽ không bao giờ đọc hướng dẫn, và vì seenKey vẫn false nên lần sau quét từ
+    /// Home guide mới nhảy ra — sau khi bản quét đầu tiên đã hỏng.
+    private func scanMoreTapped() {
+        if !UserDefaults.standard.bool(forKey: ScanGuideView.seenKey) {
+            startAfterGuide = false
+            showGuide = true
+        } else {
+            startScanning()
+        }
+    }
+
     /// Lặp lại lời giải thích ở ĐÂY chứ không trông vào việc người dùng đã đọc ở trang chủ.
     ///
     /// Từng viết comment "vào được màn này nghĩa là đã qua trang chủ, nơi đã nói rõ lý do" —
@@ -709,16 +738,7 @@ struct ProjectView: View {
         VStack(spacing: 8) {
             unsupportedNote
             Button {
-                // Guide lần đầu Y HỆT HomeView. Trước P3 màn này KHÔNG hề kiểm seenKey: khách
-                // tạo Dự án trước rồi quét từ đây sẽ không bao giờ đọc hướng dẫn, và vì seenKey
-                // vẫn false nên lần sau quét từ Home guide mới nhảy ra — sau khi bản quét đầu
-                // tiên đã hỏng.
-                if !UserDefaults.standard.bool(forKey: ScanGuideView.seenKey) {
-                    startAfterGuide = false
-                    showGuide = true
-                } else {
-                    startScanning()
-                }
+                scanMoreTapped()
             } label: {
                 Label(String(localized: "Scan more"), systemImage: "viewfinder")
                     .font(.headline)
