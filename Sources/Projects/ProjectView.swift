@@ -456,6 +456,7 @@ struct ProjectView: View {
                                 trackURL: result.trackURL,
                                 texshotsURL: result.texshotsDir,
                                 previewURL: result.previewURL,
+                                reportURL: result.reportURL,
                                 name: result.name, projectId: projectId, quality: result.quality,
                                 geometryOnly: result.geometryOnly,
                                 // Thanh % của màn "Đang dựng mô hình 3D…" — chuyển thẳng, ✗ nuốt.

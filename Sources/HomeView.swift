@@ -202,6 +202,7 @@ struct HomeView: View {
                                     trackURL: result.trackURL,
                                     texshotsURL: result.texshotsDir,
                                     previewURL: result.previewURL,
+                                    reportURL: result.reportURL,
                                     name: result.name, projectId: pendingProjectId,
                                     quality: result.quality, geometryOnly: result.geometryOnly,
                                     // Thanh % màn "Đang dựng mô hình 3D…" — chuyển thẳng, ✗ nuốt.

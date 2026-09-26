@@ -247,7 +247,7 @@
     {
      "heading_en": "Information the app captures",
      "heading_fr": "Renseignements que l'application capte",
-     "text_fr": "Données de numérisation : la géométrie 3D produite par le capteur LiDAR, une vidéo en couleur enregistrée pendant que vous parcourez les lieux, et les fichiers de modèle qui en sont dérivés. Ces éléments captent l'intérieur de la propriété ; veuillez donc les traiter comme vous traiteriez des photographies des mêmes pièces. Tout ce qui est visible pendant la numérisation figurera dans le fichier, y compris les personnes, les documents et les écrans. Consultez toutes les personnes présentes avant de commencer, et rangez d'abord les objets privés."
+     "text_fr": "Données de numérisation : la géométrie 3D produite par le capteur LiDAR, une vidéo en couleur enregistrée pendant que vous parcourez les lieux, et les fichiers de modèle qui en sont dérivés. Ces éléments captent l'intérieur de la propriété ; veuillez donc les traiter comme vous traiteriez des photographies des mêmes pièces. Tout ce qui est visible pendant la numérisation figurera dans le fichier, y compris les personnes, les documents et les écrans. Consultez toutes les personnes présentes avant de commencer, et rangez d'abord les objets privés. Chaque numérisation comporte aussi un court rapport technique sur la séance de numérisation, par exemple le modèle de l'appareil, les versions d'iOS et de l'application, la durée de la numérisation, les états du suivi et de la température, des données sur la captation et les éventuels codes d'erreur, dont nous nous servons pour repérer et corriger les problèmes de qualité des numérisations."
     },
     {
      "heading_en": "Location",

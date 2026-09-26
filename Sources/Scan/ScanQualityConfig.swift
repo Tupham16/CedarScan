@@ -30,6 +30,14 @@ struct ScanQualityConfig: Codable {
     var trackingWarnAfterSec: Double    // limited liên tục bao lâu thì cảnh báo
     var warmupSec: Double               // bỏ qua N giây đầu (initializing)
 
+    // White balance lock (26/09, owner-approved): texbake says blotchy colour comes mainly from
+    // exposure/colour jumping between shots. MeshScanController locks WHITE BALANCE ONLY (never
+    // exposure) once tracking is normal, this many seconds after start. Kill-switch:
+    // `{"lockWhiteBalance": false}`. ⚠ Server values only arrive after OrderSheet opens
+    // (`APIClient.catalog()`), so a kill reaches a device one order-form visit later.
+    var lockWhiteBalance: Bool
+    var whiteBalanceLockDelaySec: Double
+
     static let defaults = ScanQualityConfig(
         enabled: true,
         maxSpeedSoft: 0.7,
@@ -38,7 +46,9 @@ struct ScanQualityConfig: Codable {
         maxRotationHard: 100,
         lowLightSoft: 250,
         trackingWarnAfterSec: 1.0,
-        warmupSec: 5.0
+        warmupSec: 5.0,
+        lockWhiteBalance: true,
+        whiteBalanceLockDelaySec: 3.0
     )
 
     // Decode "khoan dung": server chỉ cần gửi field muốn đổi, thiếu field nào dùng mặc định.
@@ -53,6 +63,11 @@ struct ScanQualityConfig: Codable {
         lowLightSoft = (try? c.decodeIfPresent(Double.self, forKey: .lowLightSoft)) ?? d.lowLightSoft
         trackingWarnAfterSec = (try? c.decodeIfPresent(Double.self, forKey: .trackingWarnAfterSec)) ?? d.trackingWarnAfterSec
         warmupSec = (try? c.decodeIfPresent(Double.self, forKey: .warmupSec)) ?? d.warmupSec
+        lockWhiteBalance = (try? c.decodeIfPresent(Bool.self, forKey: .lockWhiteBalance)) ?? d.lockWhiteBalance
+        // Timer interval: finite and within 0…60 s, else default (a NaN/huge value must not
+        // silently disable the lock or fire at once).
+        let delay = (try? c.decodeIfPresent(Double.self, forKey: .whiteBalanceLockDelaySec)) ?? d.whiteBalanceLockDelaySec
+        whiteBalanceLockDelaySec = (delay.isFinite && delay >= 0 && delay <= 60) ? delay : d.whiteBalanceLockDelaySec
     }
 
     init(
@@ -60,7 +75,8 @@ struct ScanQualityConfig: Codable {
         maxSpeedSoft: Double, maxSpeedHard: Double,
         maxRotationSoft: Double, maxRotationHard: Double,
         lowLightSoft: Double,
-        trackingWarnAfterSec: Double, warmupSec: Double
+        trackingWarnAfterSec: Double, warmupSec: Double,
+        lockWhiteBalance: Bool, whiteBalanceLockDelaySec: Double
     ) {
         self.enabled = enabled
         self.maxSpeedSoft = maxSpeedSoft
@@ -70,6 +86,8 @@ struct ScanQualityConfig: Codable {
         self.lowLightSoft = lowLightSoft
         self.trackingWarnAfterSec = trackingWarnAfterSec
         self.warmupSec = warmupSec
+        self.lockWhiteBalance = lockWhiteBalance
+        self.whiteBalanceLockDelaySec = whiteBalanceLockDelaySec
     }
 
     // MARK: - Bản đang dùng (cache UserDefaults, server ghi đè qua /catalog)

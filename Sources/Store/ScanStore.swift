@@ -234,6 +234,9 @@ final class ScanStore: ObservableObject {
         /// chết IM LẶNG đúng ở bản quét mới (bẫy #13). Hai call-site hiện có: HomeView,
         /// ProjectView.
         previewURL: URL?,
+        /// scan-report.json (temp, item 3 26/09). No default, same reason as `previewURL`
+        /// (trap #13): a forgotten call site would compile and lose the report silently.
+        reportURL: URL?,
         name: String?,
         projectId: UUID? = nil,
         quality: MeshQuality,
@@ -270,6 +273,10 @@ final class ScanStore: ObservableObject {
         defer {
             if let previewURL {
                 try? fileManager.removeItem(at: previewURL)
+            }
+            // Same for the report temp file (moved into the folder on the success path).
+            if let reportURL {
+                try? fileManager.removeItem(at: reportURL)
             }
         }
 
@@ -339,6 +346,18 @@ final class ScanStore: ObservableObject {
             }
         }
 
+        // 1b'. scan-report.json (item 3, 26/09): scan diagnostics for the owner (AltStore build,
+        //     no console). Same road as camera-track: a copy in the scan folder + packed into
+        //     model-colored.zip below; no ScanUploader kind (zip only). The workstation does not
+        //     read it yet (checked: every reader picks files by exact name / model*.obj).
+        var savedReportURL: URL?
+        if hasMesh, let reportURL, fileManager.fileExists(atPath: reportURL.path) {
+            let dest = folder.appendingPathComponent("scan-report.json")
+            if (try? fileManager.moveItem(at: reportURL, to: dest)) != nil {
+                savedReportURL = dest
+            }
+        }
+
         // 1c. Lưới XÁM nhẹ (mesh-preview.bin) — thứ DUY NHẤT trình xem 3D trong app đọc được.
         //     🔴 NẰM TRONG THƯ MỤC BẢN QUÉT LÀ CỐ Ý, dù §Xem texture trong app dặn "cache phải
         //     ở .cachesDirectory". Luật đó dành cho `TexturedModelCache` — thứ tải lại được từ
@@ -372,6 +391,7 @@ final class ScanStore: ObservableObject {
             // .userInitiated: người dùng đang đứng chờ trên overlay "Đang dựng mô hình 3D…"
             // (.utility đẩy sang efficiency core, nhà lớn chờ lâu gấp đôi vô ích).
             var extraFiles = savedTrackURL.map { [$0] } ?? []
+            if let savedReportURL { extraFiles.append(savedReportURL) }
             // 2b. texture-shots/ (JPEG 1440×1080 + shot-*.depth + shots.json —
             //     TextureShotRecorder): nguyên liệu bake texture chiếu-1-khung trên MÁY
             //     TRẠM. `copyItem` copy nguyên thư mục → zip mang thư mục con

@@ -121,10 +121,15 @@ enum LegalDoc: String, CaseIterable, Identifiable {
     /// "How long we keep it" names scans of an order cancelled unpaid; "Deleting your account" says an
     /// order still awaiting payment is cancelled first (server `account/delete/route.ts` →
     /// `cancelUnpaidOrder`), so its files go too, unless it cannot be cancelled then. `date`: 2026-09-25.)
-    static let lastUpdated = "25 September 2026"
+    /// (26/09/2026: "Information the app captures" names the per-scan technical report
+    /// (scan-report.json, `ScanSessionReport`): device model, iOS/app version, duration, tracking
+    /// and temperature states, capture figures, error codes. Owner approved via AskUserQuestion.
+    /// App Store table unchanged (Other Diagnostic Data, App Functionality, already declared).
+    /// `date`: 2026-09-26.)
+    static let lastUpdated = "26 September 2026"
 
     /// Ngày cập nhật viết theo lối Pháp, in trên bản Pháp. Đổi `lastUpdated` thì đổi cả đây.
-    static let lastUpdatedFR = "25 septembre 2026"
+    static let lastUpdatedFR = "26 septembre 2026"
 
     static let contactEmail = "hello@cedar247.com"
 
@@ -188,7 +193,7 @@ extension LegalDoc {
         ("Information you give us",
          "Account details: your name, email address and a password (stored only as a cryptographic hash). Property details: the address or label you type for each home, so the drafting team knows which building a drawing belongs to. Order details: the packages and add-ons you choose, drawing preferences, notes you write, coupon codes, and any files you attach, such as a logo or a marked-up PDF. Payment details: when you pay by card, you type your card details into a payment form provided by Stripe, and they go to Stripe, not to us — see \"Who sees your data\". If that form offers to read your card with the camera, the image is read on your phone and is not uploaded."),
         ("Information the app captures",
-         "Scan data: the 3D geometry produced by the LiDAR sensor, a colour video recorded while you walk through the space, and the model files derived from them. These capture the inside of the property, so please treat them as you would photographs of the same rooms. Anything visible while you scan will be in the file, including people, documents and screens. Ask everyone present before you start, and put private items away first."),
+         "Scan data: the 3D geometry produced by the LiDAR sensor, a colour video recorded while you walk through the space, and the model files derived from them. These capture the inside of the property, so please treat them as you would photographs of the same rooms. Anything visible while you scan will be in the file, including people, documents and screens. Ask everyone present before you start, and put private items away first. Each scan also carries a short technical report of the scanning session, such as the device model, the iOS and app versions, how long the scan took, tracking and temperature states, capture figures and any error codes, which we use to find and fix problems with scan quality."),
         ("Location",
          "The app can fill in a property address from your device location, but only in the moment you tap the button that asks for it. There is no background or continuous location tracking. The coordinates are turned into a street address, the address is what gets stored, and you can always type the address by hand instead — the app works fully without location permission."),
         ("Device identifier",
@@ -319,7 +324,7 @@ extension LegalDoc {
         ("Renseignements que vous nous fournissez",
          "Renseignements sur le compte : votre nom, votre adresse courriel et un mot de passe (conservé uniquement sous forme d'empreinte cryptographique). Renseignements sur la propriété : l'adresse ou le libellé que vous saisissez pour chaque habitation, afin que l'équipe de dessin sache à quel bâtiment un plan se rapporte. Renseignements sur la commande : les forfaits et options que vous choisissez, vos préférences de dessin, les notes que vous rédigez, les codes promotionnels et les fichiers que vous joignez, par exemple un logo ou un PDF annoté. Renseignements sur le paiement : lorsque vous payez par carte, vous saisissez les données de votre carte dans un formulaire de paiement fourni par Stripe, et elles sont transmises à Stripe, non à nous — voyez \"Qui voit vos renseignements\". Si ce formulaire propose de lire votre carte avec la caméra, l'image est lue sur votre téléphone et n'est pas téléversée."),
         ("Renseignements que l'application capte",
-         "Données de numérisation : la géométrie 3D produite par le capteur LiDAR, une vidéo en couleur enregistrée pendant que vous parcourez les lieux, et les fichiers de modèle qui en sont dérivés. Ces éléments captent l'intérieur de la propriété ; veuillez donc les traiter comme vous traiteriez des photographies des mêmes pièces. Tout ce qui est visible pendant la numérisation figurera dans le fichier, y compris les personnes, les documents et les écrans. Consultez toutes les personnes présentes avant de commencer, et rangez d'abord les objets privés."),
+         "Données de numérisation : la géométrie 3D produite par le capteur LiDAR, une vidéo en couleur enregistrée pendant que vous parcourez les lieux, et les fichiers de modèle qui en sont dérivés. Ces éléments captent l'intérieur de la propriété ; veuillez donc les traiter comme vous traiteriez des photographies des mêmes pièces. Tout ce qui est visible pendant la numérisation figurera dans le fichier, y compris les personnes, les documents et les écrans. Consultez toutes les personnes présentes avant de commencer, et rangez d'abord les objets privés. Chaque numérisation comporte aussi un court rapport technique sur la séance de numérisation, par exemple le modèle de l'appareil, les versions d'iOS et de l'application, la durée de la numérisation, les états du suivi et de la température, des données sur la captation et les éventuels codes d'erreur, dont nous nous servons pour repérer et corriger les problèmes de qualité des numérisations."),
         ("Localisation",
          "L'application peut remplir l'adresse d'une propriété à partir de la position de votre appareil, mais uniquement au moment où vous touchez le bouton qui le demande. Il n'y a aucun suivi de localisation en arrière-plan ni en continu. Les coordonnées sont converties en adresse municipale — c'est cette adresse qui est conservée — et vous pouvez toujours saisir l'adresse à la main à la place : l'application fonctionne entièrement sans l'autorisation de localisation."),
         ("Identifiant de l'appareil",

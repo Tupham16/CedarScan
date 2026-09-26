@@ -17,6 +17,9 @@ struct MeshScanResult {
     /// → hai màn xem đều tự ẩn nút 3D. 🔴 KHÔNG được đóng vào model-colored.zip (máy trạm
     /// bake + tool cắt mặt bằng đọc zip đó) và KHÔNG thêm vào `ScanUploader.fileKinds`.
     let previewURL: URL?
+    /// scan-report.json (temp file, item 3 26/09) — `ScanStore` packs it into
+    /// model-colored.zip beside camera-track.json. nil = not written (never blocks the save).
+    let reportURL: URL?
     let name: String?
     /// Cấu hình THẬT SỰ đã quét buổi này (ScanStore ghi rawValue vào meta.json). Picker độ nét
     /// đã bỏ 2026-07-31 nên nay luôn là `MeshQuality.storageDefault` — vẫn mang theo kết quả
@@ -612,6 +615,7 @@ struct MeshScanFlowView: View {
                 trackURL: exported.trackURL,
                 texshotsDir: exported.texshotsDir,
                 previewURL: exported.previewURL,
+                reportURL: exported.reportURL,
                 name: name.isEmpty ? nil : name,
                 quality: controller.quality,
                 hitCap: exported.hitCap,
