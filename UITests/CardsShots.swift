@@ -43,6 +43,14 @@ final class CardsShots: XCTestCase {
         a.name = String(format: "%03d-address-buttons-%@", n, text.replacingOccurrences(of: " ", with: "_"))
         a.lifetime = .keepAlways
         add(a)
+        // Tap the first suggestion (a button whose label is not one of the screen's own).
+        let own: Set<String> = ["Emoji", "Dictate", "shift", "return", "Cancel", "Start scanning", "Use my location",
+                                "Bàn phím tiếp theo", "Đọc chính tả", "Biểu tượng", "Nhập", "Hủy", "Bắt đầu quét", "Dùng vị trí hiện tại"]
+        if let first = app.buttons.allElementsBoundByIndex.first(where: { !own.contains($0.label) && !$0.label.isEmpty }) {
+            first.tap()
+            sleep(4)
+            shot("address-picked-" + text.replacingOccurrences(of: " ", with: "_"))
+        }
         app.terminate()
     }
 
