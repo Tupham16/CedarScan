@@ -15558,6 +15558,53 @@
         }
       }
     },
+    "The revised files for %@ are ready.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Upravené soubory pro %@ jsou hotové."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die korrigierten Dateien für %@ sind fertig."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los archivos revisados para %@ están listos."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les fichiers révisés pour %@ sont prêts."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "De herziene bestanden voor %@ zijn klaar."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Upravené súbory pre %@ sú hotové."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "File đã chỉnh sửa cho %@ đã sẵn sàng."
+          }
+        }
+      }
+    },
     "The tour has been delivered — photos are locked. Contact support for changes.": {
       "extractionState": "manual",
       "localizations": {
@@ -18096,6 +18143,53 @@
         }
       }
     },
+    "We sent you a message about your order for %@. Please check your email.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Poslali jsme vám zprávu k vaší objednávce pro %@. Zkontrolujte prosím svůj e-mail."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wir haben Ihnen eine Nachricht zu Ihrer Bestellung für %@ gesendet. Bitte prüfen Sie Ihre E-Mails."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Te enviamos un mensaje sobre tu pedido para %@. Revisa tu correo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nous vous avons envoyé un message au sujet de votre commande pour %@. Veuillez consulter vos courriels."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "We hebben je een bericht gestuurd over je bestelling voor %@. Kijk in je mailbox."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Poslali sme vám správu k vašej objednávke pre %@. Skontrolujte si, prosím, e-mail."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chúng tôi đã gửi cho bạn một tin nhắn về đơn hàng cho %@. Vui lòng kiểm tra email."
+          }
+        }
+      }
+    },
     "We start on it now. Its files arrive in this order in the Orders tab.": {
       "extractionState": "manual",
       "localizations": {
@@ -19130,6 +19224,147 @@
         }
       }
     },
+    "Your added items for %@ are awaiting payment. They will be cancelled within 24 hours if unpaid.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vámi přidané položky pro %@ čekají na platbu. Pokud nebudou zaplaceny, do 24 hodin se zruší."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ihre zusätzlichen Leistungen für %@ warten auf Zahlung. Sie werden innerhalb von 24 Stunden storniert, wenn sie nicht bezahlt werden."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los artículos que añadiste para %@ están pendientes de pago. Se cancelarán en menos de 24 horas si no se pagan."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les éléments ajoutés pour %@ sont en attente de paiement. Ils seront annulés d'ici 24 heures s'ils ne sont pas payés."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Je toegevoegde onderdelen voor %@ wachten op betaling. Ze worden binnen 24 uur geannuleerd als ze niet betaald zijn."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vami pridané položky pre %@ čakajú na platbu. Ak nebudú zaplatené, do 24 hodín sa zrušia."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Các mục bạn thêm cho %@ đang chờ thanh toán. Chúng sẽ bị hủy trong vòng 24 giờ nếu chưa thanh toán."
+          }
+        }
+      }
+    },
+    "Your added items for %@ are ready.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vámi přidané položky pro %@ jsou hotové."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ihre zusätzlichen Leistungen für %@ sind fertig."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los artículos que añadiste para %@ están listos."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les éléments ajoutés pour %@ sont prêts."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Je toegevoegde onderdelen voor %@ zijn klaar."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vami pridané položky pre %@ sú hotové."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Các mục bạn thêm cho %@ đã sẵn sàng."
+          }
+        }
+      }
+    },
+    "Your added items for %@ were cancelled because they were not paid within 7 days.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vámi přidané položky pro %@ byly zrušeny, protože nebyly zaplaceny do 7 dnů."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ihre zusätzlichen Leistungen für %@ wurden storniert, weil sie nicht innerhalb von 7 Tagen bezahlt wurden."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los artículos que añadiste para %@ se cancelaron porque no se pagaron en 7 días."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les éléments ajoutés pour %@ ont été annulés, car ils n'ont pas été payés dans les 7 jours."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Je toegevoegde onderdelen voor %@ zijn geannuleerd omdat ze niet binnen 7 dagen betaald zijn."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vami pridané položky pre %@ boli zrušené, pretože neboli zaplatené do 7 dní."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Các mục bạn thêm cho %@ đã bị hủy vì chưa được thanh toán trong 7 ngày."
+          }
+        }
+      }
+    },
     "Your free-order slots were just used up. Please review the price and tap Place order again.": {
       "extractionState": "manual",
       "localizations": {
@@ -19220,6 +19455,147 @@
           "stringUnit": {
             "state": "translated",
             "value": "Tên của bạn"
+          }
+        }
+      }
+    },
+    "Your order for %@ is awaiting payment. It will be cancelled within 24 hours if unpaid.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vaše objednávka pro %@ čeká na platbu. Pokud nebude zaplacena, do 24 hodin se zruší."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ihre Bestellung für %@ wartet auf Zahlung. Sie wird innerhalb von 24 Stunden storniert, wenn sie nicht bezahlt wird."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tu pedido para %@ está pendiente de pago. Se cancelará en menos de 24 horas si no se paga."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre commande pour %@ est en attente de paiement. Elle sera annulée d'ici 24 heures si elle n'est pas payée."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Je bestelling voor %@ wacht op betaling. Ze wordt binnen 24 uur geannuleerd als ze niet betaald is."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vaša objednávka pre %@ čaká na platbu. Ak nebude zaplatená, do 24 hodín sa zruší."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đơn hàng cho %@ đang chờ thanh toán. Đơn sẽ bị hủy trong vòng 24 giờ nếu chưa thanh toán."
+          }
+        }
+      }
+    },
+    "Your order for %@ is ready.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vaše objednávka pro %@ je hotová."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ihre Bestellung für %@ ist fertig."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tu pedido para %@ está listo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre commande pour %@ est prête."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Je bestelling voor %@ is klaar."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vaša objednávka pre %@ je hotová."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đơn hàng cho %@ đã sẵn sàng."
+          }
+        }
+      }
+    },
+    "Your order for %@ was cancelled because it was not paid within 7 days.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vaše objednávka pro %@ byla zrušena, protože nebyla zaplacena do 7 dnů."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ihre Bestellung für %@ wurde storniert, weil sie nicht innerhalb von 7 Tagen bezahlt wurde."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tu pedido para %@ se canceló porque no se pagó en 7 días."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre commande pour %@ a été annulée, car elle n'a pas été payée dans les 7 jours."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Je bestelling voor %@ is geannuleerd omdat ze niet binnen 7 dagen betaald is."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vaša objednávka pre %@ bola zrušená, pretože nebola zaplatená do 7 dní."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đơn hàng cho %@ đã bị hủy vì chưa được thanh toán trong 7 ngày."
           }
         }
       }

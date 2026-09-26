@@ -53,6 +53,8 @@ struct RootView: View {
     /// Yêu cầu mở một dự án, bắn từ tab Đơn hàng. Xem `OpenProjectRequest` + `requestOpenProject`.
     @State private var openProjectRequest: OpenProjectRequest?
     @State private var openProjectSeq = 0
+    /// A tapped push notification (`tapped`) → Orders tab (`openOrder`, `OrdersView` pushes it).
+    @ObservedObject private var push = PushNotifications.shared
 
     var body: some View {
         TabView(selection: $tab) {
@@ -127,6 +129,8 @@ struct RootView: View {
         .onAppear { PaymentFlow.visibleTab = tab }
         .onChange(of: tab) { _, newTab in PaymentFlow.visibleTab = newTab }
         .task(id: account.isSignedIn) {
+            // Launch, sign-in, sign-out: push token to the server / pending unregister.
+            push.refresh()
             await confirmPendingPayments()
             await syncUnpaidOrders()
             await purgeDeliveredScans()
@@ -137,11 +141,33 @@ struct RootView: View {
         // trong nền cả tuần thì không bao giờ được dọn. Thêm mốc quay lại foreground.
         .onChange(of: scenePhase) { _, phase in
             guard phase == .active else { return }
+            // Notifications allowed in Settings meanwhile, a register that failed offline…
+            push.refresh()
             Task {
                 await confirmPendingPayments()
                 await syncUnpaidOrders()
                 await purgeDeliveredScans()
             }
+        }
+        // Publisher, ✗ `.onChange`: a tap that LAUNCHED the app is set before this view exists,
+        // and `$tapped` hands its current value to a new subscriber (trap #6).
+        .onReceive(push.$tapped) { request in
+            guard let request else { return }
+            openTappedOrder(request)
+        }
+    }
+
+    /// A notification was tapped: its order in the Orders tab. One tick later (at cold start this
+    /// arrives while the first frame is built), and only over a plain screen — ✗ under the scan
+    /// cover (a scan in progress), a sheet, the card sheet or an alert: then nothing moves (the
+    /// order is in the Orders tab anyway). An ordinary tab switch, like `requestOpenProject`.
+    private func openTappedOrder(_ request: PushNotifications.OrderRequest) {
+        Task { @MainActor in
+            guard push.tapped == request else { return }
+            push.tapped = nil
+            guard !PushNotifications.somethingOnTop else { return }
+            push.openOrder = request
+            if tab != .orders { tab = .orders }
         }
     }
 

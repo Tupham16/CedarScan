@@ -542,6 +542,21 @@ final class APIClient {
         try await send("auth/resend-code", method: "POST", json: [:])
     }
 
+    // MARK: Push notifications — callers: `PushNotifications` only
+
+    /// This phone gets the signed-in account's pushes (moves the token from any other account).
+    /// 400 bad token · 401 stale session · 429.
+    @discardableResult
+    func registerPushToken(_ token: String, environment: String) async throws -> OKResponse {
+        try await send("push/register", method: "POST", json: ["token": token, "environment": environment])
+    }
+
+    /// No auth needed (sign-out retries after the session is gone). 400 = bad token.
+    @discardableResult
+    func unregisterPushToken(_ token: String) async throws -> OKResponse {
+        try await send("push/unregister", method: "POST", json: ["token": token])
+    }
+
     // MARK: Scans & Orders
 
     func createScan(

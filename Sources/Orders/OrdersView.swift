@@ -32,6 +32,8 @@ struct OrdersView: View {
     @Environment(\.dynamicTypeSize) private var typeSize
     /// Orders v2 B: back from the browser pay page (see `refreshUnpaid`).
     @Environment(\.scenePhase) private var scenePhase
+    /// Push notifications: a tapped one's order (`openPushedOrder`), arrivals on screen (reload).
+    @ObservedObject private var push = PushNotifications.shared
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -98,6 +100,8 @@ struct OrdersView: View {
                 loadedCustomerId = currentId
             }
             if account.isSignedIn { await load() }
+            // A notification tapped before this account's first load (cold start): its turn now.
+            await openPushedOrder(reload: false)
         }
         .onChange(of: orders.map(\.orderId)) { _, ids in
             leaveGoneOrder(ids)
@@ -105,6 +109,34 @@ struct OrdersView: View {
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { refreshUnpaid() }
         }
+        .onChange(of: push.openOrder) { _, request in
+            if request != nil { Task { await openPushedOrder(reload: true) } }
+        }
+        // A push while the app is on screen = news about an order (delivered, cancelled…).
+        .onChange(of: push.arrivals) { _, _ in
+            if account.isSignedIn { Task { await load() } }
+        }
+    }
+
+    /// A tapped notification's order (`RootView` switched to this tab): reload (the push is news),
+    /// then push it — the only screen on the stack. Not in the list (another account's, gone) = the
+    /// list alone. Waits for this account's first load: before it `orders` may be empty or the
+    /// previous account's (`.task(id:)` calls back after that load).
+    private func openPushedOrder(reload: Bool) async {
+        guard let request = push.openOrder else { return }
+        guard account.isSignedIn else {
+            push.openOrder = nil
+            return
+        }
+        guard loadedCustomerId == account.customer?.id else { return }
+        if reload { await load() }
+        // A newer tap took over, or another call already handled this one.
+        guard push.openOrder == request, loadedCustomerId == account.customer?.id else { return }
+        push.openOrder = nil
+        guard let order = ownOrders.first(where: { $0.orderId == request.orderId }),
+              !PushNotifications.somethingOnTop else { return }
+        let route = OrderRoute(orderId: order.orderId, title: title(of: order), customerId: account.customer?.id)
+        if path != [route] { path = [route] }
     }
 
     /// Orders v2 B: a customer who paid on the browser pay page comes back to a list (or an open
@@ -180,6 +212,10 @@ struct OrdersView: View {
         switch answer {
         case .success(let fresh):
             orders = fresh
+            // Push notifications: an account that has orders is asked once, on this tab only.
+            if !fresh.isEmpty, PaymentFlow.visibleTab == .orders {
+                PushNotifications.shared.askIfUndetermined()
+            }
             // Orders v2 B: awaiting / cancelled states onto this device's scans (positive signals
             // only — see `ScanStore.syncOrders`).
             store.syncOrders(fresh)

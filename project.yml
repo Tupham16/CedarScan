@@ -74,7 +74,15 @@ targets:
         # tiếng, cùng hiện "1.0" → chủ app test trúng bản cũ mà không ai biết, báo "lỗi vẫn
         # nguyên" oan. AltStore (My Apps) và Cài đặt iOS đều hiện số này — nó là cách DUY NHẤT
         # xác minh từ xa máy ông đang chạy bản nào. Ghi số giao kèm vào SESSION-HANDOFF §STATE.
-        MARKETING_VERSION: "2.60"
+        MARKETING_VERSION: "2.61"
+    # Push notifications (2.61, owner 26/09). XcodeGen writes this file (gitignored, like Info.plist)
+    # and sets CODE_SIGN_ENTITLEMENTS. `development` is right: the App Store export (release.yml)
+    # rewrites it to `production`. build.yml is unsigned, so the AltStore IPA carries no entitlement
+    # (free teams cannot use push): those builds install as before and simply never get a token.
+    entitlements:
+      path: Sources/CedarScan.entitlements
+      properties:
+        aps-environment: development
     info:
       path: Sources/Info.plist
       properties:

@@ -3,6 +3,7 @@ build/
 DerivedData/
 .DS_Store
 Sources/Info.plist
+Sources/CedarScan.entitlements
 
 # Không bao giờ đưa lên repo (repo này PUBLIC):
 #  • IPA build ra — nặng, và tải lại từ CI artifact được.

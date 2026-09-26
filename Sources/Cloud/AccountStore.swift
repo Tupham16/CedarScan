@@ -73,7 +73,10 @@ final class AccountStore: ObservableObject {
         setEmailVerified(true)
     }
 
+    /// Every sign-out passes here (Account tab, verify screen, account deletion, a 401 in `refresh`).
     func signOut() {
+        // Before the session goes (plan: unregister first); this phone stops getting its pushes.
+        PushNotifications.shared.signingOut()
         APIClient.shared.token = nil
         Keychain.delete(Self.tokenKey)
         UserDefaults.standard.removeObject(forKey: Self.customerKey)

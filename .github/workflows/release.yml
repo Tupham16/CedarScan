@@ -225,6 +225,24 @@ jobs:
               sys.exit(1)
           PY
 
+      # Push notifications (2.61): the signed app must carry aps-environment = production (the
+      # export rewrites project.yml's `development`), or no TestFlight/App Store phone gets a token.
+      - name: Kiểm quyền push
+        run: |
+          IPA=$(ls build/export/*.ipa | head -1)
+          rm -rf build/ipa-check && mkdir -p build/ipa-check
+          unzip -q "$IPA" -d build/ipa-check
+          codesign -d --entitlements - --xml build/ipa-check/Payload/CedarScan.app > build/ents.plist
+          python3 - <<'PY'
+          import plistlib, sys
+          ents = plistlib.load(open("build/ents.plist", "rb"))
+          aps = ents.get("aps-environment")
+          print("aps-environment          :", aps)
+          if aps != "production":
+              print("::error::aps-environment is " + repr(aps) + ", expected 'production'")
+              sys.exit(1)
+          PY
+
       # Bước DUY NHẤT chạm tới tài khoản Apple của chủ app. Bỏ tick `upload` lúc bấm chạy thì
       # workflow dừng ở trên: có IPA đã ký để soi, không có gì được nộp đi.
       - name: Đẩy lên App Store Connect

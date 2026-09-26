@@ -4991,6 +4991,102 @@
     "es": "Escaneo largo. Cuando termines esta habitación (nunca en la escalera), toca \"Detener y guardar\" y escanea el resto como un escaneo nuevo, empezando en una habitación que ya escaneaste.",
     "nl": "Lange scan. Als je deze kamer af hebt (nooit op de trap), tik op \"Stoppen & opslaan\" en scan de rest als nieuwe scan, te beginnen in een kamer die je al hebt gescand."
    }
+  },
+  {
+   "key": "Your order for %@ is ready.",
+   "translations": {
+    "vi": "Đơn hàng cho %@ đã sẵn sàng.",
+    "fr": "Votre commande pour %@ est prête.",
+    "de": "Ihre Bestellung für %@ ist fertig.",
+    "cs": "Vaše objednávka pro %@ je hotová.",
+    "sk": "Vaša objednávka pre %@ je hotová.",
+    "es": "Tu pedido para %@ está listo.",
+    "nl": "Je bestelling voor %@ is klaar."
+   }
+  },
+  {
+   "key": "Your added items for %@ are ready.",
+   "translations": {
+    "vi": "Các mục bạn thêm cho %@ đã sẵn sàng.",
+    "fr": "Les éléments ajoutés pour %@ sont prêts.",
+    "de": "Ihre zusätzlichen Leistungen für %@ sind fertig.",
+    "cs": "Vámi přidané položky pro %@ jsou hotové.",
+    "sk": "Vami pridané položky pre %@ sú hotové.",
+    "es": "Los artículos que añadiste para %@ están listos.",
+    "nl": "Je toegevoegde onderdelen voor %@ zijn klaar."
+   }
+  },
+  {
+   "key": "The revised files for %@ are ready.",
+   "translations": {
+    "vi": "File đã chỉnh sửa cho %@ đã sẵn sàng.",
+    "fr": "Les fichiers révisés pour %@ sont prêts.",
+    "de": "Die korrigierten Dateien für %@ sind fertig.",
+    "cs": "Upravené soubory pro %@ jsou hotové.",
+    "sk": "Upravené súbory pre %@ sú hotové.",
+    "es": "Los archivos revisados para %@ están listos.",
+    "nl": "De herziene bestanden voor %@ zijn klaar."
+   }
+  },
+  {
+   "key": "We sent you a message about your order for %@. Please check your email.",
+   "translations": {
+    "vi": "Chúng tôi đã gửi cho bạn một tin nhắn về đơn hàng cho %@. Vui lòng kiểm tra email.",
+    "fr": "Nous vous avons envoyé un message au sujet de votre commande pour %@. Veuillez consulter vos courriels.",
+    "de": "Wir haben Ihnen eine Nachricht zu Ihrer Bestellung für %@ gesendet. Bitte prüfen Sie Ihre E-Mails.",
+    "cs": "Poslali jsme vám zprávu k vaší objednávce pro %@. Zkontrolujte prosím svůj e-mail.",
+    "sk": "Poslali sme vám správu k vašej objednávke pre %@. Skontrolujte si, prosím, e-mail.",
+    "es": "Te enviamos un mensaje sobre tu pedido para %@. Revisa tu correo.",
+    "nl": "We hebben je een bericht gestuurd over je bestelling voor %@. Kijk in je mailbox."
+   }
+  },
+  {
+   "key": "Your order for %@ is awaiting payment. It will be cancelled within 24 hours if unpaid.",
+   "translations": {
+    "vi": "Đơn hàng cho %@ đang chờ thanh toán. Đơn sẽ bị hủy trong vòng 24 giờ nếu chưa thanh toán.",
+    "fr": "Votre commande pour %@ est en attente de paiement. Elle sera annulée d'ici 24 heures si elle n'est pas payée.",
+    "de": "Ihre Bestellung für %@ wartet auf Zahlung. Sie wird innerhalb von 24 Stunden storniert, wenn sie nicht bezahlt wird.",
+    "cs": "Vaše objednávka pro %@ čeká na platbu. Pokud nebude zaplacena, do 24 hodin se zruší.",
+    "sk": "Vaša objednávka pre %@ čaká na platbu. Ak nebude zaplatená, do 24 hodín sa zruší.",
+    "es": "Tu pedido para %@ está pendiente de pago. Se cancelará en menos de 24 horas si no se paga.",
+    "nl": "Je bestelling voor %@ wacht op betaling. Ze wordt binnen 24 uur geannuleerd als ze niet betaald is."
+   }
+  },
+  {
+   "key": "Your added items for %@ are awaiting payment. They will be cancelled within 24 hours if unpaid.",
+   "translations": {
+    "vi": "Các mục bạn thêm cho %@ đang chờ thanh toán. Chúng sẽ bị hủy trong vòng 24 giờ nếu chưa thanh toán.",
+    "fr": "Les éléments ajoutés pour %@ sont en attente de paiement. Ils seront annulés d'ici 24 heures s'ils ne sont pas payés.",
+    "de": "Ihre zusätzlichen Leistungen für %@ warten auf Zahlung. Sie werden innerhalb von 24 Stunden storniert, wenn sie nicht bezahlt werden.",
+    "cs": "Vámi přidané položky pro %@ čekají na platbu. Pokud nebudou zaplaceny, do 24 hodin se zruší.",
+    "sk": "Vami pridané položky pre %@ čakajú na platbu. Ak nebudú zaplatené, do 24 hodín sa zrušia.",
+    "es": "Los artículos que añadiste para %@ están pendientes de pago. Se cancelarán en menos de 24 horas si no se pagan.",
+    "nl": "Je toegevoegde onderdelen voor %@ wachten op betaling. Ze worden binnen 24 uur geannuleerd als ze niet betaald zijn."
+   }
+  },
+  {
+   "key": "Your order for %@ was cancelled because it was not paid within 7 days.",
+   "translations": {
+    "vi": "Đơn hàng cho %@ đã bị hủy vì chưa được thanh toán trong 7 ngày.",
+    "fr": "Votre commande pour %@ a été annulée, car elle n'a pas été payée dans les 7 jours.",
+    "de": "Ihre Bestellung für %@ wurde storniert, weil sie nicht innerhalb von 7 Tagen bezahlt wurde.",
+    "cs": "Vaše objednávka pro %@ byla zrušena, protože nebyla zaplacena do 7 dnů.",
+    "sk": "Vaša objednávka pre %@ bola zrušená, pretože nebola zaplatená do 7 dní.",
+    "es": "Tu pedido para %@ se canceló porque no se pagó en 7 días.",
+    "nl": "Je bestelling voor %@ is geannuleerd omdat ze niet binnen 7 dagen betaald is."
+   }
+  },
+  {
+   "key": "Your added items for %@ were cancelled because they were not paid within 7 days.",
+   "translations": {
+    "vi": "Các mục bạn thêm cho %@ đã bị hủy vì chưa được thanh toán trong 7 ngày.",
+    "fr": "Les éléments ajoutés pour %@ ont été annulés, car ils n'ont pas été payés dans les 7 jours.",
+    "de": "Ihre zusätzlichen Leistungen für %@ wurden storniert, weil sie nicht innerhalb von 7 Tagen bezahlt wurden.",
+    "cs": "Vámi přidané položky pro %@ byly zrušeny, protože nebyly zaplaceny do 7 dnů.",
+    "sk": "Vami pridané položky pre %@ boli zrušené, pretože neboli zaplatené do 7 dní.",
+    "es": "Los artículos que añadiste para %@ se cancelaron porque no se pagaron en 7 días.",
+    "nl": "Je toegevoegde onderdelen voor %@ zijn geannuleerd omdat ze niet binnen 7 dagen betaald zijn."
+   }
   }
  ],
  "infoplist": {

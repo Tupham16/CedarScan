@@ -1287,7 +1287,12 @@ struct OrderSheet: View {
         // scene bị thu hồi…) cũng phải hủy Task, không thì đơn vẫn tạo ngầm sau khi sheet biến mất.
         // NHƯNG không hủy khi đang `placingOrder`: lúc đó để orderScan chạy trọn thì đơn tạo + đóng
         // dấu bản quét cùng chạy (nhất quán), còn hủy nửa chừng mới đẻ half-state.
-        .onDisappear { if !placingOrder { submitTask?.cancel() } }
+        .onDisappear {
+            if !placingOrder { submitTask?.cancel() }
+            // Push notifications: the first moment to ask is right after an order was placed — once
+            // this sheet has closed, so the prompt never lands on the card sheet (it opens by itself).
+            if placedOrder != nil { PushNotifications.shared.askIfUndetermined() }
+        }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { recheckPlacedOrder() }
         }
