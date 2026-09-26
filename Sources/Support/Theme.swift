@@ -301,32 +301,6 @@ struct WrappedTextView: UIViewRepresentable {
     }
 }
 
-/// Home / Orders card body (2.52, mockup 48): the first subview at the top, the last one at the
-/// bottom, at least `minHeight` tall (content grows past it). A Layout, ✗ a Spacer in a VStack
-/// under `.frame(minHeight:)`: a List row sizes its content with no height proposal, so a Spacer
-/// would not stretch and the bottom line would float up under the title. Two subviews.
-struct FogCardStack: Layout {
-    /// Content height; the visible card adds the row insets (17 + 18) minus the 6 + 6 margins.
-    var minHeight: CGFloat = 95
-    var gap: CGFloat = 12
-
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let sizes = subviews.map { $0.sizeThatFits(ProposedViewSize(width: proposal.width, height: nil)) }
-        let content = sizes.reduce(0) { $0 + $1.height } + gap * CGFloat(max(subviews.count - 1, 0))
-        let width = proposal.width ?? sizes.reduce(0) { max($0, $1.width) }
-        return CGSize(width: width, height: max(minHeight, content))
-    }
-
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        guard let top = subviews.first, let bottom = subviews.last else { return }
-        let proposed = ProposedViewSize(width: bounds.width, height: nil)
-        top.place(at: CGPoint(x: bounds.minX, y: bounds.minY), anchor: .topLeading, proposal: proposed)
-        if subviews.count > 1 {
-            bottom.place(at: CGPoint(x: bounds.minX, y: bounds.maxY), anchor: .bottomLeading, proposal: proposed)
-        }
-    }
-}
-
 private func rgb(_ value: UInt32, alpha: CGFloat = 1) -> UIColor {
     let r = CGFloat((value >> 16) & 0xFF) / 255
     let g = CGFloat((value >> 8) & 0xFF) / 255

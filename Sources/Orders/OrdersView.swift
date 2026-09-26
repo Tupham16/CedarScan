@@ -399,7 +399,7 @@ struct OrdersView: View {
         // (Orders v2 pushes). Read the 🔴 note there before moving it back.
     }
 
-    /// One order card (2.52, mockup 48; before: the compact row of mockup 30/31). Top: the street
+    /// One order card (2.52, mockup 48; 2.53 no min height, mockup 49 A; before: the compact row of mockup 30/31). Top: the street
     /// in bold + the rest of the address in grey (`AddressLines`), status badge beside the street.
     /// Bottom: date + chevron. Left edge in the badge's colour. Tap = the order detail.
     /// A `Button` + `path.append`, ✗ `NavigationLink`: same reason as `HomeView.projectRow` — a List
@@ -417,7 +417,9 @@ struct OrdersView: View {
             guard path.isEmpty else { return }
             path.append(OrderRoute(orderId: order.orderId, title: name, customerId: account.customer?.id))
         } label: {
-            FogCardStack {
+            // Card height = its content (owner 26/09, mockup 49 A): ✗ a min height, it left a gap
+            // between the address and the date.
+            VStack(alignment: .leading, spacing: 8) {
                 HStack(alignment: .top, spacing: 10) {
                     CardAddress(lines: lines)
                     Spacer(minLength: 8)

@@ -540,13 +540,14 @@ struct HomeView: View {
         // beside "N new" it squeezed the count line into two).
         let awaiting = scans.contains { store.isAwaitingPayment($0) }
         let created = project.createdAt.formatted(date: .abbreviated, time: .omitted)
-        // Card since 2.52 (mockup 48): street bold + rest of the address grey, "N new" beside the
+        // Card since 2.52 (mockup 48; 2.53: no min height, mockup 49 A): street bold + rest of the address grey, "N new" beside the
         // street; date, count line and awaiting mark at the bottom; trash in the bottom-right
         // corner, OVER the open button (its own 44pt target — the meta lines keep clear of it).
         return Button {
             path.append(project)
         } label: {
-            FogCardStack {
+            // Card height = its content (owner 26/09, mockup 49 A): ✗ a min height, it left a gap.
+            VStack(alignment: .leading, spacing: 8) {
                 HStack(alignment: .top, spacing: 10) {
                     CardAddress(lines: AddressLines(project.name))
                     // Nuốt hết chỗ trống giữa chữ và nhãn, và `contentShape` bên dưới biến nó
