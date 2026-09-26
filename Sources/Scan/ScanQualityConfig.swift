@@ -43,7 +43,7 @@ struct ScanQualityConfig: Codable {
         maxSpeedSoft: 0.7,
         maxSpeedHard: 1.0,
         // 60 → 45 (26/09, owner "mục 5 cách 3"): the texture-shot gate skips photos above
-        // 40°/s (TextureShotRecorder.maxTurnRateDegPerSec) — warn before photos stop.
+        // 40°/s (TextureShotRecorder.maxTurnRateDegPerSec, 50 since 2.58) — warn before photos stop.
         // 45 → 68 (26/09 later, owner): "Turn slowly" too naggy; CubiCasa warns at ~1.5× our old
         // speed. Owner knows the cost: 40–68°/s again = no texture photo AND no warning.
         maxRotationSoft: 68,
