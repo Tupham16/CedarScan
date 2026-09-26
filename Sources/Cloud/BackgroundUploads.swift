@@ -19,8 +19,10 @@ final class BackgroundUploads: NSObject {
     static let shared = BackgroundUploads()
     static let sessionId = "com.cedar247.cedarscan.scan-uploads"
     /// A background session never fails for lack of network — it waits (up to the resource
-    /// timeout). With the app on screen and no byte sent for this long, the WAIT gives up (the
-    /// transfer carries on, a later tap re-joins it); otherwise "0 %" forever + screen never sleeps.
+    /// timeout). With the app on screen and no byte sent by ANY transfer for this long, the WAIT
+    /// gives up (the transfer carries on, a later tap re-joins it); otherwise "0 %" forever +
+    /// screen never sleeps. Session-wide, ✗ per file: files queued behind the per-host connection
+    /// cap legitimately sit at 0 bytes for minutes while others move.
     private static let stallSeconds: UInt64 = 60
 
     /// iOS's "done handling events" handler (`AppDelegate`); main thread only.
@@ -37,8 +39,8 @@ final class BackgroundUploads: NSObject {
     /// A completion from any other task of the tag (stale, from before a relaunch) only counts
     /// for its 2xx; it never clears this or fails the waiters.
     private var launched: [String: Int] = [:]
-    /// Bytes sent by the tracked task, per tag (stall watchdog).
-    private var sentByKey: [String: Int64] = [:]
+    /// Bumped on every byte sent by a tracked task and on every task start (stall watchdog).
+    private var activity: UInt64 = 0
     /// Tasks that may be discretionary (created while the app was not active, adopted after a
     /// relaunch, or recreated off-screen): iOS may hold those for hours. On `didBecomeActive` the
     /// ones that have not sent a byte are cancelled and recreated.
@@ -94,14 +96,14 @@ final class BackgroundUploads: NSObject {
         let key = tag.string
         let handle = WaitHandle()
         let watchdog = Task { @MainActor [weak self] in
-            var lastSent: Int64 = -1
+            var lastSeen: UInt64 = .max
             var idle: UInt64 = 0
             while !Task.isCancelled {
                 try? await Task.sleep(nanoseconds: 10_000_000_000)
                 guard let self, !Task.isCancelled else { return }
-                let sent = self.sentBytes(key)
-                if UIApplication.shared.applicationState != .active || sent != lastSent {
-                    lastSent = sent
+                let seen = self.currentActivity()
+                if UIApplication.shared.applicationState != .active || seen != lastSeen {
+                    lastSeen = seen
                     idle = 0
                     continue
                 }
@@ -139,10 +141,10 @@ final class BackgroundUploads: NSObject {
         var id = 0
     }
 
-    private func sentBytes(_ key: String) -> Int64 {
+    private func currentActivity() -> UInt64 {
         lock.lock()
         defer { lock.unlock() }
-        return sentByKey[key] ?? 0
+        return activity
     }
 
     /// Ends ONE wait with `error` (no-op if it already ended or is not registered yet).
@@ -183,15 +185,14 @@ final class BackgroundUploads: NSObject {
                 $0.taskDescription == key && ($0.state == .running || $0.state == .suspended)
             }) {
                 launched[key] = old.taskIdentifier
-                sentByKey[key] = old.countOfBytesSent
+                activity &+= 1
                 // The old process may have created it off-screen (discretionary): same swap as
-                // `didBecomeActive`, with today's (fresh) URL.
-                let swap = appActive && old.countOfBytesSent == 0
-                    && FileManager.default.fileExists(atPath: file.path)
-                if swap {
-                    createdInBackground[key] = (request, file)
-                    replacing.insert(key)
-                }
+                // `didBecomeActive`, with today's (fresh) URL — now if on screen, else at the next
+                // activation.
+                let idle = old.countOfBytesSent == 0 && FileManager.default.fileExists(atPath: file.path)
+                if idle { createdInBackground[key] = (request, file) }
+                let swap = idle && appActive
+                if swap { replacing.insert(key) }
                 lock.unlock()
                 if swap { old.cancel() }
                 return
@@ -213,7 +214,7 @@ final class BackgroundUploads: NSObject {
             let task = session.uploadTask(with: request, fromFile: file)
             task.taskDescription = key
             launched[key] = task.taskIdentifier
-            sentByKey[key] = 0
+            activity &+= 1
             if !appActive { createdInBackground[key] = (request, file) }
             lock.unlock()
             task.resume()
@@ -254,7 +255,7 @@ extension BackgroundUploads: URLSessionTaskDelegate {
         guard let key = task.taskDescription else { return }
         lock.lock()
         guard launched[key] == task.taskIdentifier else { lock.unlock(); return }
-        sentByKey[key] = totalBytesSent
+        activity &+= 1
         let ws = waiters[key].map { Array($0.values) } ?? []
         lock.unlock()
         ws.forEach { $0.progress(totalBytesSent) }
@@ -279,7 +280,6 @@ extension BackgroundUploads: URLSessionTaskDelegate {
             return
         }
         launched[key] = nil
-        sentByKey[key] = nil
         if replacing.remove(key) != nil, (error as? URLError)?.code == .cancelled,
            let redo = createdInBackground[key],
            FileManager.default.fileExists(atPath: redo.file.path) {
@@ -289,7 +289,7 @@ extension BackgroundUploads: URLSessionTaskDelegate {
             let fresh = session.uploadTask(with: redo.request, fromFile: redo.file)
             fresh.taskDescription = key
             launched[key] = fresh.taskIdentifier
-            sentByKey[key] = 0
+            activity &+= 1
             lock.unlock()
             fresh.resume()
             return

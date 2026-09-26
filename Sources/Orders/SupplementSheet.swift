@@ -238,6 +238,13 @@ struct SupplementSheet: View {
             for record in records where !queue.contains(where: { $0.id == record.id }) {
                 queue.append(store.records.first { $0.id == record.id } ?? record)
             }
+            // One label for the whole batch (they all run at once).
+            let toSend = queue.filter { $0.cloudScanId == nil }
+            if toSend.count == 1 {
+                phase = .working(String(localized: "Uploading \(toSend[0].name)…"))
+            } else if toSend.count > 1 {
+                phase = .working(String(localized: "Uploading…"))
+            }
             var uploaded: [UUID: String] = [:]
             var failure: String?
             await withTaskGroup(of: (UUID, String?, String?).self) { group in
@@ -246,7 +253,6 @@ struct SupplementSheet: View {
                         uploaded[live.id] = existing
                         continue
                     }
-                    phase = .working(String(localized: "Uploading \(live.name)…"))
                     group.addTask { @MainActor in
                         let uploader = ScanUploader()
                         if let cloudId = await uploader.upload(record: live, folder: store.folderURL(for: live)) {

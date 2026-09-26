@@ -1987,7 +1987,6 @@ struct OrderSheet: View {
                 // hành vi cũ (upload sẽ tự hỏng và báo lỗi) thay vì im lặng bỏ qua.
                 let live = store.records.first { $0.id == scan.id } ?? scan
                 if let existing = live.cloudScanId { return existing }
-                busyLabel = String(localized: "Uploading \(live.name)…")
                 let uploader = ScanUploader()
                 if let cloudId = await uploader.upload(record: live, folder: store.folderURL(for: live)) {
                     store.setCloudScanId(live, cloudScanId: cloudId)
@@ -2010,6 +2009,15 @@ struct OrderSheet: View {
             var queue: [ScanRecord] = []
             for scan in [record] + extras where !queue.contains(where: { $0.id == scan.id }) {
                 queue.append(scan)
+            }
+            // One label for the whole batch (they all run at once).
+            let toSend = queue.filter { scan in
+                (store.records.first { $0.id == scan.id } ?? scan).cloudScanId == nil
+            }
+            if toSend.count == 1 {
+                busyLabel = String(localized: "Uploading \(toSend[0].name)…")
+            } else if toSend.count > 1 {
+                busyLabel = String(localized: "Uploading…")
             }
             var cloudIds: [UUID: String] = [:]
             var uploadFailed = false
