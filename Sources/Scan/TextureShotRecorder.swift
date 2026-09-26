@@ -150,8 +150,9 @@ final class TextureShotRecorder {
     /// texture này (chính chủ app mô tả CubiCasa y hệt).
     /// 30 → 40 (26/09, owner "mục 5 cách 3"): at 30–60°/s there was no coach warning AND no
     /// photo. The baker weights sharpness (compute_shot_sharpness), so a blurrier shot is used
-    /// only when nothing sharper exists. Paired with ScanQualityConfig.maxRotationSoft 45 —
-    /// keep the coach's soft threshold ≤ ~this gate + margin, ✗ move one without the other.
+    /// only when nothing sharper exists. Was paired with ScanQualityConfig.maxRotationSoft 45;
+    /// since 2.57 the coach warns at 68 (owner: too naggy) and 40–68°/s = no photo, no warning —
+    /// owner accepted. Tighten this gate or the coach only with the owner.
     private static let maxTurnRateDegPerSec: Float = 40
     /// Trần số ảnh trên đĩa. Chạm là bỏ xen kẽ còn một nửa + nhân đôi giãn cách —
     /// buổi quét dài bao nhiêu cũng hội tụ dưới trần này. ⚠ Trần này GẮN với nhịp

@@ -44,7 +44,9 @@ struct ScanQualityConfig: Codable {
         maxSpeedHard: 1.0,
         // 60 → 45 (26/09, owner "mục 5 cách 3"): the texture-shot gate skips photos above
         // 40°/s (TextureShotRecorder.maxTurnRateDegPerSec) — warn before photos stop.
-        maxRotationSoft: 45,
+        // 45 → 68 (26/09 later, owner): "Turn slowly" too naggy; CubiCasa warns at ~1.5× our old
+        // speed. Owner knows the cost: 40–68°/s again = no texture photo AND no warning.
+        maxRotationSoft: 68,
         maxRotationHard: 100,
         lowLightSoft: 250,
         trackingWarnAfterSec: 1.0,
@@ -120,8 +122,9 @@ struct ScanQualityConfig: Codable {
         // `response.scanQuality ?? .defaults`), so a changed DEFAULT does not reach a device that
         // ever opened the order form until its next visit. 26/09: 60 was only ever the old
         // default (prod has no "scan-quality-config" row) → read it as the new default. Change a
-        // default again = add the same kind of line here.
-        if cfg.maxRotationSoft == 60 { cfg.maxRotationSoft = defaults.maxRotationSoft }
+        // default again = add the same kind of line here. 45 = the 2.54/2.55 default (→ 68).
+        // A remote rollback must avoid 45/60 (load() rewrites them every launch): use 44/46, 59/61.
+        if cfg.maxRotationSoft == 60 || cfg.maxRotationSoft == 45 { cfg.maxRotationSoft = defaults.maxRotationSoft }
         return cfg
     }
 
