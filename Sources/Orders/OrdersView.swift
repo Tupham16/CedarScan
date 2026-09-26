@@ -135,8 +135,9 @@ struct OrdersView: View {
         push.openOrder = nil
         guard let order = ownOrders.first(where: { $0.orderId == request.orderId }),
               !PushNotifications.somethingOnTop else { return }
-        let route = OrderRoute(orderId: order.orderId, title: title(of: order), customerId: account.customer?.id)
-        if path != [route] { path = [route] }
+        // Already open (by id: a reloaded house name must not pop and re-push it, cancelling a Pay Now).
+        guard path.first?.orderId != order.orderId else { return }
+        path = [OrderRoute(orderId: order.orderId, title: title(of: order), customerId: account.customer?.id)]
     }
 
     /// Orders v2 B: a customer who paid on the browser pay page comes back to a list (or an open

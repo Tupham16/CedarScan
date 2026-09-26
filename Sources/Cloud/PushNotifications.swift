@@ -6,12 +6,14 @@ import UserNotifications
 ///
 /// · Permission is asked only after an order is placed (`OrderSheet` closing) or when the Orders
 ///   list shows ≥1 order — only while `.notDetermined`, ✗ at first launch.
-/// · Allowed + signed in ⇒ `registerForRemoteNotifications()` at launch / sign-in / foreground; the
-///   token reaches the server from `didRegister` (`AppDelegate`).
+/// · Signed in ⇒ `registerForRemoteNotifications()` at launch / sign-in / foreground (iOS gives a
+///   token without permission); the token reaches the server only while notifications are ALLOWED
+///   (Privacy Policy "Notifications": "If you allow notifications…").
 /// · Sign-out (`AccountStore.signOut`, the one choke point) ⇒ unregister; offline ⇒ kept in
 ///   `pendingUnregisterKey` and retried until 2xx or until the same token registers again.
 /// · 🔴 AltStore builds (build.yml, unsigned, no `aps-environment`) always fail to register: log
-///   only, once per launch, ✗ UI, ✗ retry loop.
+///   only, once per launch, ✗ UI (✗ even the permission prompt: asked only once a token exists),
+///   ✗ retry loop.
 /// · Tap ⇒ `tapped` ⇒ `RootView` (Orders tab) ⇒ `openOrder` ⇒ `OrdersView` pushes the order.
 @MainActor
 final class PushNotifications: ObservableObject {
@@ -40,6 +42,10 @@ final class PushNotifications: ObservableObject {
     private var inFlightKey: String?
     /// iOS refused a token this launch (AltStore build, no network to Apple…): ✗ ask again until relaunch.
     private var registrationFailed = false
+    /// Bumped by every sign-out: a register that was already out must not count as done afterwards.
+    private var signOutGeneration = 0
+    /// A permission prompt is being asked (order sheet closed, then the Orders list at once).
+    private var asking = false
     /// All network calls in order: a sign-out's unregister must not overtake an earlier register,
     /// nor a later sign-in's register overtake the unregister.
     private var chain: Task<Void, Never>?
@@ -57,33 +63,38 @@ final class PushNotifications: ObservableObject {
     // MARK: Launch / sign-in / foreground
 
     /// Launch, sign-in/out (`RootView.task(id: isSignedIn)`) and every return to the foreground:
-    /// retries a pending unregister, then asks iOS for the token when allowed + signed in. Cheap:
-    /// a request only when something is owed.
+    /// retries a pending unregister, gets the token from iOS, and sends it while allowed. Cheap: a
+    /// request only when something is owed.
     func refresh() {
         retryPendingUnregister()
         guard isSignedIn else { return }
         if let token {
-            // Token known (earlier this launch): make sure the server has it for THIS account.
-            send(register: token)
-            return
-        }
-        guard !registrationFailed else { return }
-        Task {
-            let status = await center.notificationSettings().authorizationStatus
-            guard Self.allowed(status), isSignedIn, token == nil, !registrationFailed else { return }
+            registerIfAllowed(token)
+        } else if !registrationFailed {
             UIApplication.shared.registerForRemoteNotifications()
         }
     }
 
     /// The moment to ask (plan §2.4): an order was just placed, or the Orders list has orders.
-    /// Only while iOS has never asked; granted ⇒ register at once.
+    /// Only while iOS has never asked, and only once this build has a token — an AltStore build
+    /// (never a token) stays silent. Granted ⇒ the token goes to the server at once.
     func askIfUndetermined() {
-        guard isSignedIn else { return }
+        guard isSignedIn, token != nil, !asking else { return }
+        asking = true
         Task {
+            defer { asking = false }
             guard await center.notificationSettings().authorizationStatus == .notDetermined else { return }
             let granted = (try? await center.requestAuthorization(options: [.alert, .sound, .badge])) ?? false
-            guard granted, isSignedIn, !registrationFailed else { return }
-            UIApplication.shared.registerForRemoteNotifications()
+            guard granted, isSignedIn, let token else { return }
+            send(register: token)
+        }
+    }
+
+    private func registerIfAllowed(_ hex: String) {
+        Task {
+            guard Self.allowed(await center.notificationSettings().authorizationStatus),
+                  isSignedIn, token == hex else { return }
+            send(register: hex)
         }
     }
 
@@ -98,7 +109,7 @@ final class PushNotifications: ObservableObject {
         token = hex
         UserDefaults.standard.set(hex, forKey: Self.tokenKey)
         guard isSignedIn else { return }
-        send(register: hex)
+        registerIfAllowed(hex)
     }
 
     func didFailToRegister(_ error: Error) {
@@ -121,7 +132,9 @@ final class PushNotifications: ObservableObject {
     /// Called by `AccountStore.signOut` BEFORE the session is dropped (also account deletion and a
     /// 401 sign-out). No auth needed server-side. Fire and forget; kept for a retry until 2xx.
     func signingOut() {
+        signOutGeneration += 1
         registeredKey = nil
+        inFlightKey = nil
         openOrder = nil
         tapped = nil
         guard let hex = token ?? UserDefaults.standard.string(forKey: Self.tokenKey) else { return }
@@ -144,13 +157,18 @@ final class PushNotifications: ObservableObject {
         let key = "\(customerId) \(hex)"
         guard registeredKey != key, inFlightKey != key else { return }
         inFlightKey = key
+        let generation = signOutGeneration
         enqueue { [weak self] in
             guard let self else { return }
             defer { if self.inFlightKey == key { self.inFlightKey = nil } }
             // Signed out / switched account while queued: the next refresh registers for the new one.
-            guard self.isSignedIn, AccountStore.savedCustomerId == customerId else { return }
+            guard self.signOutGeneration == generation, self.isSignedIn,
+                  AccountStore.savedCustomerId == customerId else { return }
             do {
                 try await APIClient.shared.registerPushToken(hex, environment: Self.environment)
+                // 🔴 Signed out while it was out: the unregister queued behind it must still run
+                // (✗ clear the pending token, ✗ mark registered).
+                guard self.signOutGeneration == generation else { return }
                 self.registeredKey = key
                 // The same token registered again = the phone is signed in, the old unregister is moot.
                 if UserDefaults.standard.string(forKey: Self.pendingUnregisterKey) == hex {
