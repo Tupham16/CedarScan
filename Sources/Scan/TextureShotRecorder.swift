@@ -121,7 +121,7 @@ final class TextureCoverageGrid {
 ///    + chép depth thô 256×192 NGAY TRÊN MAIN vào buffer RIÊNG (không giữ CVPixelBuffer
 ///    của ARKit qua async — pool của ARKit rất nhỏ, giữ lâu là tracking sụt), nén JPEG
 ///    + DEFLATE depth + ghi đĩa ở queue nền.
-///  - Kho đầy (480 ảnh ≈ 90–100MB + depth ~15–25MB): BỎ 1 ẢNH XEN KẼ TRÊN ĐĨA (kèm file
+///  - Kho đầy (800 ảnh, ~160KB/ảnh jpg+depth ≈ 128MB): BỎ 1 ẢNH XEN KẼ TRÊN ĐĨA (kèm file
 ///    depth của nó) rồi nhân đôi giãn cách — đúng cơ chế trải-đều của kho khung màu,
 ///    nhưng trả giá bằng đĩa (rẻ) thay vì RAM.
 ///  - Ảnh giữ NGUYÊN HƯỚNG CẢM BIẾN (landscape) — không xoay pixel, không gắn EXIF:
@@ -135,8 +135,9 @@ final class TextureShotRecorder {
     /// Intrinsics tự scale theo (xem `s` dưới) nên máy trạm KHÔNG phải sửa gì.
     private static let targetWidth = 1440
     /// Chất lượng JPEG — hạ 0.62 → 0.55 làm đối trọng cho 2.25× pixel của mức 1440:
-    /// kho 480 ảnh ~50MB (960/q0.62) → ~90–100MB thay vì ~110MB, nằm trong mức
-    /// "+50–60MB zip" chủ app duyệt. Độ nét ăn theo RESOLUTION, không theo nấc q này.
+    /// (đời trần 480, 30/07) kho 480 ảnh ~50MB (960/q0.62) → ~90–100MB thay vì ~110MB,
+    /// nằm trong mức "+50–60MB zip" chủ app duyệt lúc đó (nay trần 800, xem maxShots).
+    /// Độ nét ăn theo RESOLUTION, không theo nấc q này.
     private static let jpegQuality: Double = 0.55
     /// Giãn cách TỐI THIỂU giữa hai ảnh (giây) — nhân đôi mỗi lần kho đầy.
     private static let startInterval: TimeInterval = 1.2
@@ -153,10 +154,16 @@ final class TextureShotRecorder {
     /// keep the coach's soft threshold ≤ ~this gate + margin, ✗ move one without the other.
     private static let maxTurnRateDegPerSec: Float = 40
     /// Trần số ảnh trên đĩa. Chạm là bỏ xen kẽ còn một nửa + nhân đôi giãn cách —
-    /// buổi quét dài bao nhiêu cũng hội tụ dưới ~480 ảnh ≈ 90–100MB (mức 1440/q0.55)
-    /// + depth thô ~15–25MB. ⚠ Trần này GẮN với nhịp giãn-đôi — muốn giảm dung lượng
-    /// thì hạ jpegQuality, ✗ hạ trần (buổi dài sẽ dồn hết ảnh vào phút đầu).
-    private static let maxShots = 480
+    /// buổi quét dài bao nhiêu cũng hội tụ dưới trần này. ⚠ Trần này GẮN với nhịp
+    /// giãn-đôi — muốn giảm dung lượng thì hạ jpegQuality, ✗ hạ trần (buổi dài sẽ dồn
+    /// hết ảnh vào phút đầu). 🔴 Trần ĐẾM này MỘT MÌNH chặn cỡ zip — ✗ bỏ.
+    /// 480 → 800 (26/09, owner): 480 was hit at ~10 min, so big houses thinned to 240 and
+    /// ~8% of faces got no photo (#LS-MSLINTGA7, 949 m², 268 shots). Measured ~160KB/shot
+    /// (jpg ~107KB + depth ~52KB) → full store ~128MB; worst gap vs 480 ≈ 400 shots
+    /// ≈ +64MB zip (800 full vs 400 just-thinned), only for scans past ~10 min.
+    /// Server objzip cap 500MB (order-webapp app-storage.ts). Paired with
+    /// tex-worker-config.json "maxShots" (bake set-cover cap) on the workstation.
+    private static let maxShots = 800
     /// Còn quá nhiều ảnh chờ nén thì bỏ lượt này (I/O nghẽn) — không xếp hàng vô hạn.
     private static let maxPendingEncodes = 3
     /// Name of the per-shot ARAnchor (item 1, 26/09) — MeshScanController picks the final
@@ -285,7 +292,7 @@ final class TextureShotRecorder {
         guard quat.vector.x.isFinite else { return }
         // Intrinsics NaN = phép chiếu vô nghĩa → bỏ shot. Mọi Float vào shots.json PHẢI
         // hữu hạn: JSONEncoder mặc định THROW với NaN/Inf, mà finish() xử lý throw bằng
-        // cách vứt CẢ GÓI — một khung hỏng không được phép giết 480 khung tốt.
+        // cách vứt CẢ GÓI — một khung hỏng không được phép giết hàng trăm khung tốt.
         // (Cùng triết lý guard NaN của ScanVideoRecorder.appendTrackSample.)
         let k = frame.camera.intrinsics
         guard k.columns.0.x.isFinite, k.columns.1.y.isFinite,
@@ -472,7 +479,7 @@ final class TextureShotRecorder {
             DispatchQueue.main.async {
                 guard let self else { return }
                 self.pendingEncodes -= 1
-                // Ghi hỏng (đĩa đầy…) thì trả lại suất đếm — không thì trần 480 mòn ảo.
+                // Ghi hỏng (đĩa đầy…) thì trả lại suất đếm — không thì trần maxShots mòn ảo.
                 if !written {
                     self.approxShotCount -= 1
                     self.arSession?.remove(anchor: anchor)

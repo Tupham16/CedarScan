@@ -28,7 +28,7 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
     @Published private(set) var startedAt: Date?
 
     /// Số ảnh texture TỐI THIỂU để tin rằng MÁY TRẠM bake được → cho phép đường LƯU NHANH
-    /// (mesh xám, bỏ bake màu-đỉnh). Buổi quét thật cho 200–480 ảnh (recorder 3Hz, cổng giãn
+    /// (mesh xám, bỏ bake màu-đỉnh). Buổi quét thật cho 200–800 ảnh (recorder 3Hz, cổng giãn
     /// ≥1,2s) nên 30 nằm rất xa vùng bình thường: nó chỉ bắt các ca GÓI ẢNH COI NHƯ KHÔNG CÓ.
     /// ✗ nâng lên để "chắc ăn hơn": buổi quét ngắn hợp lệ (một phòng, 1–2 phút) vẫn đủ ảnh
     /// cho máy trạm, nâng ngưỡng là bắt khách chờ bake màu vô ích.
