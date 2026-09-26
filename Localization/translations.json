@@ -2065,15 +2065,15 @@
    }
   },
   {
-   "key": "Orders tab — on an order marked \"Delivered\", tap \"Download deliverables\", or tap a single file in the list. The link opens in your browser and the file lands wherever your browser keeps downloads.",
+   "key": "Orders tab — on an order marked \"Ready\", tap \"Download deliverables\", or tap a single file in the list. The link opens in your browser and the file lands wherever your browser keeps downloads.",
    "translations": {
     "vi": "Tab Đơn hàng — đơn nào có nhãn \"Đã giao\" thì bạn bấm \"Tải file thành phẩm\", hoặc bấm thẳng từng file. Link mở bằng trình duyệt, file về đúng chỗ trình duyệt hay lưu.",
-    "fr": "Dans l'onglet Commandes — sur une commande marquée \"Livrée\", touchez \"Télécharger les livrables\", ou touchez directement un fichier dans la liste. Le lien s'ouvre dans votre navigateur et le fichier atterrit là où votre navigateur range ses téléchargements.",
+    "fr": "Dans l'onglet Commandes — sur une commande marquée \"Prête\", touchez \"Télécharger les livrables\", ou touchez directement un fichier dans la liste. Le lien s'ouvre dans votre navigateur et le fichier atterrit là où votre navigateur range ses téléchargements.",
     "de": "Im Tab \"Bestellungen\" — tippen Sie bei einer Bestellung mit dem Status \"Geliefert\" auf \"Ergebnisse herunterladen\" oder auf eine einzelne Datei in der Liste. Der Link öffnet sich in Ihrem Browser, und die Datei landet dort, wo Ihr Browser Downloads speichert.",
     "cs": "Na záložce Objednávky — u objednávky se štítkem \"Doručeno\" klepněte na \"Stáhnout výsledné soubory\", nebo klepněte na jednotlivý soubor v seznamu. Odkaz se otevře ve vašem prohlížeči a soubor skončí tam, kam váš prohlížeč ukládá stažené soubory.",
-    "sk": "Na karte Objednávky — pri objednávke označenej ako \"Doručená\" ťuknite na \"Stiahnuť výstupy\", alebo ťuknite na konkrétny súbor v zozname. Odkaz sa otvorí v prehliadači a súbor sa uloží tam, kam váš prehliadač ukladá stiahnuté súbory.",
-    "es": "En la pestaña Pedidos — en un pedido marcado como \"Entregado\", toca \"Descargar archivos finales\", o toca un archivo individual de la lista. El enlace se abre en tu navegador y el archivo termina donde tu navegador guarda las descargas.",
-    "nl": "In het tabblad Bestellingen — tik bij een bestelling met het label \"Geleverd\" op \"Bestanden downloaden\", of tik op een los bestand in de lijst. De link opent in je browser en het bestand komt terecht waar je browser downloads bewaart."
+    "sk": "Na karte Objednávky — pri objednávke označenej ako \"Pripravená\" ťuknite na \"Stiahnuť výstupy\", alebo ťuknite na konkrétny súbor v zozname. Odkaz sa otvorí v prehliadači a súbor sa uloží tam, kam váš prehliadač ukladá stiahnuté súbory.",
+    "es": "En la pestaña Pedidos — en un pedido marcado como \"Listo\", toca \"Descargar archivos finales\", o toca un archivo individual de la lista. El enlace se abre en tu navegador y el archivo termina donde tu navegador guarda las descargas.",
+    "nl": "In het tabblad Bestellingen — tik bij een bestelling met het label \"Klaar\" op \"Bestanden downloaden\", of tik op een los bestand in de lijst. De link opent in je browser en het bestand komt terecht waar je browser downloads bewaart."
    }
   },
   {
@@ -2518,18 +2518,6 @@
     "sk": "Ostatné",
     "es": "Otros",
     "nl": "Overig"
-   }
-  },
-  {
-   "key": "Delivered",
-   "translations": {
-    "vi": "Đã giao",
-    "fr": "Livrée",
-    "de": "Geliefert",
-    "cs": "Doručeno",
-    "sk": "Doručená",
-    "es": "Entregado",
-    "nl": "Geleverd"
    }
   },
   {
@@ -4405,15 +4393,15 @@
    }
   },
   {
-   "key": "The Orders tab. Each order carries a badge — Awaiting payment, Processing, On hold, Delivered, Refunded or Cancelled. The search box finds an order by property name, order number or scan name.",
+   "key": "The Orders tab. Each order carries a badge — Awaiting payment, Processing, On hold, Ready, Refunded or Cancelled. The search box finds an order by property name, order number or scan name.",
    "translations": {
     "vi": "Tab Đơn hàng. Mỗi đơn có một nhãn — Chờ thanh toán, Đang xử lý, Tạm giữ, Đã giao, Hoàn tiền hoặc Đã hủy. Ô tìm kiếm tìm được theo tên dự án, số đơn hoặc tên bản quét.",
-    "fr": "Dans l'onglet Commandes. Chaque commande porte une étiquette — Paiement en attente, En traitement, En attente, Livrée, Remboursée ou Annulée. Le champ de recherche trouve une commande par nom de propriété, par numéro de commande ou par nom de numérisation.",
+    "fr": "Dans l'onglet Commandes. Chaque commande porte une étiquette — Paiement en attente, En traitement, En attente, Prête, Remboursée ou Annulée. Le champ de recherche trouve une commande par nom de propriété, par numéro de commande ou par nom de numérisation.",
     "de": "Im Tab \"Bestellungen\". Jede Bestellung hat einen Status — Zahlung ausstehend, In Bearbeitung, Wartend, Geliefert, Erstattet oder Storniert. Das Suchfeld findet Bestellungen nach Objektnamen, Bestellnummer oder Scan-Namen.",
     "cs": "Na záložce Objednávky. Každá objednávka má štítek — Čeká na platbu, Zpracovává se, Pozastaveno, Doručeno, Vráceno nebo Zrušeno. Vyhledávací pole najde objednávku podle názvu nemovitosti, čísla objednávky nebo názvu skenu.",
-    "sk": "Na karte Objednávky. Každá objednávka má štítok — Čaká na platbu, Spracúva sa, Pozastavená, Doručená, Refundovaná alebo Zrušená. Vyhľadávacie pole nájde objednávku podľa názvu nehnuteľnosti, čísla objednávky alebo názvu skenu.",
-    "es": "En la pestaña Pedidos. Cada pedido lleva una etiqueta — Pendiente de pago, En proceso, En espera, Entregado, Reembolsado o Cancelado. El buscador encuentra un pedido por nombre de la propiedad, por número de pedido o por nombre de escaneo.",
-    "nl": "In het tabblad Bestellingen. Elke bestelling heeft een label — Wacht op betaling, In behandeling, In de wacht, Geleverd, Terugbetaald of Geannuleerd. Via het zoekveld vind je een bestelling op woningnaam, bestelnummer of scannaam."
+    "sk": "Na karte Objednávky. Každá objednávka má štítok — Čaká na platbu, Spracúva sa, Pozastavená, Pripravená, Refundovaná alebo Zrušená. Vyhľadávacie pole nájde objednávku podľa názvu nehnuteľnosti, čísla objednávky alebo názvu skenu.",
+    "es": "En la pestaña Pedidos. Cada pedido lleva una etiqueta — Pendiente de pago, En proceso, En espera, Listo, Reembolsado o Cancelado. El buscador encuentra un pedido por nombre de la propiedad, por número de pedido o por nombre de escaneo.",
+    "nl": "In het tabblad Bestellingen. Elke bestelling heeft een label — Wacht op betaling, In behandeling, In de wacht, Klaar, Terugbetaald of Geannuleerd. Via het zoekveld vind je een bestelling op woningnaam, bestelnummer of scannaam."
    }
   },
   {

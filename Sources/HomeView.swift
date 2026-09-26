@@ -464,7 +464,7 @@ struct HomeView: View {
                 Section {
                     ForEach(visibleProjects) { project in
                         projectRow(project)
-                            .fogCardRow()
+                            .fogCardRow(edge: Theme.homeEdge)
                     }
                 } header: {
                     sectionHeader(String(localized: "Properties"))
@@ -540,46 +540,53 @@ struct HomeView: View {
         // beside "N new" it squeezed the count line into two).
         let awaiting = scans.contains { store.isAwaitingPayment($0) }
         let created = project.createdAt.formatted(date: .abbreviated, time: .omitted)
-        return HStack(spacing: 0) {
-            Button {
-                path.append(project)
-            } label: {
-                HStack(spacing: 10) {
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text(project.name)
-                            .font(.headline)
-                        // Creation date — owner asked 17/09; a restyle must keep it.
-                        Text(created)
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                        Text(countLine)
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                        if awaiting {
-                            AwaitingPaymentMark()
-                                .padding(.top, 5)
-                        }
-                    }
-                    // Nuốt hết chỗ trống giữa chữ và giỏ rác, và `contentShape` bên dưới biến nó
+        // Card since 2.52 (mockup 48): street bold + rest of the address grey, "N new" beside the
+        // street; date, count line and awaiting mark at the bottom; trash in the bottom-right
+        // corner, OVER the open button (its own 44pt target — the meta lines keep clear of it).
+        return Button {
+            path.append(project)
+        } label: {
+            FogCardStack {
+                HStack(alignment: .top, spacing: 10) {
+                    CardAddress(lines: AddressLines(project.name))
+                    // Nuốt hết chỗ trống giữa chữ và nhãn, và `contentShape` bên dưới biến nó
                     // thành vùng chạm — không thì chạm vào khoảng trắng giữa dòng là rơi tọt.
                     Spacer(minLength: 8)
                     if newCount > 0 {
                         FogBadge(String(localized: "\(newCount) new"), .soft)
+                            .padding(.trailing, 12)
                     }
                 }
-                .contentShape(Rectangle())
+                VStack(alignment: .leading, spacing: 1) {
+                    // Creation date — owner asked 17/09; a restyle must keep it.
+                    Text(created)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                    Text(countLine)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                    if awaiting {
+                        AwaitingPaymentMark()
+                            .padding(.top, 5)
+                    }
+                }
+                // Clear of the trash button laid over the bottom-right corner.
+                .padding(.trailing, 44)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            // 🔴 PHẢI KHAI KIỂU NÚT TƯỜNG MINH CHO CẢ HAI NÚT, VÀ PHẢI LÀ CÙNG MỘT KIỂU.
-            // Kiểu MẶC ĐỊNH của một `Button` nằm trong `List` biến TOÀN BỘ DÒNG thành vùng chạm
-            // của nó — hai nút mặc định trong một dòng nghĩa là chạm chỗ nào cũng nổ CẢ HAI (vừa
-            // mở dự án vừa hiện hộp xoá). `.plain` tắt hành vi đó: mỗi nút chỉ ăn vùng của chính
-            // nó. Chọn `.plain` chứ ✗ `.borderless` cho cả hai vì `.plain` KHÔNG nhuộm nhãn theo
-            // accent — the row sets its own colours (primary/secondary text, soft badge, grey
-            // trash), a tinting style would fight them.
-            // ⚠ Giá phải trả, chấp nhận: không còn dải xám nhấn-cả-dòng như `NavigationLink`.
-            // Khách vẫn thấy phản hồi ngay vì màn được đẩy tức thì.
-            .buttonStyle(.plain)
-
+            .contentShape(Rectangle())
+        }
+        // 🔴 PHẢI KHAI KIỂU NÚT TƯỜNG MINH CHO CẢ HAI NÚT, VÀ PHẢI LÀ CÙNG MỘT KIỂU.
+        // Kiểu MẶC ĐỊNH của một `Button` nằm trong `List` biến TOÀN BỘ DÒNG thành vùng chạm
+        // của nó — hai nút mặc định trong một dòng nghĩa là chạm chỗ nào cũng nổ CẢ HAI (vừa
+        // mở dự án vừa hiện hộp xoá). `.plain` tắt hành vi đó: mỗi nút chỉ ăn vùng của chính
+        // nó. Chọn `.plain` chứ ✗ `.borderless` cho cả hai vì `.plain` KHÔNG nhuộm nhãn theo
+        // accent — the row sets its own colours (primary/secondary text, soft badge, grey
+        // trash), a tinting style would fight them.
+        // ⚠ Giá phải trả, chấp nhận: không còn dải xám nhấn-cả-dòng như `NavigationLink`.
+        // Khách vẫn thấy phản hồi ngay vì màn được đẩy tức thì.
+        .buttonStyle(.plain)
+        .overlay(alignment: .bottomTrailing) {
             Button {
                 projectToDelete = project
             } label: {

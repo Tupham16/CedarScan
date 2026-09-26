@@ -399,7 +399,7 @@ struct OrdersView: View {
             }
             ForEach(filteredOrders) { order in
                 orderRow(order)
-                    .fogCardRow(trailing: 28)
+                    .fogCardRow(trailing: 28, edge: StatusBadge.kind(order.status).edge)
             }
             }
             .listStyle(.plain)
@@ -409,40 +409,47 @@ struct OrdersView: View {
         // (Orders v2 pushes). Read the 🔴 note there before moving it back.
     }
 
-    /// One compact row (mockup 30/31): title · date · status · chevron. Tap = the order detail.
+    /// One order card (2.52, mockup 48; before: the compact row of mockup 30/31). Top: the street
+    /// in bold + the rest of the address in grey (`AddressLines`), status badge beside the street.
+    /// Bottom: date + chevron. Left edge in the badge's colour. Tap = the order detail.
     /// A `Button` + `path.append`, ✗ `NavigationLink`: same reason as `HomeView.projectRow` — a List
     /// draws its own chevron and a full-width grey highlight across the Fog card.
     /// Everything the 2.45 card showed (Pay Now, files, tour, revision, add a scan) is in
     /// `OrderDetailView`, with the same conditions.
     private func orderRow(_ order: OrderDTO) -> some View {
         let name = title(of: order)
+        let lines = AddressLines(name)
+        // Accessibility sizes: the badge under the date — beside the street the title breaks at
+        // every syllable (simulator renders, AX3).
+        let badgeBelow = typeSize.isAccessibilitySize
         return Button {
             // One order at a time: a quick double tap must not stack the same screen twice.
             guard path.isEmpty else { return }
             path.append(OrderRoute(orderId: order.orderId, title: name, customerId: account.customer?.id))
         } label: {
-            HStack(spacing: 10) {
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(name)
-                        .font(.headline)
-                    Text(Self.formatDate(order.placedAt))
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                    // Accessibility sizes: the badge under the date — beside it the title breaks
-                    // at every syllable (simulator renders, AX3).
-                    if typeSize.isAccessibilitySize {
+            FogCardStack {
+                HStack(alignment: .top, spacing: 10) {
+                    CardAddress(lines: lines)
+                    Spacer(minLength: 8)
+                    if !badgeBelow {
                         StatusBadge(status: order.status)
-                            .padding(.top, 4)
                     }
                 }
-                Spacer(minLength: 8)
-                if !typeSize.isAccessibilitySize {
-                    StatusBadge(status: order.status)
+                HStack(alignment: .bottom, spacing: 10) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(Self.formatDate(order.placedAt))
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                        if badgeBelow {
+                            StatusBadge(status: order.status)
+                        }
+                    }
+                    Spacer(minLength: 8)
+                    Image(systemName: "chevron.right")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(.tertiary)
+                        .accessibilityHidden(true)
                 }
-                Image(systemName: "chevron.right")
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(.tertiary)
-                    .accessibilityHidden(true)
             }
             .contentShape(Rectangle())
         }
@@ -725,13 +732,37 @@ enum OrderFilter: String, CaseIterable, Identifiable {
     }
 }
 
+/// Street in bold + the rest of the address in grey, for the Home and Orders cards (2.52).
+/// The grey line is footnote = the size of the date under it (owner 26/09).
+struct CardAddress: View {
+    let lines: AddressLines
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 1) {
+            Text(lines.street)
+                .font(.headline)
+            if let rest = lines.rest {
+                Text(rest)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+}
+
 struct StatusBadge: View {
     let status: String
 
-    private var info: (String, Theme.Badge) {
+    /// The badge colours of a status; the order card's left edge reads them too.
+    static func kind(_ status: String) -> Theme.Badge {
+        info(status).1
+    }
+
+    private static func info(_ status: String) -> (String, Theme.Badge) {
         switch status {
+        // "Ready" (owner 26/09, 2.52), the filter chip's word; was "Delivered".
         case "delivered":
-            return (String(localized: "Delivered"), .ok)
+            return (String(localized: "Ready"), .ok)
         case "on_hold":
             return (String(localized: "On hold"), .warn)
         case "refunded":
@@ -751,6 +782,7 @@ struct StatusBadge: View {
     }
 
     var body: some View {
-        FogBadge(info.0, info.1)
+        let info = Self.info(status)
+        return FogBadge(info.0, info.1)
     }
 }

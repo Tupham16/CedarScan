@@ -4372,53 +4372,6 @@
         }
       }
     },
-    "Delivered": {
-      "extractionState": "manual",
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Doručeno"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Geliefert"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Entregado"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Livrée"
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Geleverd"
-          }
-        },
-        "sk": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Doručená"
-          }
-        },
-        "vi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Đã giao"
-          }
-        }
-      }
-    },
     "Do I get a free order?": {
       "extractionState": "manual",
       "localizations": {
@@ -10388,7 +10341,7 @@
         }
       }
     },
-    "Orders tab — on an order marked \"Delivered\", tap \"Download deliverables\", or tap a single file in the list. The link opens in your browser and the file lands wherever your browser keeps downloads.": {
+    "Orders tab — on an order marked \"Ready\", tap \"Download deliverables\", or tap a single file in the list. The link opens in your browser and the file lands wherever your browser keeps downloads.": {
       "extractionState": "manual",
       "localizations": {
         "cs": {
@@ -10406,25 +10359,25 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "En la pestaña Pedidos — en un pedido marcado como \"Entregado\", toca \"Descargar archivos finales\", o toca un archivo individual de la lista. El enlace se abre en tu navegador y el archivo termina donde tu navegador guarda las descargas."
+            "value": "En la pestaña Pedidos — en un pedido marcado como \"Listo\", toca \"Descargar archivos finales\", o toca un archivo individual de la lista. El enlace se abre en tu navegador y el archivo termina donde tu navegador guarda las descargas."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Dans l'onglet Commandes — sur une commande marquée \"Livrée\", touchez \"Télécharger les livrables\", ou touchez directement un fichier dans la liste. Le lien s'ouvre dans votre navigateur et le fichier atterrit là où votre navigateur range ses téléchargements."
+            "value": "Dans l'onglet Commandes — sur une commande marquée \"Prête\", touchez \"Télécharger les livrables\", ou touchez directement un fichier dans la liste. Le lien s'ouvre dans votre navigateur et le fichier atterrit là où votre navigateur range ses téléchargements."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "In het tabblad Bestellingen — tik bij een bestelling met het label \"Geleverd\" op \"Bestanden downloaden\", of tik op een los bestand in de lijst. De link opent in je browser en het bestand komt terecht waar je browser downloads bewaart."
+            "value": "In het tabblad Bestellingen — tik bij een bestelling met het label \"Klaar\" op \"Bestanden downloaden\", of tik op een los bestand in de lijst. De link opent in je browser en het bestand komt terecht waar je browser downloads bewaart."
           }
         },
         "sk": {
           "stringUnit": {
             "state": "translated",
-            "value": "Na karte Objednávky — pri objednávke označenej ako \"Doručená\" ťuknite na \"Stiahnuť výstupy\", alebo ťuknite na konkrétny súbor v zozname. Odkaz sa otvorí v prehliadači a súbor sa uloží tam, kam váš prehliadač ukladá stiahnuté súbory."
+            "value": "Na karte Objednávky — pri objednávke označenej ako \"Pripravená\" ťuknite na \"Stiahnuť výstupy\", alebo ťuknite na konkrétny súbor v zozname. Odkaz sa otvorí v prehliadači a súbor sa uloží tam, kam váš prehliadač ukladá stiahnuté súbory."
           }
         },
         "vi": {
@@ -15323,7 +15276,7 @@
         }
       }
     },
-    "The Orders tab. Each order carries a badge — Awaiting payment, Processing, On hold, Delivered, Refunded or Cancelled. The search box finds an order by property name, order number or scan name.": {
+    "The Orders tab. Each order carries a badge — Awaiting payment, Processing, On hold, Ready, Refunded or Cancelled. The search box finds an order by property name, order number or scan name.": {
       "extractionState": "manual",
       "localizations": {
         "cs": {
@@ -15341,25 +15294,25 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "En la pestaña Pedidos. Cada pedido lleva una etiqueta — Pendiente de pago, En proceso, En espera, Entregado, Reembolsado o Cancelado. El buscador encuentra un pedido por nombre de la propiedad, por número de pedido o por nombre de escaneo."
+            "value": "En la pestaña Pedidos. Cada pedido lleva una etiqueta — Pendiente de pago, En proceso, En espera, Listo, Reembolsado o Cancelado. El buscador encuentra un pedido por nombre de la propiedad, por número de pedido o por nombre de escaneo."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Dans l'onglet Commandes. Chaque commande porte une étiquette — Paiement en attente, En traitement, En attente, Livrée, Remboursée ou Annulée. Le champ de recherche trouve une commande par nom de propriété, par numéro de commande ou par nom de numérisation."
+            "value": "Dans l'onglet Commandes. Chaque commande porte une étiquette — Paiement en attente, En traitement, En attente, Prête, Remboursée ou Annulée. Le champ de recherche trouve une commande par nom de propriété, par numéro de commande ou par nom de numérisation."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "In het tabblad Bestellingen. Elke bestelling heeft een label — Wacht op betaling, In behandeling, In de wacht, Geleverd, Terugbetaald of Geannuleerd. Via het zoekveld vind je een bestelling op woningnaam, bestelnummer of scannaam."
+            "value": "In het tabblad Bestellingen. Elke bestelling heeft een label — Wacht op betaling, In behandeling, In de wacht, Klaar, Terugbetaald of Geannuleerd. Via het zoekveld vind je een bestelling op woningnaam, bestelnummer of scannaam."
           }
         },
         "sk": {
           "stringUnit": {
             "state": "translated",
-            "value": "Na karte Objednávky. Každá objednávka má štítok — Čaká na platbu, Spracúva sa, Pozastavená, Doručená, Refundovaná alebo Zrušená. Vyhľadávacie pole nájde objednávku podľa názvu nehnuteľnosti, čísla objednávky alebo názvu skenu."
+            "value": "Na karte Objednávky. Každá objednávka má štítok — Čaká na platbu, Spracúva sa, Pozastavená, Pripravená, Refundovaná alebo Zrušená. Vyhľadávacie pole nájde objednávku podľa názvu nehnuteľnosti, čísla objednávky alebo názvu skenu."
           }
         },
         "vi": {

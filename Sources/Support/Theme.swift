@@ -22,24 +22,29 @@ enum Theme {
     static let scanLabel = hex(0x334155, 0xCBD5E1)
     static let scanShadow = dyn(rgb(0x0056B3, alpha: 0.24), UIColor(white: 0, alpha: 0.5))
 
+    /// Home property card: 5pt left edge (orders take their badge's `edge`, 2.52).
+    static let homeEdge = hex(0x6E9FD8, 0x4F86C9)
+
     static let thumbBg = hex(0xF1F3F5, 0x1D222B)
     static let thumbLine = hex(0x4A5568, 0xB8C2D1)
 
-    /// Badge palette: background + text.
+    /// Badge palette: background + text, and `edge` = the 5pt left edge of an order card in that
+    /// state (2.52, owner-approved mockup 48).
     struct Badge {
         let bg: Color
         let fg: Color
+        let edge: Color
 
         /// New, Processing, selected chip.
-        static let soft = Badge(bg: hex(0xE0F2FE, 0x0F2E45), fg: hex(0x0369A1, 0x7CC4F5))
-        /// Delivered, Paid.
-        static let ok = Badge(bg: hex(0xDCFCE7, 0x12301F), fg: hex(0x15803D, 0x6EDC9A))
+        static let soft = Badge(bg: hex(0xE0F2FE, 0x0F2E45), fg: hex(0x0369A1, 0x7CC4F5), edge: hex(0x4FA8E0, 0x3E92CF))
+        /// Ready (delivered), Paid.
+        static let ok = Badge(bg: hex(0xDCFCE7, 0x12301F), fg: hex(0x15803D, 0x6EDC9A), edge: hex(0x43B96F, 0x3AA866))
         /// Ordered, Order #.
-        static let neutral = Badge(bg: hex(0xE9EDF2, 0x242B36), fg: hex(0x475569, 0xB6C0CF))
+        static let neutral = Badge(bg: hex(0xE9EDF2, 0x242B36), fg: hex(0x475569, 0xB6C0CF), edge: hex(0xB8C2CF, 0x4A5467))
         /// On hold.
-        static let warn = Badge(bg: hex(0xFEF3C7, 0x3A2A0C), fg: hex(0xB45309, 0xF5C76B))
+        static let warn = Badge(bg: hex(0xFEF3C7, 0x3A2A0C), fg: hex(0xB45309, 0xF5C76B), edge: hex(0xF0B429, 0xD99E2B))
         /// Refunded.
-        static let danger = Badge(bg: hex(0xFEE2E2, 0x3B1517), fg: hex(0xB91C1C, 0xF19999))
+        static let danger = Badge(bg: hex(0xFEE2E2, 0x3B1517), fg: hex(0xB91C1C, 0xF19999), edge: hex(0xE5484D, 0xD0464B))
     }
 }
 
@@ -143,12 +148,21 @@ private struct FogButtonBody: View {
     }
 }
 
-/// Card behind a list row: radius 16 + hairline border.
+/// Card behind a list row: radius 16 + hairline border; `edge` = a 5pt coloured left edge
+/// following the corner curve (Home / Orders cards, 2.52).
 private struct FogCardBackground: View {
+    var edge: Color?
+
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: 16, style: .continuous)
         return shape
             .fill(Theme.card)
+            .overlay(alignment: .leading) {
+                if let edge {
+                    Rectangle().fill(edge).frame(width: 5)
+                }
+            }
+            .clipShape(shape)
             .overlay(shape.strokeBorder(Theme.hairline, lineWidth: 1))
             .padding(.horizontal, 16)
             .padding(.vertical, 6)
@@ -165,9 +179,9 @@ extension View {
 
     /// Plain-list row drawn as a card (16pt screen margin, 12pt gap between cards).
     /// `trailing` 20 suits Home's 44pt trash button; 32 = 16pt inside the card.
-    func fogCardRow(trailing: CGFloat = 20) -> some View {
+    func fogCardRow(trailing: CGFloat = 20, edge: Color? = nil) -> some View {
         self
-            .listRowBackground(FogCardBackground())
+            .listRowBackground(FogCardBackground(edge: edge))
             .listRowSeparator(.hidden)
             .listRowInsets(EdgeInsets(top: 17, leading: 32, bottom: 18, trailing: trailing))
     }
@@ -284,6 +298,32 @@ struct WrappedTextView: UIViewRepresentable {
         let measured = max(floor(width * pixel) / pixel, 1)
         let wrapped = view.sizeThatFits(CGSize(width: measured, height: unbounded))
         return CGSize(width: width, height: ceil(wrapped.height))
+    }
+}
+
+/// Home / Orders card body (2.52, mockup 48): the first subview at the top, the last one at the
+/// bottom, at least `minHeight` tall (content grows past it). A Layout, ✗ a Spacer in a VStack
+/// under `.frame(minHeight:)`: a List row sizes its content with no height proposal, so a Spacer
+/// would not stretch and the bottom line would float up under the title. Two subviews.
+struct FogCardStack: Layout {
+    /// Content height; the visible card adds the row insets (17 + 18) minus the 6 + 6 margins.
+    var minHeight: CGFloat = 95
+    var gap: CGFloat = 12
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let sizes = subviews.map { $0.sizeThatFits(ProposedViewSize(width: proposal.width, height: nil)) }
+        let content = sizes.reduce(0) { $0 + $1.height } + gap * CGFloat(max(subviews.count - 1, 0))
+        let width = proposal.width ?? sizes.reduce(0) { max($0, $1.width) }
+        return CGSize(width: width, height: max(minHeight, content))
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        guard let top = subviews.first, let bottom = subviews.last else { return }
+        let proposed = ProposedViewSize(width: bounds.width, height: nil)
+        top.place(at: CGPoint(x: bounds.minX, y: bounds.minY), anchor: .topLeading, proposal: proposed)
+        if subviews.count > 1 {
+            bottom.place(at: CGPoint(x: bounds.minX, y: bounds.maxY), anchor: .bottomLeading, proposal: proposed)
+        }
     }
 }
 

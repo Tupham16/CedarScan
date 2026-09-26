@@ -237,7 +237,7 @@ struct OrderFAQContent: View {
             FAQItem(
                 id: "track",
                 question: String(localized: "How do I follow my order?"),
-                answer: String(localized: "The Orders tab. Each order carries a badge — Awaiting payment, Processing, On hold, Delivered, Refunded or Cancelled. The search box finds an order by property name, order number or scan name.")
+                answer: String(localized: "The Orders tab. Each order carries a badge — Awaiting payment, Processing, On hold, Ready, Refunded or Cancelled. The search box finds an order by property name, order number or scan name.")
             ),
             FAQItem(
                 id: "formats",
@@ -247,7 +247,7 @@ struct OrderFAQContent: View {
             FAQItem(
                 id: "download",
                 question: String(localized: "Where do I download my drawing?"),
-                answer: String(localized: "Orders tab — on an order marked \"Delivered\", tap \"Download deliverables\", or tap a single file in the list. The link opens in your browser and the file lands wherever your browser keeps downloads.")
+                answer: String(localized: "Orders tab — on an order marked \"Ready\", tap \"Download deliverables\", or tap a single file in the list. The link opens in your browser and the file lands wherever your browser keeps downloads.")
             ),
             FAQItem(
                 id: "cancel",
