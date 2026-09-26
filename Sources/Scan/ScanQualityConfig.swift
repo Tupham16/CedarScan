@@ -42,7 +42,9 @@ struct ScanQualityConfig: Codable {
         enabled: true,
         maxSpeedSoft: 0.7,
         maxSpeedHard: 1.0,
-        maxRotationSoft: 60,
+        // 60 → 45 (26/09, owner "mục 5 cách 3"): the texture-shot gate skips photos above
+        // 40°/s (TextureShotRecorder.maxTurnRateDegPerSec) — warn before photos stop.
+        maxRotationSoft: 45,
         maxRotationHard: 100,
         lowLightSoft: 250,
         trackingWarnAfterSec: 1.0,
@@ -111,9 +113,15 @@ struct ScanQualityConfig: Codable {
 
     private static func load() -> ScanQualityConfig {
         guard let data = UserDefaults.standard.data(forKey: storageKey),
-              let cfg = try? JSONDecoder().decode(ScanQualityConfig.self, from: data) else {
+              var cfg = try? JSONDecoder().decode(ScanQualityConfig.self, from: data) else {
             return .defaults
         }
+        // 🔴 The blob holds the FULL config, defaults included (every catalog fetch persists
+        // `response.scanQuality ?? .defaults`), so a changed DEFAULT does not reach a device that
+        // ever opened the order form until its next visit. 26/09: 60 was only ever the old
+        // default (prod has no "scan-quality-config" row) → read it as the new default. Change a
+        // default again = add the same kind of line here.
+        if cfg.maxRotationSoft == 60 { cfg.maxRotationSoft = defaults.maxRotationSoft }
         return cfg
     }
 

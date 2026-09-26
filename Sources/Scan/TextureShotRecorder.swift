@@ -145,9 +145,13 @@ final class TextureShotRecorder {
     private static let minTravel: Float = 0.4
     private static let minTurnDeg: Float = 25
     /// Đang lia nhanh hơn mức này (độ/giây) thì khung gần như chắc chắn nhoè → nhịn, chờ
-    /// tick sau. 30°/s chỉ chặn cú vụt mạnh; nhoè nhẹ là "noise chấp nhận được" của lối
+    /// tick sau. 40°/s chỉ chặn cú vụt mạnh; nhoè nhẹ là "noise chấp nhận được" của lối
     /// texture này (chính chủ app mô tả CubiCasa y hệt).
-    private static let maxTurnRateDegPerSec: Float = 30
+    /// 30 → 40 (26/09, owner "mục 5 cách 3"): at 30–60°/s there was no coach warning AND no
+    /// photo. The baker weights sharpness (compute_shot_sharpness), so a blurrier shot is used
+    /// only when nothing sharper exists. Paired with ScanQualityConfig.maxRotationSoft 45 —
+    /// keep the coach's soft threshold ≤ ~this gate + margin, ✗ move one without the other.
+    private static let maxTurnRateDegPerSec: Float = 40
     /// Trần số ảnh trên đĩa. Chạm là bỏ xen kẽ còn một nửa + nhân đôi giãn cách —
     /// buổi quét dài bao nhiêu cũng hội tụ dưới ~480 ảnh ≈ 90–100MB (mức 1440/q0.55)
     /// + depth thô ~15–25MB. ⚠ Trần này GẮN với nhịp giãn-đôi — muốn giảm dung lượng
