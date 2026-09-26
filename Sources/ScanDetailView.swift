@@ -1993,6 +1993,8 @@ struct OrderSheet: View {
                     store.setCloudScanId(live, cloudScanId: cloudId)
                     return cloudId
                 }
+                // First failure wins: the others were cancelled because of it.
+                guard errorMessage == nil else { return nil }
                 if case .failed(let message) = uploader.phase {
                     errorMessage = "\(live.name): \(message)"
                 } else {
@@ -2001,20 +2003,35 @@ struct OrderSheet: View {
                 return nil
             }
 
-            guard let primaryCloudId = await ensureUploaded(record) else {
+            // 2.59: every scan's files are queued AT ONCE, while the app is on screen. One after
+            // the other, floor 2 would be queued after the phone locked = a discretionary transfer
+            // iOS may hold until Wi-Fi + power. Deduped by id: one record uploading twice at once
+            // = two server scans (#20b). Order of ids = [record] + extras, as before.
+            var queue: [ScanRecord] = []
+            for scan in [record] + extras where !queue.contains(where: { $0.id == scan.id }) {
+                queue.append(scan)
+            }
+            var cloudIds: [UUID: String] = [:]
+            var uploadFailed = false
+            await withTaskGroup(of: (UUID, String?).self) { group in
+                for scan in queue {
+                    group.addTask { @MainActor in (scan.id, await ensureUploaded(scan)) }
+                }
+                for await (id, cloudId) in group {
+                    if let cloudId {
+                        cloudIds[id] = cloudId
+                    } else if !uploadFailed {
+                        uploadFailed = true
+                        group.cancelAll()
+                    }
+                }
+            }
+            guard !uploadFailed, let primaryCloudId = cloudIds[record.id] else {
                 isBusy = false
                 busyLabel = nil
                 return
             }
-            var extraCloudIds: [String] = []
-            for extra in extras {
-                guard let cloudId = await ensureUploaded(extra) else {
-                    isBusy = false
-                    busyLabel = nil
-                    return
-                }
-                extraCloudIds.append(cloudId)
-            }
+            let extraCloudIds = extras.compactMap { cloudIds[$0.id] }
 
             // Uploads can finish while the phone is locked. The order is placed with the app on
             // screen: a request cut by suspension after the server created the order = half-state
@@ -2040,11 +2057,16 @@ struct OrderSheet: View {
             // [3] Checkpoint HỦY — mấu chốt tiền: sau các await tải lên (nơi khách bấm Hủy / vuốt
             // đóng), nếu Task đã bị cancel thì DỪNG TRƯỚC orderScan. Upload dở bỏ đi không mất gì
             // (server chưa có đơn); nhưng một khi orderScan chạy là đơn đã tạo, tốn suất free/tiền.
+            // The free-slot GET above may have taken the app off screen again: re-check here, no
+            // await between this and `orderScan`.
+            await UploadKeepAlive.untilActive()
             if Task.isCancelled {
                 isBusy = false
                 busyLabel = nil
                 return
             }
+            // Fresh background time for `orderScan` (the customer may switch app right now).
+            UploadKeepAlive.shared.renew()
 
             // Từ đây là điểm KHÔNG QUAY ĐẦU: khoá hủy (nút + onDisappear) để orderScan chạy trọn.
             // Đặt cờ trên MainActor TRƯỚC `await` nên UI kịp disable nút Hủy trước khi request bay đi.

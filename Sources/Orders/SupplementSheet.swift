@@ -230,27 +230,51 @@ struct SupplementSheet: View {
             // STORE chứ đừng tin bản ghi truyền vào: `cloudScanId` là guard DUY NHẤT chống tải
             // lại, đọc nhầm bản chụp cũ là gửi lại 40–200MB VÀ đẻ scan id mới trên server (bẫy
             // #20b). `ensureUploaded` phải idempotent, không thì thử-lại-sau-lỗi-mạng đẻ bản sao.
-            var cloudIds: [String] = []
-            for record in records {
-                if Task.isCancelled { phase = .ready; return }
-                let live = store.records.first { $0.id == record.id } ?? record
-                if let existing = live.cloudScanId {
-                    cloudIds.append(existing)
-                    continue
-                }
-                phase = .working(String(localized: "Uploading \(live.name)…"))
-                let uploader = ScanUploader()
-                guard let cloudId = await uploader.upload(record: live, folder: store.folderURL(for: live)) else {
-                    if case .failed(let message) = uploader.phase {
-                        phase = .failed("\(live.name): \(message)")
-                    } else {
-                        phase = .failed(String(localized: "Could not upload \(live.name)."))
-                    }
-                    return
-                }
-                store.setCloudScanId(live, cloudScanId: cloudId)
-                cloudIds.append(cloudId)
+            // 2.59: every record's files are queued AT ONCE, while the app is on screen (a
+            // transfer queued after the phone locked is discretionary — iOS may hold it). Deduped
+            // by id; ids keep the order of `records` (first = primary).
+            if Task.isCancelled { phase = .ready; return }
+            var queue: [ScanRecord] = []
+            for record in records where !queue.contains(where: { $0.id == record.id }) {
+                queue.append(store.records.first { $0.id == record.id } ?? record)
             }
+            var uploaded: [UUID: String] = [:]
+            var failure: String?
+            await withTaskGroup(of: (UUID, String?, String?).self) { group in
+                for live in queue {
+                    if let existing = live.cloudScanId {
+                        uploaded[live.id] = existing
+                        continue
+                    }
+                    phase = .working(String(localized: "Uploading \(live.name)…"))
+                    group.addTask { @MainActor in
+                        let uploader = ScanUploader()
+                        if let cloudId = await uploader.upload(record: live, folder: store.folderURL(for: live)) {
+                            store.setCloudScanId(live, cloudScanId: cloudId)
+                            return (live.id, cloudId, nil)
+                        }
+                        if case .failed(let message) = uploader.phase {
+                            return (live.id, nil, "\(live.name): \(message)")
+                        }
+                        return (live.id, nil, String(localized: "Could not upload \(live.name)."))
+                    }
+                }
+                for await (id, cloudId, message) in group {
+                    if let cloudId {
+                        uploaded[id] = cloudId
+                    } else if failure == nil {
+                        // First failure wins: the others are cancelled because of it.
+                        failure = message
+                        group.cancelAll()
+                    }
+                }
+            }
+            if Task.isCancelled { phase = .ready; return }
+            if let failure {
+                phase = .failed(failure)
+                return
+            }
+            let cloudIds = queue.compactMap { uploaded[$0.id] }
             guard let primary = cloudIds.first else {
                 phase = .failed(String(localized: "No scan to send."))
                 return
@@ -264,6 +288,8 @@ struct SupplementSheet: View {
             // 🔴 ĐIỂM KHÔNG QUAY ĐẦU (bẫy #26): từ đây `interactiveDismissDisabled` đã khoá vuốt
             // đóng, và ✗ kiểm `Task.isCancelled` sau cú gọi này — huỷ SAU khi server đã nối bản
             // quét là HALF-STATE (server có, app không đóng dấu → khách gửi lại mãi).
+            // Fresh background time for the call (the customer may switch app right now).
+            UploadKeepAlive.shared.renew()
             phase = .working(String(localized: "Sending to \(orderNumber)…"))
             do {
                 let result = try await APIClient.shared.supplementScan(

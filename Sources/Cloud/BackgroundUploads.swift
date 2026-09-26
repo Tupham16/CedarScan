@@ -18,6 +18,10 @@ import UIKit
 final class BackgroundUploads: NSObject {
     static let shared = BackgroundUploads()
     static let sessionId = "com.cedar247.cedarscan.scan-uploads"
+    /// A background session never fails for lack of network — it waits (up to the resource
+    /// timeout). With the app on screen and no byte sent for this long, the WAIT gives up (the
+    /// transfer carries on, a later tap re-joins it); otherwise "0 %" forever + screen never sleeps.
+    private static let stallSeconds: UInt64 = 60
 
     /// iOS's "done handling events" handler (`AppDelegate`); main thread only.
     private var systemCompletion: (() -> Void)?
@@ -29,10 +33,15 @@ final class BackgroundUploads: NSObject {
     /// Flows waiting on a tag. Several are allowed (same record from two places); all get the result.
     private var waiters: [String: [Int: Waiter]] = [:]
     private var nextWaiterId = 0
-    /// Tags with a live task started (or adopted) by this process.
-    private var launched: Set<String> = []
-    /// Tasks created while the app was not active: iOS treats those as discretionary and may hold
-    /// them for hours. Recreated on `didBecomeActive` if they have not sent a byte.
+    /// Tag → `taskIdentifier` of THE live task this process tracks for it (started or adopted).
+    /// A completion from any other task of the tag (stale, from before a relaunch) only counts
+    /// for its 2xx; it never clears this or fails the waiters.
+    private var launched: [String: Int] = [:]
+    /// Bytes sent by the tracked task, per tag (stall watchdog).
+    private var sentByKey: [String: Int64] = [:]
+    /// Tasks that may be discretionary (created while the app was not active, adopted after a
+    /// relaunch, or recreated off-screen): iOS may hold those for hours. On `didBecomeActive` the
+    /// ones that have not sent a byte are cancelled and recreated.
     private var createdInBackground: [String: (request: URLRequest, file: URL)] = [:]
     private var replacing: Set<String> = []
 
@@ -69,8 +78,8 @@ final class BackgroundUploads: NSObject {
     }
 
     /// PUT `file` to `putUrl`. Joins a transfer still running for the same tag instead of starting
-    /// a second one. `progress` = bytes sent, on a background queue. Task cancellation stops the
-    /// WAIT only: the transfer carries on and its 2xx still lands in the journal.
+    /// a second one. `progress` = bytes sent, on a background queue. Task cancellation / a stall
+    /// stop the WAIT only: the transfer carries on and its 2xx still lands in the journal.
     func upload(
         file: URL,
         putUrl: URL,
@@ -84,66 +93,127 @@ final class BackgroundUploads: NSObject {
         request.setValue(contentType, forHTTPHeaderField: "Content-Type")
         let key = tag.string
         let handle = WaitHandle()
+        let watchdog = Task { @MainActor [weak self] in
+            var lastSent: Int64 = -1
+            var idle: UInt64 = 0
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 10_000_000_000)
+                guard let self, !Task.isCancelled else { return }
+                let sent = self.sentBytes(key)
+                if UIApplication.shared.applicationState != .active || sent != lastSent {
+                    lastSent = sent
+                    idle = 0
+                    continue
+                }
+                idle += 10
+                if idle >= Self.stallSeconds {
+                    self.endWait(key, handle, APIError(
+                        message: String(localized: "Upload failed. Please try again."),
+                        statusCode: 0, code: "stalled"
+                    ))
+                    return
+                }
+            }
+        }
+        defer { watchdog.cancel() }
         try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { (c: CheckedContinuation<Void, Error>) in
                 lock.lock()
                 nextWaiterId += 1
-                let id = nextWaiterId
-                handle.id = id
-                waiters[key, default: [:]][id] = Waiter(continuation: c, progress: progress)
+                handle.id = nextWaiterId
+                waiters[key, default: [:]][handle.id] = Waiter(continuation: c, progress: progress)
                 lock.unlock()
                 if Task.isCancelled {
-                    cancelWait(key, id)
+                    endWait(key, handle, CancellationError())
                     return
                 }
                 startOrAttach(key, request: request, file: file, appActive: appActive)
             }
         } onCancel: {
-            lock.lock()
-            let id = handle.id
-            lock.unlock()
-            cancelWait(key, id)
+            endWait(key, handle, CancellationError())
         }
     }
 
-    /// Waiter id, read by the cancel handler under `lock` (a captured `var` would not compile).
+    /// Waiter id; written and read under `lock` (cancel handler / watchdog race the registration).
     private final class WaitHandle {
         var id = 0
     }
 
-    private func cancelWait(_ key: String, _ id: Int) {
+    private func sentBytes(_ key: String) -> Int64 {
         lock.lock()
-        let w = waiters[key]?.removeValue(forKey: id)
+        defer { lock.unlock() }
+        return sentByKey[key] ?? 0
+    }
+
+    /// Ends ONE wait with `error` (no-op if it already ended or is not registered yet).
+    private func endWait(_ key: String, _ handle: WaitHandle, _ error: Error) {
+        lock.lock()
+        let w = waiters[key]?.removeValue(forKey: handle.id)
         if waiters[key]?.isEmpty == true { waiters[key] = nil }
         lock.unlock()
-        w?.continuation.resume(throwing: CancellationError())
+        w?.continuation.resume(throwing: error)
     }
+
+    /// Caller holds `lock`; resume the result OUTSIDE it.
+    private func takeWaiters(_ key: String) -> [Waiter] {
+        waiters.removeValue(forKey: key).map { Array($0.values) } ?? []
+    }
+
+    private static func resume(_ ws: [Waiter], _ error: Error?) {
+        for w in ws {
+            if let error { w.continuation.resume(throwing: error) } else { w.continuation.resume() }
+        }
+    }
+
+    private static let fileGone = APIError(
+        message: String(localized: "No scan files found for this scan."), statusCode: 0
+    )
 
     private func startOrAttach(_ key: String, request: URLRequest, file: URL, appActive: Bool) {
         lock.lock()
-        let mine = launched.contains(key)
+        let mine = launched[key] != nil
         lock.unlock()
         if mine { return }
         // Tasks from before a relaunch are only visible through the session.
         session.getAllTasks { [self] tasks in
             lock.lock()
             guard waiters[key]?.isEmpty == false else { lock.unlock(); return }
-            if launched.contains(key) { lock.unlock(); return }
-            if tasks.contains(where: { $0.taskDescription == key && ($0.state == .running || $0.state == .suspended) }) {
-                launched.insert(key)
+            if launched[key] != nil { lock.unlock(); return }
+            if let old = tasks.first(where: {
+                $0.taskDescription == key && ($0.state == .running || $0.state == .suspended)
+            }) {
+                launched[key] = old.taskIdentifier
+                sentByKey[key] = old.countOfBytesSent
+                // The old process may have created it off-screen (discretionary): same swap as
+                // `didBecomeActive`, with today's (fresh) URL.
+                let swap = appActive && old.countOfBytesSent == 0
+                    && FileManager.default.fileExists(atPath: file.path)
+                if swap {
+                    createdInBackground[key] = (request, file)
+                    replacing.insert(key)
+                }
                 lock.unlock()
+                if swap { old.cancel() }
                 return
             }
             // Finished between the caller's journal check and now (e.g. while the app was dead).
             if UploadJournal.isDone(key) {
-                let ws = waiters.removeValue(forKey: key)
+                let ws = takeWaiters(key)
                 lock.unlock()
-                ws?.values.forEach { $0.continuation.resume() }
+                Self.resume(ws, nil)
+                return
+            }
+            // `uploadTask(fromFile:)` on a missing file: fail here, never hand it to the session.
+            guard FileManager.default.fileExists(atPath: file.path) else {
+                let ws = takeWaiters(key)
+                lock.unlock()
+                Self.resume(ws, Self.fileGone)
                 return
             }
             let task = session.uploadTask(with: request, fromFile: file)
             task.taskDescription = key
-            launched.insert(key)
+            launched[key] = task.taskIdentifier
+            sentByKey[key] = 0
             if !appActive { createdInBackground[key] = (request, file) }
             lock.unlock()
             task.resume()
@@ -151,6 +221,8 @@ final class BackgroundUploads: NSObject {
     }
 
     @objc private func didBecomeActive() {
+        // A flag left by a foreground drain must not short-cut the next background wake.
+        eventsFinished = false
         lock.lock()
         let keys = Set(createdInBackground.keys)
         lock.unlock()
@@ -160,12 +232,13 @@ final class BackgroundUploads: NSObject {
                 guard let key = task.taskDescription, keys.contains(key),
                       task.state == .running || task.state == .suspended else { continue }
                 lock.lock()
-                if task.countOfBytesSent == 0, createdInBackground[key] != nil {
+                let tracked = launched[key] == task.taskIdentifier
+                if tracked, task.countOfBytesSent == 0, createdInBackground[key] != nil {
                     replacing.insert(key)
                     lock.unlock()
                     task.cancel()
                 } else {
-                    createdInBackground[key] = nil
+                    if tracked { createdInBackground[key] = nil }
                     lock.unlock()
                 }
             }
@@ -180,6 +253,8 @@ extension BackgroundUploads: URLSessionTaskDelegate {
     ) {
         guard let key = task.taskDescription else { return }
         lock.lock()
+        guard launched[key] == task.taskIdentifier else { lock.unlock(); return }
+        sentByKey[key] = totalBytesSent
         let ws = waiters[key].map { Array($0.values) } ?? []
         lock.unlock()
         ws.forEach { $0.progress(totalBytesSent) }
@@ -187,36 +262,47 @@ extension BackgroundUploads: URLSessionTaskDelegate {
 
     func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
         guard let key = task.taskDescription else { return }
-        // Woken in the background: give the waiting flow time to reach /complete.
-        UploadKeepAlive.shared.renew()
+        // Woken in the background: give the waiting flow time to reach /complete. On main, so
+        // the expiration handler cannot run before the id is stored.
+        DispatchQueue.main.async { MainActor.assumeIsolated { UploadKeepAlive.shared.renew() } }
         let status = (task.response as? HTTPURLResponse)?.statusCode ?? 0
         let ok = error == nil && (200...299).contains(status)
 
         lock.lock()
-        launched.remove(key)
+        if ok { UploadJournal.markDone(key) }
+        guard launched[key] == task.taskIdentifier else {
+            // Stale transfer of this tag (e.g. delivered after a relaunch while a newer one runs):
+            // its 2xx still means the file is on R2; its failure means nothing.
+            let ws = ok ? takeWaiters(key) : []
+            lock.unlock()
+            Self.resume(ws, nil)
+            return
+        }
+        launched[key] = nil
+        sentByKey[key] = nil
         if replacing.remove(key) != nil, (error as? URLError)?.code == .cancelled,
-           let redo = createdInBackground.removeValue(forKey: key) {
-            // Swapped for a foreground (non-discretionary) copy — the waiters keep waiting.
+           let redo = createdInBackground[key],
+           FileManager.default.fileExists(atPath: redo.file.path) {
+            // Swapped for a copy created now — the waiters keep waiting. Stays in
+            // `createdInBackground`: if the app left the screen meanwhile, the next activation
+            // swaps it again (only while it has sent nothing).
             let fresh = session.uploadTask(with: redo.request, fromFile: redo.file)
             fresh.taskDescription = key
-            launched.insert(key)
+            launched[key] = fresh.taskIdentifier
+            sentByKey[key] = 0
             lock.unlock()
             fresh.resume()
             return
         }
         createdInBackground[key] = nil
-        if ok { UploadJournal.markDone(key) }
-        let ws = waiters.removeValue(forKey: key)
+        let ws = takeWaiters(key)
         lock.unlock()
 
-        guard let ws else { return }
         let result: Error? = ok ? nil : (error ?? APIError(
             message: String(localized: "Upload failed. Please try again."),
             statusCode: status
         ))
-        for w in ws.values {
-            if let result { w.continuation.resume(throwing: result) } else { w.continuation.resume() }
-        }
+        Self.resume(ws, result)
     }
 }
 
@@ -328,72 +414,51 @@ enum UploadJournal {
 }
 
 /// While an upload/order flow runs: screen stays awake in the foreground, and the app holds
-/// background time (renewed when a transfer completes in the background) so the flow can reach
-/// `/complete`. Ref-counted: nested flows (OrderSheet → ScanUploader) share it.
-/// 🔴 Every `begin()` needs its `end()` on EVERY exit path — use `defer`.
+/// background time (renewed when a transfer completes in the background, and right before the
+/// order call) so the flow can finish. Ref-counted: nested flows (OrderSheet → ScanUploader)
+/// share it. MAIN THREAD only. 🔴 Every `begin()` needs its `end()` on EVERY exit — use `defer`.
+@MainActor
 final class UploadKeepAlive {
     static let shared = UploadKeepAlive()
 
-    private let lock = NSLock()
     private var holders = 0
     private var bgTask: UIBackgroundTaskIdentifier = .invalid
     private var savedIdleTimer = false
-    private var beginning = false
 
-    @MainActor func begin() {
-        lock.lock()
+    func begin() {
         holders += 1
-        let first = holders == 1
-        lock.unlock()
-        if first {
+        if holders == 1 {
             savedIdleTimer = UIApplication.shared.isIdleTimerDisabled
             UIApplication.shared.isIdleTimerDisabled = true
         }
         renew()
     }
 
-    @MainActor func end() {
-        lock.lock()
+    func end() {
         holders = max(0, holders - 1)
-        let last = holders == 0
-        let task = last ? bgTask : .invalid
-        if last { bgTask = .invalid }
-        lock.unlock()
-        guard last else { return }
+        guard holders == 0 else { return }
         UIApplication.shared.isIdleTimerDisabled = savedIdleTimer
-        if task != .invalid { UIApplication.shared.endBackgroundTask(task) }
+        expire()
     }
 
-    /// Any thread. No-op when nobody holds it or background time is already held.
+    /// No-op when nobody holds it or background time is already held. One is held at a time and
+    /// an ended one never expires ⇒ the expiration handler ends the held one.
     func renew() {
-        lock.lock()
-        guard holders > 0, bgTask == .invalid, !beginning else { lock.unlock(); return }
-        beginning = true
-        lock.unlock()
-        // Outside the lock: UIKit calls back into `expire()`. One is held at a time and an ended
-        // one never expires ⇒ the handler ends the held one.
-        let id = UIApplication.shared.beginBackgroundTask(withName: "scan-upload") {
-            UploadKeepAlive.shared.expire()
+        guard holders > 0, bgTask == .invalid else { return }
+        bgTask = UIApplication.shared.beginBackgroundTask(withName: "scan-upload") {
+            MainActor.assumeIsolated { UploadKeepAlive.shared.expire() }
         }
-        lock.lock()
-        beginning = false
-        let keep = holders > 0 && bgTask == .invalid
-        if keep { bgTask = id }
-        lock.unlock()
-        if !keep, id != .invalid { UIApplication.shared.endBackgroundTask(id) }
     }
 
     private func expire() {
-        lock.lock()
         let id = bgTask
         bgTask = .invalid
-        lock.unlock()
         if id != .invalid { UIApplication.shared.endBackgroundTask(id) }
     }
 
     /// Returns once the app is on screen. The step that takes money (or stamps an order) runs
     /// in the foreground: a request cut by suspension after the server acted = half-state (#26).
-    @MainActor static func untilActive() async {
+    static func untilActive() async {
         while UIApplication.shared.applicationState != .active {
             if Task.isCancelled { return }
             try? await Task.sleep(nanoseconds: 500_000_000)

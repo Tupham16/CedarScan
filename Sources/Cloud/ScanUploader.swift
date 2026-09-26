@@ -88,6 +88,7 @@ final class ScanUploader: ObservableObject {
     }
 
     private func run(record: ScanRecord, folder: URL, jobs: [FileJob], allowFresh: Bool) async throws -> String {
+        phase = .preparing
         let kinds = jobs.map(\.kind)
         let scanId: String
         var slots: [String: UploadSlot] = [:]
@@ -105,15 +106,18 @@ final class ScanUploader: ObservableObject {
         let todo = jobs.filter { done[$0.kind] != $0.size }
         do {
             if todo.contains(where: { slots[$0.kind] == nil }) {
-                let fresh = try await APIClient.shared.presignScanUploads(scanId: scanId, kinds: todo.map(\.kind))
+                let fresh = try await apiRetry {
+                    try await APIClient.shared.presignScanUploads(scanId: scanId, kinds: todo.map(\.kind))
+                }
                 for slot in fresh.uploads { slots[slot.kind] = slot }
             }
             try await sendAll(record: record, scanId: scanId, jobs: jobs, todo: todo, slots: slots)
             phase = .finishing
-            _ = try await APIClient.shared.completeScan(scanId: scanId)
-        } catch let error as APIError where allowFresh && (error.statusCode == 404 || error.code == "scan_ordered") {
-            // Journal points at a scan this account cannot use (other account / already ordered):
-            // start over ONCE with a new server scan.
+            _ = try await apiRetry { try await APIClient.shared.completeScan(scanId: scanId) }
+        } catch let error as APIError where allowFresh && error.statusCode == 404 {
+            // Journal points at a scan this account cannot see (signed in with another account):
+            // start over ONCE with a new server scan. 🔴 ✗ on 409 `scan_ordered`: that scan is
+            // already in an order — a new scan id for the same house = a second order (#20b).
             UploadJournal.clear(record.id)
             return try await run(record: record, folder: folder, jobs: jobs, allowFresh: false)
         }
@@ -209,11 +213,30 @@ final class ScanUploader: ObservableObject {
                 try await Task.sleep(nanoseconds: UInt64(min(attempt * attempt, 9)) * 2_000_000_000)
                 if expired || attempt >= 2 {
                     // A retry after a pause may outlive a 1 h URL: re-presign rather than guess.
-                    let fresh = try await APIClient.shared.presignScanUploads(scanId: scanId, kinds: [job.kind])
+                    let fresh = try await apiRetry {
+                        try await APIClient.shared.presignScanUploads(scanId: scanId, kinds: [job.kind])
+                    }
                     guard let s = fresh.uploads.first(where: { $0.kind == job.kind }) else { throw error }
                     slot = s
                     if expired { represigned = true }
                 }
+            }
+        }
+    }
+
+    /// A plain API call (presign, /complete) under the same transient-retry rule. A retry waits
+    /// for the app to be on screen: a request cut by suspension fails when the app resumes.
+    private func apiRetry<T>(_ call: () async throws -> T) async throws -> T {
+        var attempt = 0
+        while true {
+            attempt += 1
+            do {
+                return try await call()
+            } catch {
+                guard attempt < Self.maxAttempts, Self.isTransient(error) else { throw error }
+                try await Task.sleep(nanoseconds: UInt64(attempt) * 2_000_000_000)
+                await UploadKeepAlive.untilActive()
+                try Task.checkCancellation()
             }
         }
     }
