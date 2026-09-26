@@ -270,6 +270,8 @@ struct ScanAddressView: View {
                 locationStatusRow
                 matchingRows
                 suggestionRows
+                Text(verbatim: completer.probe).font(.caption2).foregroundStyle(Color.red)
+                    .accessibilityIdentifier("probe")
                 pickedRow
             }
             .listRowBackground(Theme.card)

@@ -239,6 +239,11 @@ private let addressSuggestionRowLimit = 4
 @MainActor
 final class AddressCompleter: NSObject, ObservableObject {
     @Published private(set) var suggestions: [AddressSuggestion] = []
+    // THROWAWAY probe
+    @Published var probe = "probe: none"
+    var updates = 0, callbacks = 0, fails = 0, lastErr = "-", lastCount = -1, anyCount = -1
+    private let anyCompleter = MKLocalSearchCompleter()
+    private let anyDelegate = ProbeDelegate()
 
     private let completer = MKLocalSearchCompleter()
 
@@ -247,6 +252,12 @@ final class AddressCompleter: NSObject, ObservableObject {
         completer.delegate = self
         // Chỉ địa chỉ — không gợi ý quán cà phê, cây xăng. Khách đang khai một CĂN NHÀ.
         completer.resultTypes = .address
+        anyCompleter.delegate = anyDelegate
+        anyDelegate.owner = self
+    }
+
+    func refreshProbe() {
+        probe = "upd=\(updates) cb=\(callbacks) n=\(lastCount) fail=\(fails) err=\(lastErr) any=\(anyCount) frag=\(completer.queryFragment) types=\(completer.resultTypes.rawValue) searching=\(completer.isSearching)"
     }
 
     func update(query: String) {
@@ -258,6 +269,9 @@ final class AddressCompleter: NSObject, ObservableObject {
             return
         }
         completer.queryFragment = trimmed
+        anyCompleter.queryFragment = trimmed
+        updates += 1
+        refreshProbe()
     }
 
     func clear() {
@@ -387,7 +401,11 @@ extension AddressCompleter: MKLocalSearchCompleterDelegate {
         let rows = completer.results.prefix(addressSuggestionRowLimit).map {
             AddressSuggestion(title: $0.title, subtitle: $0.subtitle)
         }
+        let count = completer.results.count
         Task { @MainActor in
+            self.callbacks += 1
+            self.lastCount = count
+            self.refreshProbe()
             self.suggestions = rows
         }
     }
@@ -395,8 +413,34 @@ extension AddressCompleter: MKLocalSearchCompleterDelegate {
     nonisolated func completer(_ completer: MKLocalSearchCompleter, didFailWithError error: Error) {
         // Mất mạng / MapKit từ chối → KHÔNG báo lỗi gì cả. Gợi ý là tiện ích phụ; một banner đỏ ở
         // đây chỉ làm khách tưởng mình không quét được, trong khi gõ tay vẫn đi tiếp bình thường.
+        let msg = "\((error as NSError).domain)#\((error as NSError).code)"
         Task { @MainActor in
+            self.fails += 1
+            self.lastErr = msg
+            self.refreshProbe()
             self.suggestions = []
+        }
+    }
+}
+
+
+// THROWAWAY probe: an unfiltered completer, to tell "MapKit returns nothing" from "filter drops all".
+final class ProbeDelegate: NSObject, MKLocalSearchCompleterDelegate {
+    weak var owner: AddressCompleter?
+    func completerDidUpdateResults(_ completer: MKLocalSearchCompleter) {
+        let n = completer.results.count
+        let first = completer.results.first.map { $0.title + " | " + $0.subtitle } ?? "-"
+        Task { @MainActor [weak owner] in
+            owner?.anyCount = n
+            owner?.lastErr += " anyFirst=" + first
+            owner?.refreshProbe()
+        }
+    }
+    func completer(_ completer: MKLocalSearchCompleter, didFailWithError error: Error) {
+        let msg = "\((error as NSError).domain)#\((error as NSError).code)"
+        Task { @MainActor [weak owner] in
+            owner?.lastErr += " anyFail=" + msg
+            owner?.refreshProbe()
         }
     }
 }

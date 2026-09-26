@@ -16,16 +16,6 @@ final class CardsShots: XCTestCase {
         let vi = lang("vi", "VN")
         let gb = lang("en", "GB")
 
-        capture("home", en, end: true)
-        capture("orders", en, end: true)
-        capture("orders-a7", en)
-        capture("home", de)
-        capture("orders", de, end: true)
-        capture("orders", vi)
-        capture("home", de + xxxl)
-        capture("orders", de + xxxl, end: true)
-        capture("home", en + ax3, end: true)
-        capture("orders", en + ax3, end: true)
 
         // Address suggestions: type a few letters, wait for MapKit, shot.
         for (args, text) in [(gb, "63 Saint Ja"), (en, "1600 Pennsylvania Av"), (vi, "12 Nguyen Hue"), (gb, "10 Downing")] {
@@ -48,7 +38,8 @@ final class CardsShots: XCTestCase {
             shot("address-" + text.replacingOccurrences(of: " ", with: "_") + "-\(wait)s")
         }
         let labels = app.buttons.allElementsBoundByIndex.prefix(30).map(\.label)
-        let a = XCTAttachment(string: "typed=\(text)\nbuttons=\(labels)")
+        let probe = app.staticTexts["probe"].firstMatch.label
+        let a = XCTAttachment(string: "typed=\(text)\nprobe=\(probe)\nbuttons=\(labels)")
         a.name = String(format: "%03d-address-buttons-%@", n, text.replacingOccurrences(of: " ", with: "_"))
         a.lifetime = .keepAlways
         add(a)
