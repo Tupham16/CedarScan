@@ -50,8 +50,10 @@ final class PushNotifications: ObservableObject {
     /// nor a later sign-in's register overtake the unregister.
     private var chain: Task<Void, Never>?
 
-    /// The last token iOS gave (any launch): sign-out unregisters it even before this launch's arrives.
-    private static let tokenKey = "push.token"
+    /// The token last handed to a register (any launch) = the only token sign-out may unregister.
+    /// 🔴 ✗ the token iOS gives before permission: it must never reach the server (Privacy Policy
+    /// "If you allow notifications…"), not even through unregister.
+    private static let sentTokenKey = "push.sentToken"
     /// A token whose unregister has not reached the server yet (plan §1).
     private static let pendingUnregisterKey = "push.pendingUnregister"
 
@@ -107,7 +109,6 @@ final class PushNotifications: ObservableObject {
     func didRegister(deviceToken: Data) {
         let hex = deviceToken.map { String(format: "%02x", $0) }.joined()
         token = hex
-        UserDefaults.standard.set(hex, forKey: Self.tokenKey)
         guard isSignedIn else { return }
         registerIfAllowed(hex)
     }
@@ -137,7 +138,8 @@ final class PushNotifications: ObservableObject {
         inFlightKey = nil
         openOrder = nil
         tapped = nil
-        guard let hex = token ?? UserDefaults.standard.string(forKey: Self.tokenKey) else { return }
+        guard let hex = UserDefaults.standard.string(forKey: Self.sentTokenKey) else { return }
+        UserDefaults.standard.removeObject(forKey: Self.sentTokenKey)
         UserDefaults.standard.set(hex, forKey: Self.pendingUnregisterKey)
         retryPendingUnregister()
     }
@@ -158,9 +160,12 @@ final class PushNotifications: ObservableObject {
         guard registeredKey != key, inFlightKey != key else { return }
         inFlightKey = key
         let generation = signOutGeneration
+        // Before the request: a sign-out while it is out must unregister it.
+        UserDefaults.standard.set(hex, forKey: Self.sentTokenKey)
         enqueue { [weak self] in
             guard let self else { return }
-            defer { if self.inFlightKey == key { self.inFlightKey = nil } }
+            // ✗ clear the marker of a newer register of the same key (sign-out → same account back in).
+            defer { if self.inFlightKey == key, self.signOutGeneration == generation { self.inFlightKey = nil } }
             // Signed out / switched account while queued: the next refresh registers for the new one.
             guard self.signOutGeneration == generation, self.isSignedIn,
                   AccountStore.savedCustomerId == customerId else { return }
