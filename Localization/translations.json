@@ -2569,18 +2569,6 @@
    }
   },
   {
-   "key": "Keep the app open until this finishes.",
-   "translations": {
-    "vi": "Giữ app mở tới khi gửi xong.",
-    "fr": "Gardez l'app ouverte jusqu'à la fin de l'envoi.",
-    "de": "Lassen Sie die App geöffnet, bis der Vorgang abgeschlossen ist.",
-    "cs": "Nechte aplikaci otevřenou, dokud se odesílání nedokončí.",
-    "sk": "Nechajte aplikáciu otvorenú, kým sa to nedokončí.",
-    "es": "Mantén la app abierta hasta que termine.",
-    "nl": "Houd de app open tot dit klaar is."
-   }
-  },
-  {
    "key": "Sent — %lld scan(s) added to %@",
    "translations": {
     "vi": "Đã gửi — %lld bản quét vào đơn %@",

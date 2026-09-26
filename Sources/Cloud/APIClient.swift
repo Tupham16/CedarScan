@@ -565,6 +565,13 @@ final class APIClient {
         return try await send("scans", method: "POST", json: body)
     }
 
+    /// Fresh PUT URLs (1 h TTL) for a scan created earlier — resume / retry of background uploads
+    /// (`ScanUploader`). Server `scans/[id]/uploads`, live 26/09 (`beeabd7`). 404 = not this
+    /// account's scan; 409 `code` `scan_ordered` = already ordered, never overwrite its files.
+    func presignScanUploads(scanId: String, kinds: [String]) async throws -> CreateScanResponse {
+        try await send("scans/\(scanId)/uploads", method: "POST", json: ["files": kinds])
+    }
+
     func completeScan(scanId: String) async throws -> CompleteScanResponse {
         try await send("scans/\(scanId)/complete", method: "POST", json: [:])
     }

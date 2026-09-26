@@ -2,6 +2,7 @@ import SwiftUI
 
 @main
 struct CedarScanApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var store = ScanStore()
     @StateObject private var account = AccountStore()
 

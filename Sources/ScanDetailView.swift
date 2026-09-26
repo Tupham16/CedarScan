@@ -1967,7 +1967,11 @@ struct OrderSheet: View {
         let languageSnapshot = language
         let floorNamingSnapshot = floorNaming
         let couponSnapshot = couponCode.trimmingCharacters(in: .whitespacesAndNewlines)
-        submitTask = Task {
+        submitTask = Task { @MainActor in
+            // 2.59: screen awake + background time for the WHOLE flow (uploads → order), released
+            // on every exit. The uploads themselves survive lock / app switch (`BackgroundUploads`).
+            UploadKeepAlive.shared.begin()
+            defer { UploadKeepAlive.shared.end() }
             // Tải lên mọi bản quét CHƯA có trên server (kể cả bản chính — khi đặt từ trang dự án)
             @MainActor
             func ensureUploaded(_ scan: ScanRecord) async -> String? {
@@ -2011,6 +2015,11 @@ struct OrderSheet: View {
                 }
                 extraCloudIds.append(cloudId)
             }
+
+            // Uploads can finish while the phone is locked. The order is placed with the app on
+            // screen: a request cut by suspension after the server created the order = half-state
+            // (#26). Cancel while waiting → the [3] checkpoint below stops it.
+            await UploadKeepAlive.untilActive()
 
             // [20] Làm tươi suất miễn phí NGAY TRƯỚC khi đặt. Nút vừa bấm chốt `isFreePromo` theo
             // catalog tải lúc MỞ sheet, mà giữa đó là cả quãng điền form + upload 40–200MB × số tầng

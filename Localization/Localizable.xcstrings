@@ -6957,53 +6957,6 @@
         }
       }
     },
-    "Keep the app open until this finishes.": {
-      "extractionState": "manual",
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Nechte aplikaci otevřenou, dokud se odesílání nedokončí."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Lassen Sie die App geöffnet, bis der Vorgang abgeschlossen ist."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mantén la app abierta hasta que termine."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Gardez l'app ouverte jusqu'à la fin de l'envoi."
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Houd de app open tot dit klaar is."
-          }
-        },
-        "sk": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Nechajte aplikáciu otvorenú, kým sa to nedokončí."
-          }
-        },
-        "vi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Giữ app mở tới khi gửi xong."
-          }
-        }
-      }
-    },
     "Keep them": {
       "extractionState": "manual",
       "localizations": {

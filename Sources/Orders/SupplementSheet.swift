@@ -137,8 +137,6 @@ struct SupplementSheet: View {
                     ProgressView()
                     Text(label).font(.subheadline)
                 }
-            } footer: {
-                Text(String(localized: "Keep the app open until this finishes."))
             }
         case .sent(let count):
             Section {
@@ -202,6 +200,9 @@ struct SupplementSheet: View {
     private func send() {
         task?.cancel()
         task = Task { @MainActor in
+            // 2.59: screen awake + background time for the whole flow, released on every exit.
+            UploadKeepAlive.shared.begin()
+            defer { UploadKeepAlive.shared.end() }
             phase = .working(String(localized: "Finding your order…"))
             let order: OrderDTO
             do {
@@ -254,6 +255,11 @@ struct SupplementSheet: View {
                 phase = .failed(String(localized: "No scan to send."))
                 return
             }
+
+            // Uploads can finish while the phone is locked; attach + stamp with the app on screen
+            // (a request cut by suspension after the server attached = half-state, #26).
+            await UploadKeepAlive.untilActive()
+            if Task.isCancelled { phase = .ready; return }
 
             // 🔴 ĐIỂM KHÔNG QUAY ĐẦU (bẫy #26): từ đây `interactiveDismissDisabled` đã khoá vuốt
             // đóng, và ✗ kiểm `Task.isCancelled` sau cú gọi này — huỷ SAU khi server đã nối bản
