@@ -191,6 +191,9 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
         // Gom CHỐT SỔ frame hiện tại trước khi pause: tick 2–5Hz nên nửa giây mesh cuối
         // (vùng vừa quét ngay trước khi bấm Dừng) có thể chưa vào bộ tích lũy.
         colorMesh?.ingestFinalFrame()
+        // No new texture shot from here on: a shot taken during the awaits below (frozen last
+        // frame, paused session) could never get a final anchor pose.
+        texShots?.stopTicking()
         // Item 1 (26/09): final poses of the texture-shot anchors, read BEFORE pause (after
         // pause currentFrame is frozen/may go away). ARKit has applied its map corrections
         // (loop closure) to these; TextureShotRecorder writes them as `m2`.
@@ -284,6 +287,14 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
     // MARK: - White balance lock (item 2, 26/09)
 
     private func scheduleWhiteBalanceLock() {
+        // The device outlives the session: if an earlier scan's release failed, it is still
+        // locked at that room's gains — back to auto first (also when the lock is switched off).
+        if let device = wbDevice, device.whiteBalanceMode == .locked,
+           device.isWhiteBalanceModeSupported(.continuousAutoWhiteBalance),
+           (try? device.lockForConfiguration()) != nil {
+            device.whiteBalanceMode = .continuousAutoWhiteBalance
+            device.unlockForConfiguration()
+        }
         let cfg = ScanQualityConfig.current
         guard cfg.lockWhiteBalance else {
             report?.whiteBalanceStatus = "disabledByConfig"
@@ -337,8 +348,10 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
     /// gains back (a fresh lock would freeze a different colour). Clamped to the device range:
     /// out-of-range gains raise an ObjC exception (a crash, not a throw).
     private func reassertWhiteBalanceLock() {
+        // Custom gains are only allowed when the device says so — otherwise the call raises.
         guard let gains = wbLockedGains, let device = wbDevice,
-              device.whiteBalanceMode != .locked else { return }
+              device.whiteBalanceMode != .locked,
+              device.isLockingWhiteBalanceWithCustomDeviceGainsSupported else { return }
         let maxGain = device.maxWhiteBalanceGain
         guard maxGain.isFinite, maxGain >= 1,
               gains.redGain.isFinite, gains.greenGain.isFinite, gains.blueGain.isFinite else { return }
@@ -414,6 +427,8 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
                 // "lưới vẫn vẽ mà không ghi gì".
                 self.colorMesh?.start()
                 self.qualityMonitor.setActive(true)
+                self.lockWhiteBalanceIfReady(trackingNormal: true)
+                self.reassertWhiteBalanceLock()
             } else {
                 self.trackingLost = true
                 UINotificationFeedbackGenerator().notificationOccurred(.error)

@@ -563,7 +563,7 @@ final class TextureShotRecorder {
                     continuation.resume(returning: (nil, 0, stats))
                     return
                 }
-                let stats = self.applyFinalPoses(finalAnchorPoses, taken: taken)
+                var stats = self.applyFinalPoses(finalAnchorPoses, taken: taken)
                 let file = ShotsFile(
                     version: 1,
                     note: "ARKit: m = camera-to-world, column-major; camera looks -Z, +X right, "
@@ -589,6 +589,7 @@ final class TextureShotRecorder {
                 do {
                     let data = try JSONEncoder().encode(file)
                     try data.write(to: dirURL.appendingPathComponent("shots.json"))
+                    stats.packageWritten = true
                     continuation.resume(returning: (dir: dirURL, shotCount: self.metas.count, stats: stats))
                 } catch {
                     // Thiếu shots.json thì ảnh vô dụng với máy trạm — dọn cả gói, đừng
@@ -598,6 +599,13 @@ final class TextureShotRecorder {
                 }
             }
         }
+    }
+
+    /// Stop taking shots (Stop & Save, before the final anchor poses are read). Pending
+    /// encodes still land; `finish` writes the package as usual. Main thread.
+    func stopTicking() {
+        displayLink?.invalidate()
+        displayLink = nil
     }
 
     /// Hủy (khách bấm Hủy buổi quét) — xoá sạch thư mục tạm.

@@ -100,6 +100,12 @@ final class ScanSessionReport {
     func noteTracking(_ state: ARCamera.TrackingState) {
         guard stoppedAt == nil else { return }
         let label = Self.trackingLabel(state)
+        // While interrupted the time stays under "interrupted"; remember the latest state
+        // for when the interruption ends.
+        if labelBeforeInterruption != nil {
+            labelBeforeInterruption = label
+            return
+        }
         if label == "normal", let i = interruptions.indices.last,
            let end = interruptions[i].end, interruptions[i].relocalizedAfter == nil {
             interruptions[i].relocalizedAfter = Self.fin(now - end)
@@ -110,13 +116,29 @@ final class ScanSessionReport {
         trackingChanges += 1
     }
 
+    /// Label in force before the interruption (ARKit sends no tracking change while
+    /// interrupted, so that time is booked under "interrupted" instead).
+    private var labelBeforeInterruption: String?
+
     func noteInterrupted() {
-        guard stoppedAt == nil, interruptions.count < Self.maxStamps else { return }
+        guard stoppedAt == nil else { return }
+        if labelBeforeInterruption == nil {
+            closeTracking()
+            labelBeforeInterruption = trackingLabel
+            trackingLabel = "interrupted"
+        }
+        guard interruptions.count < Self.maxStamps else { return }
         interruptions.append(Interruption(start: Self.fin(now) ?? 0, timedOut: false))
     }
 
     func noteInterruptionEnded() {
-        guard stoppedAt == nil, let i = interruptions.indices.last, interruptions[i].end == nil else { return }
+        guard stoppedAt == nil else { return }
+        if let previous = labelBeforeInterruption, trackingLabel == "interrupted" {
+            closeTracking()
+            trackingLabel = previous
+        }
+        labelBeforeInterruption = nil
+        guard let i = interruptions.indices.last, interruptions[i].end == nil else { return }
         interruptions[i].end = Self.fin(now)
     }
 
@@ -148,6 +170,10 @@ final class ScanSessionReport {
 
     /// Texture-shot figures handed back by `TextureShotRecorder.finish` (ioQueue-made, value type).
     struct ShotStats: Encodable {
+        /// shots.json written = the texture package rides in the zip. false with kept > 0 =
+        /// the package was dropped at finish (e.g. encode failure) — the counts below are
+        /// what it held.
+        var packageWritten = false
         var taken = 0
         var kept = 0
         var thinningEvents = 0
