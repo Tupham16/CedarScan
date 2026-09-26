@@ -3973,6 +3973,18 @@
    }
   },
   {
+   "key": "Missed a room? No need to rescan the whole home: open the property, tap \"Scan more\" and scan just that area as a new scan, starting in a room you already scanned. If you already ordered, tap \"Send extra scan\" so it goes into the same order.",
+   "translations": {
+    "vi": "Quét sót một phòng? Không cần quét lại cả nhà: mở dự án, bấm \"Quét bổ sung\" rồi quét riêng khu vực đó thành một bản quét mới, bắt đầu từ một phòng đã quét. Nếu đã đặt hàng, bấm \"Gửi bổ sung bản quét\" để gửi vào đúng đơn đó.",
+    "fr": "Vous avez oublié une pièce? Inutile de tout renumériser : ouvrez la propriété, touchez \"Numériser une autre zone\" et numérisez seulement cette zone dans une nouvelle numérisation, en commençant dans une pièce déjà numérisée. Si vous avez déjà commandé, touchez \"Envoyer une numérisation supplémentaire\" pour l'ajouter à la même commande.",
+    "de": "Einen Raum vergessen? Sie müssen nicht das ganze Haus neu scannen: Öffnen Sie das Objekt, tippen Sie auf \"Mehr scannen\" und scannen Sie nur diesen Bereich als neuen Scan — beginnen Sie dabei in einem Raum, den Sie schon gescannt haben. Wenn Sie bereits bestellt haben, tippen Sie auf \"Zusatz-Scan senden\", damit er in dieselbe Bestellung kommt.",
+    "cs": "Vynechali jste místnost? Nemusíte skenovat celý dům znovu: otevřete nemovitost, klepněte na \"Skenovat další část\" a naskenujte jen tu část jako nový sken — začněte v místnosti, kterou už máte naskenovanou. Pokud už máte objednáno, klepněte na \"Odeslat doplňující sken\", aby šel do stejné objednávky.",
+    "sk": "Vynechali ste miestnosť? Nemusíte skenovať celý dom znova: otvorte nehnuteľnosť, ťuknite na \"Doskenovať\" a naskenujte len tú časť ako nový sken — začnite v miestnosti, ktorú už máte naskenovanú. Ak ste už objednali, ťuknite na \"Poslať ďalší sken\", aby išiel do tej istej objednávky.",
+    "es": "¿Te faltó una habitación? No hace falta volver a escanear toda la casa: abre la propiedad, toca \"Escanear más\" y escanea solo esa zona como un escaneo nuevo, empezando en una habitación que ya escaneaste. Si ya hiciste el pedido, toca \"Enviar escaneo adicional\" para que vaya al mismo pedido.",
+    "nl": "Een kamer gemist? Je hoeft niet de hele woning opnieuw te scannen: open de woning, tik op \"Meer scannen\" en scan alleen dat deel als nieuwe scan, te beginnen in een kamer die je al hebt gescand. Heb je al besteld, tik dan op \"Extra scan versturen\" zodat hij bij dezelfde bestelling komt."
+   }
+  },
+  {
    "key": "Got it — start scanning",
    "translations": {
     "vi": "Hiểu rồi — bắt đầu quét",

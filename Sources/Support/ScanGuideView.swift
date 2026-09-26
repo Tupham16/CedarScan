@@ -123,6 +123,9 @@ struct ScanGuideContent: View {
                 String(localized: "After that the screen stays on by itself until saving finishes — leave the phone alone."),
                 String(localized: "Building the model takes a couple of minutes on a large home — do not close the app."),
                 String(localized: "Saving works the processor hard, so if another area is still to scan, let the phone rest a few minutes first."),
+                // Owner 26/09: last line of this section. Labels = the real buttons
+                // (ProjectView "Scan more", SupplementSheet "Send extra scan").
+                String(localized: "Missed a room? No need to rescan the whole home: open the property, tap \"Scan more\" and scan just that area as a new scan, starting in a room you already scanned. If you already ordered, tap \"Send extra scan\" so it goes into the same order."),
             ]
         )
     }
