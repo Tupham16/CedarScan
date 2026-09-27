@@ -18,7 +18,19 @@ import UIKit
 /// 6…10. With the torch on in the dark it read −3.7…−1.2 (the torch adds ~1–2 stops close up).
 ///
 /// Rules (Lum = 2^BV, linear, smoothed over `smoothTauSec`):
-///  - ON: torch off, Lum < 2^onBelowBV (−2.5) for `onSustainSec`.
+///  - ON — FAST, on the RAW per-frame BV (the linear average lags ~0.7 s on a sudden drop):
+///    BV < onBelowBV (−2.5) for `onSustainSec` (0.3 s), or `pitchBlackFrames` (2) frames in a
+///    row when pitch black (BV more than `pitchBlackMarginBV` below — 2 so a one-frame blip does
+///    not flash it; a cover ≥ 0.3 s still does). Waits only `onSettleSec` after a switch;
+///    warm-up 1 s. The level
+///    "before the ON" (`preL`, loop classifier + trace) = min(average, this frame): the
+///    average still holds the lit room on a sudden drop, and a lit `preL` made real room-light
+///    OFFs look like the torch's own loop (R1 of the fast-ON patch: 324/336 misread at BV −7).
+///    🔴 Why fast (owner test 27/09, order #LS-MUJNJUQ56): room light switched off → 1.3 s of
+///    pitch black (BV −7) before the 2.62 torch came on → ARKit had nothing to track and drifted
+///    ~20 cm (shot poses from then on corrected by 19.5 cm vs ~1 cm before) → the new mesh was
+///    built off the old one ("lưới bị mất", owner rescanned the floor). Darkness is what breaks
+///    tracking; a torch that comes on late is the harm, one that comes on early costs little.
 ///  - OFF: est = Lum − share > 2^offAboveBV (−1.0 → 0.5) for `offSustainSec` (× back-off).
 ///    share = K/d² is an UPPER BOUND of the torch's own light, not an estimate: on that scan
 ///    (torch 0.7, dark rooms) close views (near depth < 1.2 m) had Lum·d² ≤ 0.41 even if ALL
@@ -29,10 +41,10 @@ import UIKit
 ///    ⚠ In practice the OFF bar is BV ≈ 0…+0.5 at 1–1.4 m near depth (K/d² ≈ 0.5–1): on that
 ///    scan a lit torch would stay on in 56/60 lit samples at room BV −1…0, 18/66 at 0…1,
 ///    10/38 at 1…2, 0/115 at ≥ 2. A "dim-lit room keeps the torch on" report = this, expected.
-///  - Replay of that scan (texture-shot samples, ~1.3 s apart): 14 switches in 9 min, all at
-///    dark↔lit boundaries; in the dark torch-lit stretch est peaked at 0.15 (bar 0.5); torch off
-///    in the lit area and in daylight; lit time 196 s → ~94 s.
-///  - No decision for `settleSec` after any switch (exposure moving); texture shots skip it too.
+///  - Replay of the #LS-MUJJ0HGJQ scan (10 Hz port of this file, shot samples ~1.3 s apart):
+///    5–10 ONs in 9 min, all at dark↔lit boundaries; in the dark torch-lit stretch est peaked at
+///    0.15 (bar 0.5); torch off in the lit area and in daylight; lit time 196 s → ~100 s.
+///  - No OFF decision for `settleSec` after any switch (exposure moving); texture shots skip it.
 ///  - Smoothing restarts at every switch and is fed only from `reseedDelaySec` after it (the
 ///    new torch state reaches the frame/exposure with some latency, worse at 30 fps when hot),
 ///    so after `settleSec` the reading holds only the new state (a torch-lit residue once hid
@@ -48,10 +60,10 @@ import UIKit
 ///    The first is free; each later one doubles the OFF BAR for the rest of the scan (cap
 ///    `maxBarDoublings`), so a stronger torch stops causing false offs after a few instead of
 ///    blinking forever; real OFFs stay 1 s.
-///  - ⚠ UNMEASURED: how fast EXIF BV follows a torch switch. Simulated: if BV lags like
-///    auto-exposure (time constant ≥ 0.15 s + noise), a torch STRONGER than K can loop again.
-///    scan-report `torch.switches` logs raw BV + depth at ~10 Hz for 2.5 s after each of the
-///    first switches — measure it there before tuning `reseedDelaySec`/`settleSec`.
+///  - MEASURED (#LS-MUJNJUQ56, `torch.switches`, 12 switches): at every ON, BV jumps +1…+4
+///    stops within the FIRST frame (0.1 s), then only drifts ±0.7 with motion — BV does not lag
+///    like auto-exposure, so the seed at 0.4 s holds the new state (the simulated loop risk
+///    under a slow BV is retired). Keep logging `torch.switches` for other devices.
 ///  - Accepted: near a wall in a dim-lit room the bound keeps the torch on until the customer
 ///    steps back; a room between the two thresholds keeps whatever state it is in (hysteresis).
 /// ✗ Per-scan torch-share measurement (2.60: contaminated by lights switched during settling,
@@ -104,7 +116,8 @@ final class AutoTorch: ObservableObject {
         /// Raw transient after each of the first light-level switches (see class comment).
         var switches: [SwitchTrace] = []
     }
-    /// One light-level switch: direction, s since start, smoothed BV just before, then raw BV,
+    /// One light-level switch: direction, s since start, BV just before (OFF: average; ON:
+    /// min(average, the deciding frame)), then raw BV,
     /// near depth (−1 = none) and seconds since the switch for `switchTraceSec`. All finite.
     struct SwitchTrace: Encodable {
         var on: Bool
@@ -125,11 +138,17 @@ final class AutoTorch: ObservableObject {
     private(set) var stats = Stats()
 
     // MARK: - Tuning (see the class comment before touching)
-    private static let warmupSec: TimeInterval = 3
+    private static let warmupSec: TimeInterval = 1
     private static let settleSec: TimeInterval = 1.0
-    private static let onSustainSec: TimeInterval = 1.0
+    private static let onSustainSec: TimeInterval = 0.3
+    /// BV this far below onBelowBV = pitch black: ON after `pitchBlackFrames` such frames.
+    private static let pitchBlackMarginBV = 2.0
+    private static let pitchBlackFrames = 2
+    /// ON decisions resume this soon after a switch (= reseedDelaySec: seed/loop classifier).
+    private static let onSettleSec: TimeInterval = 0.4
     private static let offSustainSec: TimeInterval = 1.0
-    /// An ON whose dark stretch began within this of the settle end after an OFF = false off.
+    /// Dark from the first readings after an OFF: the dark stretch began before
+    /// OFF + settleSec + this (ON decisions may resume from onSettleSec already).
     private static let falseOffSlackSec: TimeInterval = 0.4
     /// Smoothing is fed only from this long after a switch (torch/exposure latency).
     private static let reseedDelaySec: TimeInterval = 0.4
@@ -161,8 +180,8 @@ final class AutoTorch: ObservableObject {
     private var gaveUp = false
     private var debug = false
     private var level: Float = 0.7
-    /// Linear thresholds (2^BV) and the level-scaled share bound K.
-    private var onBelow = 0.177
+    /// ON threshold (BV, raw per frame), OFF threshold (linear 2^BV) and the share bound K.
+    private var onBelowBV = -2.5
     private var offAbove = 0.5
     private var shareK = 1.0
 
@@ -177,8 +196,9 @@ final class AutoTorch: ObservableObject {
     private var lastOffAt: TimeInterval = -.greatestFiniteMagnitude
     /// The last light-level OFF was loop-like (the torch alone explained the reading).
     private var offWasLoop = false
-    /// Loop classifier: smoothed level just before the last switch, the first reading fed after
-    /// it (seed) and the clamped near depth then; −1 = none yet.
+    /// Loop classifier: level just before the last switch (OFF: average; ON: min(average, the
+    /// deciding frame)), the first reading fed after it (seed) and the clamped near depth then;
+    /// −1 = none yet.
     private var preL = -1.0
     private var seedL = -1.0
     private var seedD: Float = -1
@@ -188,6 +208,8 @@ final class AutoTorch: ObservableObject {
     private var switchTraceOpen = false
     private var lastFailAt: TimeInterval = -.greatestFiniteMagnitude
     private var darkSince: TimeInterval = -1
+    /// Consecutive pitch-black frames while off.
+    private var pitchFrames = 0
     private var brightSince: TimeInterval = -1
     private var lastTraceT: TimeInterval = -.greatestFiniteMagnitude
     private var lastHapticT: TimeInterval = -.greatestFiniteMagnitude
@@ -250,7 +272,7 @@ final class AutoTorch: ObservableObject {
         // off < on + 1 stop would flicker by construction.
         let onBV = cfg.torchOnBelowBV
         let offBV = max(cfg.torchOffAboveBV, onBV + 1)
-        onBelow = pow(2.0, onBV)
+        onBelowBV = onBV
         offAbove = pow(2.0, offBV)
         shareK = cfg.torchShareK * Double(level / Self.referenceLevel)
         stats.level = level
@@ -365,16 +387,20 @@ final class AutoTorch: ObservableObject {
         lastShare = share
         recordTrace(t, depth: depth, lit: lit)
 
-        guard t - startT > Self.warmupSec, t - changedAt > Self.settleSec else { return }
+        guard t - startT > Self.warmupSec else { return }
 
         if !wantOn {
-            sustain(&darkSince, smoothL < onBelow, t)
-            if darkSince > 0, t - darkSince >= Self.onSustainSec, !gaveUp,
-               t - lastFailAt > Self.failRetrySec, device.isTorchAvailable {
-                switchOn(at: t)
+            // FAST on the raw frame (see class comment): darkness breaks ARKit tracking.
+            guard t - changedAt > Self.onSettleSec else { return }
+            sustain(&darkSince, bv < onBelowBV, t)
+            pitchFrames = bv < onBelowBV - Self.pitchBlackMarginBV ? pitchFrames + 1 : 0
+            if darkSince > 0, t - darkSince >= Self.onSustainSec || pitchFrames >= Self.pitchBlackFrames,
+               !gaveUp, t - lastFailAt > Self.failRetrySec, device.isTorchAvailable {
+                switchOn(at: t, frameLum: lum)
             }
             return
         }
+        guard t - changedAt > Self.settleSec else { return }
 
         let doublings = min(max(0, stats.falseOffs - Self.freeFalseOffs), Self.maxBarDoublings)
         let bar = offAbove * pow(2.0, Double(doublings))
@@ -396,6 +422,7 @@ final class AutoTorch: ObservableObject {
     private func resetSustains() {
         darkSince = -1
         brightSince = -1
+        pitchFrames = 0
     }
 
     /// The reading is still at the seed level and the seed moved away from the pre-switch
@@ -405,14 +432,14 @@ final class AutoTorch: ObservableObject {
         return abs(log2(smoothL) - log2(seedL)) < abs(log2(seedL) - log2(preL))
     }
 
-    private func startSwitchTrace(on: Bool, _ t: TimeInterval) {
+    private func startSwitchTrace(on: Bool, _ t: TimeInterval, preLum: Double) {
         switchTraceOpen = false
         guard stats.switches.count < Self.switchTraceMax else { return }
         let rel = t - startT
         guard rel.isFinite else { return }
         var pre: Double?
-        if smoothL > 0 {
-            let v = log2(smoothL)
+        if preLum > 0 {
+            let v = log2(preLum)
             if v.isFinite { pre = (v * 100).rounded() / 100 }
         }
         stats.switches.append(SwitchTrace(on: on, t: (rel * 10).rounded() / 10, preBV: pre))
@@ -448,7 +475,8 @@ final class AutoTorch: ObservableObject {
 
     // MARK: - Device
 
-    private func switchOn(at t: TimeInterval) {
+    /// `frameLum`: this frame's 2^BV — the average lags a sudden drop (see class comment).
+    private func switchOn(at t: TimeInterval, frameLum: Double) {
         guard let device else { return }
         do {
             try device.lockForConfiguration()
@@ -471,8 +499,9 @@ final class AutoTorch: ObservableObject {
         if offWasLoop, lastOffAt == changedAt, darkAtOnce, loopLike {
             stats.falseOffs += 1
         }
-        startSwitchTrace(on: true, t)
-        preL = smoothL
+        let pre = smoothL > 0 ? min(smoothL, frameLum) : frameLum
+        startSwitchTrace(on: true, t, preLum: pre)
+        preL = pre
         wantOn = true
         changedAt = t
         smoothL = -1 // restart smoothing: after settle it holds the torch-lit state only
@@ -506,7 +535,7 @@ final class AutoTorch: ObservableObject {
             }
             offWasLoop = loop
             lastOffAt = t
-            startSwitchTrace(on: false, t)
+            startSwitchTrace(on: false, t, preLum: smoothL)
         } else {
             switchTraceOpen = false
         }
