@@ -239,6 +239,8 @@ final class ScanSessionReport {
             note: "CedarScan scan diagnostics. Times in seconds since session start. "
                 + "trackingSec = time per ARKit tracking state. poseDelta = texture shot pose "
                 + "at capture (m) vs final ARKit anchor pose at stop (m2): cm / degrees. "
+                + "torch.trace = auto-torch signal at 1 Hz: t (s), bv (smoothed EXIF "
+                + "BrightnessValue), d (near LiDAR depth m, -1 none), on (torch lit). "
                 + "Not read by the workstation yet.",
             device: Self.deviceModel(),
             ios: UIDevice.current.systemVersion,

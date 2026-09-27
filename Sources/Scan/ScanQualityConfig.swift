@@ -40,13 +40,16 @@ struct ScanQualityConfig: Codable {
 
     // Auto torch (26/09, see AutoTorch). Kill-switch `{"autoTorch": false}` (same delivery lag
     // as above). torchLevel (0, 1] — heat: the LED sits next to the camera module.
-    // torchOnBelow / torchOffAbove = ambientIntensity; AutoTorch forces off ≥ 1.5 × on.
+    // Thresholds in EXIF BrightnessValue (APEX, absolute), NOT ambientIntensity (2.62, see
+    // AutoTorch): on below torchOnBelowBV, off when brightness minus the torch's own share bound
+    // (torchShareK / d², at level 0.7) is above torchOffAboveBV; AutoTorch forces off ≥ on + 1.
     // 🔴 Frozen-default trap (see load()): the persisted blob stores these defaults too — a
     // changed default needs a rewrite line in load(), like maxRotationSoft.
     var autoTorch: Bool
     var torchLevel: Double
-    var torchOnBelow: Double
-    var torchOffAbove: Double
+    var torchOnBelowBV: Double
+    var torchOffAboveBV: Double
+    var torchShareK: Double
 
     static let defaults = ScanQualityConfig(
         enabled: true,
@@ -65,8 +68,9 @@ struct ScanQualityConfig: Codable {
         whiteBalanceLockDelaySec: 3.0,
         autoTorch: true,
         torchLevel: 0.7,
-        torchOnBelow: 250,
-        torchOffAbove: 500
+        torchOnBelowBV: -2.5,
+        torchOffAboveBV: -1.0,
+        torchShareK: 1.0
     )
 
     // Decode "khoan dung": server chỉ cần gửi field muốn đổi, thiếu field nào dùng mặc định.
@@ -90,10 +94,12 @@ struct ScanQualityConfig: Codable {
         // Out-of-range level = ObjC exception in setTorchModeOn (a crash) → default.
         let level = (try? c.decodeIfPresent(Double.self, forKey: .torchLevel)) ?? d.torchLevel
         torchLevel = (level.isFinite && level > 0 && level <= 1) ? level : d.torchLevel
-        let onBelow = (try? c.decodeIfPresent(Double.self, forKey: .torchOnBelow)) ?? d.torchOnBelow
-        torchOnBelow = (onBelow.isFinite && onBelow > 0 && onBelow < 5000) ? onBelow : d.torchOnBelow
-        let offAbove = (try? c.decodeIfPresent(Double.self, forKey: .torchOffAbove)) ?? d.torchOffAbove
-        torchOffAbove = (offAbove.isFinite && offAbove > 0 && offAbove < 20000) ? offAbove : d.torchOffAbove
+        let onBV = (try? c.decodeIfPresent(Double.self, forKey: .torchOnBelowBV)) ?? d.torchOnBelowBV
+        torchOnBelowBV = (onBV.isFinite && onBV > -10 && onBV < 10) ? onBV : d.torchOnBelowBV
+        let offBV = (try? c.decodeIfPresent(Double.self, forKey: .torchOffAboveBV)) ?? d.torchOffAboveBV
+        torchOffAboveBV = (offBV.isFinite && offBV > -10 && offBV < 12) ? offBV : d.torchOffAboveBV
+        let shareK = (try? c.decodeIfPresent(Double.self, forKey: .torchShareK)) ?? d.torchShareK
+        torchShareK = (shareK.isFinite && shareK >= 0 && shareK <= 20) ? shareK : d.torchShareK
     }
 
     init(
@@ -103,7 +109,8 @@ struct ScanQualityConfig: Codable {
         lowLightSoft: Double,
         trackingWarnAfterSec: Double, warmupSec: Double,
         lockWhiteBalance: Bool, whiteBalanceLockDelaySec: Double,
-        autoTorch: Bool, torchLevel: Double, torchOnBelow: Double, torchOffAbove: Double
+        autoTorch: Bool, torchLevel: Double,
+        torchOnBelowBV: Double, torchOffAboveBV: Double, torchShareK: Double
     ) {
         self.enabled = enabled
         self.maxSpeedSoft = maxSpeedSoft
@@ -117,8 +124,9 @@ struct ScanQualityConfig: Codable {
         self.whiteBalanceLockDelaySec = whiteBalanceLockDelaySec
         self.autoTorch = autoTorch
         self.torchLevel = torchLevel
-        self.torchOnBelow = torchOnBelow
-        self.torchOffAbove = torchOffAbove
+        self.torchOnBelowBV = torchOnBelowBV
+        self.torchOffAboveBV = torchOffAboveBV
+        self.torchShareK = torchShareK
     }
 
     // MARK: - Bản đang dùng (cache UserDefaults, server ghi đè qua /catalog)

@@ -1,76 +1,78 @@
 import Foundation
 import ARKit
 import AVFoundation
+import ImageIO
 import UIKit
-import simd
 
 /// Auto flashlight while scanning (owner 26/09, "like CubiCasa": dark → torch on, light → off).
 /// Owner's field test of CubiCasa = the acceptance bar: room light switched ON while the torch
 /// is lit → torch off at once; room light OFF → torch on at once; no flicker.
 ///
-/// Signal: ARFrame.lightEstimate.ambientIntensity (the same number as the "Turn on lights"
-/// coach). 🔴 FEEDBACK LOOP: the torch brightens what it measures, so an absolute off-threshold
-/// flickers (dark → on → "bright" → off → dark …). Hence:
-///  - ON: torch off, reading < onBelow for `onSustainSec`.
-///  - At ON: remember the pre-torch reading; after `settleSec`, once the reading is FLAT
-///    (`gainFlatSec`, or `gainTimeoutSec`), measure the torch's own share (`gain` = lit −
-///    pre-torch) at the median LiDAR depth in front (`gainDepth`). From then on
-///    est = reading − share, share = gain·(gainDepth/depth)² (the torch lights like 1/d²).
-///  - OFF fast = a STEP in the RAW reading while the phone is STILL (moved < 10 cm, turned
-///    < 8°, a full-frame 3×3 LiDAR grid — 3-pixel median per point — within 10 % with at most
-///    one odd point; ambientIntensity meters the whole frame, so a near shelf sliding into a
-///    frame edge must break "still"; grid points at 1/8, 1/2, 7/8 of each side): against ANY sample of the last ≤ `stepWindowSec`, the
-///    reading rose by > max(stepMinRise, stepRatio × before); it holds `fastOffSustainSec`.
-///    Armed only once the reading has gone FLAT after ON (= `gain` measured): an exposure /
-///    light-estimate tail still climbing after settle would otherwise pass as a step and loop. Phone still ⇒ the torch's part is constant ⇒ the rise is
-///    another light — no share model involved, so it works even when `gain` is wrong. Stillness is the discriminator: one scalar cannot tell
-///    "a lamp came on" from "turned to a white wall" (~3× a dark floor, torch light included)
-///    — but turning to a wall moves the camera, flipping a switch does not.
-///  - OFF slow (walked into a lit area, or a switch while moving): est > offAbove +
-///    shareMargin × share for `slowOffSustainSec`. Margin 2 absorbs surface colour (a 3×
-///    surface adds ≈ 2 × share to est). Accepted: a lit room seen from right up against a wall
-///    keeps the torch on until the customer steps back; a dim room keeps it on.
-///  - No decision for `settleSec` after any switch (auto-exposure is catching up; its readings
-///    lie in both directions).
-///  - Back-off: a false off = dark again from the first settled readings after a SLOW off.
-///    After a FAST off see Bounce below. Each false off multiplies both off-sustains by 3
-///    (cap 27×) for the rest of the scan.
-///  - Contaminated share: a room light switched on before the reading has gone flat after ON
-///    (settle + flat probe, ~2–6 s) lands in `gain` while the step rule is not yet armed →
-///    the torch looks huge, est stays low. Sanity: gain > offAbove measured at > `farMeters`
-///    (the torch alone cannot do that far) = room light → off, not counted; the next gain is
-///    trusted (no loop) — only when that OFF was followed by darkness at once (else a real
-///    room light, and the flag would let the NEXT contaminated gain through). Residual
-///    (switch in that window AND a near surface): the torch can stay on until the room light
-///    changes again — the slow rule needs est over offAbove + 2·share, i.e. far walls in a
-///    bright room (a 600 room + gain measured at 1 m ⇒ ≥ 5 m). ✗ A torch-strength constant
-///    across the scan (tried, R3): surface colour (≲ 3×) swamps it either way.
-///  - Accepted: a light switched on while panning misses the step (not still) → slow rule.
-///    Also: right against a wall the torch dominates (share ≫ room) and the step's 0.8× bar
-///    may not be met — the torch stays on until the customer steps back.
-///  - Bounce: a fast off that is dark again from the first settled readings (the owner
-///    flipping the light off again within ~1 s, or a fooled step). Bounces within
-///    `bounceForgetSec` of each other accumulate; past `freeBounces` each one triples the FAST
-///    sustain (cap 27×); `bounceForgetSec` without a bounce forgets them. A systematic fool
-///    thus decays to ≤ one blink per ~15–30 s; repeated manual toggles stay fast.
-///  - Dropped (lit → dark by itself: iOS heat cut, capture restart): retry after
-///    `failRetrySec`; after `maxDrops` give up for this scan (coach takes over).
-/// ✗ Probing (dimming the torch to measure the room): visible flicker AND exposure jumps in
-/// texture shots. ✗ exif BrightnessValue instead: same information, one more parse.
+/// 🔴 SIGNAL = EXIF BrightnessValue of every frame (`ARFrame.exifData`, APEX, ABSOLUTE scene
+/// brightness), ✗ `lightEstimate.ambientIntensity`. 2.60/2.61 used ambientIntensity and the
+/// owner's scan (27/09, order #LS-MUJJ0HGJQ, iPhone 12 Pro, per-shot bv/iso/exp/depth) proved it
+/// is NOT scene brightness: it falls only when auto-exposure runs out (ISO 3200 at the longest
+/// exposure) and barely rises in bright scenes. Measured: torch ON at BV −3.7 with exposure
+/// capped at 1/100 s but NOT at BV −4.2 with 1/61 s; then NEVER off — not even in daylight
+/// (BV 9–10, 1/6000 s), 196 s lit. BV on that scan: dark room −4…−2, lit room 0…4, daylight
+/// 6…10. With the torch on in the dark it read −3.7…−1.2 (the torch adds ~1–2 stops close up).
+///
+/// Rules (Lum = 2^BV, linear, smoothed over `smoothTauSec`):
+///  - ON: torch off, Lum < 2^onBelowBV (−2.5) for `onSustainSec`.
+///  - OFF: est = Lum − share > 2^offAboveBV (−1.0 → 0.5) for `offSustainSec` (× back-off).
+///    share = K/d² is an UPPER BOUND of the torch's own light, not an estimate: on that scan
+///    (torch 0.7, dark rooms) close views (near depth < 1.2 m) had Lum·d² ≤ 0.41 even if ALL
+///    the light were torch → K = 1.0 (~2.5× margin), scaled by level (far views mix in room
+///    light, so they do not bound K). d = NEAR depth (20th percentile of a 5×5 full-frame LiDAR
+///    grid, ≥ 0.3 m; none → 0.7 m) so a near white wall at the frame edge cannot pass for a lit
+///    room. A room light switched on is caught by the same rule, moving or still.
+///    ⚠ In practice the OFF bar is BV ≈ 0…+0.5 at 1–1.4 m near depth (K/d² ≈ 0.5–1): on that
+///    scan a lit torch would stay on in 56/60 lit samples at room BV −1…0, 18/66 at 0…1,
+///    10/38 at 1…2, 0/115 at ≥ 2. A "dim-lit room keeps the torch on" report = this, expected.
+///  - Replay of that scan (texture-shot samples, ~1.3 s apart): 14 switches in 9 min, all at
+///    dark↔lit boundaries; in the dark torch-lit stretch est peaked at 0.15 (bar 0.5); torch off
+///    in the lit area and in daylight; lit time 196 s → ~94 s.
+///  - No decision for `settleSec` after any switch (exposure moving); texture shots skip it too.
+///  - Smoothing restarts at every switch and is fed only from `reseedDelaySec` after it (the
+///    new torch state reaches the frame/exposure with some latency, worse at 30 fps when hot),
+///    so after `settleSec` the reading holds only the new state (a torch-lit residue once hid
+///    false offs — R1/R2 of 2.62, 10 Hz simulations with frame delay).
+///  - False off (R3 "pred", simulated on the reviewers' suite): (a) the OFF is loop-like — the
+///    torch ALONE explains the reading at the OFF: its own step measured at the seed after the
+///    ON (seed = first reading fed after the switch), scaled 1/d² to now, ×2 tolerance; AND
+///    (b) nothing switched since, dark from the first settled readings, and the reading still
+///    at the seed level after that OFF (the switch alone explains the whole change). A glance
+///    through a lit doorway, a hand flipping the light, a near surface coming into view while
+///    walking read differently → not counted. Timing-only versions climbed the ladder on the
+///    owner's own quick toggles (28/40 simulated runs stuck on) — ✗ go back to them.
+///    The first is free; each later one doubles the OFF BAR for the rest of the scan (cap
+///    `maxBarDoublings`), so a stronger torch stops causing false offs after a few instead of
+///    blinking forever; real OFFs stay 1 s.
+///  - ⚠ UNMEASURED: how fast EXIF BV follows a torch switch. Simulated: if BV lags like
+///    auto-exposure (time constant ≥ 0.15 s + noise), a torch STRONGER than K can loop again.
+///    scan-report `torch.switches` logs raw BV + depth at ~10 Hz for 2.5 s after each of the
+///    first switches — measure it there before tuning `reseedDelaySec`/`settleSec`.
+///  - Accepted: near a wall in a dim-lit room the bound keeps the torch on until the customer
+///    steps back; a room between the two thresholds keeps whatever state it is in (hysteresis).
+/// ✗ Per-scan torch-share measurement (2.60: contaminated by lights switched during settling,
+/// confounded ≲3× by surface colour — 7 review rounds of patches). ✗ Probing (dimming the
+/// torch to measure): visible flicker + exposure jumps in texture shots.
 ///
 /// Every device step is optional: no device / no torch / torch unavailable (iOS disables it
-/// when hot) / lock failure = the scan goes on, the "Turn on lights" coach covers it
-/// (`coversLowLight` false).
+/// when hot) / lock failure / no BV in exifData = the scan goes on, the "Turn on lights" coach
+/// covers it (`coversLowLight` false).
 ///
 /// Texture: torch light is harsh (hotspot, 1/d² falloff, cold LED vs warm room light) and the
 /// white balance is LOCKED after warm-up (2.54) — whichever light it locked under, the other
 /// gets a tint. Each shot records `torch` (level, 0 = off) so the workstation can prefer
-/// non-torch shots later; shots are skipped for `settleSec` after a switch (exposure jumping).
-/// LiDAR depth is unaffected (IR).
+/// non-torch shots later. LiDAR depth is unaffected (IR).
 /// Heat/battery: the LED adds roughly 0.5–1 W on top of a 4–6 W scan (level 0.7), right next
-/// to the camera module. Hot phone = ARKit camera 60→30 fps (SESSION-HANDOFF §ĐÃ CHỐT thermal)
-/// → `torchLevel` < 1 and remote-tunable. iOS itself cuts the torch when too hot
-/// (isTorchAvailable false) → coach fallback.
+/// to the camera module (that scan: thermal "serious" 7 s after the torch came on, 5.7 min in).
+/// Hot phone = ARKit camera 60→30 fps (SESSION-HANDOFF §ĐÃ CHỐT thermal) → level < 1,
+/// remote-tunable. iOS itself cuts the torch when too hot (isTorchAvailable false) → coach.
+///
+/// Calibration without a console: scan-report.json `torch.trace` (1 Hz: t, bv, near depth, on)
+/// + per-shot bv/torch/depth in shots.json. Tune from those, ✗ guess.
 ///
 /// MAIN THREAD ONLY (CADisplayLink on main, like every other scan loop). Reads
 /// `arSession.currentFrame`, never takes the session delegate.
@@ -81,52 +83,73 @@ final class AutoTorch: ObservableObject {
     /// Account). nil otherwise — no 10 Hz SwiftUI churn for customers.
     @Published private(set) var debugLine: String?
 
-    /// Figures for scan-report.json (owner cannot read console logs: switch counts there are
-    /// how "no flicker" is checked on real scans).
+    /// Figures for scan-report.json (owner cannot read console logs).
     struct Stats: Encodable {
         var status = "notStarted"
+        var signal = "exifBrightnessValue"
         var level: Float?
+        var onBelowBV: Double?
+        var offAboveBV: Double?
+        var shareK: Double?
         var switchesOn = 0
-        var fastOffs = 0
-        var slowOffs = 0
+        var offs = 0
         var onSec: Double = 0
         var falseOffs = 0
         var failures = 0
         /// Torch went dark by itself (iOS thermal cut, capture restart) while wanted on.
         var dropped = 0
-        /// Fast offs followed by darkness at once (see Bounce in the class comment).
-        var fastBounces = 0
-        /// Share measurement rejected as room light (far-depth sanity check).
-        var contaminated = 0
+        /// Frames without a usable BrightnessValue (no decision on those).
+        var noBV = 0
+        var trace = Trace()
+        /// Raw transient after each of the first light-level switches (see class comment).
+        var switches: [SwitchTrace] = []
+    }
+    /// One light-level switch: direction, s since start, smoothed BV just before, then raw BV,
+    /// near depth (−1 = none) and seconds since the switch for `switchTraceSec`. All finite.
+    struct SwitchTrace: Encodable {
+        var on: Bool
+        var t: Double
+        var preBV: Double?
+        var dt: [Double] = []
+        var bv: [Double] = []
+        var d: [Double] = []
+    }
+    /// 1 Hz while active: seconds since start, smoothed BV, near depth (m, −1 = none),
+    /// torch lit (0/1). All finite (NaN rule: JSONEncoder throws → report lost).
+    struct Trace: Encodable {
+        var t: [Double] = []
+        var bv: [Double] = []
+        var d: [Double] = []
+        var on: [Int] = []
     }
     private(set) var stats = Stats()
 
     // MARK: - Tuning (see the class comment before touching)
-    private static let warmupSec: TimeInterval = 4
-    private static let settleSec: TimeInterval = 1.5
-    private static let onSustainSec: TimeInterval = 0.5
-    private static let stepWindowSec: TimeInterval = 1.5
-    private static let stepMinSpanSec: TimeInterval = 0.4
-    private static let stepMinRise = 300.0
-    private static let stepRatio = 0.8
-    private static let stillMaxMeters: Float = 0.10
-    private static let stillMaxDeg: Float = 8
-    /// ≤ 10 % depth change ⇒ torch share changes ≤ 21 % (1/d²) — below the step bar.
-    private static let stillDepthRatio: Float = 1.1
-    private static let gainFlatSec: TimeInterval = 0.5
-    private static let gainTimeoutSec: TimeInterval = 4
-    private static let farMeters: Float = 1.5
-    private static let fastOffSustainSec: TimeInterval = 0.5
-    private static let shareMargin = 2.0
-    private static let slowOffSustainSec: TimeInterval = 4
+    private static let warmupSec: TimeInterval = 3
+    private static let settleSec: TimeInterval = 1.0
+    private static let onSustainSec: TimeInterval = 1.0
+    private static let offSustainSec: TimeInterval = 1.0
     /// An ON whose dark stretch began within this of the settle end after an OFF = false off.
     private static let falseOffSlackSec: TimeInterval = 0.4
+    /// Smoothing is fed only from this long after a switch (torch/exposure latency).
+    private static let reseedDelaySec: TimeInterval = 0.4
+    private static let freeFalseOffs = 1
+    /// Bar ×2 per false off after the free one, cap 8 → ×256 (BV −1 → +7). Simulated (10/15 Hz):
+    /// a torch 27× the measured share settles after 4–5 false offs, 80–130× after 7–8; below
+    /// cap 8 the absurd cases looped. Only a stronger-than-K torch ever climbs this ladder.
+    private static let maxBarDoublings = 8
     private static let failRetrySec: TimeInterval = 5
     private static let maxDrops = 3
-    private static let freeBounces = 4
-    private static let bounceForgetSec: TimeInterval = 30
-    /// Readings are smoothed over ~this (single-frame spikes).
-    private static let smoothTauSec: TimeInterval = 0.25
+    private static let smoothTauSec: TimeInterval = 0.3
+    /// BV older than this = signal lost → coach takes over.
+    private static let bvStaleSec: TimeInterval = 2
+    private static let noDepthMeters: Float = 0.7
+    private static let minDepthMeters: Float = 0.3
+    /// K was measured at this level; the share bound scales linearly with the level.
+    private static let referenceLevel: Float = 0.7
+    private static let traceMax = 3600
+    private static let switchTraceMax = 12
+    private static let switchTraceSec: TimeInterval = 2.5
 
     private weak var arSession: ARSession?
     private var device: AVCaptureDevice?
@@ -138,52 +161,40 @@ final class AutoTorch: ObservableObject {
     private var gaveUp = false
     private var debug = false
     private var level: Float = 0.7
-    private var onBelow = 250.0
-    private var offAbove = 500.0
+    /// Linear thresholds (2^BV) and the level-scaled share bound K.
+    private var onBelow = 0.177
+    private var offAbove = 0.5
+    private var shareK = 1.0
 
     // Timebase = ARFrame.timestamp.
     private var startT: TimeInterval = -1
     private var lastT: TimeInterval = -1
-    private var smoothI = -1.0
+    private var smoothL = -1.0
+    private var lastBVAt: TimeInterval = -.greatestFiniteMagnitude
     /// Our intent. `isOn` is the device truth.
     private var wantOn = false
     private var changedAt: TimeInterval = -.greatestFiniteMagnitude
     private var lastOffAt: TimeInterval = -.greatestFiniteMagnitude
+    /// The last light-level OFF was loop-like (the torch alone explained the reading).
+    private var offWasLoop = false
+    /// Loop classifier: smoothed level just before the last switch, the first reading fed after
+    /// it (seed) and the clamped near depth then; −1 = none yet.
+    private var preL = -1.0
+    private var seedL = -1.0
+    private var seedD: Float = -1
+    /// Clamped near depth of the current tick (light-level OFFs read it).
+    private var curD: Float = 0.7
+    /// A switch trace is being filled.
+    private var switchTraceOpen = false
     private var lastFailAt: TimeInterval = -.greatestFiniteMagnitude
     private var darkSince: TimeInterval = -1
-    private var stepSince: TimeInterval = -1
-    private var stepBase = 0.0
-    private var slowSince: TimeInterval = -1
-    private var preOnI = 0.0
-    private var gain: Double?
-    private var gainDepth: Float?
-    /// Flatness probe for the gain measurement (reading at probe start).
-    private var gainProbeT: TimeInterval = -1
-    private var gainProbeI = 0.0
-    /// Set by a contamination OFF: the next measured gain is accepted as is.
-    private var trustNextGain = false
-    /// Kind of the last light-level OFF (decides false off / bounce at the next ON).
-    private var lastOffWasSlow = false
-    /// Bounces close together (see class comment) and when the last one happened.
-    private var recentBounces = 0
-    private var lastBounceAt: TimeInterval = -.greatestFiniteMagnitude
-    /// When the last contamination OFF happened (trust the next gain only if dark follows).
-    private var contamOffAt: TimeInterval = -.greatestFiniteMagnitude
-    private struct Sample {
-        let t: TimeInterval
-        /// Raw smoothed reading (not est: the step rule must not depend on `gain`).
-        let reading: Double
-        let depth: Float?
-        /// Full-frame 3×3 depth grid (0 = no value) for the stillness test.
-        let grid: [Float]
-        let pos: SIMD3<Float>
-        let quat: simd_quatf
-    }
-    /// Reading history for the step test, ≤ stepWindowSec (torch lit, after settle).
-    private var recent: [Sample] = []
+    private var brightSince: TimeInterval = -1
+    private var lastTraceT: TimeInterval = -.greatestFiniteMagnitude
     private var lastHapticT: TimeInterval = -.greatestFiniteMagnitude
     private var lastDebugT: TimeInterval = -1
     private var lastDepth: Float?
+    private var lastEst = 0.0
+    private var lastShare = 0.0
     private let haptic = UIImpactFeedbackGenerator(style: .light)
 
     init(arSession: ARSession) {
@@ -191,10 +202,12 @@ final class AutoTorch: ObservableObject {
     }
 
     /// True = the torch deals with low light, so the "Turn on lights" coach stays quiet.
-    /// False (no device, no torch, iOS cut it, lock failing, gave up, switched off) = coach.
+    /// False (no device/torch, iOS cut it, lock failing, gave up, no BV, switched off) = coach.
     var coversLowLight: Bool {
         guard enabled, !gaveUp, let device, device.hasTorch, device.isTorchAvailable else { return false }
-        return lastT - lastFailAt > Self.failRetrySec
+        // Naming overlay: torch off on purpose, BV goes stale — no "Turn on lights" behind it.
+        if held { return true }
+        return lastT - lastFailAt > Self.failRetrySec && lastT - lastBVAt < Self.bvStaleSec
     }
 
     /// Texture shots skip frames this close to a switch (exposure still moving).
@@ -234,10 +247,16 @@ final class AutoTorch: ObservableObject {
         // Level must be in (0, 1] or setTorchModeOn raises. Config already validates; again here.
         let l = Float(cfg.torchLevel)
         level = (l.isFinite && l > 0) ? min(l, 1) : 0.7
-        onBelow = cfg.torchOnBelow
-        // off ≤ on would flicker by construction.
-        offAbove = max(cfg.torchOffAbove, onBelow * 1.5)
+        // off < on + 1 stop would flicker by construction.
+        let onBV = cfg.torchOnBelowBV
+        let offBV = max(cfg.torchOffAboveBV, onBV + 1)
+        onBelow = pow(2.0, onBV)
+        offAbove = pow(2.0, offBV)
+        shareK = cfg.torchShareK * Double(level / Self.referenceLevel)
         stats.level = level
+        stats.onBelowBV = onBV
+        stats.offAboveBV = offBV
+        stats.shareK = cfg.torchShareK
         stats.status = "ready"
         enabled = true
         let link = CADisplayLink(target: self, selector: #selector(tick))
@@ -294,6 +313,7 @@ final class AutoTorch: ObservableObject {
         let dt = lastT > 0 ? min(0.5, max(0, t - lastT)) : 0
         lastT = t
         if startT < 0 { startT = t }
+        defer { publishDebug(t) }
 
         let lit = device.isTorchActive
         if lit { stats.onSec += dt }
@@ -305,9 +325,27 @@ final class AutoTorch: ObservableObject {
         }
 
         guard isActive else { return }
-        guard let raw = frame.lightEstimate?.ambientIntensity, raw.isFinite, raw >= 0 else { return }
-        let reading = Double(raw)
-        smoothI = smoothI < 0 ? reading : smoothI + (reading - smoothI) * min(1, dt / Self.smoothTauSec)
+        guard let bv = Self.brightnessValue(of: frame) else {
+            stats.noBV += 1
+            return
+        }
+        lastBVAt = t
+        let depth = Self.nearDepth(of: frame)
+        lastDepth = depth
+        let d = max(depth ?? Self.noDepthMeters, Self.minDepthMeters)
+        curD = d
+        recordSwitchSample(t, bv: bv, depth: depth)
+        let lum = pow(2.0, bv)
+        // After a switch, frames within reseedDelaySec may still show the old torch state.
+        if t - changedAt >= Self.reseedDelaySec {
+            if smoothL < 0 {
+                smoothL = lum
+                seedL = lum
+                seedD = d
+            } else {
+                smoothL += (lum - smoothL) * min(1, dt / Self.smoothTauSec)
+            }
+        }
 
         // Wanted on but dark: iOS cut it (heat) or the capture session restarted.
         if wantOn && !lit && t - changedAt > Self.settleSec {
@@ -315,18 +353,22 @@ final class AutoTorch: ObservableObject {
             // Clear torchMode too, so iOS does not relight it later on its own.
             switchOff(at: t, countAsOff: false)
             lastFailAt = t // retry delay (switchOff counts a lock failure itself)
-            resetSustains()
             if stats.dropped >= Self.maxDrops {
                 gaveUp = true
                 stats.status = "gaveUp"
             }
         }
 
-        defer { publishDebug(t) }
+        let share = shareK / Double(d * d)
+        let est = smoothL - share
+        lastEst = est
+        lastShare = share
+        recordTrace(t, depth: depth, lit: lit)
+
         guard t - startT > Self.warmupSec, t - changedAt > Self.settleSec else { return }
 
         if !wantOn {
-            sustain(&darkSince, smoothI < onBelow, t)
+            sustain(&darkSince, smoothL < onBelow, t)
             if darkSince > 0, t - darkSince >= Self.onSustainSec, !gaveUp,
                t - lastFailAt > Self.failRetrySec, device.isTorchAvailable {
                 switchOn(at: t)
@@ -334,109 +376,13 @@ final class AutoTorch: ObservableObject {
             return
         }
 
-        let probe = Self.depthProbe(of: frame)
-        let depth = probe?.center
-        let grid = probe?.grid ?? []
-        lastDepth = depth
-        let tf = frame.camera.transform
-        let pos = SIMD3(tf.columns.3.x, tf.columns.3.y, tf.columns.3.z)
-        let quat = simd_normalize(simd_quatf(tf))
-        let backoff = pow(3.0, Double(min(stats.falseOffs, 3)))
-        if t - lastBounceAt > Self.bounceForgetSec { recentBounces = 0 }
-        let bouncePenalty = max(0, recentBounces - Self.freeBounces)
-        let fastBackoff = pow(3.0, Double(min(stats.falseOffs + bouncePenalty, 3)))
-
-        // Fast: a still-phone step of the raw reading — armed once the reading went flat.
-        if gain == nil {
-            stepSince = -1
-        } else if stepSince < 0 {
-            // Any earlier sample (≤ ~15) that shows the rise with a still phone in between.
-            if let old = recent.first(where: {
-                t - $0.t >= Self.stepMinSpanSec
-                    && smoothI - $0.reading > max(Self.stepMinRise, Self.stepRatio * $0.reading)
-                    && Self.still($0, pos, quat, grid)
-            }) {
-                stepSince = t
-                stepBase = old.reading
-            }
-        } else if !(smoothI > stepBase + Self.stepMinRise) {
-            stepSince = -1
-        }
-        recent.append(Sample(t: t, reading: smoothI, depth: depth, grid: grid, pos: pos, quat: quat))
-        while let first = recent.first, t - first.t > Self.stepWindowSec { recent.removeFirst() }
-        if stepSince > 0 && t - stepSince >= Self.fastOffSustainSec * fastBackoff {
-            stats.fastOffs += 1
-            lastOffWasSlow = false
-            switchOff(at: t, countAsOff: true)
-            return
-        }
-
-        guard let g = gain else {
-            // The torch's own share, at this distance — once the reading is flat.
-            if gainProbeT < 0 {
-                gainProbeT = t
-                gainProbeI = smoothI
-                return
-            }
-            guard t - gainProbeT >= Self.gainFlatSec else { return }
-            let flat = abs(smoothI - gainProbeI) < max(60, 0.15 * gainProbeI)
-            if !flat && t - changedAt < Self.settleSec + Self.gainTimeoutSec {
-                gainProbeT = t
-                gainProbeI = smoothI
-                return
-            }
-            let measured = max(0, smoothI - preOnI)
-            if !trustNextGain, measured > offAbove, let d = depth, d > Self.farMeters {
-                // A room light came on while settling (see class comment).
-                stats.contaminated += 1
-                contamOffAt = t
-                switchOff(at: t, countAsOff: false)
-                return
-            }
-            trustNextGain = false
-            gain = measured
-            gainDepth = depth
-            // The step rule arms now: no pre-flat (still rising) sample may serve as its base.
-            recent.removeAll()
-            return
-        }
-        let (est, share) = estimate(g, depth)
-        // Slow: walked into a lit area (or a switch while moving).
-        sustain(&slowSince, est > offAbove + Self.shareMargin * share, t)
-        if slowSince > 0 && t - slowSince >= Self.slowOffSustainSec * backoff {
-            stats.slowOffs += 1
-            lastOffWasSlow = true
+        let doublings = min(max(0, stats.falseOffs - Self.freeFalseOffs), Self.maxBarDoublings)
+        let bar = offAbove * pow(2.0, Double(doublings))
+        sustain(&brightSince, est > bar, t)
+        if brightSince > 0 && t - brightSince >= Self.offSustainSec {
+            stats.offs += 1
             switchOff(at: t, countAsOff: true)
         }
-    }
-
-    /// Phone held still between `old` and now: moved < 10 cm, turned < 8°, and of the
-    /// full-frame 3×3 LiDAR grid points (1/8, 1/2, 7/8) valid on both sides (≥ 6 of 9) at most one changed
-    /// ≥ 10 % (a cell on a depth edge can flip near/far between frames).
-    private static func still(_ old: Sample, _ pos: SIMD3<Float>, _ quat: simd_quatf, _ grid: [Float]) -> Bool {
-        guard old.grid.count == 9, grid.count == 9 else { return false }
-        var matched = 0
-        var odd = 0
-        for i in 0..<9 where old.grid[i] > 0 && grid[i] > 0 {
-            let ratio = max(old.grid[i] / grid[i], grid[i] / old.grid[i])
-            if ratio >= stillDepthRatio { odd += 1 }
-            matched += 1
-        }
-        guard matched >= 6, odd <= 1 else { return false }
-        let dot = min(1, abs(simd_dot(old.quat.vector, quat.vector)))
-        let turnDeg = 2 * acos(dot) * 180 / .pi
-        return simd_distance(old.pos, pos) < stillMaxMeters && turnDeg < stillMaxDeg
-    }
-
-    /// (room light without the torch's share (≥ 0), that share). The share scales 1/d² from
-    /// where it was measured; no depth on either side = unscaled.
-    private func estimate(_ g: Double, _ depth: Float?) -> (est: Double, share: Double) {
-        var share = g
-        if let d0 = gainDepth, let d = depth {
-            let k = Double(d0 / d)
-            share *= min(k * k, 16)
-        }
-        return (max(0, smoothI - share), share)
     }
 
     private func sustain(_ since: inout TimeInterval, _ active: Bool, _ t: TimeInterval) {
@@ -449,8 +395,55 @@ final class AutoTorch: ObservableObject {
 
     private func resetSustains() {
         darkSince = -1
-        stepSince = -1
-        slowSince = -1
+        brightSince = -1
+    }
+
+    /// The reading is still at the seed level and the seed moved away from the pre-switch
+    /// level: the switch alone explains the whole change since.
+    private var loopLike: Bool {
+        guard seedL > 0, preL > 0, smoothL > 0 else { return false }
+        return abs(log2(smoothL) - log2(seedL)) < abs(log2(seedL) - log2(preL))
+    }
+
+    private func startSwitchTrace(on: Bool, _ t: TimeInterval) {
+        switchTraceOpen = false
+        guard stats.switches.count < Self.switchTraceMax else { return }
+        let rel = t - startT
+        guard rel.isFinite else { return }
+        var pre: Double?
+        if smoothL > 0 {
+            let v = log2(smoothL)
+            if v.isFinite { pre = (v * 100).rounded() / 100 }
+        }
+        stats.switches.append(SwitchTrace(on: on, t: (rel * 10).rounded() / 10, preBV: pre))
+        switchTraceOpen = true
+    }
+
+    private func recordSwitchSample(_ t: TimeInterval, bv: Double, depth: Float?) {
+        guard switchTraceOpen, let i = stats.switches.indices.last else { return }
+        let since = t - changedAt
+        guard since <= Self.switchTraceSec else {
+            switchTraceOpen = false
+            return
+        }
+        guard since.isFinite, bv.isFinite else { return }
+        stats.switches[i].dt.append((since * 1000).rounded() / 1000)
+        stats.switches[i].bv.append((bv * 100).rounded() / 100)
+        let dd = depth.map { Double($0) } ?? -1
+        stats.switches[i].d.append(dd.isFinite ? (dd * 100).rounded() / 100 : -1)
+    }
+
+    private func recordTrace(_ t: TimeInterval, depth: Float?, lit: Bool) {
+        guard t - lastTraceT >= 1, stats.trace.t.count < Self.traceMax, smoothL > 0 else { return }
+        let bv = log2(smoothL)
+        let rel = t - startT
+        guard bv.isFinite, rel.isFinite else { return }
+        lastTraceT = t
+        stats.trace.t.append((rel * 10).rounded() / 10)
+        stats.trace.bv.append((bv * 100).rounded() / 100)
+        let d = depth.map { Double($0) } ?? -1
+        stats.trace.d.append(d.isFinite ? (d * 100).rounded() / 100 : -1)
+        stats.trace.on.append(lit ? 1 : 0)
     }
 
     // MARK: - Device
@@ -472,29 +465,19 @@ final class AutoTorch: ObservableObject {
         }
         device.unlockForConfiguration()
         guard ok else { fail(t); return }
-        // Dark again from the first settled readings after an OFF: after a SLOW off = false
-        // off; after a FAST off = bounce (first free, later ones = false offs).
-        let darkAtOnce = { (offAt: TimeInterval) in
-            self.darkSince > 0 && self.darkSince - offAt < Self.settleSec + Self.falseOffSlackSec
+        // False off (see class comment): loop-like OFF, nothing switched since, dark from the
+        // first settled readings, reading still at the seed level after that OFF.
+        let darkAtOnce = darkSince > 0 && darkSince - lastOffAt < Self.settleSec + Self.falseOffSlackSec
+        if offWasLoop, lastOffAt == changedAt, darkAtOnce, loopLike {
+            stats.falseOffs += 1
         }
-        if darkAtOnce(lastOffAt) {
-            if lastOffWasSlow {
-                stats.falseOffs += 1
-            } else {
-                stats.fastBounces += 1
-                if t - lastBounceAt > Self.bounceForgetSec { recentBounces = 0 }
-                recentBounces += 1
-                lastBounceAt = t
-            }
-        }
-        trustNextGain = darkAtOnce(contamOffAt)
+        startSwitchTrace(on: true, t)
+        preL = smoothL
         wantOn = true
         changedAt = t
-        preOnI = smoothI
-        gain = nil
-        gainDepth = nil
-        gainProbeT = -1
-        recent.removeAll()
+        smoothL = -1 // restart smoothing: after settle it holds the torch-lit state only
+        seedL = -1
+        seedD = -1
         resetSustains()
         stats.switchesOn += 1
         stats.status = "used"
@@ -512,13 +495,28 @@ final class AutoTorch: ObservableObject {
     /// false-off bookkeeping. Returns false when the lock failed (torch may still be lit).
     @discardableResult
     private func switchOff(at t: TimeInterval, countAsOff: Bool) -> Bool {
+        if countAsOff {
+            // Loop-like: the torch alone explains the reading — its step measured at the seed
+            // after the ON, scaled 1/d² to the current near depth, ×2 tolerance.
+            var loop = false
+            if seedL > 0, preL > 0, seedD > 0, smoothL > 0 {
+                let step = max(seedL - preL, 0) * Double(seedD * seedD)
+                let predicted = preL + step / Double(curD * curD)
+                loop = smoothL <= predicted * 2
+            }
+            offWasLoop = loop
+            lastOffAt = t
+            startSwitchTrace(on: false, t)
+        } else {
+            switchTraceOpen = false
+        }
+        preL = smoothL
         wantOn = false
         changedAt = t
-        gain = nil
-        gainProbeT = -1
-        recent.removeAll()
+        smoothL = -1 // restart smoothing: after settle it holds the unlit state only
+        seedL = -1
+        seedD = -1
         resetSustains()
-        if countAsOff { lastOffAt = t }
         guard let device else { return true }
         guard (try? device.lockForConfiguration()) != nil else {
             stats.failures += 1
@@ -539,10 +537,27 @@ final class AutoTorch: ObservableObject {
 
     // MARK: - Helpers
 
-    /// center = median of a 3×3 grid over the middle half of the LiDAR depth map (where the
-    /// torch beam lands; nil if < 5 valid); grid = 3×3 over the WHOLE frame (0 = invalid) for
-    /// the stillness test. nil = no sceneDepth / bad buffer.
-    private static func depthProbe(of frame: ARFrame) -> (center: Float?, grid: [Float])? {
+    /// EXIF BrightnessValue (APEX) of this frame: top level or nested {Exif}; number or
+    /// one-element array. nil = missing / non-finite / absurd.
+    private static func brightnessValue(of frame: ARFrame) -> Double? {
+        var exif = frame.exifData
+        if let nested = exif[kCGImagePropertyExifDictionary as String] as? [String: Any] {
+            exif = nested
+        }
+        let value = exif[kCGImagePropertyExifBrightnessValue as String]
+        var bv: Double?
+        if let n = value as? NSNumber {
+            bv = n.doubleValue
+        } else if let list = value as? [NSNumber], let first = list.first {
+            bv = first.doubleValue
+        }
+        guard let bv, bv.isFinite, bv > -20, bv < 30 else { return nil }
+        return bv
+    }
+
+    /// Near depth in front: 20th percentile of a 5×5 grid over the WHOLE LiDAR depth map
+    /// (valid 0.2–8 m, ≥ 8 points). nil = no sceneDepth / bad buffer / too few points.
+    private static func nearDepth(of frame: ARFrame) -> Float? {
         guard let map = frame.sceneDepth?.depthMap,
               CVPixelBufferGetPixelFormatType(map) == kCVPixelFormatType_DepthFloat32,
               CVPixelBufferLockBaseAddress(map, .readOnly) == kCVReturnSuccess else { return nil }
@@ -551,45 +566,31 @@ final class AutoTorch: ObservableObject {
         let w = CVPixelBufferGetWidth(map)
         let h = CVPixelBufferGetHeight(map)
         let rowBytes = CVPixelBufferGetBytesPerRow(map)
-        guard w >= 8, h >= 8, rowBytes >= w * 4 else { return nil }
-        func value(_ x: Int, _ y: Int) -> Float {
-            let v = base.advanced(by: y * rowBytes + x * 4)
-                .assumingMemoryBound(to: Float32.self).pointee
-            return (v.isFinite && v > 0.2 && v < 8) ? v : 0
-        }
-        var center: [Float] = []
-        var grid: [Float] = []
-        center.reserveCapacity(9)
-        grid.reserveCapacity(9)
-        for fy in [1, 2, 3] {
-            for fx in [1, 2, 3] {
-                let c = value(w / 4 + fx * w / 8, h / 4 + fy * h / 8)
-                if c > 0 { center.append(c) }
-                // 1/8, 1/2, 7/8 of each side: a near object entering an edge band is seen.
-                let gx = [w / 8, w / 2, 7 * w / 8][fx - 1]
-                let gy = [h / 8, h / 2, 7 * h / 8][fy - 1]
-                // 3-pixel median (gx−2, gx, gx+2): one noisy pixel does not break "still".
-                let trio = [value(max(gx - 2, 0), gy), value(gx, gy), value(min(gx + 2, w - 1), gy)]
-                    .filter { $0 > 0 }.sorted()
-                grid.append(trio.count >= 2 ? trio[trio.count / 2] : 0)
+        guard w >= 10, h >= 10, rowBytes >= w * 4 else { return nil }
+        var samples: [Float] = []
+        samples.reserveCapacity(25)
+        for j in 0..<5 {
+            for i in 0..<5 {
+                let x = (2 * i + 1) * w / 10
+                let y = (2 * j + 1) * h / 10
+                let v = base.advanced(by: y * rowBytes + x * 4)
+                    .assumingMemoryBound(to: Float32.self).pointee
+                if v.isFinite, v > 0.2, v < 8 { samples.append(v) }
             }
         }
-        let median: Float? = center.count >= 5 ? center.sorted()[center.count / 2] : nil
-        return (median, grid)
+        guard samples.count >= 8 else { return nil }
+        samples.sort()
+        return samples[samples.count / 5]
     }
 
     private func publishDebug(_ t: TimeInterval) {
         guard debug, t - lastDebugT >= 0.5 else { return }
         lastDebugT = t
-        var s = String(format: "I %.0f", smoothI)
-        if wantOn, let g = gain {
-            let e = estimate(g, lastDepth)
-            s += String(format: " est %.0f sh %.0f g %.0f d %.1f/%.1f",
-                        e.est, e.share, g, gainDepth ?? -1, lastDepth ?? -1)
-            if stepSince > 0 { s += " STEP" }
-        }
-        s += " · \(isOn ? "ON" : "off") on×\(stats.switchesOn) f\(stats.fastOffs)/s\(stats.slowOffs) fo\(stats.falseOffs) b\(stats.fastBounces) c\(stats.contaminated) fail\(stats.failures)"
+        let bv = smoothL > 0 ? log2(smoothL) : -99
+        var s = String(format: "bv %.2f est %.2f sh %.2f d %.2f", bv, lastEst, lastShare, lastDepth ?? -1)
+        s += " · \(isOn ? "ON" : "off") on×\(stats.switchesOn) off×\(stats.offs) fo\(stats.falseOffs) fail\(stats.failures)"
         if device?.isTorchAvailable == false { s += " n/a" }
+        if lastT - lastBVAt >= Self.bvStaleSec { s += " noBV" }
         debugLine = s
     }
 }
