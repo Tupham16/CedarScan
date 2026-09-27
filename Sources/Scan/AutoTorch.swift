@@ -18,11 +18,16 @@ import UIKit
 /// 6…10. With the torch on in the dark it read −3.7…−1.2 (the torch adds ~1–2 stops close up).
 ///
 /// Rules (Lum = 2^BV, linear, smoothed over `smoothTauSec`):
-///  - ON — FAST, on the RAW per-frame BV (the linear average lags ~0.7 s on a sudden drop):
-///    BV < onBelowBV (−2.5) for `onSustainSec` (0.3 s), or `pitchBlackFrames` (2) frames in a
-///    row when pitch black (BV more than `pitchBlackMarginBV` below — 2 so a one-frame blip does
-///    not flash it; a cover ≥ 0.3 s still does). Waits only `onSettleSec` after a switch;
-///    warm-up 1 s. The level
+///  - ON — TWO TIERS (owner 28/09 on 2.63: "bật đèn cả những vùng hơi tối trong phòng có đèn"):
+///    · PITCH BLACK (raw BV more than `pitchBlackMarginBV` below onBelowBV, i.e. < −4.5): ON
+///      after `pitchBlackFrames` (2) frames in a row, ~0.1–0.2 s — tracking is at stake (below).
+///    · DIM/DARK (BV < onBelowBV −2.5): ON only when a log-domain average (`onSmoothTauSec`)
+///      stays below for `dimSustainSec` (2 s). A dim corner panned past in a lit room is short
+///      (on the 2.61 scan 7 dips below −2.5 in 330 s of lit rooms, ≤ 1.3 s each); a dark room
+///      stays dark. ARKit tracked fine at BV −3…−4.25 without light (2.61 scan, pose
+///      corrections ~0), so a 2 s wait there costs texture, not the mesh.
+///    2.63 used one fast rule (0.3 s at −2.5) and lit the torch in dim corners of lit rooms.
+///    Waits only `onSettleSec` after a switch; warm-up 1 s. The level
 ///    "before the ON" (`preL`, loop classifier + trace) = min(average, this frame): the
 ///    average still holds the lit room on a sudden drop, and a lit `preL` made real room-light
 ///    OFFs look like the torch's own loop (R1 of the fast-ON patch: 324/336 misread at BV −7).
@@ -140,7 +145,9 @@ final class AutoTorch: ObservableObject {
     // MARK: - Tuning (see the class comment before touching)
     private static let warmupSec: TimeInterval = 1
     private static let settleSec: TimeInterval = 1.0
-    private static let onSustainSec: TimeInterval = 0.3
+    /// DIM/DARK tier: the log-domain BV average must stay below onBelowBV this long.
+    private static let dimSustainSec: TimeInterval = 2.0
+    private static let onSmoothTauSec: TimeInterval = 0.5
     /// BV this far below onBelowBV = pitch black: ON after `pitchBlackFrames` such frames.
     private static let pitchBlackMarginBV = 2.0
     private static let pitchBlackFrames = 2
@@ -210,6 +217,10 @@ final class AutoTorch: ObservableObject {
     private var darkSince: TimeInterval = -1
     /// Consecutive pitch-black frames while off.
     private var pitchFrames = 0
+    /// Log-domain BV average for the DIM tier (restarted at every switch like `smoothL`);
+    /// nil = not seeded yet. `dimSince` = its sustain.
+    private var smoothBV: Double?
+    private var dimSince: TimeInterval = -1
     private var brightSince: TimeInterval = -1
     private var lastTraceT: TimeInterval = -.greatestFiniteMagnitude
     private var lastHapticT: TimeInterval = -.greatestFiniteMagnitude
@@ -360,6 +371,11 @@ final class AutoTorch: ObservableObject {
         let lum = pow(2.0, bv)
         // After a switch, frames within reseedDelaySec may still show the old torch state.
         if t - changedAt >= Self.reseedDelaySec {
+            if let sbv = smoothBV {
+                smoothBV = sbv + (bv - sbv) * min(1, dt / Self.onSmoothTauSec)
+            } else {
+                smoothBV = bv
+            }
             if smoothL < 0 {
                 smoothL = lum
                 seedL = lum
@@ -390,11 +406,17 @@ final class AutoTorch: ObservableObject {
         guard t - startT > Self.warmupSec else { return }
 
         if !wantOn {
-            // FAST on the raw frame (see class comment): darkness breaks ARKit tracking.
+            // Two tiers (see class comment): pitch black fast, dim/dark only when it lasts.
             guard t - changedAt > Self.onSettleSec else { return }
-            sustain(&darkSince, bv < onBelowBV, t)
+            sustain(&darkSince, bv < onBelowBV, t) // raw: loop classifier (switchOn)
+            if let sbv = smoothBV {
+                sustain(&dimSince, sbv < onBelowBV, t)
+            } else {
+                dimSince = -1
+            }
             pitchFrames = bv < onBelowBV - Self.pitchBlackMarginBV ? pitchFrames + 1 : 0
-            if darkSince > 0, t - darkSince >= Self.onSustainSec || pitchFrames >= Self.pitchBlackFrames,
+            let dimLasted = dimSince > 0 && t - dimSince >= Self.dimSustainSec
+            if dimLasted || pitchFrames >= Self.pitchBlackFrames,
                !gaveUp, t - lastFailAt > Self.failRetrySec, device.isTorchAvailable {
                 switchOn(at: t, frameLum: lum)
             }
@@ -423,6 +445,7 @@ final class AutoTorch: ObservableObject {
         darkSince = -1
         brightSince = -1
         pitchFrames = 0
+        dimSince = -1
     }
 
     /// The reading is still at the seed level and the seed moved away from the pre-switch
@@ -495,7 +518,11 @@ final class AutoTorch: ObservableObject {
         guard ok else { fail(t); return }
         // False off (see class comment): loop-like OFF, nothing switched since, dark from the
         // first settled readings, reading still at the seed level after that OFF.
-        let darkAtOnce = darkSince > 0 && darkSince - lastOffAt < Self.settleSec + Self.falseOffSlackSec
+        // Raw OR dim-average darkness (a dim-tier ON comes ≥ 2.4 s after the OFF; one noisy raw
+        // frame resets the raw sustain — counting only raw lost the loop signature).
+        let lim = Self.settleSec + Self.falseOffSlackSec
+        let off = lastOffAt
+        let darkAtOnce = [darkSince, dimSince].contains { $0 > 0 && $0 - off < lim }
         if offWasLoop, lastOffAt == changedAt, darkAtOnce, loopLike {
             stats.falseOffs += 1
         }
@@ -505,6 +532,7 @@ final class AutoTorch: ObservableObject {
         wantOn = true
         changedAt = t
         smoothL = -1 // restart smoothing: after settle it holds the torch-lit state only
+        smoothBV = nil
         seedL = -1
         seedD = -1
         resetSustains()
@@ -543,6 +571,7 @@ final class AutoTorch: ObservableObject {
         wantOn = false
         changedAt = t
         smoothL = -1 // restart smoothing: after settle it holds the unlit state only
+        smoothBV = nil
         seedL = -1
         seedD = -1
         resetSustains()
