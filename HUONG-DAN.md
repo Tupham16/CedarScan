@@ -121,6 +121,10 @@ Phải có tài khoản mới đặt được. Đăng ký ngay trong app (tên, 
 Ở màn bản quét, nếu chưa đăng nhập/chưa xác minh thì có nút bấm thẳng vào đó — đăng nhập xong quay
 lại đúng chỗ cũ.
 
+Khi Cedar247 bật thanh toán trong app cho tài khoản của bạn (và bản app bạn cài có hỗ trợ), tab **Tài khoản** có dòng
+**"Phương thức thanh toán"**: xem, thêm, xoá thẻ đã lưu và chọn thẻ mặc định — không trừ tiền. Thẻ nằm ở Stripe, không
+ở Cedar247. Xoá tài khoản thì thẻ lưu trong app cũng bị xoá; tài khoản Link (nếu có) thì không — bạn tự quản lý với Stripe.
+
 ### Form đặt hàng
 
 Mở bằng nút **"Đặt làm mặt bằng"**. Form gồm:
@@ -150,7 +154,10 @@ hình ngay sau đó ghi **"Chờ thanh toán"** (không phải "Đã đặt hàn
 đơn hiện nhãn cam **"Chờ thanh toán"** ở trang chủ và trang căn nhà. Đơn **"Chờ thanh toán"** để **7 ngày** chưa trả sẽ **tự
 hủy**; đổi ý thì mở đơn ở tab **Đơn hàng** và bấm **"Hủy đơn"** — không mất tiền. Đơn bị hủy thì các bản quét của
 nó về lại **"Mới"** để đặt lại. Khi Cedar247 bật thanh toán trong app cho tài khoản của bạn (và bản app bạn cài có
-hỗ trợ), bảng nhập thẻ của Stripe **tự mở ngay sau khi bấm Đặt hàng** (có ô lưu thẻ cho lần sau); đóng bảng thì
+hỗ trợ), bảng thanh toán của Stripe **tự mở ngay sau khi bấm Đặt hàng** (nhập thẻ, có ô lưu thẻ cho lần sau; bản app
+mới còn có thể có **Apple Pay** — chỉ ở bản cài từ App Store/TestFlight — và **Link**, dịch vụ lưu thẻ của chính Stripe:
+đăng nhập hoặc tạo tài khoản Link bằng email + số điện thoại + mã Stripe gửi tới; trả bằng Link đôi khi cần một lúc mới
+xác nhận xong); đóng bảng thì
 bấm **"Thanh toán ngay"** để mở lại. Chưa bật — hoặc một đơn cụ thể app không mở được bảng — thì nút đó mở
 **trang thanh toán trên trình duyệt** (trả bằng thẻ, hoặc cách trả khác trang đó có). Nút thanh toán nằm ở màn
 hình ngay sau khi đặt và trong đơn ở tab **Đơn hàng**. Nếu lúc đặt chưa tạo được link thanh
