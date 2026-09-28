@@ -53,7 +53,9 @@ Bấm **"Bắt đầu quét"** rồi đi một vòng. Trong lúc quét:
   (tia LiDAR xuyên qua kính, không đo được) — cứ bỏ qua, không phải lỗi.
   (Tắt/bật lưới bằng nút góc trên phải.)
 - App **nhắc bạn theo thời gian thực** bằng viền màn hình nhấp nháy + rung: *Đi chậm lại*,
-  *Xoay chậm lại*, *Bật thêm đèn*, *Lùi ra xa một chút*, *Đứng yên một chút*.
+  *Xoay chậm lại*, *Bật thêm đèn*, *Đứng yên một chút*.
+- Dí máy **gần hơn ~50cm**, chỗ đó hiện một lớp **chữ vàng "QUÁ GẦN"** — càng gần càng đậm,
+  lùi ra thì mờ dần rồi mất. Chỉ phủ đúng phần khung hình đang quá gần.
   Có thể bật thêm nhắc **bằng giọng nói** ở tab Tài khoản (sau khi đăng nhập).
 - Xong thì bấm **"Dừng & Lưu"**, đặt tên bản quét, **rồi bấm Lưu** — chưa bấm Lưu là **máy vẫn
   đang quét tiếp**. Xong bước đó mới đặt máy xuống.
@@ -92,8 +94,8 @@ toàn mới** — hai bản nằm ở hai hệ không liên quan nhau, đội ng
 - Cầm máy **ngang ngực, hơi chúc xuống**.
 - Đi **CHẬM** men theo tường. Chậm = chính xác.
 - Hướng camera vào **mọi bức tường, góc phòng, cửa và cửa sổ**.
-- Giữ cách bề mặt **khoảng 40cm trở lên**. Dí sát dưới ~30cm là LiDAR bắt đầu thủng lỗ mesh —
-  app báo *"Lùi ra xa một chút"* thì lùi thật.
+- Giữ cách bề mặt **khoảng 50cm trở lên**. Dí sát dưới ~30cm là LiDAR bắt đầu thủng lỗ mesh —
+  thấy chữ vàng *"QUÁ GẦN"* phủ màn hình thì lùi thật.
 
 **Thời lượng**
 - **Khoảng 10 phút mỗi bản quét là đẹp nhất.** Nhà lớn cần lâu hơn thì cứ quét đủ — chỉ cần biết

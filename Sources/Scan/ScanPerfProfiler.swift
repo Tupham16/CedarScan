@@ -55,7 +55,7 @@ final class ScanPerfProfiler {
     /// Identity of a hooked display-link loop. rawValue indexes the accumulator
     /// arrays — keep it dense from 0.
     enum Loop: Int, CaseIterable {
-        case colorMesh = 0, overlay, texShot, video, quality
+        case colorMesh = 0, overlay, texShot, video, quality, tooClose
 
         var shortName: String {
             switch self {
@@ -64,6 +64,7 @@ final class ScanPerfProfiler {
             case .texShot: return "ts"
             case .video: return "vd"
             case .quality: return "qm"
+            case .tooClose: return "tc"
             }
         }
 
@@ -74,6 +75,7 @@ final class ScanPerfProfiler {
             case .texShot: return "TextureShotRecorder(~3Hz)"
             case .video: return "ScanVideoRecorder(~8Hz)"
             case .quality: return "ScanQualityMonitor(~12Hz)"
+            case .tooClose: return "TooCloseSheet(10/30Hz)"
             }
         }
     }

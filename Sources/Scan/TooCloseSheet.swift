@@ -58,6 +58,9 @@ final class TooCloseSheetUIView: UIView {
     private static let holdTau: Double = 1.2
     /// No new ARFrame for this long (interruption) → fade out.
     private static let staleSec: CFTimeInterval = 0.5
+    /// Haptic/voice only after the on-screen sheet stayed strong this long (door frames and
+    /// fridge edges flash past all scan long; the sheet itself stays instant).
+    private static let feedbackDwellSec: CFTimeInterval = 0.7
 
     private static let cols = 32, rows = 24
     /// Mask image width in pixels (view space); height follows the view's aspect.
@@ -79,6 +82,9 @@ final class TooCloseSheetUIView: UIView {
     private struct Tap { var i0: Int32; var j0: Int32; var fx: Float; var fy: Float }
     private var taps: [Tap] = []
     private var tapsKey: (CGSize, CGSize, UIInterfaceOrientation)?
+    /// Cells that reach the screen: the aspect-fill crop hides ~38% of the image (portrait
+    /// left/right strips). `peak` — show/hide, 30 Hz, feedback — counts only these.
+    private var visibleCells = [Bool](repeating: false, count: cols * rows)
     private var maskHeight = 0
     private var maskBytes: [UInt8] = []
 
@@ -94,6 +100,7 @@ final class TooCloseSheetUIView: UIView {
     private let speech = AVSpeechSynthesizer()
     private var lastFeedbackWall: CFTimeInterval = -100
     private var armed = true
+    private var strongSince: CFTimeInterval = -1
 
     // Hidden debug readout (Account › 7 taps on the version line).
     private let debugOn = UserDefaults.standard.bool(forKey: "scanDebugReadout")
@@ -126,6 +133,8 @@ final class TooCloseSheetUIView: UIView {
             addSubview(debugLabel)
         }
 
+        // Remote kill switch of the whole coach (`scan-quality-config` {"enabled": false}).
+        guard ScanQualityConfig.current.enabled else { return }
         let link = CADisplayLink(target: self, selector: #selector(tick))
         link.preferredFrameRateRange = CAFrameRateRange(minimum: 10, maximum: 30, preferred: 10)
         link.add(to: .main, forMode: .common)
@@ -137,6 +146,12 @@ final class TooCloseSheetUIView: UIView {
     func stop() {
         displayLink?.invalidate()
         displayLink = nil
+    }
+
+    /// Off-window (cover torn down without dismantle): no ticks. dismantleUIView still stops.
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        displayLink?.isPaused = window == nil
     }
 
     override func layoutSubviews() {
@@ -152,13 +167,16 @@ final class TooCloseSheetUIView: UIView {
         }
         CATransaction.commit()
         if debugOn {
-            debugLabel.frame = CGRect(x: 16, y: safeAreaInsets.top + 124, width: bounds.width - 32, height: 18)
+            // Below the torch readout (2 lines at the HUD's capped text size).
+            debugLabel.frame = CGRect(x: 16, y: safeAreaInsets.top + 150, width: bounds.width - 32, height: 18)
         }
     }
 
     // MARK: - Tick
 
     @objc private func tick(_ link: CADisplayLink) {
+        let perfT0 = ScanPerfProfiler.tickBegin()
+        defer { ScanPerfProfiler.tickEnd(.tooClose, perfT0) }
         let now = CACurrentMediaTime()
         let wallDt = lastTickWall > 0 ? min(0.2, now - lastTickWall) : 0
         lastTickWall = now
@@ -295,7 +313,7 @@ final class TooCloseSheetUIView: UIView {
             let v = shown[k]
             let n = v + (b - v) * (b > v ? up : down)
             shown[k] = n < 0.004 ? 0 : n
-            p = max(p, shown[k])
+            if visibleCells[k] { p = max(p, shown[k]) }
         }
         peak = p
     }
@@ -316,6 +334,7 @@ final class TooCloseSheetUIView: UIView {
         let toImage = frame.displayTransform(for: orientation, viewportSize: size).inverted()
         var t: [Tap] = []
         t.reserveCapacity(mw * mh)
+        var seen = [Bool](repeating: false, count: Self.cols * Self.rows)
         for j in 0..<mh {
             for i in 0..<mw {
                 let v = CGPoint(x: (CGFloat(i) + 0.5) / CGFloat(mw), y: (CGFloat(j) + 0.5) / CGFloat(mh))
@@ -327,9 +346,13 @@ final class TooCloseSheetUIView: UIView {
                 let cy = min(Float(Self.rows - 1), max(0, gy))
                 let i0 = min(Self.cols - 2, Int(cx)), j0 = min(Self.rows - 2, Int(cy))
                 t.append(Tap(i0: Int32(i0), j0: Int32(j0), fx: cx - Float(i0), fy: cy - Float(j0)))
+                for dj in 0...1 {
+                    for di in 0...1 { seen[(j0 + dj) * Self.cols + i0 + di] = true }
+                }
             }
         }
         taps = t
+        visibleCells = seen
     }
 
     private func render() {
@@ -377,7 +400,12 @@ final class TooCloseSheetUIView: UIView {
 
     private func feedback(now: CFTimeInterval) {
         if peak < 0.2 { armed = true }
-        guard armed, peak > 0.5 else { return }
+        if peak > 0.5 {
+            if strongSince < 0 { strongSince = now }
+        } else {
+            strongSince = -1
+        }
+        guard armed, strongSince >= 0, now - strongSince >= Self.feedbackDwellSec else { return }
         armed = false
         guard now - lastFeedbackWall > 10 else { return }
         lastFeedbackWall = now
