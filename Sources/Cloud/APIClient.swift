@@ -17,6 +17,8 @@ struct AuthResponse: Decodable {
 struct MeResponse: Decodable {
     let customer: CustomerDTO
     let emailVerified: Bool?
+    /// Account → "Payment methods" row. Absent on older servers = no row.
+    let paymentMethods: Bool?
 }
 
 struct OKResponse: Decodable {
@@ -410,6 +412,19 @@ struct PaymentSheetParams: Decodable {
     let merchantDisplayName: String?
 }
 
+/// `POST payment-methods`: Stripe customer + ephemeral key for the CustomerSheet. ✗ log, ✗ store.
+struct PaymentMethodsParams: Decodable {
+    let customer: String
+    let ephemeralKey: String
+    let publishableKey: String
+    let merchantDisplayName: String?
+}
+
+struct SetupIntentParams: Decodable {
+    /// The SetupIntent's client secret. ✗ log, ✗ store.
+    let setupIntent: String
+}
+
 /// `POST orders/{id}/payment-confirm`: the server asks Stripe itself and settles the order.
 /// `processing` = the charge is still in flight, ask again later.
 struct PaymentConfirmResponse: Decodable {
@@ -699,6 +714,15 @@ final class APIClient {
 
     func paymentConfirm(orderId: String) async throws -> PaymentConfirmResponse {
         try await send("orders/\(orderId)/payment-confirm", method: "POST", json: [:])
+    }
+
+    // Account → Payment methods — caller: `PaymentMethodsFlow` only. 409 `in_app_disabled` = no row.
+    func paymentMethods() async throws -> PaymentMethodsParams {
+        try await send("payment-methods", method: "POST", json: [:])
+    }
+
+    func paymentMethodsSetupIntent() async throws -> SetupIntentParams {
+        try await send("payment-methods/setup-intent", method: "POST", json: [:])
     }
 
     // MARK: Gửi bổ sung bản quét vào đơn ĐÃ ĐẶT

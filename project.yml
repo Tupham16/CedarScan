@@ -74,7 +74,9 @@ targets:
         # tiếng, cùng hiện "1.0" → chủ app test trúng bản cũ mà không ai biết, báo "lỗi vẫn
         # nguyên" oan. AltStore (My Apps) và Cài đặt iOS đều hiện số này — nó là cách DUY NHẤT
         # xác minh từ xa máy ông đang chạy bản nào. Ghi số giao kèm vào SESSION-HANDOFF §STATE.
-        MARKETING_VERSION: "2.66"
+        MARKETING_VERSION: "2.66.2"
+        # See CedarApplePayMerchantID below; release.yml overrides it on the command line.
+        CEDAR_APPLE_PAY_MERCHANT_ID: ""
     # Push notifications (2.61, owner 26/09). XcodeGen writes this file (gitignored, like Info.plist)
     # and sets CODE_SIGN_ENTITLEMENTS. `development` is right: the App Store export (release.yml)
     # rewrites it to `production`. build.yml is unsigned, so the AltStore IPA carries no entitlement
@@ -98,6 +100,11 @@ targets:
         # ăn lỗi "build number đã tồn tại". Trỏ về biến để `release.yml` đè được từ dòng lệnh.
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         CFBundleDisplayName: CedarScan
+        # Apple Pay in the pay sheet (PaymentFlow.applePayMerchantId). Empty here = no Apple Pay:
+        # AltStore builds (build.yml) cannot carry the merchant entitlement. release.yml fills it
+        # AND adds `com.apple.developer.in-app-payments`, both only when the repo variable
+        # APPLE_PAY_MERCHANT_ID is set (the owner must first create that Merchant ID + certificate).
+        CedarApplePayMerchantID: $(CEDAR_APPLE_PAY_MERCHANT_ID)
         # TIẾNG ANH từ 2026-08-13 (trước là tiếng Việt), CÂU CHỮ DO CHÍNH CHỦ APP CHỌN trong đợt
         # đưa app lên App Store — ✗ tự sửa lại, hỏi ông. Lý do đổi: reviewer của Apple đọc chuỗi
         # này bằng tiếng Anh, purpose string họ không đọc được là dạng dễ ăn từ chối 5.1.1; và

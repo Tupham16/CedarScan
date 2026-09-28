@@ -2713,15 +2713,15 @@
    }
   },
   {
-   "key": "Name",
+   "key": "Property name",
    "translations": {
-    "vi": "Tên",
-    "fr": "Nom",
-    "de": "Name",
-    "cs": "Název",
-    "sk": "Názov",
-    "es": "Nombre",
-    "nl": "Naam"
+    "vi": "Tên dự án",
+    "fr": "Nom de la propriété",
+    "de": "Objektname",
+    "cs": "Název nemovitosti",
+    "sk": "Názov nehnuteľnosti",
+    "es": "Nombre de la propiedad",
+    "nl": "Naam van de woning"
    }
   },
   {
@@ -4426,6 +4426,18 @@
     "sk": "Čaká na platbu",
     "es": "Pendiente de pago",
     "nl": "Wacht op betaling"
+   }
+  },
+  {
+   "key": "Payment methods",
+   "translations": {
+    "vi": "Phương thức thanh toán",
+    "fr": "Moyens de paiement",
+    "de": "Zahlungsmethoden",
+    "cs": "Způsoby platby",
+    "sk": "Spôsoby platby",
+    "es": "Métodos de pago",
+    "nl": "Betaalmethoden"
    }
   },
   {

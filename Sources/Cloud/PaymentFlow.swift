@@ -125,11 +125,22 @@ final class PaymentFlow: ObservableObject {
         var configuration = PaymentSheet.Configuration()
         configuration.merchantDisplayName = params.merchantDisplayName ?? "Cedar247"
         configuration.customer = .init(id: params.customer, ephemeralKeySecret: params.ephemeralKey)
-        // Cards only (the server creates the PaymentIntent that way): paid or declined on the spot.
+        // Card + Link (+ Apple Pay, a card wallet): what the server's PaymentIntent allows. Nothing
+        // that settles days later; a Link payment that is briefly "processing" is settled by the
+        // server like any other.
         configuration.allowsDelayedPaymentMethods = false
-        // Link off: no sign-up step, nothing but the card is collected. If it is ever turned on,
-        // call `PaymentSheet.resetCustomer()` on sign-out.
-        configuration.link = .init(display: .never)
+        // Link on (owner 28/09). The account's name + email let Link recognise a returning customer.
+        // `AccountStore.signOut()` calls `PaymentSheet.resetCustomer()` (Link's cookie).
+        configuration.link = .init(display: .automatic)
+        if let me = AccountStore.savedCustomer {
+            configuration.defaultBillingDetails.email = me.email
+            configuration.defaultBillingDetails.name = me.name
+        }
+        // Apple Pay only in builds signed with the merchant entitlement (release.yml sets the key;
+        // AltStore builds carry an empty value and must not offer it).
+        if let merchantId = Self.applePayMerchantId {
+            configuration.applePay = .init(merchantId: merchantId, merchantCountryCode: "US")
+        }
         let sheet = PaymentSheet(paymentIntentClientSecret: params.paymentIntent, configuration: configuration)
 
         mark(orderId, completed: false)
@@ -233,7 +244,16 @@ final class PaymentFlow: ObservableObject {
         UserDefaults.standard.set(try? JSONEncoder().encode(markers), forKey: Self.storeKey)
     }
 
-    private static func topViewController() -> UIViewController? {
+    /// `CedarApplePayMerchantID` in Info.plist, set only by release.yml together with the
+    /// `com.apple.developer.in-app-payments` entitlement (project.yml leaves it empty).
+    static let applePayMerchantId: String? = {
+        let value = Bundle.main.object(forInfoDictionaryKey: "CedarApplePayMerchantID") as? String
+        guard let value, value.hasPrefix("merchant.") else { return nil }
+        return value
+    }()
+
+    /// Also used by `PaymentMethodsFlow`.
+    static func topViewController() -> UIViewController? {
         let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
         let scene = scenes.first { $0.activationState == .foregroundActive } ?? scenes.first
         let window = scene?.windows.first { $0.isKeyWindow } ?? scene?.windows.first

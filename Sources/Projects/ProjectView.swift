@@ -399,7 +399,8 @@ struct ProjectView: View {
                 .padding(.bottom, CedarTabBar.reservedHeight)
         }
         .alert(String(localized: "Rename property"), isPresented: $showRenameProject) {
-            TextField(String(localized: "Name"), text: $projectNameText)
+            // ✗ key "Name": also Stripe's (Link sign-up), where cs/sk mean a person's name (trap #42).
+            TextField(String(localized: "Property name"), text: $projectNameText)
             Button(String(localized: "Save")) {
                 // Tiêu đề KHÔNG còn tự theo store nữa (nó chỉ đọc `let`/`@State` — xem
                 // `projectName`), nên phải cập nhật tay ở đây.

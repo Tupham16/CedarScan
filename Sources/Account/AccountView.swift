@@ -7,6 +7,8 @@ struct AccountView: View {
 
     @EnvironmentObject private var account: AccountStore
     @State private var showDeleteAccount = false
+    @ObservedObject private var methods = PaymentMethodsFlow.shared
+    @State private var showMethodsError = false
     @AppStorage("scanCoachHaptics") private var scanCoachHaptics = true
     @AppStorage("scanCoachVoice") private var scanCoachVoice = false
     /// Auto flashlight while scanning (AutoTorch reads the same key; default on).
@@ -39,6 +41,11 @@ struct AccountView: View {
                                     .foregroundStyle(.secondary)
                             }
                             .padding(.vertical, 4)
+                        }
+                        if account.paymentMethodsAvailable {
+                            Section {
+                                paymentMethodsRow
+                            }
                         }
                         Section {
                             Link(destination: URL(string: "https://cedar247.com")!) {
@@ -122,6 +129,9 @@ struct AccountView: View {
                                 .listRowBackground(Color.clear)
                         }
                     }
+                    // `paymentMethods` comes with `GET me`; launch asks once, this covers a fresh
+                    // sign-in and a switch flipped while the app was running.
+                    .task(id: customer.id) { await account.refresh() }
                 } else {
                     ScrollView {
                         AuthView()
@@ -133,7 +143,45 @@ struct AccountView: View {
             .sheet(isPresented: $showDeleteAccount) {
                 DeleteAccountView()
             }
+            .alert(String(localized: "Something went wrong. Please try again."), isPresented: $showMethodsError) {
+                Button(String(localized: "OK"), role: .cancel) {}
+            }
         }
+    }
+
+    /// Account → "Payment methods" (mockup 60): opens Stripe's CustomerSheet. Only when the server
+    /// offers in-app payments to this account (`AccountStore.paymentMethodsAvailable`).
+    private var paymentMethodsRow: some View {
+        Button {
+            let tab = PaymentFlow.visibleTab
+            Task {
+                switch await methods.open(tabWhenAsked: tab) {
+                case .closed: break
+                case .unavailable: account.paymentMethodsWentAway()
+                case .failed: showMethodsError = true
+                }
+            }
+        } label: {
+            HStack {
+                // "Payment methods" is also a Stripe key (trap #42): its translations in
+                // translations.json are copied from Stripe's own, so the collision is harmless.
+                Label {
+                    Text(String(localized: "Payment methods"))
+                        .foregroundStyle(Color.primary)
+                } icon: {
+                    Image(systemName: "creditcard")
+                }
+                Spacer()
+                if methods.isLoading {
+                    ProgressView()
+                } else {
+                    Image(systemName: "chevron.right")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(Color(uiColor: .tertiaryLabel))
+                }
+            }
+        }
+        .disabled(methods.isLoading)
     }
 
     /// Bản đang chạy, MỘT chỗ viết cho cả ba trạng thái tài khoản (danh sách khi đã đăng nhập,
