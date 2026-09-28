@@ -1,7 +1,6 @@
 import SwiftUI
 import UIKit
 import ARKit
-import AVFoundation
 
 /// "TOO CLOSE" sheet (owner 28/09, CubiCasa style; approved mockup
 /// `PLAN-GIAO-DIEN-mockups/59-tooclose-D3-70.png`): one screen-fixed sheet of yellow tiled
@@ -58,7 +57,7 @@ final class TooCloseSheetUIView: UIView {
     private static let holdTau: Double = 1.2
     /// No new ARFrame for this long (interruption) → fade out.
     private static let staleSec: CFTimeInterval = 0.5
-    /// Haptic/voice only after the on-screen sheet stayed strong this long (door frames and
+    /// Haptic only after the on-screen sheet stayed strong this long (door frames and
     /// fridge edges flash past all scan long; the sheet itself stays instant).
     private static let feedbackDwellSec: CFTimeInterval = 0.7
 
@@ -96,8 +95,9 @@ final class TooCloseSheetUIView: UIView {
     private var isShowing = false
 
     // Feedback: one light tap on the rising edge, at most every 10 s (owner dislikes nagging).
+    // NO voice (owner 28/09 on 2.65: "tắt âm thanh too close") — ✗ speak it even with the voice
+    // coach on; VoiceOver users still get the announcement.
     private let haptic = UIImpactFeedbackGenerator(style: .light)
-    private let speech = AVSpeechSynthesizer()
     private var lastFeedbackWall: CFTimeInterval = -100
     private var armed = true
     private var strongSince: CFTimeInterval = -1
@@ -412,13 +412,9 @@ final class TooCloseSheetUIView: UIView {
         let hapticsOn = UserDefaults.standard.object(forKey: "scanCoachHaptics") == nil
             || UserDefaults.standard.bool(forKey: "scanCoachHaptics")
         if hapticsOn { haptic.impactOccurred() }
-        let words = String(localized: "TOO CLOSE").localizedLowercase
-        if UserDefaults.standard.bool(forKey: "scanCoachVoice") {
-            let utterance = AVSpeechUtterance(string: words)
-            utterance.voice = AVSpeechSynthesisVoice(language: AppLanguage.speechVoice)
-            speech.speak(utterance)
-        } else if UIAccessibility.isVoiceOverRunning {
-            UIAccessibility.post(notification: .announcement, argument: words)
+        if UIAccessibility.isVoiceOverRunning {
+            UIAccessibility.post(notification: .announcement,
+                                 argument: String(localized: "TOO CLOSE").localizedLowercase)
         }
     }
 
