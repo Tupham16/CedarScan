@@ -107,11 +107,10 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
         arSession.delegate = self
         let config = ARWorldTrackingConfiguration()
         config.sceneReconstruction = .mesh
-        // Bật depth map cho coach "quá gần" (LiDAR kém chính xác dưới ~25-30cm —
-        // dí sát vật thể tạo lỗ trên mesh + khung màu out nét).
+        // Depth map: TooCloseSheet ("TOO CLOSE" where the LiDAR sees < 0.5 m), auto torch,
+        // texture shots. Without it the sheet simply never shows.
         if ARWorldTrackingConfiguration.supportsFrameSemantics(.sceneDepth) {
             config.frameSemantics.insert(.sceneDepth)
-            qualityMonitor.tooCloseCoachEnabled = true
         }
         // Giữ isLightEstimationEnabled mặc định (true) — cảnh báo thiếu sáng cần nó.
         // Perf measurement (observation only — see ScanPerfProfiler). Started BEFORE

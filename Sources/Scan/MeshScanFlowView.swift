@@ -183,6 +183,12 @@ struct MeshScanFlowView: View {
             .ignoresSafeArea()
 
             if !isSaving && !showNaming && savedRecord == nil {
+                // Yellow "TOO CLOSE" sheet where the LiDAR sees < 0.5 m (owner 28/09). Under the
+                // HUD; torn down with it, so its display link stops while naming/saving.
+                TooCloseSheetView(arSession: controller.arSession)
+                    .ignoresSafeArea()
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
                 QualityAlertOverlay(monitor: controller.qualityMonitor)
             }
 

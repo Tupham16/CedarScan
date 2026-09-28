@@ -6910,49 +6910,49 @@
         }
       }
     },
-    "Keep about 40cm or more from surfaces — closer than roughly 30cm and the LiDAR starts punching holes in the mesh. When the app says \"Step back a little\", step back.": {
+    "Keep about 40cm or more from surfaces — closer than roughly 30cm and the LiDAR starts punching holes in the mesh. Where yellow \"TOO CLOSE\" text covers the screen, step back.": {
       "extractionState": "manual",
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Od povrchů se držte zhruba 40 cm a víc — když se přiblížíte na méně než zhruba 30 cm, začne LiDAR dělat do sítě díry. Když aplikace hlásí \"Trochu poodstupte\", poodstupte."
+            "value": "Od povrchů se držte zhruba 40 cm a víc — když se přiblížíte na méně než zhruba 30 cm, začne LiDAR dělat do sítě díry. Kde obrazovku pokryje žlutý nápis \"PŘÍLIŠ BLÍZKO\", poodstupte."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Halten Sie etwa 40 cm oder mehr Abstand zu Oberflächen — unter rund 30 cm beginnt der LiDAR, Löcher ins Mesh zu reißen. Wenn die App \"Einen Schritt zurück\" meldet, gehen Sie zurück."
+            "value": "Halten Sie etwa 40 cm oder mehr Abstand zu Oberflächen — unter rund 30 cm beginnt der LiDAR, Löcher ins Mesh zu reißen. Wo gelber Text \"ZU NAH\" den Bildschirm bedeckt, gehen Sie zurück."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mantente a unos 40 cm o más de las superficies — a menos de unos 30 cm, el LiDAR empieza a dejar agujeros en la malla. Cuando la app diga \"Aléjate un poco\", aléjate."
+            "value": "Mantente a unos 40 cm o más de las superficies — a menos de unos 30 cm, el LiDAR empieza a dejar agujeros en la malla. Donde el texto amarillo \"DEMASIADO CERCA\" cubra la pantalla, aléjate."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Restez à environ 40 cm ou plus des surfaces — à moins de 30 cm environ, le LiDAR commence à percer des trous dans le maillage. Quand l'app affiche \"Reculez un peu\", reculez."
+            "value": "Restez à environ 40 cm ou plus des surfaces — à moins de 30 cm environ, le LiDAR commence à percer des trous dans le maillage. Là où le texte jaune \"TROP PRÈS\" couvre l'écran, reculez."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Houd ongeveer 40 cm of meer afstand tot oppervlakken — dichter dan zo'n 30 cm en de LiDAR begint gaten in de mesh te slaan. Als de app \"Doe een stapje terug\" zegt, doe dan een stapje terug."
+            "value": "Houd ongeveer 40 cm of meer afstand tot oppervlakken — dichter dan zo'n 30 cm en de LiDAR begint gaten in de mesh te slaan. Waar gele tekst \"TE DICHTBIJ\" het scherm bedekt, doe een stapje terug."
           }
         },
         "sk": {
           "stringUnit": {
             "state": "translated",
-            "value": "Držte sa aspoň 40 cm od povrchov — pri vzdialenosti menšej než približne 30 cm začne LiDAR robiť do siete diery. Keď aplikácia zobrazí \"Trochu ustúpte\", ustúpte."
+            "value": "Držte sa aspoň 40 cm od povrchov — pri vzdialenosti menšej než približne 30 cm začne LiDAR robiť do siete diery. Kde obrazovku pokryje žltý nápis \"PRÍLIŠ BLÍZKO\", ustúpte."
           }
         },
         "vi": {
           "stringUnit": {
             "state": "translated",
-            "value": "Giữ cách bề mặt khoảng 40cm trở lên — dí sát dưới ~30cm là LiDAR bắt đầu tạo lỗ thủng. App hiện \"Lùi ra xa một chút\" thì lùi lại."
+            "value": "Giữ cách bề mặt khoảng 40cm trở lên — dí sát dưới ~30cm là LiDAR bắt đầu tạo lỗ thủng. Chỗ nào hiện chữ vàng \"QUÁ GẦN\" phủ màn hình thì lùi lại."
           }
         }
       }
@@ -14759,53 +14759,6 @@
         }
       }
     },
-    "Step back a little": {
-      "extractionState": "manual",
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Trochu poodstupte"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Einen Schritt zurück"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Aléjate un poco"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Reculez un peu"
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Doe een stapje terug"
-          }
-        },
-        "sk": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Trochu ustúpte"
-          }
-        },
-        "vi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Lùi ra xa một chút"
-          }
-        }
-      }
-    },
     "Still looking… no luck. Type the address instead.": {
       "extractionState": "manual",
       "localizations": {
@@ -14990,6 +14943,53 @@
           "stringUnit": {
             "state": "translated",
             "value": "MẸO: MỘT đơn tính giá cho CẢ căn nhà — hãy chọn thêm các tầng ở trên thay vì đặt lẻ từng tầng!"
+          }
+        }
+      }
+    },
+    "TOO CLOSE": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PŘÍLIŠ BLÍZKO"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ZU NAH"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DEMASIADO CERCA"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "TROP PRÈS"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "TE DICHTBIJ"
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PRÍLIŠ BLÍZKO"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "QUÁ GẦN"
           }
         }
       }

@@ -90,7 +90,7 @@ struct ScanGuideContent: View {
                 String(localized: "Hold the phone at chest height, tilted slightly down."),
                 String(localized: "Walk SLOWLY along the walls. Slow is accurate."),
                 String(localized: "Point the camera at every wall, corner, door and window."),
-                String(localized: "Keep about 40cm or more from surfaces — closer than roughly 30cm and the LiDAR starts punching holes in the mesh. When the app says \"Step back a little\", step back."),
+                String(localized: "Keep about 40cm or more from surfaces — closer than roughly 30cm and the LiDAR starts punching holes in the mesh. Where yellow \"TOO CLOSE\" text covers the screen, step back."),
                 String(localized: "Sweep the ceiling once in each room so the room closes up as a solid volume."),
                 String(localized: "Avoid pointing at mirrors and large glass for too long."),
             ]
