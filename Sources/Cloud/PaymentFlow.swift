@@ -125,9 +125,10 @@ final class PaymentFlow: ObservableObject {
         var configuration = PaymentSheet.Configuration()
         configuration.merchantDisplayName = params.merchantDisplayName ?? "Cedar247"
         configuration.customer = .init(id: params.customer, ephemeralKeySecret: params.ephemeralKey)
-        // Card + Link (+ Apple Pay, a card wallet): what the server's PaymentIntent allows. Nothing
-        // that settles days later; a Link payment that is briefly "processing" is settled by the
-        // server like any other.
+        // Card + Link (+ Apple Pay, a card wallet): what the server's PaymentIntent allows.
+        // `allowsDelayedPaymentMethods` does NOT govern Link's funding sources (Stripe's session
+        // does): if the account ever lets Link pay from a bank, such a payment can report
+        // `.completed` while still "processing" — shown "Paid" here, settled only by the server.
         configuration.allowsDelayedPaymentMethods = false
         // Link on (owner 28/09). The account's name + email let Link recognise a returning customer.
         // `AccountStore.signOut()` calls `PaymentSheet.resetCustomer()` (Link's cookie).

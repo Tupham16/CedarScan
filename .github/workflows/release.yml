@@ -87,8 +87,8 @@ jobs:
       # Apple Pay (in-app payments step 6, 28/09). OFF until the repo VARIABLE (not secret)
       # APPLE_PAY_MERCHANT_ID is set, e.g. merchant.com.cedar247.cedarscan — set it only after the
       # owner made that Merchant ID, its Stripe processing certificate and enabled Apple Pay on the
-      # App ID: an entitlement Apple cannot provision fails the signing. Unset = builds exactly as
-      # before (no entitlement, empty CedarApplePayMerchantID, the app offers no Apple Pay).
+      # App ID: an entitlement Apple cannot provision fails the signing. Unset = signing as before
+      # (no entitlement; Info.plist CedarApplePayMerchantID empty, the app offers no Apple Pay).
       - name: Apple Pay entitlement
         env:
           APPLE_PAY_MERCHANT_ID: ${{ vars.APPLE_PAY_MERCHANT_ID }}
@@ -101,7 +101,11 @@ jobs:
             merchant.*) ;;
             *) echo "::error::APPLE_PAY_MERCHANT_ID must start with merchant."; exit 1 ;;
           esac
-          plutil -insert com.apple.developer.in-app-payments -json "[\"$APPLE_PAY_MERCHANT_ID\"]" Sources/CedarScan.entitlements
+          # PlistBuddy, ✗ plutil: plutil reads the dots of the key as a key path.
+          /usr/libexec/PlistBuddy \
+            -c "Add :com.apple.developer.in-app-payments array" \
+            -c "Add :com.apple.developer.in-app-payments:0 string $APPLE_PAY_MERCHANT_ID" \
+            Sources/CedarScan.entitlements
           plutil -p Sources/CedarScan.entitlements
 
       # Its own step, so a package/network failure is not mistaken for a compile error.

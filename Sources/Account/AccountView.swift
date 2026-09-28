@@ -154,11 +154,16 @@ struct AccountView: View {
     private var paymentMethodsRow: some View {
         Button {
             let tab = PaymentFlow.visibleTab
+            let who = AccountStore.savedCustomerId
             Task {
-                switch await methods.open(tabWhenAsked: tab) {
+                switch await methods.open(tabWhenAsked: tab, customerWhenAsked: who) {
                 case .closed: break
                 case .unavailable: account.paymentMethodsWentAway()
-                case .failed: showMethodsError = true
+                case .failed:
+                    // Stripe's own sheet may still be animating away: an alert raised during
+                    // that is dropped by SwiftUI (and the flag would stay stuck at true).
+                    try? await Task.sleep(for: .milliseconds(700))
+                    showMethodsError = true
                 }
             }
         } label: {
@@ -178,6 +183,7 @@ struct AccountView: View {
                     Image(systemName: "chevron.right")
                         .font(.footnote.weight(.semibold))
                         .foregroundStyle(Color(uiColor: .tertiaryLabel))
+                        .accessibilityHidden(true)
                 }
             }
         }

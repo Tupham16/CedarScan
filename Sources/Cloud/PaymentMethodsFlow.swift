@@ -24,9 +24,13 @@ final class PaymentMethodsFlow: ObservableObject {
 
     private init() {}
 
-    /// - Parameter tabWhenAsked: `PaymentFlow.visibleTab` at the tap — the sheet only comes up on
-    ///   that tab (same rule as Pay Now).
-    func open(tabWhenAsked: RootTab?) async -> Outcome {
+    /// - Parameters:
+    ///   - tabWhenAsked: `PaymentFlow.visibleTab` at the tap — the sheet only comes up on that tab
+    ///     (same rule as Pay Now).
+    ///   - customerWhenAsked: `AccountStore.savedCustomerId` at the tap. Sign out during the round
+    ///     trip leaves the same tab and an uncovered screen, so only this catches it — else the
+    ///     previous account's cards would rise over the sign-in screen.
+    func open(tabWhenAsked: RootTab?, customerWhenAsked: String?) async -> Outcome {
         guard !isLoading, let presenter = PaymentFlow.topViewController() else { return .closed }
         isLoading = true
         let params: PaymentMethodsParams
@@ -39,6 +43,8 @@ final class PaymentMethodsFlow: ObservableObject {
             return (error as? APIError)?.code == "in_app_disabled" ? .unavailable : .failed
         }
         guard !Task.isCancelled,
+              customerWhenAsked != nil,
+              AccountStore.savedCustomerId == customerWhenAsked,
               PaymentFlow.visibleTab == tabWhenAsked,
               PaymentFlow.topViewController() === presenter,
               presenter.presentedViewController == nil else { return .closed }
