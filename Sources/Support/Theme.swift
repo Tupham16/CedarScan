@@ -188,12 +188,14 @@ extension View {
 
     /// Text field on the screen background (sign-in, verify code): card fill, radius 12,
     /// hairline border. Replaces `.roundedBorder` (system colours, off the Fog palette).
-    func fogField() -> some View {
+    /// `focus` / `value`: a tap anywhere in the box focuses the field, as the rounded border did.
+    func fogField<Value: Hashable>(_ focus: FocusState<Value?>.Binding, _ value: Value) -> some View {
         let shape = RoundedRectangle(cornerRadius: 12, style: .continuous)
         return self
+            .focused(focus, equals: value)
             .padding(.horizontal, 14)
             .padding(.vertical, 11)
-            .background(shape.fill(Theme.card))
+            .background(shape.fill(Theme.card).onTapGesture { focus.wrappedValue = value })
             .overlay(shape.strokeBorder(Theme.hairline, lineWidth: 1).allowsHitTesting(false))
     }
 

@@ -509,7 +509,7 @@ struct RefreshFailedNote: View {
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: "wifi.exclamationmark")
-                .foregroundStyle(.orange)
+                .foregroundStyle(Theme.Badge.warn.fg)
             Text(String(localized: "Couldn't refresh — showing saved data."))
                 .font(.footnote)
                 .foregroundStyle(.secondary)
