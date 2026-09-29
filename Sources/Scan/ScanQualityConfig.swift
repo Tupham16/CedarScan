@@ -30,15 +30,47 @@ struct ScanQualityConfig: Codable {
     var trackingWarnAfterSec: Double    // limited liên tục bao lâu thì cảnh báo
     var warmupSec: Double               // bỏ qua N giây đầu (initializing)
 
+    // White balance lock (26/09, owner-approved): texbake says blotchy colour comes mainly from
+    // exposure/colour jumping between shots. MeshScanController locks WHITE BALANCE ONLY (never
+    // exposure) once tracking is normal, this many seconds after start. Kill-switch:
+    // `{"lockWhiteBalance": false}`. ⚠ Server values only arrive after OrderSheet opens
+    // (`APIClient.catalog()`), so a kill reaches a device one order-form visit later.
+    var lockWhiteBalance: Bool
+    var whiteBalanceLockDelaySec: Double
+
+    // Auto torch (26/09, see AutoTorch). Kill-switch `{"autoTorch": false}` (same delivery lag
+    // as above). torchLevel (0, 1] — heat: the LED sits next to the camera module.
+    // Thresholds in EXIF BrightnessValue (APEX, absolute), NOT ambientIntensity (2.62, see
+    // AutoTorch): on below torchOnBelowBV, off when brightness minus the torch's own share bound
+    // (torchShareK / d², at level 0.7) is above torchOffAboveBV; AutoTorch forces off ≥ on + 1.
+    // 🔴 Frozen-default trap (see load()): the persisted blob stores these defaults too — a
+    // changed default needs a rewrite line in load(), like maxRotationSoft.
+    var autoTorch: Bool
+    var torchLevel: Double
+    var torchOnBelowBV: Double
+    var torchOffAboveBV: Double
+    var torchShareK: Double
+
     static let defaults = ScanQualityConfig(
         enabled: true,
         maxSpeedSoft: 0.7,
         maxSpeedHard: 1.0,
-        maxRotationSoft: 60,
+        // 60 → 45 (26/09, owner "mục 5 cách 3"): the texture-shot gate skips photos above
+        // 40°/s (TextureShotRecorder.maxTurnRateDegPerSec, 50 since 2.58) — warn before photos stop.
+        // 45 → 68 (26/09 later, owner): "Turn slowly" too naggy; CubiCasa warns at ~1.5× our old
+        // speed. Owner knows the cost: 40–68°/s again = no texture photo AND no warning.
+        maxRotationSoft: 68,
         maxRotationHard: 100,
         lowLightSoft: 250,
         trackingWarnAfterSec: 1.0,
-        warmupSec: 5.0
+        warmupSec: 5.0,
+        lockWhiteBalance: true,
+        whiteBalanceLockDelaySec: 3.0,
+        autoTorch: true,
+        torchLevel: 0.7,
+        torchOnBelowBV: -2.5,
+        torchOffAboveBV: -1.0,
+        torchShareK: 1.0
     )
 
     // Decode "khoan dung": server chỉ cần gửi field muốn đổi, thiếu field nào dùng mặc định.
@@ -53,6 +85,21 @@ struct ScanQualityConfig: Codable {
         lowLightSoft = (try? c.decodeIfPresent(Double.self, forKey: .lowLightSoft)) ?? d.lowLightSoft
         trackingWarnAfterSec = (try? c.decodeIfPresent(Double.self, forKey: .trackingWarnAfterSec)) ?? d.trackingWarnAfterSec
         warmupSec = (try? c.decodeIfPresent(Double.self, forKey: .warmupSec)) ?? d.warmupSec
+        lockWhiteBalance = (try? c.decodeIfPresent(Bool.self, forKey: .lockWhiteBalance)) ?? d.lockWhiteBalance
+        // Timer interval: finite and within 0…60 s, else default (a NaN/huge value must not
+        // silently disable the lock or fire at once).
+        let delay = (try? c.decodeIfPresent(Double.self, forKey: .whiteBalanceLockDelaySec)) ?? d.whiteBalanceLockDelaySec
+        whiteBalanceLockDelaySec = (delay.isFinite && delay >= 0 && delay <= 60) ? delay : d.whiteBalanceLockDelaySec
+        autoTorch = (try? c.decodeIfPresent(Bool.self, forKey: .autoTorch)) ?? d.autoTorch
+        // Out-of-range level = ObjC exception in setTorchModeOn (a crash) → default.
+        let level = (try? c.decodeIfPresent(Double.self, forKey: .torchLevel)) ?? d.torchLevel
+        torchLevel = (level.isFinite && level > 0 && level <= 1) ? level : d.torchLevel
+        let onBV = (try? c.decodeIfPresent(Double.self, forKey: .torchOnBelowBV)) ?? d.torchOnBelowBV
+        torchOnBelowBV = (onBV.isFinite && onBV > -10 && onBV < 10) ? onBV : d.torchOnBelowBV
+        let offBV = (try? c.decodeIfPresent(Double.self, forKey: .torchOffAboveBV)) ?? d.torchOffAboveBV
+        torchOffAboveBV = (offBV.isFinite && offBV > -10 && offBV < 12) ? offBV : d.torchOffAboveBV
+        let shareK = (try? c.decodeIfPresent(Double.self, forKey: .torchShareK)) ?? d.torchShareK
+        torchShareK = (shareK.isFinite && shareK >= 0 && shareK <= 20) ? shareK : d.torchShareK
     }
 
     init(
@@ -60,7 +107,10 @@ struct ScanQualityConfig: Codable {
         maxSpeedSoft: Double, maxSpeedHard: Double,
         maxRotationSoft: Double, maxRotationHard: Double,
         lowLightSoft: Double,
-        trackingWarnAfterSec: Double, warmupSec: Double
+        trackingWarnAfterSec: Double, warmupSec: Double,
+        lockWhiteBalance: Bool, whiteBalanceLockDelaySec: Double,
+        autoTorch: Bool, torchLevel: Double,
+        torchOnBelowBV: Double, torchOffAboveBV: Double, torchShareK: Double
     ) {
         self.enabled = enabled
         self.maxSpeedSoft = maxSpeedSoft
@@ -70,6 +120,13 @@ struct ScanQualityConfig: Codable {
         self.lowLightSoft = lowLightSoft
         self.trackingWarnAfterSec = trackingWarnAfterSec
         self.warmupSec = warmupSec
+        self.lockWhiteBalance = lockWhiteBalance
+        self.whiteBalanceLockDelaySec = whiteBalanceLockDelaySec
+        self.autoTorch = autoTorch
+        self.torchLevel = torchLevel
+        self.torchOnBelowBV = torchOnBelowBV
+        self.torchOffAboveBV = torchOffAboveBV
+        self.torchShareK = torchShareK
     }
 
     // MARK: - Bản đang dùng (cache UserDefaults, server ghi đè qua /catalog)
@@ -93,9 +150,16 @@ struct ScanQualityConfig: Codable {
 
     private static func load() -> ScanQualityConfig {
         guard let data = UserDefaults.standard.data(forKey: storageKey),
-              let cfg = try? JSONDecoder().decode(ScanQualityConfig.self, from: data) else {
+              var cfg = try? JSONDecoder().decode(ScanQualityConfig.self, from: data) else {
             return .defaults
         }
+        // 🔴 The blob holds the FULL config, defaults included (every catalog fetch persists
+        // `response.scanQuality ?? .defaults`), so a changed DEFAULT does not reach a device that
+        // ever opened the order form until its next visit. 26/09: 60 was only ever the old
+        // default (prod has no "scan-quality-config" row) → read it as the new default. Change a
+        // default again = add the same kind of line here. 45 = the 2.54/2.55 default (→ 68).
+        // A remote rollback must avoid 45/60 (load() rewrites them every launch): use 44/46, 59/61.
+        if cfg.maxRotationSoft == 60 || cfg.maxRotationSoft == 45 { cfg.maxRotationSoft = defaults.maxRotationSoft }
         return cfg
     }
 

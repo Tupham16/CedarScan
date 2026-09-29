@@ -1,4 +1,5 @@
 import Foundation
+import StripePaymentSheet
 
 /// Trạng thái đăng nhập của khách (token trong Keychain, thông tin trong UserDefaults).
 @MainActor
@@ -14,10 +15,15 @@ final class AccountStore: ObservableObject {
 
     /// The signed-in customer's id for code outside the view tree (`PaymentFlow` files its markers
     /// under it). Same record `init()` restores; `signOut()` removes it.
-    static var savedCustomerId: String? {
+    static var savedCustomerId: String? { savedCustomer?.id }
+    /// Same record, for the pay sheet's default billing details (Link).
+    static var savedCustomer: CustomerDTO? {
         guard let data = UserDefaults.standard.data(forKey: customerKey) else { return nil }
-        return (try? JSONDecoder().decode(CustomerDTO.self, from: data))?.id
+        return try? JSONDecoder().decode(CustomerDTO.self, from: data)
     }
+    /// Server says the Account tab may show "Payment methods" (`GET me` → `paymentMethods`).
+    /// Not stored: false until this launch's `refresh()` answers.
+    @Published private(set) var paymentMethodsAvailable = false
     var needsVerification: Bool { customer != nil && !emailVerified }
 
     init() {
@@ -58,6 +64,7 @@ final class AccountStore: ObservableObject {
             if let verified = me.emailVerified {
                 setEmailVerified(verified)
             }
+            paymentMethodsAvailable = me.paymentMethods == true
         } catch let error as APIError where error.statusCode == 401 {
             signOut()
         } catch {
@@ -75,11 +82,19 @@ final class AccountStore: ObservableObject {
         apply(result)
     }
 
+    /// The server refused saved payment methods (`in_app_disabled`): hide the row until next refresh.
+    func paymentMethodsWentAway() {
+        paymentMethodsAvailable = false
+    }
+
     func markVerified() {
         setEmailVerified(true)
     }
 
+    /// Every sign-out passes here (Account tab, verify screen, account deletion, a 401 in `refresh`).
     func signOut() {
+        // Before the session goes (plan: unregister first); this phone stops getting its pushes.
+        PushNotifications.shared.signingOut()
         APIClient.shared.token = nil
         Keychain.delete(Self.tokenKey)
         UserDefaults.standard.removeObject(forKey: Self.customerKey)
@@ -88,6 +103,9 @@ final class AccountStore: ObservableObject {
         UserDefaults.standard.removeObject(forKey: Self.emailVerifiedKey)
         customer = nil
         emailVerified = false
+        paymentMethodsAvailable = false
+        // Link remembers the customer on this phone; the next account must not inherit it.
+        PaymentSheet.resetCustomer()
     }
 
     private func apply(_ auth: AuthResponse) {

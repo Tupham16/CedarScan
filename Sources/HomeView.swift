@@ -202,6 +202,7 @@ struct HomeView: View {
                                     trackURL: result.trackURL,
                                     texshotsURL: result.texshotsDir,
                                     previewURL: result.previewURL,
+                                    reportURL: result.reportURL,
                                     name: result.name, projectId: pendingProjectId,
                                     quality: result.quality, geometryOnly: result.geometryOnly,
                                     // Thanh % màn "Đang dựng mô hình 3D…" — chuyển thẳng, ✗ nuốt.
@@ -327,6 +328,19 @@ struct HomeView: View {
                     account: account,
                     projectId: project.id,
                     projectName: project.name,
+                    autoScan: false,
+                    path: $path
+                )
+            }
+            // "Add a scan" (Orders) on a property with no scans here: the same ProjectView, opened
+            // into the scanner. Its own TYPE, ✗ a shared flag — `ScanOrderIntent`'s reason.
+            .navigationDestination(for: ProjectScanIntent.self) { intent in
+                ProjectView(
+                    store: store,
+                    account: account,
+                    projectId: intent.project.id,
+                    projectName: intent.project.name,
+                    autoScan: true,
                     path: $path
                 )
             }
@@ -464,7 +478,7 @@ struct HomeView: View {
                 Section {
                     ForEach(visibleProjects) { project in
                         projectRow(project)
-                            .fogCardRow()
+                            .fogCardRow(edge: Theme.homeEdge)
                     }
                 } header: {
                     sectionHeader(String(localized: "Properties"))
@@ -536,43 +550,58 @@ struct HomeView: View {
         let countLine = Self.projectCountLine(scans)
         // "N new" = scans not ordered yet; same "ordered" rule as `projectCountLine`.
         let newCount = scans.filter { $0.cloudOrderNumber == nil }.count
+        // Orders v2 B: its order is not paid yet (mockup 39: a small badge under the count line;
+        // beside "N new" it squeezed the count line into two).
+        let awaiting = scans.contains { store.isAwaitingPayment($0) }
         let created = project.createdAt.formatted(date: .abbreviated, time: .omitted)
-        return HStack(spacing: 0) {
-            Button {
-                path.append(project)
-            } label: {
-                HStack(spacing: 10) {
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text(project.name)
-                            .font(.headline)
-                        // Creation date — owner asked 17/09; a restyle must keep it.
-                        Text(created)
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                        Text(countLine)
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                    }
-                    // Nuốt hết chỗ trống giữa chữ và giỏ rác, và `contentShape` bên dưới biến nó
+        // Card since 2.52 (mockup 48; 2.53: no min height, mockup 49 A): street bold + rest of the address grey, "N new" beside the
+        // street; date, count line and awaiting mark at the bottom; trash in the bottom-right
+        // corner, OVER the open button (its own 44pt target — the meta lines keep clear of it).
+        return Button {
+            path.append(project)
+        } label: {
+            // Card height = its content (owner 26/09, mockup 49 A): ✗ a min height, it left a gap.
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(alignment: .top, spacing: 10) {
+                    CardAddress(lines: AddressLines(project.name))
+                    // Nuốt hết chỗ trống giữa chữ và nhãn, và `contentShape` bên dưới biến nó
                     // thành vùng chạm — không thì chạm vào khoảng trắng giữa dòng là rơi tọt.
                     Spacer(minLength: 8)
                     if newCount > 0 {
                         FogBadge(String(localized: "\(newCount) new"), .soft)
+                            .padding(.trailing, 12)
                     }
                 }
-                .contentShape(Rectangle())
+                VStack(alignment: .leading, spacing: 1) {
+                    // Creation date — owner asked 17/09; a restyle must keep it.
+                    Text(created)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                    Text(countLine)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                    if awaiting {
+                        AwaitingPaymentMark()
+                            .padding(.top, 5)
+                    }
+                }
+                // Clear of the trash button laid over the bottom-right corner.
+                .padding(.trailing, 44)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            // 🔴 PHẢI KHAI KIỂU NÚT TƯỜNG MINH CHO CẢ HAI NÚT, VÀ PHẢI LÀ CÙNG MỘT KIỂU.
-            // Kiểu MẶC ĐỊNH của một `Button` nằm trong `List` biến TOÀN BỘ DÒNG thành vùng chạm
-            // của nó — hai nút mặc định trong một dòng nghĩa là chạm chỗ nào cũng nổ CẢ HAI (vừa
-            // mở dự án vừa hiện hộp xoá). `.plain` tắt hành vi đó: mỗi nút chỉ ăn vùng của chính
-            // nó. Chọn `.plain` chứ ✗ `.borderless` cho cả hai vì `.plain` KHÔNG nhuộm nhãn theo
-            // accent — the row sets its own colours (primary/secondary text, soft badge, grey
-            // trash), a tinting style would fight them.
-            // ⚠ Giá phải trả, chấp nhận: không còn dải xám nhấn-cả-dòng như `NavigationLink`.
-            // Khách vẫn thấy phản hồi ngay vì màn được đẩy tức thì.
-            .buttonStyle(.plain)
-
+            .contentShape(Rectangle())
+        }
+        // 🔴 PHẢI KHAI KIỂU NÚT TƯỜNG MINH CHO CẢ HAI NÚT, VÀ PHẢI LÀ CÙNG MỘT KIỂU.
+        // Kiểu MẶC ĐỊNH của một `Button` nằm trong `List` biến TOÀN BỘ DÒNG thành vùng chạm
+        // của nó — hai nút mặc định trong một dòng nghĩa là chạm chỗ nào cũng nổ CẢ HAI (vừa
+        // mở dự án vừa hiện hộp xoá). `.plain` tắt hành vi đó: mỗi nút chỉ ăn vùng của chính
+        // nó. Chọn `.plain` chứ ✗ `.borderless` cho cả hai vì `.plain` KHÔNG nhuộm nhãn theo
+        // accent — the row sets its own colours (primary/secondary text, soft badge, grey
+        // trash), a tinting style would fight them.
+        // ⚠ Giá phải trả, chấp nhận: không còn dải xám nhấn-cả-dòng như `NavigationLink`.
+        // Khách vẫn thấy phản hồi ngay vì màn được đẩy tức thì.
+        .buttonStyle(.plain)
+        .overlay(alignment: .bottomTrailing) {
             Button {
                 projectToDelete = project
             } label: {
@@ -673,16 +702,27 @@ struct HomeView: View {
     ///
     /// 🔴 GÁC `isMeshScanning`: đang quét mà pop cả stack là mất 10–30 phút đi bộ. Cùng lý do với
     /// `ProjectView.leaveDeadProject`. Ca này tới được thật — lớp phủ quét vẽ đè cả tab.
+    ///
+    /// `startScan` (26/09): push `ProjectScanIntent` — that ProjectView opens the scanner itself.
+    /// Also gated on `ScanCoverModel.blocksInput`: a scan opened from a ProjectView (this path, or
+    /// its Scan more) does not set `isMeshScanning` HERE, and popping that ProjectView mid-scan
+    /// strands the cover (`ProjectView.leaveDeadProject`). A second request (double tap) during it
+    /// is dropped.
     private func openProject(_ request: OpenProjectRequest?) {
         guard let request else { return }
         Task { @MainActor in
-            guard !isMeshScanning else { return }
+            guard !isMeshScanning, !ScanCoverModel.shared.blocksInput else { return }
             guard store.project(with: request.projectId) != nil else { return }
             path = NavigationPath()
             // Nhịp thứ hai: lúc này stack đã thật sự về gốc.
             Task { @MainActor in
-                guard !isMeshScanning, let project = store.project(with: request.projectId) else { return }
-                path.append(project)
+                guard !isMeshScanning, !ScanCoverModel.shared.blocksInput,
+                      let project = store.project(with: request.projectId) else { return }
+                if request.startScan {
+                    path.append(ProjectScanIntent(project: project))
+                } else {
+                    path.append(project)
+                }
             }
         }
     }
@@ -773,17 +813,41 @@ struct ScanRow: View {
         }
     }
 
+    @Environment(\.dynamicTypeSize) private var typeSize
+
+    /// Accessibility sizes: the badge under the name — beside it a long one ("Zahlung ausstehend")
+    /// squeezed the name to a few letters a line and ran past the card (Orders v2 B review).
+    @ViewBuilder
     private var nameLine: some View {
-        HStack(spacing: 8) {
-            Text(record.name)
-                .font(.callout.weight(.semibold))
-            // Nhãn CHỮ chứ không chỉ icon: mở dự án ra phải đọc được NGAY tầng nào đã đặt
-            // rồi, để biết căn nhà còn thiếu tầng nào mà quét thêm. Một icon nhỏ màu xanh
-            // không nói được điều đó.
-            // "Ordered" = `cloudOrderNumber != nil`, the app-wide rule; every other scan is "New".
-            if record.cloudOrderNumber != nil {
-                FogBadge(String(localized: "Ordered"), .neutral, compact: true)
-            } else {
+        if typeSize.isAccessibilitySize {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(record.name)
+                    .font(.callout.weight(.semibold))
+                badges
+            }
+        } else {
+            HStack(spacing: 8) {
+                Text(record.name)
+                    .font(.callout.weight(.semibold))
+                badges
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var badges: some View {
+        // Nhãn CHỮ chứ không chỉ icon: mở dự án ra phải đọc được NGAY tầng nào đã đặt
+        // rồi, để biết căn nhà còn thiếu tầng nào mà quét thêm. Một icon nhỏ màu xanh
+        // không nói được điều đó.
+        // "Ordered" = `cloudOrderNumber != nil`, the app-wide rule; every other scan is "New".
+        // Orders v2 B: stamped by an order still awaiting payment = "Awaiting payment" (not
+        // placed until paid — owner 25/09, mockup 39); the scan stays reserved by that order.
+        if store.isAwaitingPayment(record) {
+            AwaitingPaymentMark()
+        } else if record.cloudOrderNumber != nil {
+            FogBadge(String(localized: "Ordered"), .neutral, compact: true)
+        } else {
+            HStack(spacing: 8) {
                 FogBadge(String(localized: "New"), .soft, compact: true)
                 if record.cloudScanId != nil {
                     Image(systemName: "checkmark.icloud.fill")
@@ -814,5 +878,23 @@ struct ScanRow: View {
     /// hơi sai với chúng, nhưng chủ app là người duy nhất còn giữ và đã chốt bóc sạch RoomPlan.
     private var typePart: String {
         String(localized: "3D mesh")
+    }
+}
+
+/// Orders v2 B: "Awaiting payment" on a scan / property whose order is not paid yet (owner 25/09,
+/// mockup 39). At accessibility sizes a wrapping `warn` line instead of the capsule: `FogBadge`
+/// never wraps, and "Zahlung ausstehend" at AX3 ran past the card.
+struct AwaitingPaymentMark: View {
+    @Environment(\.dynamicTypeSize) private var typeSize
+
+    var body: some View {
+        if typeSize.isAccessibilitySize {
+            Text(String(localized: "Awaiting payment"))
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(Theme.Badge.warn.fg)
+                .fixedSize(horizontal: false, vertical: true)
+        } else {
+            FogBadge(String(localized: "Awaiting payment"), .warn, compact: true)
+        }
     }
 }

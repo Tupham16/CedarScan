@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Viền màn hình "đèn giao thông" + 1 dòng chữ ngắn — kênh cảnh báo chính khi đang quét.
-/// Vàng nhấp nháy = chú ý (đi nhanh/xoay nhanh/thiếu sáng/dí quá gần),
+/// Vàng nhấp nháy = chú ý (đi nhanh/xoay nhanh/thiếu sáng; "quá gần" = `TooCloseSheet`),
 /// đỏ = nghiêm trọng (mất tracking, HOẶC đi/xoay vượt ngưỡng CỨNG — xem `updateAlert`:
 /// cùng một `code` có thể ra caution hay critical tuỳ ngưỡng mềm/cứng).
 /// Không hiện gì khi quét tốt — màn hình sạch.
@@ -44,7 +44,6 @@ struct QualityAlertOverlay: View {
         case .slowDown: return "tortoise.fill"
         case .turnSlowly: return "arrow.triangle.2.circlepath"
         case .lowLight: return "lightbulb.fill"
-        case .tooClose: return "minus.magnifyingglass"
         }
     }
 }

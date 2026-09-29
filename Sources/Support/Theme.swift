@@ -22,24 +22,29 @@ enum Theme {
     static let scanLabel = hex(0x334155, 0xCBD5E1)
     static let scanShadow = dyn(rgb(0x0056B3, alpha: 0.24), UIColor(white: 0, alpha: 0.5))
 
+    /// Home property card: 5pt left edge (orders take their badge's `edge`, 2.52).
+    static let homeEdge = hex(0x6E9FD8, 0x4F86C9)
+
     static let thumbBg = hex(0xF1F3F5, 0x1D222B)
     static let thumbLine = hex(0x4A5568, 0xB8C2D1)
 
-    /// Badge palette: background + text.
+    /// Badge palette: background + text, and `edge` = the 5pt left edge of an order card in that
+    /// state (2.52, owner-approved mockup 48).
     struct Badge {
         let bg: Color
         let fg: Color
+        let edge: Color
 
         /// New, Processing, selected chip.
-        static let soft = Badge(bg: hex(0xE0F2FE, 0x0F2E45), fg: hex(0x0369A1, 0x7CC4F5))
-        /// Delivered, Paid.
-        static let ok = Badge(bg: hex(0xDCFCE7, 0x12301F), fg: hex(0x15803D, 0x6EDC9A))
+        static let soft = Badge(bg: hex(0xE0F2FE, 0x0F2E45), fg: hex(0x0369A1, 0x7CC4F5), edge: hex(0x4FA8E0, 0x3E92CF))
+        /// Ready (delivered), Paid.
+        static let ok = Badge(bg: hex(0xDCFCE7, 0x12301F), fg: hex(0x15803D, 0x6EDC9A), edge: hex(0x43B96F, 0x3AA866))
         /// Ordered, Order #.
-        static let neutral = Badge(bg: hex(0xE9EDF2, 0x242B36), fg: hex(0x475569, 0xB6C0CF))
+        static let neutral = Badge(bg: hex(0xE9EDF2, 0x242B36), fg: hex(0x475569, 0xB6C0CF), edge: hex(0xB8C2CF, 0x4A5467))
         /// On hold.
-        static let warn = Badge(bg: hex(0xFEF3C7, 0x3A2A0C), fg: hex(0xB45309, 0xF5C76B))
+        static let warn = Badge(bg: hex(0xFEF3C7, 0x3A2A0C), fg: hex(0xB45309, 0xF5C76B), edge: hex(0xF0B429, 0xD99E2B))
         /// Refunded.
-        static let danger = Badge(bg: hex(0xFEE2E2, 0x3B1517), fg: hex(0xB91C1C, 0xF19999))
+        static let danger = Badge(bg: hex(0xFEE2E2, 0x3B1517), fg: hex(0xB91C1C, 0xF19999), edge: hex(0xE5484D, 0xD0464B))
     }
 }
 
@@ -143,12 +148,21 @@ private struct FogButtonBody: View {
     }
 }
 
-/// Card behind a list row: radius 16 + hairline border.
+/// Card behind a list row: radius 16 + hairline border; `edge` = a 5pt coloured left edge
+/// following the corner curve (Home / Orders cards, 2.52).
 private struct FogCardBackground: View {
+    var edge: Color?
+
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: 16, style: .continuous)
         return shape
             .fill(Theme.card)
+            .overlay(alignment: .leading) {
+                if let edge {
+                    Rectangle().fill(edge).frame(width: 5)
+                }
+            }
+            .clipShape(shape)
             .overlay(shape.strokeBorder(Theme.hairline, lineWidth: 1))
             .padding(.horizontal, 16)
             .padding(.vertical, 6)
@@ -165,11 +179,22 @@ extension View {
 
     /// Plain-list row drawn as a card (16pt screen margin, 12pt gap between cards).
     /// `trailing` 20 suits Home's 44pt trash button; 32 = 16pt inside the card.
-    func fogCardRow(trailing: CGFloat = 20) -> some View {
+    func fogCardRow(trailing: CGFloat = 20, edge: Color? = nil) -> some View {
         self
-            .listRowBackground(FogCardBackground())
+            .listRowBackground(FogCardBackground(edge: edge))
             .listRowSeparator(.hidden)
             .listRowInsets(EdgeInsets(top: 17, leading: 32, bottom: 18, trailing: trailing))
+    }
+
+    /// Text field on the screen background (sign-in, verify code): card fill, radius 12,
+    /// hairline border. Replaces `.roundedBorder` (system colours, off the Fog palette).
+    func fogField() -> some View {
+        let shape = RoundedRectangle(cornerRadius: 12, style: .continuous)
+        return self
+            .padding(.horizontal, 14)
+            .padding(.vertical, 11)
+            .background(shape.fill(Theme.card))
+            .overlay(shape.strokeBorder(Theme.hairline, lineWidth: 1).allowsHitTesting(false))
     }
 
     /// Dark glass behind controls over the camera (scan screen), dark in light mode too:
@@ -188,18 +213,28 @@ extension View {
 /// Wrapped text a customer must read whole (instructions, notes). iOS 26 can measure a SwiftUI
 /// `Text` or `UILabel` in fewer lines than it draws and cut the last line (German, trap #44).
 /// Here one TextKit layout measures and draws, at the full proposed width. VoiceOver reads it
-/// as a plain `Text`. Primary colour; font = `style` at the environment's Dynamic Type size.
+/// as a plain `Text`. Font = `style` at the environment's Dynamic Type size.
 struct WrappedText: View {
     let text: String
     let style: UIFont.TextStyle
+    /// `.center` for a centred screen (the placed screen); line breaks do not depend on it.
+    let alignment: NSTextAlignment
+    /// `.secondaryLabel` for grey text (FAQ answers, footers, legal bodies).
+    let color: UIColor
+    /// Legal texts: the customer can select and copy a passage.
+    let selectable: Bool
 
-    init(_ text: String, style: UIFont.TextStyle = .body) {
+    init(_ text: String, style: UIFont.TextStyle = .body, alignment: NSTextAlignment = .natural,
+         color: UIColor = .label, selectable: Bool = false) {
         self.text = text
         self.style = style
+        self.alignment = alignment
+        self.color = color
+        self.selectable = selectable
     }
 
     var body: some View {
-        WrappedTextView(text: text, style: style)
+        WrappedTextView(text: text, style: style, alignment: alignment, color: color, selectable: selectable)
             .accessibilityRepresentation { Text(text) }
     }
 }
@@ -208,17 +243,25 @@ struct WrappedText: View {
 struct WrappedTextView: UIViewRepresentable {
     let text: String
     let style: UIFont.TextStyle
+    var alignment: NSTextAlignment = .natural
+    var color: UIColor = .label
+    var selectable = false
 
     func makeUIView(context: Context) -> UITextView {
-        Self.makeTextView()
+        let view = Self.makeTextView()
+        if selectable {
+            view.isSelectable = true
+            view.isUserInteractionEnabled = true
+        }
+        return view
     }
 
     func updateUIView(_ view: UITextView, context: Context) {
-        Self.configure(view, text: text, font: Self.font(style, context.environment))
+        Self.configure(view, text: text, font: Self.font(style, context.environment), alignment: alignment, color: color)
     }
 
     func sizeThatFits(_ proposal: ProposedViewSize, uiView view: UITextView, context: Context) -> CGSize? {
-        Self.configure(view, text: text, font: Self.font(style, context.environment))
+        Self.configure(view, text: text, font: Self.font(style, context.environment), alignment: alignment, color: color)
         return Self.fittingSize(view, width: proposal.width, scale: context.environment.displayScale)
     }
 
@@ -251,12 +294,22 @@ struct WrappedTextView: UIViewRepresentable {
         return UIFont.preferredFont(forTextStyle: style, compatibleWith: traits)
     }
 
-    static func configure(_ view: UITextView, text: String, font: UIFont) {
-        guard view.attributedText?.string != text || view.font != font else { return }
-        view.attributedText = NSAttributedString(string: text, attributes: [
+    static func configure(_ view: UITextView, text: String, font: UIFont, alignment: NSTextAlignment = .natural,
+                          color: UIColor = .label) {
+        guard view.attributedText?.string != text || view.font != font || view.textAlignment != alignment
+                || view.textColor != color else { return }
+        var attributes: [NSAttributedString.Key: Any] = [
             .font: font,
-            .foregroundColor: UIColor.label,
-        ])
+            .foregroundColor: color,
+        ]
+        // Only when asked: the default (.natural) keeps the exact attributes the German sweep measured.
+        if alignment != .natural {
+            let paragraph = NSMutableParagraphStyle()
+            paragraph.alignment = alignment
+            attributes[.paragraphStyle] = paragraph
+        }
+        view.attributedText = NSAttributedString(string: text, attributes: attributes)
+        if view.textAlignment != alignment { view.textAlignment = alignment }
     }
 
     /// Wrapped: the full proposed width, measured at that width floored to the pixel grid (the

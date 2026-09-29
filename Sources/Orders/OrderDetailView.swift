@@ -15,6 +15,9 @@ struct OrderRoute: Hashable {
 /// Every visibility condition is the 2.45 Orders card's (`orderCard` helpers), copied verbatim;
 /// only the layout changed. Downloads stay `Link`s to the browser (App Store rule: no in-app
 /// viewer, no thumbnail of a deliverable).
+/// Orders v2 C (mockups 36/37, 40): "Add to this order" at the end of "What you ordered", and each
+/// purchase made that way as its own card under "Added to this order" (it is its own order on the
+/// server: status, Pay Now / Cancel, files).
 struct OrderDetailView: View {
     let route: OrderRoute
     /// `OrdersView.orders`, read only — a binding so this pushed screen follows every reload.
@@ -28,10 +31,20 @@ struct OrderDetailView: View {
     @ObservedObject var account: AccountStore
     /// `OrdersView.load()`.
     let reload: () async -> Void
-    /// Nhảy sang tab Home và mở dự án — `RootView.requestOpenProject`.
-    let onOpenProject: (ScanProject) -> Void
+    /// Nhảy sang tab Home và mở dự án — `RootView.requestOpenProject`. `startScan`: open the
+    /// scanner there too (the property has no scans on this device).
+    let onOpenProject: (_ project: ScanProject, _ startScan: Bool) -> Void
     @State private var revisionOrder: OrderDTO?
     @State private var tourOrder: OrderDTO? // mở màn thêm ảnh Virtual Tour
+    /// Orders v2 B: the "Cancel this order?" alert · why the last cancel was refused. A cancel in
+    /// flight lives in `ScanStore.cancellingOrderIds` (app-wide: Back + reopen keeps it).
+    @State private var confirmCancel = false
+    @State private var cancelError: String?
+    /// Orders v2 C: the "Add to this order" sheet · the added items whose Cancel is being confirmed.
+    @State private var addTarget: AddToOrderTarget?
+    @State private var confirmCancelExtra: OrderDTO?
+    /// Read only: a card payment of this order being prepared / settled / just completed.
+    @ObservedObject private var flow = PaymentFlow.shared
     @Environment(\.dynamicTypeSize) private var typeSize
 
     /// `nil` = gone from the list (a refresh) or not this account's (sign-out, account switch):
@@ -68,6 +81,51 @@ struct OrderDetailView: View {
             TourPhotosView(orderId: order.orderId)
                 .onDisappear { Task { await reload() } }
         }
+        .sheet(item: $addTarget) { target in
+            AddToOrderSheet(target: target) {
+                Task { await reload() }
+            }
+        }
+        .alert(String(localized: "Cancel these items?"), isPresented: confirmCancelExtraShown, presenting: confirmCancelExtra) { extra in
+            Button(String(localized: "Cancel items"), role: .destructive) {
+                // The LIVE purchase: a reload while the alert was up may have made it paid.
+                if let live = liveOrder(extra.orderId), canCancel(live) { cancelOrder(live, isExtra: true) }
+            }
+            Button(String(localized: "Keep them"), role: .cancel) {}
+        } message: { _ in
+            Text(String(localized: "They have not been paid, so nothing is charged."))
+        }
+        .alert(String(localized: "Cancel this order?"), isPresented: $confirmCancel) {
+            Button(String(localized: "Cancel order"), role: .destructive) {
+                // The LIVE order: a reload while the alert was up may have made it paid.
+                if let order, canCancel(order) { cancelOrder(order, isExtra: false) }
+            }
+            Button(String(localized: "Keep order"), role: .cancel) {}
+        } message: {
+            Text(String(localized: "It has not been paid, so nothing is charged. Its scans go back to \"New\", ready to order again."))
+        }
+        .alert(String(localized: "Order not cancelled"), isPresented: cancelErrorShown) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(cancelError ?? "")
+        }
+    }
+
+    private var cancelErrorShown: Binding<Bool> {
+        Binding(get: { cancelError != nil }, set: { if !$0 { cancelError = nil } })
+    }
+
+    private var confirmCancelExtraShown: Binding<Bool> {
+        Binding(get: { confirmCancelExtra != nil }, set: { if !$0 { confirmCancelExtra = nil } })
+    }
+
+    /// An order of this list by id: a listed order, or a purchase added to one (Orders v2 C).
+    private func liveOrder(_ orderId: String) -> OrderDTO? {
+        for listed in orders {
+            if listed.orderId == orderId { return listed }
+            if let extra = listed.extras?.first(where: { $0.orderId == orderId }) { return extra }
+        }
+        return nil
     }
 
     private func content(_ order: OrderDTO) -> some View {
@@ -82,7 +140,9 @@ struct OrderDetailView: View {
             summary(order)
             files(order)
             orderedItems(order)
+            addedItems(order)
             followUps(order)
+            cancelRow(order)
         }
         .padding(.horizontal, 16)
         .padding(.top, 6)
@@ -103,17 +163,63 @@ struct OrderDetailView: View {
                 StatusBadge(status: order.status)
                 orderNumber(order)
             } else {
-                HStack(spacing: 8) {
-                    StatusBadge(status: order.status)
-                    Spacer(minLength: 8)
-                    orderNumber(order)
+                // Side by side while both fit at full size; else stacked. "Zahlung ausstehend" at
+                // German xxxL left the number cut to "#LS-MS5M494…" (Orders v2 B renders).
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 8) {
+                        StatusBadge(status: order.status)
+                        Spacer(minLength: 8)
+                        orderNumber(order)
+                    }
+                    VStack(alignment: .leading, spacing: 8) {
+                        StatusBadge(status: order.status)
+                        orderNumber(order)
+                    }
                 }
             }
             summaryLine(order)
+            stateNote(order)
             payNow(order)
         }
         .padding(EdgeInsets(top: 14, leading: 16, bottom: 15, trailing: 16))
         .detailCard()
+    }
+
+    /// Orders v2 B (mockup 34/35): why an awaiting order is not being drawn, and what a cancelled
+    /// one means. `WrappedText`: a sentence the customer must read whole (trap #44).
+    @ViewBuilder
+    private func stateNote(_ order: OrderDTO) -> some View {
+        if showsUnpaidState(order) {
+            WrappedText(PayFirstCopy.notPlaced(expires: order.payBy != nil), style: .subheadline)
+                .padding(.top, 2)
+        } else if order.status == "cancelled" || store.cancelledOrderIds.contains(order.orderId) {
+            // `paid` on a cancelled order = money that arrived after the cancel (staff are alerted
+            // and refund it — server "TRẢ SAU KHI HUỶ"); once refunded it reads "refunded".
+            WrappedText(
+                order.paid == true
+                    ? String(localized: "This order was cancelled, but a payment reached us afterwards. Our team will refund it.")
+                    : String(localized: "Cancelled before it was paid — nothing was charged. Its scans were released, so they can be ordered again."),
+                style: .subheadline
+            )
+            .padding(.top, 2)
+        }
+    }
+
+    /// Awaiting payment, not just paid in the card sheet (`PaymentFlow` knows before the list) and
+    /// not just cancelled here (a 200 whose reload has not landed, or failed).
+    private func showsUnpaidState(_ order: OrderDTO) -> Bool {
+        order.isAwaitingPayment && !flow.paidOrderIds.contains(order.orderId)
+            && !store.cancelledOrderIds.contains(order.orderId)
+    }
+
+    /// A Cancel request for this order is in flight (from this screen or an earlier copy of it).
+    private func cancelling(_ order: OrderDTO) -> Bool {
+        store.cancellingOrderIds.contains(order.orderId)
+    }
+
+    /// A card payment of THIS order is being prepared or settled.
+    private func paymentBusy(_ order: OrderDTO) -> Bool {
+        flow.loadingOrderId == order.orderId || flow.settlingOrderIds.contains(order.orderId)
     }
 
     private func orderNumber(_ order: OrderDTO) -> some View {
@@ -162,20 +268,43 @@ struct OrderDetailView: View {
     /// Restyled here at the call site only; ✗ edit `PaymentFlow.swift`.
     @ViewBuilder
     private func payNow(_ order: OrderDTO) -> some View {
-        if order.paid != true, let payURL = httpsURL(order.paymentUrl) {
+        // ✗ for an order cancelled here whose list entry is still the old "awaiting" one: its pay
+        // page is closed (410) and the card sheet refused.
+        if order.paid != true, !store.cancelledOrderIds.contains(order.orderId), httpsURL(order.paymentUrl) != nil {
+            payNowButton(order)
+                .padding(.top, 6)
+        } else if showsUnpaidState(order) {
+            // Awaiting payment but no pay link (WordPress failed at creation): staff send it by
+            // hand — same sentence as the placed screen.
+            Text(String(localized: "We will email you a payment link shortly."))
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .padding(.top, 2)
+        }
+    }
+
+    /// Pay Now of an order, or of a purchase added to it (Orders v2 C: same button, same rules).
+    @ViewBuilder
+    private func payNowButton(_ order: OrderDTO) -> some View {
+        if order.paid != true, !store.cancelledOrderIds.contains(order.orderId), let payURL = httpsURL(order.paymentUrl) {
             PayNowButton(
                 orderId: order.orderId,
                 payURL: payURL,
                 payInApp: order.payInApp == true,
-                onPaid: { Task { await reload() } }
+                onPaid: { Task { await reload() } },
+                // Cancelled (or being cancelled) meanwhile: show its state, ✗ the pay page.
+                onOrderChanged: { Task { await reload() } }
             ) {
                 Label(String(localized: "Pay Now"), systemImage: "creditcard")
                     .font(.subheadline.weight(.semibold))
                     .frame(maxWidth: .infinity, minHeight: 44)
             }
-            .buttonStyle(FogPrimary(radius: 12))
+            // `busy`: while THIS order's sheet is prepared / settled the button stays blue at 62%
+            // with a white spinner (mockup 19); on the grey disabled fill a white spinner vanished.
+            .buttonStyle(FogPrimary(radius: 12, busy: paymentBusy(order)))
             .tint(.white) // loading spinner on the blue fill
-            .padding(.top, 6)
+            // Not while a cancel runs: the sheet would be refused (`cancel_in_progress`) anyway.
+            .disabled(cancelling(order))
         }
     }
 
@@ -316,19 +445,236 @@ struct OrderDetailView: View {
     // MARK: What you ordered
 
     /// The server's display names (`items`). No section when the list is absent (older server)
-    /// or empty.
-    @ViewBuilder
+    /// or empty — unless "Add to this order" is open (Orders v2 C: its row ends this card).
     private func orderedItems(_ order: OrderDTO) -> some View {
-        if let items = order.items, !items.isEmpty {
+        orderedItemsCard(order, items: order.items ?? [], canAdd: canAddItems(order))
+    }
+
+    /// The state as parameters: a local `let` inside a ViewBuilder is where this CI has died of
+    /// "type-check timeout" (`ScanAddressView`).
+    @ViewBuilder
+    private func orderedItemsCard(_ order: OrderDTO, items: [String], canAdd: Bool) -> some View {
+        if !items.isEmpty || canAdd {
             sectionHeader(String(localized: "What you ordered"))
             VStack(spacing: 0) {
                 // Indices, ✗ `enumerated()` + `\.offset`: no key paths into tuples (trap #31).
                 ForEach(items.indices, id: \.self) { index in
                     itemRow(items[index], ruled: index > 0)
                 }
+                if canAdd {
+                    addRow(order, ruled: !items.isEmpty)
+                }
             }
             .detailCard()
         }
+    }
+
+    /// Orders v2 C: the server allows it (paid, not refunded or closed, nothing added still awaiting
+    /// payment, something left to add) and this device is not cancelling the order.
+    private func canAddItems(_ order: OrderDTO) -> Bool {
+        order.canAddItems == true && !order.isCancelled && !cancelling(order)
+            && !store.cancelledOrderIds.contains(order.orderId)
+    }
+
+    /// "Add to this order" (mockups 32, 36): opens `AddToOrderSheet`.
+    private func addRow(_ order: OrderDTO, ruled: Bool) -> some View {
+        Button {
+            addTarget = AddToOrderTarget(
+                orderId: order.orderId,
+                orderNumber: order.orderNumber,
+                title: route.title,
+                delivered: order.deliveredAt != nil
+            )
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: "plus.circle")
+                Text(String(localized: "Add to this order"))
+                    .font(.subheadline.weight(.semibold))
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right")
+                    .font(.footnote.weight(.semibold))
+                    // Concrete grey (mockup): `.tertiary` under the row's accent style below = faint
+                    // blue (renders 25/09).
+                    .foregroundStyle(Color(uiColor: .tertiaryLabel))
+                    .accessibilityHidden(true)
+            }
+            // Concrete colour (trap #45): the mockup draws the row in the accent text colour.
+            .foregroundStyle(Theme.accentText)
+            .frame(minHeight: 46)
+            .padding(.leading, 16)
+            .padding(.trailing, 12)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .overlay(alignment: .top) {
+            if ruled {
+                Self.hairline.padding(.leading, 44)
+            }
+        }
+    }
+
+    // MARK: Added to this order (Orders v2 C)
+
+    /// Each purchase added to the order, oldest first, as its own card (mockup 40). Cancelled
+    /// unpaid ones never come from the server (one paid late does: it gets refunded); one this
+    /// device just cancelled is hidden while the list still reads it unpaid (its reload has not
+    /// landed) — only then: `cancelledOrderIds` lasts the whole run, and a payment that lands after
+    /// the cancel must show its refund note. `parentDelivered`: the server hands an added purchase
+    /// to the team only once the order's drawing was delivered (owner 25/09) — `deliveredAt`, the
+    /// column its queue reads.
+    private func addedItems(_ order: OrderDTO) -> some View {
+        addedItemsList(
+            (order.extras ?? []).filter { !($0.isAwaitingPayment && store.cancelledOrderIds.contains($0.orderId)) },
+            parentDelivered: order.deliveredAt != nil
+        )
+    }
+
+    @ViewBuilder
+    private func addedItemsList(_ extras: [OrderDTO], parentDelivered: Bool) -> some View {
+        if !extras.isEmpty {
+            sectionHeader(String(localized: "Added to this order"))
+            VStack(spacing: 12) {
+                ForEach(extras) { extra in
+                    extraCard(extra, parentDelivered: parentDelivered)
+                }
+            }
+        }
+    }
+
+    private func extraCard(_ extra: OrderDTO, parentDelivered: Bool) -> some View {
+        let items = extra.items ?? []
+        return VStack(alignment: .leading, spacing: 0) {
+            extraHeader(extra)
+                .padding(EdgeInsets(top: 14, leading: 16, bottom: 4, trailing: 16))
+            ForEach(items.indices, id: \.self) { index in
+                itemRow(items[index], ruled: index > 0)
+            }
+            extraState(extra, parentDelivered: parentDelivered)
+        }
+        .detailCard()
+    }
+
+    /// Status badge + date · total (· Paid), as the summary card; stacked when it does not fit.
+    @ViewBuilder
+    private func extraHeader(_ extra: OrderDTO) -> some View {
+        if typeSize.isAccessibilitySize {
+            VStack(alignment: .leading, spacing: 6) {
+                StatusBadge(status: extra.status)
+                VStack(alignment: .leading, spacing: 4) {
+                    summaryParts(extra, dots: false)
+                }
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+            }
+        } else {
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 8) {
+                    StatusBadge(status: extra.status)
+                    Spacer(minLength: 8)
+                    extraLine(extra)
+                }
+                VStack(alignment: .leading, spacing: 6) {
+                    StatusBadge(status: extra.status)
+                    extraLine(extra)
+                }
+            }
+        }
+    }
+
+    private func extraLine(_ extra: OrderDTO) -> some View {
+        HStack(spacing: 5) {
+            summaryParts(extra, dots: true)
+        }
+        .font(.footnote)
+        .foregroundStyle(.secondary)
+    }
+
+    /// What the purchase asks of the customer, or gives them: Pay / Cancel while it awaits payment,
+    /// the files (+ its own revision) once delivered, the refund note for one paid after it was
+    /// cancelled.
+    @ViewBuilder
+    private func extraState(_ extra: OrderDTO, parentDelivered: Bool) -> some View {
+        if showsUnpaidState(extra) {
+            VStack(alignment: .leading, spacing: 10) {
+                WrappedText(
+                    Self.extraNotStarted(expires: extra.payBy != nil, parentDelivered: parentDelivered),
+                    style: .footnote
+                )
+                payNowButton(extra)
+                Button {
+                    confirmCancelExtra = extra
+                } label: {
+                    if cancelling(extra) {
+                        HStack(spacing: 8) {
+                            ProgressView()
+                            Text(String(localized: "Cancelling…"))
+                        }
+                        .font(.footnote.weight(.semibold))
+                        .padding(8)
+                        .frame(maxWidth: .infinity, minHeight: 36)
+                    } else {
+                        ghostLabel(String(localized: "Cancel items"), systemImage: "xmark.circle")
+                    }
+                }
+                .buttonStyle(FogGhost())
+                // No second tap while one runs, and not while its card payment is prepared / settled.
+                .disabled(cancelling(extra) || paymentBusy(extra))
+            }
+            .padding(EdgeInsets(top: 6, leading: 16, bottom: 14, trailing: 16))
+        } else if extra.isAwaitingPayment, flow.paidOrderIds.contains(extra.orderId), httpsURL(extra.paymentUrl) != nil {
+            // Paid in the card sheet, the list not settled yet: its "Paid" mark, which
+            // `PayNowButton` draws — as the order's own Pay Now keeps doing (`payNow`).
+            payNowButton(extra)
+                .padding(EdgeInsets(top: 6, leading: 16, bottom: 14, trailing: 16))
+        } else if extra.status == "cancelled" {
+            // Listed only when money reached it after the cancel (server): staff refund it. Once
+            // refunded it reads "refunded" (cancelledAt stays set) — ✗ `isCancelled` here, as
+            // `stateNote` for the order.
+            WrappedText(String(localized: "This order was cancelled, but a payment reached us afterwards. Our team will refund it."), style: .footnote)
+                .padding(EdgeInsets(top: 6, leading: 16, bottom: 14, trailing: 16))
+        } else if extraHasFiles(extra) || extra.deliveredAt != nil {
+            VStack(alignment: .leading, spacing: 10) {
+                deliverables(extra)
+                ruledRows(extra)
+                extraRevision(extra)
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 8)
+            // A ruled row carries its own height; a button last needs an inset.
+            .padding(.bottom, hasFileRows(extra) && extra.deliveredAt == nil ? 2 : 14)
+        } else {
+            Color.clear.frame(height: 6)
+        }
+    }
+
+    private func extraHasFiles(_ extra: OrderDTO) -> Bool {
+        extra.status == "delivered" && (httpsURL(extra.deliveredUrl) != nil || hasFileRows(extra))
+    }
+
+    /// 🔴 The purchase's OWN revision (server `orders/{extraId}/revision`, fdeef49): the order's
+    /// "Request a revision" moves the ORDER back to work (its downloads pause) and the team that
+    /// drew these items never hears. Gated like the order's: `deliveredAt`, ✗ `status` (a revision
+    /// under way reads "in production" again, and a second fix must stay possible).
+    @ViewBuilder
+    private func extraRevision(_ extra: OrderDTO) -> some View {
+        if extra.deliveredAt != nil {
+            Button {
+                revisionOrder = extra
+            } label: {
+                ghostLabel(String(localized: "Request a revision"), systemImage: "pencil.and.outline")
+            }
+            .buttonStyle(FogGhost())
+        }
+    }
+
+    /// Mockup 40. The 7-day sentence only with a `payBy` (a test account's never expire). Not
+    /// delivered yet: paying alone does not start it (`parentDelivered`, `addedItems`).
+    static func extraNotStarted(expires: Bool, parentDelivered: Bool) -> String {
+        let first = parentDelivered
+            ? String(localized: "Not started yet — we start as soon as it is paid.")
+            : String(localized: "Not started yet — we start once it is paid and your current drawing is delivered.")
+        guard expires else { return first }
+        return first + " " + String(localized: "Unpaid additions are cancelled after 7 days.")
     }
 
     private func itemRow(_ item: String, ruled: Bool) -> some View {
@@ -366,7 +712,7 @@ struct OrderDetailView: View {
     /// avoids an empty row (stray spacing); each button keeps its own condition.
     @ViewBuilder
     private func followUps(_ order: OrderDTO) -> some View {
-        if order.deliveredAt != nil || supplementProject(for: order) != nil {
+        if order.deliveredAt != nil || addScanRoute(for: order) != nil {
             HStack(spacing: 8) {
                 // 🔴 "YÊU CẦU SỬA" GÁC THEO `deliveredAt`, ✗ theo `status == "delivered"` —
                 // sửa 19/08, vòng soi đối kháng bắt.
@@ -397,9 +743,14 @@ struct OrderDetailView: View {
                 // 🔴 CHỈ ĐIỀU HƯỚNG, ✗ gửi gì cả. Việc gửi vẫn là `SupplementSheet` ở trang dự án
                 // — LỐI VÀO DUY NHẤT, ✗ nhân bản luồng gửi ở tab này (thứ trôi được giữa hai bản
                 // sao là cú ĐÓNG DẤU số đơn, mà thiếu dấu = khách TRẢ TIỀN HAI LẦN).
-                if let project = supplementProject(for: order) {
+                //
+                // Since 26/09 (owner, "cách 1") it also shows when this device has NO property for
+                // the order (deleted on Home, another iPhone): the tap recreates one BOUND to the
+                // order (`ScanStore.projectForAddScan`) and opens the scanner in it. Still no send
+                // here — the binding only makes that property's scans read "Send extra scan".
+                if addScanRoute(for: order) != nil {
                     Button {
-                        onOpenProject(project)
+                        addScan(order)
                     } label: {
                         ghostLabel(String(localized: "Add a scan"), systemImage: "plus.viewfinder")
                     }
@@ -410,19 +761,149 @@ struct OrderDetailView: View {
         }
     }
 
-    /// Dự án TRÊN MÁY NÀY của đơn — `nil` thì KHÔNG hiện nút "Thêm bản quét".
+    // MARK: Cancel (Orders v2 B)
+
+    /// "Cancel order" ghost (mockup 34/35), only while the order awaits payment: an older-rule
+    /// unpaid order has no Cancel (the server answers `not_cancellable`), a paid one never.
+    @ViewBuilder
+    private func cancelRow(_ order: OrderDTO) -> some View {
+        if showsUnpaidState(order) {
+            Button {
+                confirmCancel = true
+            } label: {
+                if cancelling(order) {
+                    HStack(spacing: 8) {
+                        ProgressView()
+                        Text(String(localized: "Cancelling…"))
+                    }
+                    .font(.footnote.weight(.semibold))
+                    .padding(8)
+                    .frame(maxWidth: .infinity, minHeight: 36)
+                } else {
+                    ghostLabel(String(localized: "Cancel order"), systemImage: "xmark.circle")
+                }
+            }
+            .buttonStyle(FogGhost())
+            // No second tap while one runs (the server would only wait for the first), and not
+            // while this order's card payment is being prepared or settled.
+            .disabled(cancelling(order) || paymentBusy(order))
+            .padding(.top, 12)
+        }
+    }
+
+    private func canCancel(_ order: OrderDTO) -> Bool {
+        showsUnpaidState(order) && !cancelling(order) && !paymentBusy(order)
+    }
+
+    /// `POST orders/{id}/cancel` (up to ~45 s). Its own task, ✗ tied to this screen: Back during
+    /// the wait must not cancel it half way — the stamps must be released when it answers.
+    /// `isExtra`: a purchase added to the order (Orders v2 C) — same route, no scans of its own.
+    private func cancelOrder(_ order: OrderDTO, isExtra: Bool) {
+        guard !cancelling(order) else { return }
+        let orderId = order.orderId
+        let number = order.orderNumber
+        store.beginCancel(orderId: orderId)
+        Task { @MainActor in
+            var failure: String?
+            var cancelled = false
+            var transport = false
+            do {
+                let reply = try await APIClient.shared.cancelOrder(orderId: orderId)
+                // Its scans are "New" again on this device (only those still stamped with it).
+                if !isExtra {
+                    store.releaseCancelledOrder(orderNumber: reply.orderNumber ?? number, scanIds: reply.scanIds ?? [])
+                }
+                cancelled = true
+            } catch {
+                failure = Self.cancelFailure(error)
+                transport = !(error is APIError)
+            }
+            store.endCancel(orderId: orderId, cancelled: cancelled)
+            // Whatever happened: a refusal means "paid" or "try later", a lost answer may hide a
+            // cancel that went through — the list says which (and releases stamps for a cancel it
+            // shows). So it is read BEFORE a lost answer may be called a failure.
+            await reload()
+            // A purchase added to the order that is gone from the list was cancelled (the server lists
+            // cancelled ones only when money reached them).
+            if transport, liveOrder(orderId).map({ !$0.isAwaitingPayment }) ?? isExtra {
+                failure = nil
+            }
+            cancelError = failure
+        }
+    }
+
+    /// The refusal in the customer's words (server codes, PLAN-DON-HANG-V2.md §4a). nil = nothing
+    /// to say: the request was dropped, or the order is gone (the reload pops this screen).
+    private static func cancelFailure(_ error: Error) -> String? {
+        if error is CancellationError || (error as? URLError)?.code == .cancelled { return nil }
+        let api = error as? APIError
+        switch api?.code {
+        case "already_paid":
+            return String(localized: "This order has already been paid.")
+        case "payment_processing":
+            return String(localized: "A payment for this order is still being processed. Please check again in a few minutes.")
+        case "not_cancellable":
+            return String(localized: "This order can't be cancelled in the app. Please contact our team.")
+        default:
+            if api?.statusCode == 404 { return nil }
+            return String(localized: "We couldn't cancel this order right now. Please try again in a few minutes.")
+        }
+    }
+
+    /// Where "Add a scan" goes: the property on this device (`.project`), or a new one bound to the
+    /// order (`.recreate`). `nil` = hidden.
+    private enum AddScanRoute {
+        case project(ScanProject)
+        case recreate
+    }
+
+    /// `supplementProject`, and not while this device cancels the order (or just did): a scan sent
+    /// then would join an order about to be cancelled (Orders v2 B).
+    private func addScanRoute(for order: OrderDTO) -> AddScanRoute? {
+        guard !cancelling(order), !store.cancelledOrderIds.contains(order.orderId) else { return nil }
+        return supplementProject(for: order)
+    }
+
+    /// The tap: re-decided LIVE (a reload may have changed the order), the property found or
+    /// created by the store (idempotent: a double tap finds the first one), then Home opens it.
+    /// A property with no scans on this device opens straight into the scanner — nothing else to
+    /// do there (owner: "opens the scanner directly, like Scan more").
+    private func addScan(_ order: OrderDTO) {
+        guard let route = addScanRoute(for: order) else { return }
+        let project: ScanProject?
+        switch route {
+        case .project(let found):
+            project = found
+        case .recreate:
+            project = store.projectForAddScan(orderNumber: order.orderNumber, name: Self.recreatedName(of: order))
+        }
+        guard let project else { return }
+        onOpenProject(project, store.scans(in: project).isEmpty)
+    }
+
+    /// Name of a recreated property: the Orders row title without the local name (there is none)
+    /// — `OrdersView.title(of:)`.
+    private static func recreatedName(of order: OrderDTO) -> String {
+        OrdersView.nonBlank(order.projectName) ?? OrdersView.nonBlank(order.scanName) ?? order.orderNumber
+    }
+
+    /// Dự án TRÊN MÁY NÀY của đơn (`.project`), none here (`.recreate`) — `nil` thì KHÔNG hiện nút
+    /// "Thêm bản quét".
     ///
     /// Hai ca trả nil, cả hai là hành vi ĐÚNG chứ ✗ lỗi:
     ///  · **Đơn đã hoàn tiền** — `supplement-scan` từ chối bằng `order_closed`, nên hiện nút là
     ///    dẫn khách đi quét 10–30 phút rồi tải 40–200MB lên để nhận một lời từ chối. Chặn ở đây,
     ///    chỗ RẺ NHẤT. (Đơn ĐÃ GIAO thì KHÔNG chặn: server nhận nó từ 19/08 — xem
     ///    `supplement-scan/route.ts`, chủ app chốt "đã đặt hay đã giao đều không tính phí".)
-    ///  · **Máy này không giữ dự án đó** — khách xoá rồi, hoặc đang dùng máy khác. Không có bản
-    ///    quét gốc trên máy thì cũng chẳng có gì để quét bổ sung vào.
+    ///  · ~~**Máy này không giữ dự án đó**~~ — since 26/09 (owner, "cách 1") that case is
+    ///    `.recreate`, ✗ nil: the customer deleted the property or uses another iPhone, and hiding
+    ///    the button left NO way to send a supplement into the order.
     ///  · **Dự án đó nay thuộc về một số đơn KHÁC** — xem khối 🔴 ngay dưới.
-    private func supplementProject(for order: OrderDTO) -> ScanProject? {
-        guard order.status != "refunded" else { return nil }
-        guard let project = store.project(withOrderNumber: order.orderNumber) else { return nil }
+    ///  · **Đơn đã huỷ khi chưa trả (Orders v2 B)** — cùng lý do với đơn hoàn tiền: server từ
+    ///    chối (`order_closed`), và bản quét của nó đã về "New" để đặt đơn mới.
+    private func supplementProject(for order: OrderDTO) -> AddScanRoute? {
+        guard order.status != "refunded", !order.isCancelled else { return nil }
+        guard let project = store.project(withOrderNumber: order.orderNumber) else { return .recreate }
         // 🔴 CHỐT CHỐNG GỬI NHẦM ĐƠN. Nút này chỉ ĐIỀU HƯỚNG; việc gửi ở trang dự án lại hỏi
         // `ScanStore.orderNumber(ofProject:)`, hàm đó lấy số đơn của bản quét MỚI NHẤT. Một dự án
         // ôm HAI số đơn là chuyện tới được trong app hôm nay (kéo một bản quét đã đặt lẻ vào một
@@ -431,7 +912,7 @@ struct OrderDetailView: View {
         // ⇒ Chỉ hiện nút khi hai chiều đồng ý với nhau. Lệch thì ẨN — khách vẫn còn đường vào từ
         // tab Home, và ẩn một nút còn hơn gửi nhầm không ai biết.
         guard store.orderNumber(ofProject: project.id) == order.orderNumber else { return nil }
-        return project
+        return .project(project)
     }
 
     private func ghostLabel(_ title: String, systemImage: String) -> some View {
@@ -463,6 +944,17 @@ struct OrderDetailView: View {
     /// 1px divider inside a card.
     private static var hairline: some View {
         Theme.hairline.frame(height: 1)
+    }
+}
+
+/// Orders v2 B wording shared by the order detail and the placed screen (`OrderSheet`).
+enum PayFirstCopy {
+    /// Mockup 34/35. The 7-day sentence only when the server gave a `payBy`: a test account's
+    /// order never expires (the App Review demo order), and there the sentence would be false.
+    static func notPlaced(expires: Bool) -> String {
+        let first = String(localized: "Not placed yet — we start drawing as soon as it is paid.")
+        guard expires else { return first }
+        return first + " " + String(localized: "Unpaid orders are cancelled after 7 days.")
     }
 }
 

@@ -1,5 +1,6 @@
 import Foundation
 import ARKit
+import AVFoundation
 import UIKit
 
 /// Điều khiển chế độ quét MESH 3D: chạy thẳng ARWorldTrackingConfiguration +
@@ -25,9 +26,13 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
     @Published private(set) var cameraDenied = false
     /// When `startSession()` ran; the scan screen's timer counts from here. nil = not started.
     @Published private(set) var startedAt: Date?
+    /// Scan timer passed `longScanAdvisorySec` — the scan screen shows its tip once.
+    @Published private(set) var longScanAdvisoryDue = false
+    /// 15-min advisory (owner 26/09, chosen INSTEAD of mid-scan autosave/recovery).
+    static let longScanAdvisorySec: TimeInterval = 15 * 60
 
     /// Số ảnh texture TỐI THIỂU để tin rằng MÁY TRẠM bake được → cho phép đường LƯU NHANH
-    /// (mesh xám, bỏ bake màu-đỉnh). Buổi quét thật cho 200–480 ảnh (recorder 3Hz, cổng giãn
+    /// (mesh xám, bỏ bake màu-đỉnh). Buổi quét thật cho 200–800 ảnh (recorder 3Hz, cổng giãn
     /// ≥1,2s) nên 30 nằm rất xa vùng bình thường: nó chỉ bắt các ca GÓI ẢNH COI NHƯ KHÔNG CÓ.
     /// ✗ nâng lên để "chắc ăn hơn": buổi quét ngắn hợp lệ (một phòng, 1–2 phút) vẫn đủ ảnh
     /// cho máy trạm, nâng ngưỡng là bắt khách chờ bake màu vô ích.
@@ -35,6 +40,8 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
 
     let arSession = ARSession()
     let qualityMonitor: ScanQualityMonitor
+    /// Auto flashlight (26/09) — see AutoTorch.
+    let torch: AutoTorch
     let quality: MeshQuality
 
     private var recorder: ScanVideoRecorder?
@@ -47,11 +54,26 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
     private var isStopped = false
     private var capPollTimer: Timer?
     private var relocalizeTimer: Timer?
+    /// scan-report.json collector (item 3, 26/09) — created at start, main thread only.
+    private var report: ScanSessionReport?
+
+    // White balance lock (item 2, 26/09): WHITE BALANCE ONLY, ✗ exposure. Every step is
+    // optional — no device / unsupported / lock failure = the scan runs exactly as before.
+    /// ARKit's configurable primary camera; nil = not supported (or not started).
+    private var wbDevice: AVCaptureDevice?
+    private var wbLockTimer: Timer?
+    /// Delay passed; lock at the next moment tracking is normal.
+    private var wbLockDue = false
+    /// Gains at the moment of the lock — re-applied if ARKit's capture session comes back
+    /// on auto after an interruption.
+    private var wbLockedGains: AVCaptureDevice.WhiteBalanceGains?
 
     init(quality: MeshQuality) {
         self.quality = quality
         qualityMonitor = ScanQualityMonitor(arSession: arSession)
+        torch = AutoTorch(arSession: arSession)
         super.init()
+        qualityMonitor.torch = torch
     }
 
     /// THROWAWAY (fog5-shots): fake a running scan for simulator screenshots.
@@ -91,16 +113,16 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
         arSession.delegate = self
         let config = ARWorldTrackingConfiguration()
         config.sceneReconstruction = .mesh
-        // Bật depth map cho coach "quá gần" (LiDAR kém chính xác dưới ~25-30cm —
-        // dí sát vật thể tạo lỗ trên mesh + khung màu out nét).
+        // Depth map: TooCloseSheet ("TOO CLOSE" where the LiDAR sees < 0.5 m), auto torch,
+        // texture shots. Without it the sheet simply never shows.
         if ARWorldTrackingConfiguration.supportsFrameSemantics(.sceneDepth) {
             config.frameSemantics.insert(.sceneDepth)
-            qualityMonitor.tooCloseCoachEnabled = true
         }
         // Giữ isLightEstimationEnabled mặc định (true) — cảnh báo thiếu sáng cần nó.
         // Perf measurement (observation only — see ScanPerfProfiler). Started BEFORE
         // arSession.run so the fragile first seconds of VIO init are captured.
         ScanPerfProfiler.start(session: arSession)
+        report = ScanSessionReport()
         arSession.run(config)
 
         // wholeHomePreset: hình học full mật độ ARKit, trần 2M chỉ là van an toàn RAM —
@@ -131,7 +153,13 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
         // trạm — đóng kèm vào model-colored.zip ở saveMeshScan, không đổi gì phía server.
         let texShots = TextureShotRecorder(arSession: arSession)
         self.texShots = texShots
+        wbDevice = ARWorldTrackingConfiguration.configurableCaptureDeviceForPrimaryCamera
+        texShots.captureDevice = wbDevice
+        texShots.torch = torch
         texShots.start()
+        scheduleWhiteBalanceLock()
+        // Before qualityMonitor.setActive(true), which forwards to the torch.
+        torch.start(device: wbDevice)
         qualityMonitor.start()
         qualityMonitor.setActive(true)
         // Buổi quét 10–30 phút: không được để auto-lock cắt ngang phiên AR.
@@ -140,7 +168,13 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
         // banner SwiftUI. Dùng isFull (trạng thái hiện tại) chứ không phải capReached
         // (sticky): ARKit dọn anchor có thể giải phóng chỗ → banner phải tự hạ.
         capPollTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
-            guard let self, let mesh = self.colorMesh else { return }
+            guard let self else { return }
+            // Same wall clock as the on-screen timer (ScanTimer counts from startedAt).
+            if !self.longScanAdvisoryDue, let start = self.startedAt,
+               Date().timeIntervalSince(start) >= Self.longScanAdvisorySec {
+                self.longScanAdvisoryDue = true
+            }
+            guard let mesh = self.colorMesh else { return }
             let full = mesh.isFull
             if full != self.capReached {
                 self.capReached = full
@@ -163,11 +197,12 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
     @MainActor
     func stopAndExport(progress: @escaping SaveStageReport) async -> (
         videoURL: URL?, meshURL: URL?, trackURL: URL?, texshotsDir: URL?, previewURL: URL?,
-        hitCap: Bool, geometryOnly: Bool
+        reportURL: URL?, hitCap: Bool, geometryOnly: Bool
     ) {
-        guard !isStopped else { return (nil, nil, nil, nil, nil, false, false) }
+        guard !isStopped else { return (nil, nil, nil, nil, nil, nil, false, false) }
         isStopped = true
         ScanPerfProfiler.noteEvent("stop-and-save")
+        report?.markStopped()
         teardownCommon()
         // teardownCommon vừa bật lại auto-lock, nhưng export còn chạy hàng chục giây tới
         // vài phút (chia tam giác + bake màu): người quét bấm Lưu rồi ĐẶT MÁY XUỐNG, máy
@@ -178,10 +213,22 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
         // Gom CHỐT SỔ frame hiện tại trước khi pause: tick 2–5Hz nên nửa giây mesh cuối
         // (vùng vừa quét ngay trước khi bấm Dừng) có thể chưa vào bộ tích lũy.
         colorMesh?.ingestFinalFrame()
+        // No new texture shot from here on: a shot taken during the awaits below (frozen last
+        // frame, paused session) could never get a final anchor pose.
+        texShots?.stopTicking()
+        // Item 1 (26/09): final poses of the texture-shot anchors, read BEFORE pause (after
+        // pause currentFrame is frozen/may go away). ARKit has applied its map corrections
+        // (loop closure) to these; TextureShotRecorder writes them as `m2`.
+        var finalShotPoses: [UUID: simd_float4x4] = [:]
+        for anchor in arSession.currentFrame?.anchors ?? []
+        where anchor.name == TextureShotRecorder.anchorName {
+            finalShotPoses[anchor.identifier] = anchor.transform
+        }
         arSession.pause()
         // capReached STICKY của builder = "đã từng phải bỏ dữ liệu" → call-site dùng để
         // mời khách quét BẢN BỔ SUNG cho phần còn thiếu (nhà rất lớn chạm trần 2M).
         let hitCap = colorMesh?.capReached ?? false
+        let vertexCount = colorMesh?.vertexCount ?? 0
         // Chặng 1. Hai lời gọi finish() bên dưới KHÔNG có tiến độ nào để lấy (AVAssetWriter
         // đóng file, recorder ảnh nén nốt ≤3 tấm) → chặng CÂM, màn hình hiện vòng xoay nhỏ.
         progress(.finishingCapture, 0)
@@ -191,7 +238,7 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
         // Chốt sổ ảnh texture TRƯỚC exportColoredPLY: phần chờ chỉ là nén nốt ≤3 ảnh
         // (~chục ms), xong là nó im — không giành CPU/RAM với đoạn bake màu nặng phía sau.
         // Thứ tự này CÒN là điều kiện của LƯU NHANH: số ảnh phải chốt xong mới quyết được.
-        let texshots = await texShots?.finish()
+        let texshots = await texShots?.finish(finalAnchorPoses: finalShotPoses)
         texShots = nil
         // LƯU NHANH: đủ ảnh texture → MÁY TRẠM sẽ là nơi làm ra màu (texture chiếu-1-khung),
         // nên bake màu-đỉnh ngay đây là làm hai lần một việc, mà lần này tốn hàng phút của
@@ -200,6 +247,13 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
         // không có (recorder hỏng, shots.json ném lỗi nên finish() trả nil, buổi quét vài
         // giây) → máy trạm sẽ KHÔNG bake được, phải giữ màu-đỉnh cho đội vẽ có cái mà xem.
         let fastSave = (texshots?.shotCount ?? 0) >= Self.fastSaveMinShots
+        // Item 3 (26/09): scan-report.json (a few KB, temp file; ScanStore packs it into the
+        // zip). nil on any failure — never blocks the save.
+        let reportURL = report?.write(
+            hitCap: hitCap, vertexCount: vertexCount, fastSave: fastSave, shots: texshots?.stats,
+            torch: torch.stats
+        )
+        report = nil
         let meshURL = await colorMesh?.exportColoredPLY(geometryOnly: fastSave, progress: progress)
         // Lưới XÁM nhẹ cho trình xem 3D trong app (mesh-preview.bin) — chủ app duyệt 10/08.
         // 🔴 Dựng SAU exportColoredPLY, không phải trước: `queue` của builder là SERIAL nên
@@ -218,13 +272,14 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
             previewURL = await colorMesh?.exportPreviewMesh()
         }
         colorMesh = nil
-        return (videoURL, meshURL, trackURL, texshots?.dir, previewURL, hitCap, fastSave)
+        return (videoURL, meshURL, trackURL, texshots?.dir, previewURL, reportURL, hitCap, fastSave)
     }
 
     func cancel() {
         guard !isStopped else { return }
         isStopped = true
         ScanPerfProfiler.noteEvent("cancel")
+        report = nil
         teardownCommon()
         recorder?.cancel()
         recorder = nil
@@ -246,7 +301,115 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
         capPollTimer = nil
         relocalizeTimer?.invalidate()
         relocalizeTimer = nil
+        // Both exits run this BEFORE arSession.pause(): the camera device outlives the session,
+        // so a lock left behind would carry into the next scan's first seconds.
+        releaseWhiteBalance()
+        // Same reason: a lit torch must not outlive the scan.
+        torch.stop()
         UIApplication.shared.isIdleTimerDisabled = false
+    }
+
+    // MARK: - White balance lock (item 2, 26/09)
+
+    private func scheduleWhiteBalanceLock() {
+        // The device outlives the session: if an earlier scan's release failed, it is still
+        // locked at that room's gains — back to auto first (also when the lock is switched off).
+        if let device = wbDevice, device.whiteBalanceMode == .locked,
+           device.isWhiteBalanceModeSupported(.continuousAutoWhiteBalance),
+           (try? device.lockForConfiguration()) != nil {
+            device.whiteBalanceMode = .continuousAutoWhiteBalance
+            device.unlockForConfiguration()
+        }
+        let cfg = ScanQualityConfig.current
+        guard cfg.lockWhiteBalance else {
+            report?.whiteBalanceStatus = "disabledByConfig"
+            return
+        }
+        guard wbDevice != nil else {
+            report?.whiteBalanceStatus = "noDevice"
+            return
+        }
+        report?.whiteBalanceStatus = "pending"
+        wbLockTimer = Timer.scheduledTimer(
+            withTimeInterval: cfg.whiteBalanceLockDelaySec, repeats: false
+        ) { [weak self] _ in
+            guard let self else { return }
+            self.wbLockTimer = nil
+            self.wbLockDue = true
+            var normal = false
+            if case .some(.normal) = self.arSession.currentFrame?.camera.trackingState {
+                normal = true
+            }
+            self.lockWhiteBalanceIfReady(trackingNormal: normal)
+        }
+    }
+
+    /// Locks at the gains auto-WB has converged to. Called by the timer and on every change to
+    /// normal tracking; acts once. Lock failure = scan continues on auto WB.
+    private func lockWhiteBalanceIfReady(trackingNormal: Bool) {
+        guard wbLockDue, trackingNormal, !isStopped, !isInterrupted, let device = wbDevice else {
+            return
+        }
+        wbLockDue = false
+        guard device.isWhiteBalanceModeSupported(.locked) else {
+            report?.whiteBalanceStatus = "unsupported"
+            return
+        }
+        do {
+            try device.lockForConfiguration()
+            device.whiteBalanceMode = .locked
+            let g = device.deviceWhiteBalanceGains
+            device.unlockForConfiguration()
+            wbLockedGains = g
+            report?.whiteBalanceStatus = "locked"
+            report?.whiteBalanceLockedAt = report?.now
+            report?.whiteBalanceGains = [g.redGain, g.greenGain, g.blueGain]
+        } catch {
+            report?.whiteBalanceStatus = "lockFailed:\((error as NSError).code)"
+        }
+    }
+
+    /// After an interruption ARKit may restart its capture session on auto WB — put the SAME
+    /// gains back (a fresh lock would freeze a different colour). Clamped to the device range:
+    /// out-of-range gains raise an ObjC exception (a crash, not a throw).
+    private func reassertWhiteBalanceLock() {
+        // Custom gains are only allowed when the device says so — otherwise the call raises.
+        guard let gains = wbLockedGains, let device = wbDevice,
+              device.whiteBalanceMode != .locked,
+              device.isLockingWhiteBalanceWithCustomDeviceGainsSupported else { return }
+        let maxGain = device.maxWhiteBalanceGain
+        guard maxGain.isFinite, maxGain >= 1,
+              gains.redGain.isFinite, gains.greenGain.isFinite, gains.blueGain.isFinite else { return }
+        func clamp(_ g: Float) -> Float { min(max(g, 1), maxGain) }
+        let safe = AVCaptureDevice.WhiteBalanceGains(
+            redGain: clamp(gains.redGain), greenGain: clamp(gains.greenGain),
+            blueGain: clamp(gains.blueGain)
+        )
+        do {
+            try device.lockForConfiguration()
+            device.setWhiteBalanceModeLocked(with: safe, completionHandler: nil)
+            device.unlockForConfiguration()
+            report?.whiteBalanceRelocks += 1
+        } catch {
+            // Stay on auto; per-shot `wb` gains show it.
+        }
+    }
+
+    /// Back to auto WB (only if we locked it).
+    private func releaseWhiteBalance() {
+        wbLockTimer?.invalidate()
+        wbLockTimer = nil
+        wbLockDue = false
+        guard wbLockedGains != nil, let device = wbDevice else { return }
+        wbLockedGains = nil
+        guard device.isWhiteBalanceModeSupported(.continuousAutoWhiteBalance) else { return }
+        do {
+            try device.lockForConfiguration()
+            device.whiteBalanceMode = .continuousAutoWhiteBalance
+            device.unlockForConfiguration()
+        } catch {
+            // Nothing to do — the next session's own lock (or auto) takes over.
+        }
     }
 
     // MARK: - ARSessionObserver (delegate queue mặc định = main)
@@ -257,6 +420,7 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
     func sessionWasInterrupted(_ session: ARSession) {
         ScanPerfProfiler.noteEvent("session-interrupted")
         guard !isStopped else { return }
+        report?.noteInterrupted()
         isInterrupted = true
         // Rung báo "đang KHÔNG ghi" — từ giờ lưới quét thêm sẽ hiện ĐỎ trên overlay.
         UINotificationFeedbackGenerator().notificationOccurred(.warning)
@@ -271,17 +435,25 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
     func sessionInterruptionEnded(_ session: ARSession) {
         ScanPerfProfiler.noteEvent("session-interruption-ended")
         guard !isStopped else { return }
+        report?.noteInterruptionEnded()
         isInterrupted = false
         // Chờ relocalize tối đa 10s; không về normal được → khuyên lưu phần đã quét.
         relocalizeTimer?.invalidate()
         relocalizeTimer = Timer.scheduledTimer(withTimeInterval: 10, repeats: false) { [weak self] _ in
             guard let self, !self.isStopped else { return }
+            var normal = false
             if case .some(.normal) = self.arSession.currentFrame?.camera.trackingState {
+                normal = true
+            }
+            self.report?.noteRelocalizeCheck(normal: normal)
+            if normal {
                 // Đã hồi phục — thường cameraDidChangeTrackingState đã lo, nhưng gọi lại
                 // cho chắc (cả hai idempotent) để không bao giờ kẹt ở trạng thái
                 // "lưới vẫn vẽ mà không ghi gì".
                 self.colorMesh?.start()
                 self.qualityMonitor.setActive(true)
+                self.lockWhiteBalanceIfReady(trackingNormal: true)
+                self.reassertWhiteBalanceLock()
             } else {
                 self.trackingLost = true
                 UINotificationFeedbackGenerator().notificationOccurred(.error)
@@ -293,6 +465,7 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
         // Before the guards: transitions DURING an interruption are exactly the
         // drift-window data the measurement campaign is after.
         ScanPerfProfiler.noteTracking(camera.trackingState)
+        report?.noteTracking(camera.trackingState)
         guard !isStopped, !isInterrupted else { return }
         if case .normal = camera.trackingState {
             relocalizeTimer?.invalidate()
@@ -300,6 +473,8 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
             trackingLost = false
             colorMesh?.start() // idempotent — chỉ tạo lại CADisplayLink nếu đã stop
             qualityMonitor.setActive(true)
+            lockWhiteBalanceIfReady(trackingNormal: true)
+            reassertWhiteBalanceLock()
         }
     }
 
@@ -311,6 +486,7 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
     func session(_ session: ARSession, didFailWithError error: Error) {
         ScanPerfProfiler.noteEvent("session-error code=\((error as? ARError)?.code.rawValue ?? -1)")
         guard !isStopped else { return }
+        report?.noteError(error)
         // Quyền camera bị từ chối là một trạng thái RIÊNG, không phải "mất định vị": nó không tự
         // hồi phục và cách xử lý (mở Cài đặt) khác hẳn. Tách ra để UI hiện đúng thông điệp.
         if (error as? ARError)?.code == .cameraUnauthorized {

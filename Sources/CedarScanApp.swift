@@ -2,6 +2,7 @@ import SwiftUI
 
 @main
 struct CedarScanApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var store = ScanStore()
     @StateObject private var account = AccountStore()
 
@@ -53,6 +54,8 @@ enum RootTab: Hashable { case home, orders, scan, learn, account }
 struct OpenProjectRequest: Equatable {
     let seq: Int
     let projectId: UUID
+    /// Open the scanner in it too (`ProjectScanIntent`): the property has no scans on this device.
+    let startScan: Bool
 }
 
 struct RootView: View {
@@ -67,6 +70,8 @@ struct RootView: View {
     /// Yêu cầu mở một dự án, bắn từ tab Đơn hàng. Xem `OpenProjectRequest` + `requestOpenProject`.
     @State private var openProjectRequest: OpenProjectRequest?
     @State private var openProjectSeq = 0
+    /// A tapped push notification (`tapped`) → Orders tab (`openOrder`, `OrdersView` pushes it).
+    @ObservedObject private var push = PushNotifications.shared
 
     var body: some View {
         TabView(selection: $tab) {
@@ -141,7 +146,10 @@ struct RootView: View {
         .onAppear { PaymentFlow.visibleTab = tab }
         .onChange(of: tab) { _, newTab in PaymentFlow.visibleTab = newTab }
         .task(id: account.isSignedIn) {
+            // Launch, sign-in, sign-out: push token to the server / pending unregister.
+            push.refresh()
             await confirmPendingPayments()
+            await syncUnpaidOrders()
             await purgeDeliveredScans()
         }
         // `.task(id:)` KHÔNG đủ: TabView gốc không bao giờ disappear/reappear trong vòng đời
@@ -150,11 +158,45 @@ struct RootView: View {
         // trong nền cả tuần thì không bao giờ được dọn. Thêm mốc quay lại foreground.
         .onChange(of: scenePhase) { _, phase in
             guard phase == .active else { return }
+            // Notifications allowed in Settings meanwhile, a register that failed offline…
+            push.refresh()
             Task {
                 await confirmPendingPayments()
+                await syncUnpaidOrders()
                 await purgeDeliveredScans()
             }
         }
+        // Publisher, ✗ `.onChange`: a tap that LAUNCHED the app is set before this view exists,
+        // and `$tapped` hands its current value to a new subscriber (trap #6).
+        .onReceive(push.$tapped) { request in
+            guard let request else { return }
+            openTappedOrder(request)
+        }
+    }
+
+    /// A notification was tapped: its order in the Orders tab. One tick later (at cold start this
+    /// arrives while the first frame is built), and only over a plain screen — ✗ under the scan
+    /// cover (a scan in progress), a sheet, the card sheet or an alert: then nothing moves (the
+    /// order is in the Orders tab anyway). An ordinary tab switch, like `requestOpenProject`.
+    private func openTappedOrder(_ request: PushNotifications.OrderRequest) {
+        Task { @MainActor in
+            guard push.tapped == request else { return }
+            push.tapped = nil
+            guard !PushNotifications.somethingOnTop else { return }
+            push.openOrder = request
+            if tab != .orders { tab = .orders }
+        }
+    }
+
+    /// Orders v2 B: an unpaid order can be cancelled from elsewhere or expire after 7 days while
+    /// the Orders tab is never opened — its scans would stay "Awaiting payment", reserved by a dead
+    /// order (Send extra scan → refused). Asked only while a scan HERE is stamped with an order
+    /// known to be unpaid, so no request at all for everybody else. Positive signals only
+    /// (`ScanStore.syncOrders`); a failure changes nothing.
+    private func syncUnpaidOrders() async {
+        guard account.isSignedIn, store.hasAwaitingStamps else { return }
+        guard let response = try? await APIClient.shared.listOrders() else { return }
+        store.syncOrders(response.orders)
     }
 
     /// A card payment completed in the app but not yet confirmed by the server (network dropped
@@ -197,9 +239,9 @@ struct RootView: View {
     /// ✗ ai đọc lời cấm của đĩa SCAN rồi gỡ hàm này đi.
     ///
     /// Cú ĐẨY màn thì `HomeView` hoãn một nhịp rồi mới làm — lý do ở chỗ nó bắt `onChange`.
-    private func requestOpenProject(_ project: ScanProject) {
+    private func requestOpenProject(_ project: ScanProject, startScan: Bool) {
         openProjectSeq += 1
-        openProjectRequest = OpenProjectRequest(seq: openProjectSeq, projectId: project.id)
+        openProjectRequest = OpenProjectRequest(seq: openProjectSeq, projectId: project.id, startScan: startScan)
         tab = .home
     }
 

@@ -1,5 +1,6 @@
 import Foundation
 import ARKit
+import AVFoundation
 import CoreImage
 import CoreVideo
 import ImageIO
@@ -120,7 +121,7 @@ final class TextureCoverageGrid {
 ///    + chép depth thô 256×192 NGAY TRÊN MAIN vào buffer RIÊNG (không giữ CVPixelBuffer
 ///    của ARKit qua async — pool của ARKit rất nhỏ, giữ lâu là tracking sụt), nén JPEG
 ///    + DEFLATE depth + ghi đĩa ở queue nền.
-///  - Kho đầy (480 ảnh ≈ 90–100MB + depth ~15–25MB): BỎ 1 ẢNH XEN KẼ TRÊN ĐĨA (kèm file
+///  - Kho đầy (800 ảnh, ~160KB/ảnh jpg+depth ≈ 128MB): BỎ 1 ẢNH XEN KẼ TRÊN ĐĨA (kèm file
 ///    depth của nó) rồi nhân đôi giãn cách — đúng cơ chế trải-đều của kho khung màu,
 ///    nhưng trả giá bằng đĩa (rẻ) thay vì RAM.
 ///  - Ảnh giữ NGUYÊN HƯỚNG CẢM BIẾN (landscape) — không xoay pixel, không gắn EXIF:
@@ -134,8 +135,9 @@ final class TextureShotRecorder {
     /// Intrinsics tự scale theo (xem `s` dưới) nên máy trạm KHÔNG phải sửa gì.
     private static let targetWidth = 1440
     /// Chất lượng JPEG — hạ 0.62 → 0.55 làm đối trọng cho 2.25× pixel của mức 1440:
-    /// kho 480 ảnh ~50MB (960/q0.62) → ~90–100MB thay vì ~110MB, nằm trong mức
-    /// "+50–60MB zip" chủ app duyệt. Độ nét ăn theo RESOLUTION, không theo nấc q này.
+    /// (đời trần 480, 30/07) kho 480 ảnh ~50MB (960/q0.62) → ~90–100MB thay vì ~110MB,
+    /// nằm trong mức "+50–60MB zip" chủ app duyệt lúc đó (nay trần 800, xem maxShots).
+    /// Độ nét ăn theo RESOLUTION, không theo nấc q này.
     private static let jpegQuality: Double = 0.55
     /// Giãn cách TỐI THIỂU giữa hai ảnh (giây) — nhân đôi mỗi lần kho đầy.
     private static let startInterval: TimeInterval = 1.2
@@ -144,16 +146,34 @@ final class TextureShotRecorder {
     private static let minTravel: Float = 0.4
     private static let minTurnDeg: Float = 25
     /// Đang lia nhanh hơn mức này (độ/giây) thì khung gần như chắc chắn nhoè → nhịn, chờ
-    /// tick sau. 30°/s chỉ chặn cú vụt mạnh; nhoè nhẹ là "noise chấp nhận được" của lối
+    /// tick sau. Ngưỡng này chỉ chặn cú vụt mạnh; nhoè nhẹ là "noise chấp nhận được" của lối
     /// texture này (chính chủ app mô tả CubiCasa y hệt).
-    private static let maxTurnRateDegPerSec: Float = 30
+    /// 30 → 40 (26/09, owner "mục 5 cách 3"): at 30–60°/s there was no coach warning AND no
+    /// photo. The baker weights sharpness (compute_shot_sharpness), so a blurrier shot is used
+    /// only when nothing sharper exists. Was paired with ScanQualityConfig.maxRotationSoft 45;
+    /// since 2.57 the coach warns at 68 (owner: too naggy).
+    /// 40 → 50 (2.58, owner 26/09): ~25% more motion blur / rolling-shutter skew on shots taken
+    /// while turning fast, accepted; the baker's sharpness weighting + photo-consistency filter
+    /// prefer sharper shots, mesh/measurements unaffected. 50–68°/s = no photo, no warning (owner
+    /// knows). Move this gate or the coach only with the owner.
+    private static let maxTurnRateDegPerSec: Float = 50
     /// Trần số ảnh trên đĩa. Chạm là bỏ xen kẽ còn một nửa + nhân đôi giãn cách —
-    /// buổi quét dài bao nhiêu cũng hội tụ dưới ~480 ảnh ≈ 90–100MB (mức 1440/q0.55)
-    /// + depth thô ~15–25MB. ⚠ Trần này GẮN với nhịp giãn-đôi — muốn giảm dung lượng
-    /// thì hạ jpegQuality, ✗ hạ trần (buổi dài sẽ dồn hết ảnh vào phút đầu).
-    private static let maxShots = 480
+    /// buổi quét dài bao nhiêu cũng hội tụ dưới trần này. ⚠ Trần này GẮN với nhịp
+    /// giãn-đôi — muốn giảm dung lượng thì hạ jpegQuality, ✗ hạ trần (buổi dài sẽ dồn
+    /// hết ảnh vào phút đầu). 🔴 Trần ĐẾM này MỘT MÌNH chặn cỡ zip — ✗ bỏ.
+    /// 480 → 800 (26/09, owner): 480 was hit at ~10 min, so big houses thinned to 240 and
+    /// ~8% of faces got no photo (#LS-MSLINTGA7, 949 m², 268 shots). Measured ~160KB/shot
+    /// (jpg ~107KB + depth ~52KB) → full store ~128MB; worst gap vs 480 ≈ 400 shots
+    /// ≈ +64MB zip (800 full vs 400 just-thinned), only for scans past ~10 min.
+    /// Server objzip cap 500MB (order-webapp app-storage.ts). Paired with
+    /// tex-worker-config.json "maxShots" (bake set-cover cap) on the workstation.
+    private static let maxShots = 800
     /// Còn quá nhiều ảnh chờ nén thì bỏ lượt này (I/O nghẽn) — không xếp hàng vô hạn.
     private static let maxPendingEncodes = 3
+    /// Name of the per-shot ARAnchor (item 1, 26/09) — MeshScanController picks the final
+    /// poses by it. Other anchor readers (ColorMeshBuilder, MeshOverlayRenderer) take
+    /// `ARMeshAnchor` only; ARSCNView gives each anchor an empty node (no delegate).
+    static let anchorName = "cedar.texshot"
 
     /// Thư mục chứa ảnh + shots.json. Bọc trong thư mục cha `texshots-<uuid>` để
     /// lastPathComponent luôn là "texture-shots" sạch sẽ khi được copy vào zip.
@@ -197,6 +217,23 @@ final class TextureShotRecorder {
         var depth: String?
         var dw: Int?
         var dh: Int?
+        // ── 26/09 additions (owner-approved). PHASE RULE: record only — the workstation does
+        // NOT read these yet, and `m` stays the capture-time pose exactly as before. All
+        // optional (nil = key omitted) and finite-checked before they get here (NaN rule).
+        /// Final pose of this shot's ARAnchor, read at Stop BEFORE arSession.pause(); same
+        /// convention as `m`. ARKit corrects its map (loop closure) and moves anchors with it,
+        /// `m` stays frozen. nil = anchor missing in the final frame / non-finite.
+        var m2: [Float]?
+        /// From ARFrame.exifData: exposure time (s), ISO, EXIF BrightnessValue (APEX).
+        var exp: Double?
+        var iso: Float?
+        var bv: Float?
+        /// AVCaptureDevice.deviceWhiteBalanceGains at capture [r, g, b].
+        var wb: [Float]?
+        /// Auto torch (26/09): torch level at capture, 0 = off; nil = no torch device.
+        /// Torch-lit = harsh hotspot, 1/d² falloff, cold LED under a locked white balance —
+        /// the workstation may later prefer shots with 0. Finite 0…1 (AutoTorch.levelForShot).
+        var torch: Float?
     }
     private struct ShotsFile: Encodable {
         let version: Int
@@ -206,6 +243,11 @@ final class TextureShotRecorder {
 
     // Trạng thái CHỈ đụng trên ioQueue
     private var metas: [ShotMeta] = []
+    /// shot file → its ARAnchor (item 1, 26/09). The anchor leaves the session when
+    /// thinOnDisk drops the shot or the JPEG write fails (no shot = no anchor).
+    private var shotAnchors: [String: ARAnchor] = [:]
+    private var thinningEvents = 0
+    private var writeFailures = 0
     // Trạng thái CHỈ đụng trên main (tick + finish/cancel đều main)
     private var minInterval = TextureShotRecorder.startInterval
     private var approxShotCount = 0
@@ -218,6 +260,12 @@ final class TextureShotRecorder {
     private var prevTickTime: TimeInterval = 0
     private var prevTickQuat: simd_quatf?
     private var isFinishing = false
+
+    /// ARKit's configurable primary camera (set by MeshScanController) — only READ here, for
+    /// the per-shot white-balance gains. nil = no gains recorded.
+    weak var captureDevice: AVCaptureDevice?
+    /// Auto torch — per-shot `torch` level + skip frames right after a switch. nil = none.
+    weak var torch: AutoTorch?
 
     init(arSession: ARSession) {
         self.arSession = arSession
@@ -254,7 +302,7 @@ final class TextureShotRecorder {
         guard quat.vector.x.isFinite else { return }
         // Intrinsics NaN = phép chiếu vô nghĩa → bỏ shot. Mọi Float vào shots.json PHẢI
         // hữu hạn: JSONEncoder mặc định THROW với NaN/Inf, mà finish() xử lý throw bằng
-        // cách vứt CẢ GÓI — một khung hỏng không được phép giết 480 khung tốt.
+        // cách vứt CẢ GÓI — một khung hỏng không được phép giết hàng trăm khung tốt.
         // (Cùng triết lý guard NaN của ScanVideoRecorder.appendTrackSample.)
         let k = frame.camera.intrinsics
         guard k.columns.0.x.isFinite, k.columns.1.y.isFinite,
@@ -271,6 +319,8 @@ final class TextureShotRecorder {
         prevTickQuat = quat
         prevTickTime = frame.timestamp
         guard turnRate <= Self.maxTurnRateDegPerSec else { return }
+        // Torch just switched: exposure is still moving (over/under-exposed frame).
+        if let torch, torch.isSettling(at: frame.timestamp) { return }
 
         guard frame.timestamp - lastShotTime >= minInterval else { return }
 
@@ -347,6 +397,12 @@ final class TextureShotRecorder {
         // ev chỉ là dữ liệu PHỤ (san phơi sáng) — non-finite thì thay 0 (giá trị ARKit
         // trả khi tắt light estimation) chứ không bỏ shot; xem chú thích NaN ở guard trên.
         let evRaw = frame.camera.exposureOffset
+        let expo = Self.exposure(from: frame)
+        var wbGains: [Float]?
+        if let g = captureDevice?.deviceWhiteBalanceGains,
+           g.redGain.isFinite, g.greenGain.isFinite, g.blueGain.isFinite {
+            wbGains = [g.redGain, g.greenGain, g.blueGain]
+        }
         shotIndex += 1
         let meta = ShotMeta(
             file: String(format: "shot-%04d.jpg", shotIndex),
@@ -358,8 +414,15 @@ final class TextureShotRecorder {
             ev: evRaw.isFinite ? evRaw : 0,
             depth: depthRaw != nil ? String(format: "shot-%04d.depth", shotIndex) : nil,
             dw: depthRaw != nil ? depthW : nil,
-            dh: depthRaw != nil ? depthH : nil
+            dh: depthRaw != nil ? depthH : nil,
+            exp: expo.exp, iso: expo.iso, bv: expo.bv,
+            wb: wbGains,
+            torch: torch?.levelForShot
         )
+        // Item 1 (26/09): an anchor at the camera pose — ARKit moves it when it corrects the
+        // map; `finish(finalAnchorPoses:)` writes its final pose as `m2`. Main thread (tick).
+        let anchor = ARAnchor(name: Self.anchorName, transform: tf)
+        arSession?.add(anchor: anchor)
         lastShotTime = frame.timestamp
         lastShotPosition = pos
         lastShotQuat = quat
@@ -412,6 +475,7 @@ final class TextureShotRecorder {
                     m.dh = nil
                 }
                 self?.metas.append(m)
+                self?.shotAnchors[m.file] = anchor
                 // Item 2: ảnh đã chắc chắn theo zip → đánh dấu vùng nó thấy vào lưới
                 // coverage (lưới quét đổi TRẮNG theo đây). Dùng depthRaw trong RAM —
                 // KHÔNG phụ thuộc file .depth ghi được hay không (ảnh mới là thứ bake
@@ -424,11 +488,15 @@ final class TextureShotRecorder {
                     )
                 }
             }
+            if !written { self?.writeFailures += 1 }
             DispatchQueue.main.async {
                 guard let self else { return }
                 self.pendingEncodes -= 1
-                // Ghi hỏng (đĩa đầy…) thì trả lại suất đếm — không thì trần 480 mòn ảo.
-                if !written { self.approxShotCount -= 1 }
+                // Ghi hỏng (đĩa đầy…) thì trả lại suất đếm — không thì trần maxShots mòn ảo.
+                if !written {
+                    self.approxShotCount -= 1
+                    self.arSession?.remove(anchor: anchor)
+                }
             }
         }
 
@@ -446,12 +514,17 @@ final class TextureShotRecorder {
 
     /// Bỏ 1 ảnh xen kẽ (giữ 0,2,4…) — chạy trên ioQueue.
     private func thinOnDisk() {
+        thinningEvents += 1
         var kept: [ShotMeta] = []
         kept.reserveCapacity((metas.count + 1) / 2)
+        var dropped: [ARAnchor] = []
         for (i, meta) in metas.enumerated() {
             if i % 2 == 0 {
                 kept.append(meta)
             } else {
+                if let anchor = shotAnchors.removeValue(forKey: meta.file) {
+                    dropped.append(anchor)
+                }
                 try? FileManager.default.removeItem(
                     at: shotsDirURL.appendingPathComponent(meta.file)
                 )
@@ -465,6 +538,13 @@ final class TextureShotRecorder {
             }
         }
         metas = kept
+        // ARSession calls stay on main, like every other session call in the app.
+        if !dropped.isEmpty {
+            DispatchQueue.main.async { [weak self] in
+                guard let session = self?.arSession else { return }
+                for anchor in dropped { session.remove(anchor: anchor) }
+            }
+        }
     }
 
     /// Chốt sổ: chờ nén xong hết, ghi shots.json, trả về thư mục texture-shots + SỐ ẢNH
@@ -477,21 +557,33 @@ final class TextureShotRecorder {
     /// ioQueue — nơi duy nhất được đụng `metas`. ✗ đọc `metas` từ main (phá bất biến
     /// không-lock của class này) và ✗ dùng `approxShotCount`: nó là số ƯỚC LƯỢNG, bị chia
     /// đôi khi kho đầy và trừ đi khi ghi ảnh lỗi.
+    ///
+    /// `finalAnchorPoses`: identifier → transform of every non-mesh anchor in the LAST frame,
+    /// read by MeshScanController BEFORE arSession.pause() (item 1, 26/09) → per-shot `m2`.
+    /// `stats` = figures for scan-report.json, returned on every path (also with no shots).
     @MainActor
-    func finish() async -> (dir: URL, shotCount: Int)? {
-        guard !isFinishing else { return nil }
+    func finish(finalAnchorPoses: [UUID: simd_float4x4]) async -> (
+        dir: URL?, shotCount: Int, stats: ScanSessionReport.ShotStats
+    ) {
+        guard !isFinishing else { return (nil, 0, ScanSessionReport.ShotStats()) }
         isFinishing = true
         displayLink?.invalidate()
         displayLink = nil
         let dirURL = shotsDirURL
+        let taken = shotIndex
         return await withCheckedContinuation {
-            (continuation: CheckedContinuation<(dir: URL, shotCount: Int)?, Never>) in
+            (continuation: CheckedContinuation<(dir: URL?, shotCount: Int, stats: ScanSessionReport.ShotStats), Never>) in
             ioQueue.async { [weak self] in
                 guard let self, !self.metas.isEmpty else {
                     try? FileManager.default.removeItem(at: dirURL.deletingLastPathComponent())
-                    continuation.resume(returning: nil)
+                    var stats = ScanSessionReport.ShotStats()
+                    stats.taken = taken
+                    stats.thinningEvents = self?.thinningEvents ?? 0
+                    stats.writeFailures = self?.writeFailures ?? 0
+                    continuation.resume(returning: (nil, 0, stats))
                     return
                 }
+                var stats = self.applyFinalPoses(finalAnchorPoses, taken: taken)
                 let file = ShotsFile(
                     version: 1,
                     note: "ARKit: m = camera-to-world, column-major; camera looks -Z, +X right, "
@@ -506,21 +598,36 @@ final class TextureShotRecorder {
                         + "little-endian, row-major, meters, same sensor orientation as "
                         + "the JPEG; scale intrinsics by dw/w, dh/h. Raw ARKit sceneDepth "
                         + "(values may be non-finite) — reserved for future fusion, "
-                        + "no consumer yet.",
+                        + "no consumer yet. "
+                        + "Optional, recorded only (no consumer yet): m2 = final ARKit anchor "
+                        + "pose of the shot read at scan stop (map corrections such as loop "
+                        + "closure applied; same convention as m; m = pose at capture); "
+                        + "exp = exposure time (s), iso = ISO, bv = EXIF BrightnessValue, "
+                        + "from ARFrame.exifData; wb = white-balance gains [r,g,b] at capture; "
+                        + "torch = flashlight level at capture (0 = off, key absent = no torch "
+                        + "device) — torch-lit shots have a hotspot/falloff and a cold tint.",
                     shots: self.metas
                 )
                 do {
                     let data = try JSONEncoder().encode(file)
                     try data.write(to: dirURL.appendingPathComponent("shots.json"))
-                    continuation.resume(returning: (dir: dirURL, shotCount: self.metas.count))
+                    stats.packageWritten = true
+                    continuation.resume(returning: (dir: dirURL, shotCount: self.metas.count, stats: stats))
                 } catch {
                     // Thiếu shots.json thì ảnh vô dụng với máy trạm — dọn cả gói, đừng
                     // độn 50MB rác vào zip.
                     try? FileManager.default.removeItem(at: dirURL.deletingLastPathComponent())
-                    continuation.resume(returning: nil)
+                    continuation.resume(returning: (dir: nil, shotCount: 0, stats: stats))
                 }
             }
         }
+    }
+
+    /// Stop taking shots (Stop & Save, before the final anchor poses are read). Pending
+    /// encodes still land; `finish` writes the package as usual. Main thread.
+    func stopTicking() {
+        displayLink?.invalidate()
+        displayLink = nil
     }
 
     /// Hủy (khách bấm Hủy buổi quét) — xoá sạch thư mục tạm.
@@ -532,6 +639,90 @@ final class TextureShotRecorder {
         ioQueue.async {
             try? FileManager.default.removeItem(at: parent)
         }
+    }
+
+    /// ioQueue. Fills `m2` from the final anchor poses and builds the report figures.
+    /// m2 only when all 16 numbers are finite (NaN rule: one bad number kills the package).
+    private func applyFinalPoses(
+        _ final: [UUID: simd_float4x4], taken: Int
+    ) -> ScanSessionReport.ShotStats {
+        var stats = ScanSessionReport.ShotStats()
+        stats.taken = taken
+        stats.kept = metas.count
+        stats.thinningEvents = thinningEvents
+        stats.writeFailures = writeFailures
+        var moves: [Double] = []
+        var turns: [Double] = []
+        for i in metas.indices {
+            let meta = metas[i]
+            if meta.depth != nil { stats.withDepth += 1 }
+            if meta.exp != nil || meta.iso != nil { stats.withExposure += 1 }
+            if meta.wb != nil { stats.withWhiteBalance += 1 }
+            if let l = meta.torch, l > 0 { stats.withTorch += 1 }
+            guard let anchor = shotAnchors[meta.file],
+                  let f = final[anchor.identifier] else { continue }
+            let m2 = Self.columnMajor(f)
+            guard m2.allSatisfy({ $0.isFinite }) else { continue }
+            metas[i].m2 = m2
+            stats.withFinalPose += 1
+            // Delta vs the capture pose (the anchor was created AT `m`).
+            let a = anchor.transform
+            let move = simd_distance(SIMD3(a.columns.3.x, a.columns.3.y, a.columns.3.z),
+                                     SIMD3(f.columns.3.x, f.columns.3.y, f.columns.3.z))
+            let turn = Self.angleDeg(simd_normalize(simd_quatf(a)), simd_normalize(simd_quatf(f)))
+            if move.isFinite { moves.append(Double(move) * 100) }
+            if turn.isFinite { turns.append(Double(turn)) }
+        }
+        if !moves.isEmpty || !turns.isEmpty {
+            moves.sort()
+            turns.sort()
+            stats.poseDelta = ScanSessionReport.PoseDelta(
+                n: max(moves.count, turns.count),
+                moveCmMedian: Self.quantile(moves, 0.5),
+                moveCmP95: Self.quantile(moves, 0.95),
+                moveCmMax: moves.last.flatMap { ScanSessionReport.fin($0) },
+                turnDegMedian: Self.quantile(turns, 0.5),
+                turnDegP95: Self.quantile(turns, 0.95),
+                turnDegMax: turns.last.flatMap { ScanSessionReport.fin($0) }
+            )
+        }
+        return stats
+    }
+
+    /// Nearest-rank quantile of a SORTED array; nil when empty.
+    private static func quantile(_ sorted: [Double], _ q: Double) -> Double? {
+        guard !sorted.isEmpty else { return nil }
+        let rank = Int((q * Double(sorted.count)).rounded(.up)) - 1
+        return ScanSessionReport.fin(sorted[min(sorted.count - 1, max(0, rank))])
+    }
+
+    /// Exposure figures from ARFrame.exifData (iOS 16+, app targets 17): finite, exp/iso > 0
+    /// (bv may be negative), else nil. Reads the top level, or a nested {Exif} dictionary.
+    private static func exposure(from frame: ARFrame) -> (exp: Double?, iso: Float?, bv: Float?) {
+        var exif = frame.exifData
+        if let nested = exif[kCGImagePropertyExifDictionary as String] as? [String: Any] {
+            exif = nested
+        }
+        func number(_ key: CFString) -> Double? {
+            let value = exif[key as String]
+            var d: Double?
+            if let n = value as? NSNumber {
+                d = n.doubleValue
+            } else if let list = value as? [NSNumber], let first = list.first {
+                d = first.doubleValue
+            }
+            guard let d, d.isFinite else { return nil }
+            return d
+        }
+        var exp: Double?
+        if let e = number(kCGImagePropertyExifExposureTime), e > 0 { exp = e }
+        var iso: Float?
+        if let i = number(kCGImagePropertyExifISOSpeedRatings), i > 0, Float(i).isFinite {
+            iso = Float(i)
+        }
+        var bv: Float?
+        if let b = number(kCGImagePropertyExifBrightnessValue), Float(b).isFinite { bv = Float(b) }
+        return (exp, iso, bv)
     }
 
     // MARK: - Toán phụ

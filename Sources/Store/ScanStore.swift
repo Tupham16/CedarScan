@@ -5,6 +5,18 @@ import SwiftUI
 final class ScanStore: ObservableObject {
     @Published private(set) var records: [ScanRecord] = []
     @Published private(set) var projects: [ScanProject] = []
+    /// Order NUMBERS this device knows are AWAITING PAYMENT (Orders v2 B: unpaid = not placed).
+    /// Their scans read "Awaiting payment" instead of "Ordered" (owner 25/09, mockup 39) — the stamp
+    /// `cloudOrderNumber` itself is unchanged: the unpaid order still reserves the scan.
+    /// Written only from what the server said: the Place order reply, a supplement reply and every
+    /// order list (`syncOrders`). An order not in a list is left alone (another account's).
+    @Published private(set) var awaitingOrderNumbers: Set<String>
+    private static let awaitingKey = "awaitingOrderNumbers.v1"
+    /// Order IDs with a Cancel request in flight (up to ~45 s), and those this run saw cancelled
+    /// (200). App-wide, ✗ in the order screen: Back + reopen during the wait must not offer Pay or a
+    /// second Cancel, and a reload that fails after a 200 must not bring them back. Not persisted.
+    @Published private(set) var cancellingOrderIds: Set<String> = []
+    @Published private(set) var cancelledOrderIds: Set<String> = []
 
     /// Số việc đang "đụng vào" dữ liệu bản quét: phiên quét đang mở, hoặc đang lưu.
     /// `purgeDelivered` phải đứng NGOÀI cửa sổ này.
@@ -66,6 +78,7 @@ final class ScanStore: ObservableObject {
     }
 
     init() {
+        awaitingOrderNumbers = Set(UserDefaults.standard.stringArray(forKey: Self.awaitingKey) ?? [])
         try? fileManager.createDirectory(at: rootURL, withIntermediateDirectories: true)
         loadProjects()
         reload()
@@ -221,6 +234,9 @@ final class ScanStore: ObservableObject {
         /// chết IM LẶNG đúng ở bản quét mới (bẫy #13). Hai call-site hiện có: HomeView,
         /// ProjectView.
         previewURL: URL?,
+        /// scan-report.json (temp, item 3 26/09). No default, same reason as `previewURL`
+        /// (trap #13): a forgotten call site would compile and lose the report silently.
+        reportURL: URL?,
         name: String?,
         projectId: UUID? = nil,
         quality: MeshQuality,
@@ -257,6 +273,10 @@ final class ScanStore: ObservableObject {
         defer {
             if let previewURL {
                 try? fileManager.removeItem(at: previewURL)
+            }
+            // Same for the report temp file (moved into the folder on the success path).
+            if let reportURL {
+                try? fileManager.removeItem(at: reportURL)
             }
         }
 
@@ -326,6 +346,18 @@ final class ScanStore: ObservableObject {
             }
         }
 
+        // 1b'. scan-report.json (item 3, 26/09): scan diagnostics for the owner (AltStore build,
+        //     no console). Same road as camera-track: a copy in the scan folder + packed into
+        //     model-colored.zip below; no ScanUploader kind (zip only). The workstation does not
+        //     read it yet (checked: every reader picks files by exact name / model*.obj).
+        var savedReportURL: URL?
+        if hasMesh, let reportURL, fileManager.fileExists(atPath: reportURL.path) {
+            let dest = folder.appendingPathComponent("scan-report.json")
+            if (try? fileManager.moveItem(at: reportURL, to: dest)) != nil {
+                savedReportURL = dest
+            }
+        }
+
         // 1c. Lưới XÁM nhẹ (mesh-preview.bin) — thứ DUY NHẤT trình xem 3D trong app đọc được.
         //     🔴 NẰM TRONG THƯ MỤC BẢN QUÉT LÀ CỐ Ý, dù §Xem texture trong app dặn "cache phải
         //     ở .cachesDirectory". Luật đó dành cho `TexturedModelCache` — thứ tải lại được từ
@@ -359,6 +391,7 @@ final class ScanStore: ObservableObject {
             // .userInitiated: người dùng đang đứng chờ trên overlay "Đang dựng mô hình 3D…"
             // (.utility đẩy sang efficiency core, nhà lớn chờ lâu gấp đôi vô ích).
             var extraFiles = savedTrackURL.map { [$0] } ?? []
+            if let savedReportURL { extraFiles.append(savedReportURL) }
             // 2b. texture-shots/ (JPEG 1440×1080 + shot-*.depth + shots.json —
             //     TextureShotRecorder): nguyên liệu bake texture chiếu-1-khung trên MÁY
             //     TRẠM. `copyItem` copy nguyên thư mục → zip mang thư mục con
@@ -524,6 +557,8 @@ final class ScanStore: ObservableObject {
         update(record) { $0.cloudScanId = cloudScanId }
     }
 
+    /// Stamps a scan as being in that order (Place order / supplement). Cleared only when an unpaid
+    /// order is cancelled or expires (`releaseStamps`, Orders v2 B).
     func setOrderNumber(_ record: ScanRecord, orderNumber: String) {
         update(record) { $0.cloudOrderNumber = orderNumber }
     }
@@ -543,12 +578,17 @@ final class ScanStore: ObservableObject {
     /// Dự án mang NHIỀU số đơn khác nhau là dữ liệu ĐỜI CŨ (tạo trước quy tắc trên) → lấy đơn
     /// của bản quét MỚI NHẤT. Sau khi tính năng này ra thì ca đó không sinh thêm được nữa.
     /// `projectId == nil` (bản quét lẻ, chưa vào dự án) → nil: không có dự án thì không có quy tắc.
+    ///
+    /// No stamped scan ⇒ the property's own binding (`ScanProject.orderNumber`, set by "Add a scan"
+    /// in Orders when this device had no property for that order). A stamped scan still wins: it is
+    /// what the anti-misroute guard in `OrderDetailView.addScanRoute` compares against.
     func orderNumber(ofProject projectId: UUID?) -> String? {
         guard let projectId else { return nil }
-        return records
+        let stamped = records
             .filter { $0.projectId == projectId && $0.cloudOrderNumber != nil }
             .max { $0.createdAt < $1.createdAt }?
             .cloudOrderNumber
+        return stamped ?? project(with: projectId)?.orderNumber
     }
 
     /// Dự án TRÊN MÁY NÀY chứa bản quét của số đơn đã cho — `nil` = máy này không giữ dự án đó.
@@ -569,7 +609,155 @@ final class ScanStore: ObservableObject {
         let match = records
             .filter { $0.cloudOrderNumber == orderNumber }
             .max { $0.createdAt < $1.createdAt }
-        return project(with: match?.projectId)
+        if let project = project(with: match?.projectId) { return project }
+        // A property recreated for this order (`ScanProject.orderNumber`), none of its scans sent yet.
+        return projects.first { $0.orderNumber == orderNumber }
+    }
+
+    /// "Add a scan" in the Orders tab (owner 26/09 "cách 1"): the property of that order on this
+    /// device, or — none here (deleted on Home, another iPhone) — a new EMPTY one BOUND to it, so
+    /// its scans offer "Send extra scan" into that order, ✗ "Order" (a second paid order).
+    /// Idempotent: a second tap finds the first one through `project(withOrderNumber:)`.
+    /// Returns nil when the property found maps to ANOTHER order (the caller hides the button for
+    /// that case; this is the check again at tap time).
+    func projectForAddScan(orderNumber: String, name: String) -> ScanProject? {
+        if let existing = project(withOrderNumber: orderNumber) {
+            return self.orderNumber(ofProject: existing.id) == orderNumber ? existing : nil
+        }
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let project = ScanProject(
+            id: UUID(),
+            name: trimmed.isEmpty ? orderNumber : trimmed,
+            createdAt: Date(),
+            orderNumber: orderNumber
+        )
+        projects.insert(project, at: 0)
+        persistProjects()
+        return project
+    }
+
+    // MARK: - Orders v2 B: unpaid = not placed
+
+    /// The scan sits in an order that is not paid yet: "Awaiting payment", ✗ "Ordered". Still
+    /// "ordered" for every RULE of the app (1 house 1 order, the order buttons, the counts): the
+    /// unpaid order reserves it until it is paid, cancelled or expired.
+    func isAwaitingPayment(_ record: ScanRecord) -> Bool {
+        guard let number = record.cloudOrderNumber else { return false }
+        return awaitingOrderNumbers.contains(number)
+    }
+
+    /// Some scan on this device is stamped with an order known to be unpaid — the only case in
+    /// which a cancel or the 7-day expiry can change something here (`RootView` asks the server).
+    var hasAwaitingStamps: Bool {
+        guard !awaitingOrderNumbers.isEmpty else { return false }
+        return records.contains { isAwaitingPayment($0) }
+    }
+
+    /// Place order / supplement reply: the server's status for that order number.
+    func noteOrderStatus(orderNumber: String, status: String?) {
+        var numbers = awaitingOrderNumbers
+        if status == "awaiting_payment" {
+            numbers.insert(orderNumber)
+        } else {
+            numbers.remove(orderNumber)
+        }
+        setAwaiting(numbers)
+    }
+
+    /// An order list from the server (any account): awaiting numbers follow each listed order, and
+    /// every CANCELLED order releases its scans here.
+    /// 🔴 Positive signals only. ✗ infer a cancel from an order's ABSENCE: the list is the signed-in
+    /// account's, and this device may hold another account's scans (PLAN-DON-HANG-V2.md §4a).
+    func syncOrders(_ orders: [OrderDTO]) {
+        var numbers = awaitingOrderNumbers
+        for order in orders {
+            // Paid in the card sheet but not settled on the server yet: not "awaiting" here either
+            // (the order screen says "Paid" from the same `PaymentFlow` set).
+            if order.isAwaitingPayment, !PaymentFlow.shared.paidOrderIds.contains(order.orderId) {
+                numbers.insert(order.orderNumber)
+            } else {
+                numbers.remove(order.orderNumber)
+            }
+        }
+        setAwaiting(numbers)
+        releaseCancelledStamps(orders)
+    }
+
+    /// Only the releases of `syncOrders` — for a list that may be OLD (fetched before a long
+    /// upload): its awaiting states may be out of date, a cancel never is (a cancelled order stays
+    /// cancelled).
+    func releaseCancelledStamps(_ orders: [OrderDTO]) {
+        for order in orders where order.isCancelled {
+            // `scanIds` of a cancelled order = the scans released at the cancel. Absent = old
+            // server: nothing is released (✗ `allScanIds`, whose `scanId` fallback is not that list).
+            var numbers = awaitingOrderNumbers
+            numbers.remove(order.orderNumber)
+            setAwaiting(numbers)
+            releaseStamps(orderNumber: order.orderNumber, scanIds: order.scanIds ?? [])
+            releaseBinding(orderNumber: order.orderNumber)
+        }
+    }
+
+    /// `POST orders/{id}/cancel` sent / answered. `cancelled` = the server answered 200.
+    func beginCancel(orderId: String) {
+        cancellingOrderIds.insert(orderId)
+    }
+
+    func endCancel(orderId: String, cancelled: Bool) {
+        cancellingOrderIds.remove(orderId)
+        if cancelled { cancelledOrderIds.insert(orderId) }
+    }
+
+    /// `POST orders/{id}/cancel` answered 200: its released scans are "New" again.
+    func releaseCancelledOrder(orderNumber: String, scanIds: [String]) {
+        var numbers = awaitingOrderNumbers
+        numbers.remove(orderNumber)
+        setAwaiting(numbers)
+        releaseStamps(orderNumber: orderNumber, scanIds: scanIds)
+        releaseBinding(orderNumber: orderNumber)
+    }
+
+    /// The account was deleted: the server cancelled its unpaid orders, and their list can never be
+    /// read again — ✗ leave "Awaiting payment" on its scans for good. Another
+    /// account's unpaid orders on this device come back with that account's next order list.
+    func forgetAwaitingOrders() {
+        setAwaiting([])
+    }
+
+    /// Clears `cloudOrderNumber` where the scan was released by THAT order: `cloudScanId` in the
+    /// server's list AND the stamp is still that order's number — a released scan may already sit
+    /// in a newer order (placed from another device), whose stamp must stay.
+    /// The ONLY code that ever sets a stamp back to nil. Every reader of the stamp (Home count and
+    /// badge, ScanRow, ProjectView buttons, ScanDetailView card, OrderSheet floors, the preview's
+    /// supplement label) then reads the scan as "New" — it can be ordered again.
+    private func releaseStamps(orderNumber: String, scanIds: [String]) {
+        guard !scanIds.isEmpty else { return }
+        let released = Set(scanIds)
+        let targets = records.filter { record in
+            guard record.cloudOrderNumber == orderNumber, let cloudId = record.cloudScanId else { return false }
+            return released.contains(cloudId)
+        }
+        for record in targets {
+            update(record) { $0.cloudOrderNumber = nil }
+        }
+    }
+
+    /// A cancelled order also unbinds a property recreated for it (`ScanProject.orderNumber`):
+    /// its scans are "New" like the released ones, ✗ "Send extra scan" into a closed order
+    /// (`order_closed`) forever. Same positive signal as `releaseStamps`; no scanIds needed (the
+    /// binding is to the number itself).
+    private func releaseBinding(orderNumber: String) {
+        guard projects.contains(where: { $0.orderNumber == orderNumber }) else { return }
+        for index in projects.indices where projects[index].orderNumber == orderNumber {
+            projects[index].orderNumber = nil
+        }
+        persistProjects()
+    }
+
+    private func setAwaiting(_ numbers: Set<String>) {
+        guard numbers != awaitingOrderNumbers else { return }
+        awaitingOrderNumbers = numbers
+        UserDefaults.standard.set(Array(numbers).sorted(), forKey: Self.awaitingKey)
     }
 
     private func update(_ record: ScanRecord, _ mutate: (inout ScanRecord) -> Void) {

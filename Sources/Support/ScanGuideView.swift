@@ -90,7 +90,7 @@ struct ScanGuideContent: View {
                 String(localized: "Hold the phone at chest height, tilted slightly down."),
                 String(localized: "Walk SLOWLY along the walls. Slow is accurate."),
                 String(localized: "Point the camera at every wall, corner, door and window."),
-                String(localized: "Keep about 40cm or more from surfaces — closer than roughly 30cm and the LiDAR starts punching holes in the mesh. When the app says \"Step back a little\", step back."),
+                String(localized: "Keep about 50cm or more from surfaces — closer than roughly 30cm and the LiDAR starts punching holes in the mesh. Where yellow \"TOO CLOSE\" text covers the screen, step back."),
                 String(localized: "Sweep the ceiling once in each room so the room closes up as a solid volume."),
                 String(localized: "Avoid pointing at mirrors and large glass for too long."),
             ]
@@ -123,6 +123,9 @@ struct ScanGuideContent: View {
                 String(localized: "After that the screen stays on by itself until saving finishes — leave the phone alone."),
                 String(localized: "Building the model takes a couple of minutes on a large home — do not close the app."),
                 String(localized: "Saving works the processor hard, so if another area is still to scan, let the phone rest a few minutes first."),
+                // Owner 26/09: last line of this section. Labels = the real buttons
+                // (ProjectView "Scan more", SupplementSheet "Send extra scan").
+                String(localized: "Missed a room? No need to rescan the whole home: open the property, tap \"Scan more\" and scan just that area as a new scan, starting in a room you already scanned. If you already ordered, tap \"Send extra scan\" so it goes into the same order."),
             ]
         )
     }

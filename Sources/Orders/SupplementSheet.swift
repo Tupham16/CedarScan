@@ -32,6 +32,8 @@ struct SupplementSheet: View {
         /// Đơn đã giao → đây là "Yêu cầu sửa", ✗ luồng này (chủ app chốt).
         case delivered(String)
         case failed(String)
+        /// Orders v2 B: the order was cancelled unpaid — nothing to retry, only Close.
+        case orderCancelled(String)
         case sent(Int)
     }
 
@@ -47,10 +49,16 @@ struct SupplementSheet: View {
     /// (`wasDelivered`/`movedToFix`), ✗ tự đoán trạng thái đơn ở phía app: app chỉ biết trạng
     /// thái qua `listOrders()`, tức cần mạng và có thể cũ.
     @State private var deliveredNote: String?
+    /// The order list fetched by `send()`. Its CANCELLED orders release their stamps only when this
+    /// sheet goes away (Orders v2 B): releasing while it is up would empty it — its caller builds it
+    /// from the project's order number (trap #20a). Only the releases: the list may be tens of
+    /// minutes old by then (an upload), and a cancel never goes stale — an "awaiting" state can.
+    @State private var fetchedOrders: [OrderDTO]?
 
     var body: some View {
         NavigationStack {
             Form { content }
+                .fogScreen()
                 .navigationTitle(String(localized: "Send extra scan"))
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
@@ -72,7 +80,20 @@ struct SupplementSheet: View {
                     }
                 }
         }
-        .onDisappear { task?.cancel() }
+        .onDisappear {
+            task?.cancel()
+            if let fetchedOrders { store.releaseCancelledStamps(fetchedOrders) }
+        }
+    }
+
+    /// Orders v2 B: an order still awaiting payment is not "placed" yet; and a cancelled one gets
+    /// no footer at all — the message under it says the scans will NOT be added.
+    private var scansFooter: String? {
+        if case .orderCancelled = phase { return nil }
+        if store.awaitingOrderNumbers.contains(orderNumber) {
+            return String(localized: "These will be added to order \(orderNumber) for this property, which is placed once it is paid. No extra charge.")
+        }
+        return String(localized: "These will be added to order \(orderNumber) — the one you already placed for this property. No extra charge.")
     }
 
     private var isWorking: Bool {
@@ -86,11 +107,14 @@ struct SupplementSheet: View {
             ForEach(records) { record in
                 Label(record.name, systemImage: "cube.transparent")
                     .font(.subheadline)
+                    .listRowBackground(Theme.card)
             }
         } header: {
             Text(String(localized: "Scans to send"))
         } footer: {
-            Text(String(localized: "These will be added to order \(orderNumber) — the one you already placed for this property. No extra charge."))
+            if let footer = scansFooter {
+                Text(footer)
+            }
         }
 
         switch phase {
@@ -103,9 +127,10 @@ struct SupplementSheet: View {
                           systemImage: "paperplane.fill")
                         .font(.headline)
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 6)
+                        .padding(.vertical, 14)
                 }
-                .buttonStyle(.borderedProminent)
+                // Stands alone on the screen background, as "Place order" (trap #47b).
+                .buttonStyle(FogPrimary())
                 .listRowInsets(EdgeInsets())
                 .listRowBackground(Color.clear)
             }
@@ -115,17 +140,19 @@ struct SupplementSheet: View {
                     ProgressView()
                     Text(label).font(.subheadline)
                 }
-            } footer: {
-                Text(String(localized: "Keep the app open until this finishes."))
+                .listRowBackground(Theme.card)
             }
         case .sent(let count):
             Section {
-                Label(
-                    String(localized: "Sent — \(count) scan(s) added to \(orderNumber)"),
-                    systemImage: "checkmark.circle.fill"
-                )
-                .foregroundStyle(.green)
-                Button(String(localized: "Done")) { dismiss() }
+                Group {
+                    Label(
+                        String(localized: "Sent — \(count) scan(s) added to \(orderNumber)"),
+                        systemImage: "checkmark.circle.fill"
+                    )
+                    .foregroundStyle(Theme.Badge.ok.fg)
+                    Button(String(localized: "Done")) { dismiss() }
+                }
+                .listRowBackground(Theme.card)
             } footer: {
                 // 🔴 BA CÂU, ✗ MỘT. Đơn ĐÃ GIAO đi qua đường này từ 19/08, và khách vừa cầm bản
                 // vẽ trong tay: nói đúng một câu "đội đã được báo" là để họ tưởng bản vẽ CŨ đã
@@ -134,7 +161,9 @@ struct SupplementSheet: View {
                 // thẻ về cột Fix (`orders/route.ts` chỉ trả `deliveryFiles` khi stage == "done").
                 // Khách mở tab Đơn hàng thấy nút Tải biến mất mà không được báo trước là một cú
                 // hoảng không đáng có, và là loại việc Support phải trả lời từng người.
-                Text(deliveredNote ?? String(localized: "Our team has been notified so the new area goes into your drawing."))
+                // WrappedText: German at xxxLarge cut its last line (plan §4b #7).
+                WrappedText(deliveredNote ?? String(localized: "Our team has been notified so the new area goes into your drawing."),
+                            style: .footnote, color: .secondaryLabel)
             }
         case .delivered(let message):
             // Chủ app chốt: *"đã giao thì chỉ là yêu cầu sửa"*. SERVER là nơi phán quyết (app chỉ
@@ -142,15 +171,17 @@ struct SupplementSheet: View {
             // chỉ chạy khi server ĐÃ nói không.
             Section {
                 Text(message).font(.subheadline)
+                    .listRowBackground(Theme.card)
                 Button {
                     openRevision()
                 } label: {
                     Label(String(localized: "Request a revision"), systemImage: "arrow.uturn.backward")
                         .font(.headline)
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 6)
+                        .padding(.vertical, 14)
                 }
-                .buttonStyle(.borderedProminent)
+                // Stands alone on the screen background, as "Place order" (trap #47b).
+                .buttonStyle(FogPrimary())
                 .listRowInsets(EdgeInsets())
                 .listRowBackground(Color.clear)
             } header: {
@@ -158,10 +189,22 @@ struct SupplementSheet: View {
             }
         case .failed(let message):
             Section {
-                Text(message)
-                    .font(.subheadline)
-                    .foregroundStyle(.red)
-                Button(String(localized: "Try again")) { send() }
+                Group {
+                    Text(message)
+                        .font(.subheadline)
+                        .foregroundStyle(.red)
+                    Button(String(localized: "Try again")) { send() }
+                }
+                .listRowBackground(Theme.card)
+            }
+        case .orderCancelled(let message):
+            Section {
+                // Must be read whole (trap #44).
+                Group {
+                    WrappedText(message, style: .subheadline)
+                    Button(String(localized: "Close")) { dismiss() }
+                }
+                .listRowBackground(Theme.card)
             }
         }
     }
@@ -174,12 +217,23 @@ struct SupplementSheet: View {
     private func send() {
         task?.cancel()
         task = Task { @MainActor in
+            // 2.59: screen awake + background time for the whole flow, released on every exit.
+            UploadKeepAlive.shared.begin()
+            defer { UploadKeepAlive.shared.end() }
             phase = .working(String(localized: "Finding your order…"))
             let order: OrderDTO
             do {
                 let list = try await APIClient.shared.listOrders()
+                fetchedOrders = list.orders
                 guard let found = list.orders.first(where: { $0.orderNumber == orderNumber }) else {
                     phase = .failed(String(localized: "We couldn't find order \(orderNumber) on your account. Please sign in with the account that placed it."))
+                    return
+                }
+                // Orders v2 B: cancelled unpaid (by the customer, after 7 days): the server refuses
+                // it (`order_closed`). Its scans go back to "New" when this sheet closes
+                // (`fetchedOrders`) — from there they are ordered like any new scan.
+                if found.isCancelled {
+                    phase = .orderCancelled(String(localized: "Order \(orderNumber) was cancelled before it was paid. Close this screen: its scans are back to \"New\" and can be ordered again."))
                     return
                 }
                 order = found
@@ -193,35 +247,72 @@ struct SupplementSheet: View {
             // STORE chứ đừng tin bản ghi truyền vào: `cloudScanId` là guard DUY NHẤT chống tải
             // lại, đọc nhầm bản chụp cũ là gửi lại 40–200MB VÀ đẻ scan id mới trên server (bẫy
             // #20b). `ensureUploaded` phải idempotent, không thì thử-lại-sau-lỗi-mạng đẻ bản sao.
-            var cloudIds: [String] = []
-            for record in records {
-                if Task.isCancelled { phase = .ready; return }
-                let live = store.records.first { $0.id == record.id } ?? record
-                if let existing = live.cloudScanId {
-                    cloudIds.append(existing)
-                    continue
-                }
-                phase = .working(String(localized: "Uploading \(live.name)…"))
-                let uploader = ScanUploader()
-                guard let cloudId = await uploader.upload(record: live, folder: store.folderURL(for: live)) else {
-                    if case .failed(let message) = uploader.phase {
-                        phase = .failed("\(live.name): \(message)")
-                    } else {
-                        phase = .failed(String(localized: "Could not upload \(live.name)."))
-                    }
-                    return
-                }
-                store.setCloudScanId(live, cloudScanId: cloudId)
-                cloudIds.append(cloudId)
+            // 2.59: every record's files are queued AT ONCE, while the app is on screen (a
+            // transfer queued after the phone locked is discretionary — iOS may hold it). Deduped
+            // by id; ids keep the order of `records` (first = primary).
+            if Task.isCancelled { phase = .ready; return }
+            var queue: [ScanRecord] = []
+            for record in records where !queue.contains(where: { $0.id == record.id }) {
+                queue.append(store.records.first { $0.id == record.id } ?? record)
             }
+            // One label for the whole batch (they all run at once).
+            let toSend = queue.filter { $0.cloudScanId == nil }
+            if toSend.count == 1 {
+                phase = .working(String(localized: "Uploading \(toSend[0].name)…"))
+            } else if toSend.count > 1 {
+                phase = .working(String(localized: "Uploading…"))
+            }
+            var uploaded: [UUID: String] = [:]
+            var failure: String?
+            await withTaskGroup(of: (UUID, String?, String?).self) { group in
+                for live in queue {
+                    if let existing = live.cloudScanId {
+                        uploaded[live.id] = existing
+                        continue
+                    }
+                    group.addTask { @MainActor in
+                        let uploader = ScanUploader()
+                        if let cloudId = await uploader.upload(record: live, folder: store.folderURL(for: live)) {
+                            store.setCloudScanId(live, cloudScanId: cloudId)
+                            return (live.id, cloudId, nil)
+                        }
+                        if case .failed(let message) = uploader.phase {
+                            return (live.id, nil, "\(live.name): \(message)")
+                        }
+                        return (live.id, nil, String(localized: "Could not upload \(live.name)."))
+                    }
+                }
+                for await (id, cloudId, message) in group {
+                    if let cloudId {
+                        uploaded[id] = cloudId
+                    } else if failure == nil {
+                        // First failure wins: the others are cancelled because of it.
+                        failure = message
+                        group.cancelAll()
+                    }
+                }
+            }
+            if Task.isCancelled { phase = .ready; return }
+            if let failure {
+                phase = .failed(failure)
+                return
+            }
+            let cloudIds = queue.compactMap { uploaded[$0.id] }
             guard let primary = cloudIds.first else {
                 phase = .failed(String(localized: "No scan to send."))
                 return
             }
 
+            // Uploads can finish while the phone is locked; attach + stamp with the app on screen
+            // (a request cut by suspension after the server attached = half-state, #26).
+            await UploadKeepAlive.untilActive()
+            if Task.isCancelled { phase = .ready; return }
+
             // 🔴 ĐIỂM KHÔNG QUAY ĐẦU (bẫy #26): từ đây `interactiveDismissDisabled` đã khoá vuốt
             // đóng, và ✗ kiểm `Task.isCancelled` sau cú gọi này — huỷ SAU khi server đã nối bản
             // quét là HALF-STATE (server có, app không đóng dấu → khách gửi lại mãi).
+            // Fresh background time for the call (the customer may switch app right now).
+            UploadKeepAlive.shared.renew()
             phase = .working(String(localized: "Sending to \(orderNumber)…"))
             do {
                 let result = try await APIClient.shared.supplementScan(
@@ -230,12 +321,27 @@ struct SupplementSheet: View {
                     extraScanIds: Array(cloudIds.dropFirst())
                 )
                 stamp(result)
+                // Orders v2 B: joined an order still awaiting payment → these scans read
+                // "Awaiting payment" too. No status (older server) = unknown: leave it.
+                if let status = result.status {
+                    store.noteOrderStatus(orderNumber: result.orderNumber, status: status)
+                }
                 deliveredNote = Self.deliveredNote(for: result)
                 // Đếm theo thứ SERVER xác nhận đã nằm trong đơn, ✗ theo số bản quét app gửi đi.
                 phase = .sent(result.scanIds?.count ?? records.count)
             } catch let error as APIError where error.code == "order_delivered" {
                 deliveredOrder = order
                 phase = .delivered(error.message)
+            } catch let error as APIError where error.code == "order_closed" {
+                // Orders v2 B: cancelled while the scans were uploading (by the customer elsewhere,
+                // or the 7-day expiry)? Then it is the Close message, and the stamps go on close.
+                if let fresh = try? await APIClient.shared.listOrders(),
+                   fresh.orders.first(where: { $0.orderId == order.orderId })?.isCancelled == true {
+                    fetchedOrders = fresh.orders
+                    phase = .orderCancelled(String(localized: "Order \(orderNumber) was cancelled before it was paid. Close this screen: its scans are back to \"New\" and can be ordered again."))
+                } else {
+                    phase = .failed(error.localizedDescription)
+                }
             } catch {
                 phase = .failed(error.localizedDescription)
             }
@@ -248,7 +354,12 @@ struct SupplementSheet: View {
     /// KHÔNG kéo thẻ về hàng sản xuất và việc phải xử lý tay — hứa "sẽ gửi lại bản vẽ cập nhật"
     /// lúc đó là hứa một thứ chưa ai cầm. Server cũ không trả hai khoá này (cả hai Optional) →
     /// `nil` → câu mặc định, đúng hành vi trước 19/08.
+    /// Orders v2 B: an order awaiting payment is hidden from the team and rings no bell, so "our
+    /// team has been notified" would be false — it is drawn once paid.
     private static func deliveredNote(for result: SupplementScanResponse) -> String? {
+        if result.status == "awaiting_payment" {
+            return String(localized: "Added to your order. It is not placed until it is paid — see it in the Orders tab.")
+        }
         guard result.wasDelivered == true else { return nil }
         if result.movedToFix == true {
             return String(localized: "This order was already delivered, so our team will draw the new area and send you an updated drawing — at no extra charge. While they work on it the download link for the previous drawing is temporarily unavailable.")

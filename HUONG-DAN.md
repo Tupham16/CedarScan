@@ -53,8 +53,10 @@ Bấm **"Bắt đầu quét"** rồi đi một vòng. Trong lúc quét:
   (tia LiDAR xuyên qua kính, không đo được) — cứ bỏ qua, không phải lỗi.
   (Tắt/bật lưới bằng nút góc trên phải.)
 - App **nhắc bạn theo thời gian thực** bằng viền màn hình nhấp nháy + rung: *Đi chậm lại*,
-  *Xoay chậm lại*, *Bật thêm đèn*, *Lùi ra xa một chút*, *Đứng yên một chút*.
+  *Xoay chậm lại*, *Bật thêm đèn*, *Đứng yên một chút*.
   Có thể bật thêm nhắc **bằng giọng nói** ở tab Tài khoản (sau khi đăng nhập).
+- Dí máy **gần hơn ~50cm**, chỗ đó hiện một lớp **chữ vàng "QUÁ GẦN"** — càng gần càng đậm,
+  lùi ra thì mờ dần rồi mất. Chỉ phủ đúng phần khung hình đang quá gần.
 - Xong thì bấm **"Dừng & Lưu"**, đặt tên bản quét, **rồi bấm Lưu** — chưa bấm Lưu là **máy vẫn
   đang quét tiếp**. Xong bước đó mới đặt máy xuống.
 - Nếu app hiện *"Chưa quét được mô hình 3D"* nghĩa là bạn mới thu được rất ít dữ liệu: chọn
@@ -92,8 +94,8 @@ toàn mới** — hai bản nằm ở hai hệ không liên quan nhau, đội ng
 - Cầm máy **ngang ngực, hơi chúc xuống**.
 - Đi **CHẬM** men theo tường. Chậm = chính xác.
 - Hướng camera vào **mọi bức tường, góc phòng, cửa và cửa sổ**.
-- Giữ cách bề mặt **khoảng 40cm trở lên**. Dí sát dưới ~30cm là LiDAR bắt đầu thủng lỗ mesh —
-  app báo *"Lùi ra xa một chút"* thì lùi thật.
+- Giữ cách bề mặt **khoảng 50cm trở lên**. Dí sát dưới ~30cm là LiDAR bắt đầu thủng lỗ mesh —
+  thấy chữ vàng *"QUÁ GẦN"* phủ màn hình thì lùi thật.
 
 **Thời lượng**
 - **Khoảng 10 phút mỗi bản quét là đẹp nhất.** Nhà lớn cần lâu hơn thì cứ quét đủ — chỉ cần biết
@@ -119,6 +121,11 @@ Phải có tài khoản mới đặt được. Đăng ký ngay trong app (tên, 
 Ở màn bản quét, nếu chưa đăng nhập/chưa xác minh thì có nút bấm thẳng vào đó — đăng nhập xong quay
 lại đúng chỗ cũ.
 
+Khi Cedar247 bật thanh toán trong app cho tài khoản của bạn, email đã xác minh và bản app bạn cài có hỗ trợ, tab **Tài khoản** có dòng
+**"Phương thức thanh toán"**: xem, thêm, xoá thẻ đã lưu và chọn thẻ mặc định — không trừ tiền. Thẻ nằm ở Stripe, không
+ở Cedar247. Xoá tài khoản thì Cedar247 yêu cầu Stripe xoá cả thẻ lưu trong app; tài khoản Link (nếu có) thì không — bạn tự
+quản lý với Stripe.
+
 ### Form đặt hàng
 
 Mở bằng nút **"Đặt làm mặt bằng"**. Form gồm:
@@ -129,7 +136,7 @@ Mở bằng nút **"Đặt làm mặt bằng"**. Form gồm:
 | **Gói dịch vụ** | Chọn một gói. Danh sách và giá lấy từ máy chủ |
 | **Dịch vụ thêm** | Ví dụ **Virtual Tour** (xem dưới) |
 | **Tùy chọn** | Đơn vị đo (mét/feet), ngôn ngữ bản vẽ, kiểu đặt tên tầng — **được lưu cho lần sau**. Riêng **ghi chú thêm thì KHÔNG lưu**, mỗi đơn phải gõ lại |
-| **Mã giảm giá** | Không bắt buộc. Nút Đặt hàng vẫn hiện giá đầy đủ; đặt xong, màn "Đã đặt hàng" hiện tổng đã giảm (làm tròn tới đô-la) và dòng "Đã áp mã giảm"; bảng/trang thanh toán thu đúng số tiền hiện trên bảng/trang đó, tính tới từng xu (lúc đặt mà chưa tạo được link thanh toán thì khác — xem dưới) |
+| **Mã giảm giá** | Không bắt buộc. Nút Đặt hàng vẫn hiện giá đầy đủ; đặt xong, màn ngay sau đó hiện tổng đã giảm (làm tròn tới đô-la) và dòng "Đã áp mã giảm"; bảng/trang thanh toán thu đúng số tiền hiện trên bảng/trang đó, tính tới từng xu (lúc đặt mà chưa tạo được link thanh toán thì khác — xem dưới) |
 
 Khách mới có thể được **miễn phí một số đơn đầu** — nếu còn lượt, app hiện băng "Đơn này MIỄN PHÍ"
 kèm số lượt còn lại.
@@ -143,15 +150,23 @@ kèm số lượt còn lại.
 > - **Từ nút "Đặt hàng ngay"** ngay sau khi quét xong: form mở ngay, bản quét được tải lên lúc bấm
 >   **"Đặt hàng"** — giống đường từ trang căn nhà.
 
-Bấm **"Đặt hàng"** để chốt. Với đơn có phí: khi Cedar247 bật thanh toán trong app cho tài khoản của bạn (và bản
-app bạn cài có hỗ trợ), bảng nhập thẻ của Stripe **tự mở ngay sau khi bấm Đặt hàng** (có ô lưu thẻ cho lần sau);
-đóng bảng thì bấm **"Thanh toán ngay"** để mở lại. Chưa bật — hoặc một đơn cụ thể app không mở được bảng — thì
-**"Thanh toán ngay"** mở **trang thanh toán trên trình duyệt** (trả bằng thẻ, hoặc cách trả khác trang đó có). Nút
-**"Thanh toán ngay"** nằm ở màn hình ngay sau khi đặt và ở tab **Đơn hàng**. Nếu lúc đặt chưa tạo được link thanh
+Bấm **"Đặt hàng"** để chốt. Đơn miễn phí được đặt ngay. Đơn có phí thì **chỉ được đặt khi đã thanh toán**: màn
+hình ngay sau đó ghi **"Chờ thanh toán"** (không phải "Đã đặt hàng!"), đội ngũ chưa thấy đơn, và các bản quét của
+đơn hiện nhãn cam **"Chờ thanh toán"** ở trang chủ và trang căn nhà. Đơn **"Chờ thanh toán"** để **7 ngày** chưa trả sẽ **tự
+hủy**; đổi ý thì mở đơn ở tab **Đơn hàng** và bấm **"Hủy đơn"** — không mất tiền. Đơn bị hủy thì các bản quét của
+nó về lại **"Mới"** để đặt lại. Khi Cedar247 bật thanh toán trong app cho tài khoản của bạn (và bản app bạn cài có
+hỗ trợ), bảng thanh toán của Stripe **tự mở ngay sau khi bấm Đặt hàng** (nhập thẻ, có ô lưu thẻ cho lần sau; bản app
+mới còn có thể có **Apple Pay** — chỉ ở bản cài từ App Store/TestFlight — và **Link**, dịch vụ lưu thẻ của chính Stripe:
+đã có tài khoản Link thì đăng nhập bằng mã Stripe gửi tới, chưa có thì có thể tạo (email, thường kèm số điện thoại); trả bằng Link đôi khi cần một lúc mới
+xác nhận xong); đóng bảng thì
+bấm **"Thanh toán ngay"** để mở lại. Chưa bật — hoặc một đơn cụ thể app không mở được bảng — thì nút đó mở
+**trang thanh toán trên trình duyệt** (trả bằng thẻ, hoặc cách trả khác trang đó có). Nút thanh toán nằm ở màn
+hình ngay sau khi đặt và trong đơn ở tab **Đơn hàng**. Nếu lúc đặt chưa tạo được link thanh
 toán, màn hình báo "Link thanh toán sẽ được gửi qua email trong ít phút." thay cho nút và hiện giá đầy đủ, chưa trừ mã
 giảm giá; nếu có gõ mã, màn hình còn báo "Mã giảm giá không hợp lệ — tính giá đầy đủ." dù mã chưa được kiểm, nên hãy
-báo Cedar247 mã bạn đã dùng. Đơn đó không tự mở bảng thẻ và tab **Đơn hàng** cũng không có nút cho nó: đội ngũ Cedar247
-gửi link qua email — việc này làm tay nên có thể lâu hơn vài phút; chưa nhận được thì hãy liên hệ Cedar247. Đội ngũ
+báo Cedar247 mã bạn đã dùng. Đơn đó không tự mở bảng thẻ và trong tab **Đơn hàng** nó chỉ có nút **"Hủy đơn"**, chưa có nút thanh toán: đội ngũ Cedar247
+gửi link qua email — việc này làm tay nên có thể lâu hơn vài phút; chưa nhận được thì hãy liên hệ Cedar247. Đơn
+đó vẫn tự hủy sau 7 ngày nếu chưa trả. Đội ngũ
 bắt đầu làm sau khi nhận thanh toán.
 
 ### Virtual Tour (dịch vụ thêm)
@@ -173,8 +188,9 @@ Thêm ảnh ngay sau khi đặt, hoặc bất cứ lúc nào ở tab **Đơn hà
 
 Theo dõi ở tab **Đơn hàng**: trạng thái *Đang xử lý → Đã giao*. Kéo xuống để làm mới.
 
-Ngoài hai mốc chính còn hai trạng thái khác: **Tạm giữ** (đơn tạm dừng — liên hệ Cedar247 để biết
-lý do) và **Hoàn tiền**.
+Ngoài hai mốc chính còn các trạng thái khác: **Chờ thanh toán** (đơn chưa trả tiền nên chưa được đặt —
+mở đơn để bấm **"Thanh toán ngay"** — khi đơn đã có link thanh toán — hoặc **"Hủy đơn"**), **Tạm giữ** (đơn tạm dừng — liên hệ Cedar247 để biết
+lý do), **Hoàn tiền** và **Đã hủy** (đơn hủy khi chưa trả tiền: bạn tự hủy, hoặc quá 7 ngày).
 
 Khi đơn **Đã giao**, bấm **"Tải file thành phẩm"** để tải bản vẽ về.
 
@@ -189,6 +205,12 @@ Khi đơn **Đã giao**, bấm **"Tải file thành phẩm"** để tải bản 
 | **Mặc định, mọi đơn** | **PDF + JPG** |
 | Yêu cầu thêm được | **SVG, PNG** — ghi vào ô *"Ghi chú thêm"* lúc đặt, hoặc nhắn cho Cedar247 |
 | **DWG (file CAD)** | **Dịch vụ thêm, tính tiền riêng** — tick add-on **"CAD File"** lúc đặt hàng |
+
+**Muốn thêm dịch vụ cho đơn đã trả tiền?** Mở đơn ở tab **Đơn hàng**, bấm **"Thêm vào đơn này"**, chọn
+gói hoặc dịch vụ thêm mà đơn chưa có (bản 3D, màu, site plan, file CAD… — giá như trong form đặt hàng hiện
+tại, không có Express), rồi bấm **"Thanh toán · $X"**. Món thêm hiện ở mục **"Đã thêm vào đơn"** ngay trong
+đơn đó, có trạng thái, file và nút **"Yêu cầu sửa"** riêng. Chưa trả tiền thì chưa làm: 7 ngày chưa trả sẽ tự hủy, đổi ý thì bấm
+**"Hủy các mục"**. Đơn chưa giao thì món thêm được làm sau khi bản vẽ hiện tại giao xong.
 
 **Chưa ưng?** Bấm **"Yêu cầu sửa"** (chỉ hiện sau khi đã giao), mô tả cần sửa gì. **Sửa lỗi thuộc
 về Cedar247 là miễn phí.**

@@ -8,7 +8,7 @@ import simd
 struct QualityAlert: Equatable {
     enum Severity { case caution, critical }
     enum Code {
-        case trackingLost, slowDown, turnSlowly, lowLight, tooClose
+        case trackingLost, slowDown, turnSlowly, lowLight
     }
 
     var severity: Severity
@@ -20,7 +20,6 @@ struct QualityAlert: Equatable {
         case .slowDown: return String(localized: "Slow down")
         case .turnSlowly: return String(localized: "Turn slowly")
         case .lowLight: return String(localized: "Turn on lights")
-        case .tooClose: return String(localized: "Step back a little")
         }
     }
 }
@@ -71,14 +70,11 @@ final class ScanQualityMonitor: NSObject, ObservableObject {
     // ĐÓ là câu trả lời tốt nhất đang có, và cách xử lý là NÓI CHUYỆN VỚI ÔNG. Đọc lại nhiệt
     // sau này là đúng MỘT dòng: `ProcessInfo.processInfo.thermalState`.
 
-    // "Quá gần": LiDAR kém chính xác dưới ~25-30cm — dí sát vật thể tạo lỗ trên mesh
-    // + khung màu out nét.
-    private static let tooCloseMeters: Float = 0.35
-    private var tooCloseSince: TimeInterval = -1
-    /// Coach "quá gần" CHỈ bật tường minh từ chế độ quét Mesh (nơi tự bật .sceneDepth).
-    /// KHÔNG suy từ frame.sceneDepth != nil: giữ cờ tường minh thì người thêm luồng quét mới
-    /// sau này phải tự quyết định, thay vì âm thầm thừa hưởng một hành vi không ai chọn.
-    var tooCloseCoachEnabled = false
+    // "Too close" moved to `TooCloseSheet` (28/09, regional yellow sheet) — ✗ add it back here:
+    // two too-close messages at once is what the owner asked to avoid.
+    /// Auto torch (MeshScanController). When it can light the room, "Turn on lights" stays
+    /// quiet; setActive is forwarded so the torch runs exactly when the coach does.
+    weak var torch: AutoTorch?
 
     // Trạng thái cảnh báo (debounce để không nhấp nháy)
     private var overspeedSince: TimeInterval = -1
@@ -125,6 +121,7 @@ final class ScanQualityMonitor: NSObject, ObservableObject {
 
     func setActive(_ active: Bool) {
         isActive = active
+        torch?.setActive(active)
         if !active {
             alert = nil
             poses.removeAll()
@@ -189,13 +186,10 @@ final class ScanQualityMonitor: NSObject, ObservableObject {
         // Debounce từng điều kiện
         updateCondition(&overspeedSince, active: Double(speed) > config.maxSpeedSoft, now: t)
         updateCondition(&overRotationSince, active: Double(rotationDps) > config.maxRotationSoft, now: t)
-        updateCondition(&lowLightSince, active: (light ?? .greatestFiniteMagnitude) < config.lowLightSoft, now: t)
+        // Coach only where the torch cannot help (no torch, iOS cut it, switched off).
+        let torchCovers = torch?.coversLowLight ?? false
+        updateCondition(&lowLightSince, active: !torchCovers && (light ?? .greatestFiniteMagnitude) < config.lowLightSoft, now: t)
         updateCondition(&limitedSince, active: trackingLimited, now: t)
-        // Bỏ qua hẳn khi coach tắt — khỏi tốn lock CVPixelBuffer mỗi tick.
-        let frontDepth: Float = tooCloseCoachEnabled
-            ? (Self.centerDepth(of: frame) ?? .greatestFiniteMagnitude)
-            : .greatestFiniteMagnitude
-        updateCondition(&tooCloseSince, active: frontDepth < Self.tooCloseMeters, now: t)
 
         updateAlert(now: t, speed: speed, rotationDps: rotationDps)
     }
@@ -208,45 +202,12 @@ final class ScanQualityMonitor: NSObject, ObservableObject {
         }
     }
 
-    /// Khoảng cách bề mặt trước camera (m) — median 5 điểm quanh tâm depth map LiDAR.
-    /// nil khi phiên không bật .sceneDepth hoặc buffer khác định dạng.
-    private static func centerDepth(of frame: ARFrame) -> Float? {
-        guard let depth = frame.sceneDepth?.depthMap,
-              CVPixelBufferGetPixelFormatType(depth) == kCVPixelFormatType_DepthFloat32
-        else { return nil }
-        CVPixelBufferLockBaseAddress(depth, .readOnly)
-        defer { CVPixelBufferUnlockBaseAddress(depth, .readOnly) }
-        guard let base = CVPixelBufferGetBaseAddress(depth) else { return nil }
-        let w = CVPixelBufferGetWidth(depth)
-        let h = CVPixelBufferGetHeight(depth)
-        let rowBytes = CVPixelBufferGetBytesPerRow(depth)
-        guard w >= 4, h >= 4 else { return nil }
-
-        let points = [
-            (w / 2, h / 2),
-            (w / 4, h / 2), (3 * w / 4, h / 2),
-            (w / 2, h / 4), (w / 2, 3 * h / 4),
-        ]
-        var samples: [Float] = []
-        samples.reserveCapacity(points.count)
-        for (x, y) in points {
-            let value = base.advanced(by: y * rowBytes + x * 4)
-                .assumingMemoryBound(to: Float32.self).pointee
-            if value.isFinite && value > 0 {
-                samples.append(value)
-            }
-        }
-        // Median để 1-2 điểm nhiễu không kích cảnh báo oan
-        guard samples.count >= 3 else { return nil }
-        return samples.sorted()[samples.count / 2]
-    }
-
     // MARK: - Chọn cảnh báo hiển thị (ưu tiên + giữ tối thiểu, không chồng nhau)
 
     private func updateAlert(now: TimeInterval, speed: Float, rotationDps: Float) {
         var candidate: QualityAlert?
 
-        // Ưu tiên: mất tracking > quá gần > tốc độ > xoay > ánh sáng
+        // Ưu tiên: mất tracking > tốc độ > xoay > ánh sáng (quá gần = TooCloseSheet riêng)
         // ⚠ Vế NHIỆT đã gỡ khỏi chuỗi này 10/08 (xem khối chú thích ở phần thuộc tính). Hai hệ
         // quả TRÔNG NHƯ LỖI MỚI nhưng là ĐÚNG: (1) cảnh báo THIẾU SÁNG nay hiện lại — vế `isHot`
         // CŨ nằm ngay TRÊN nó và trên máy nóng thì luôn đúng, tức đã che nó suốt buổi quét;
@@ -255,12 +216,6 @@ final class ScanQualityMonitor: NSObject, ObservableObject {
         // chủ app kêu: hai toggle trong tab Tài khoản, ✗ sửa code.
         if limitedSince > 0 && now - limitedSince > config.trackingWarnAfterSec {
             candidate = QualityAlert(severity: .critical, code: .trackingLost)
-        } else if tooCloseSince > 0 && now - tooCloseSince > 0.7,
-                  Double(speed) <= config.maxSpeedHard,
-                  Double(rotationDps) <= config.maxRotationHard {
-            // Nhường khi đang vượt ngưỡng CỨNG tốc độ/xoay — cảnh báo critical bên dưới
-            // phải thắng caution này (lia máy nhanh sát kệ/tường là ca tệ nhất của cả hai).
-            candidate = QualityAlert(severity: .caution, code: .tooClose)
         } else if overspeedSince > 0 && now - overspeedSince > 0.5 {
             let severity: QualityAlert.Severity = Double(speed) > config.maxSpeedHard ? .critical : .caution
             candidate = QualityAlert(severity: severity, code: .slowDown)

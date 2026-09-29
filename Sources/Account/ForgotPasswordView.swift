@@ -21,16 +21,20 @@ struct ForgotPasswordView: View {
                             .textContentType(.emailAddress)
                             .textInputAutocapitalization(.never)
                             .autocorrectionDisabled()
+                            .listRowBackground(Theme.card)
                     } footer: {
                         Text(String(localized: "We will email you a 6-digit code to reset your password."))
                     }
                 } else if step == 1 {
                     Section {
-                        TextField(String(localized: "6-digit code"), text: $code)
-                            .keyboardType(.numberPad)
-                            .textContentType(.oneTimeCode)
-                        SecureField(String(localized: "New password (min 8 characters)"), text: $newPassword)
-                            .textContentType(.newPassword)
+                        Group {
+                            TextField(String(localized: "6-digit code"), text: $code)
+                                .keyboardType(.numberPad)
+                                .textContentType(.oneTimeCode)
+                            SecureField(String(localized: "New password (min 8 characters)"), text: $newPassword)
+                                .textContentType(.newPassword)
+                        }
+                        .listRowBackground(Theme.card)
                     } footer: {
                         Text(String(localized: "Check the inbox (and spam folder) of \(email). The code expires in 15 minutes."))
                     }
@@ -39,7 +43,7 @@ struct ForgotPasswordView: View {
                         VStack(spacing: 10) {
                             Image(systemName: "checkmark.circle.fill")
                                 .font(.system(size: 44))
-                                .foregroundStyle(.green)
+                                .foregroundStyle(Theme.Badge.ok.fg)
                             Text(String(localized: "Password updated!"))
                                 .font(.headline)
                             Text(String(localized: "Sign in with your new password. Other devices were signed out for safety."))
@@ -49,6 +53,7 @@ struct ForgotPasswordView: View {
                         }
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 8)
+                        .listRowBackground(Theme.card)
                     }
                 }
 
@@ -57,6 +62,7 @@ struct ForgotPasswordView: View {
                         Text(errorMessage)
                             .font(.footnote)
                             .foregroundStyle(.red)
+                            .listRowBackground(Theme.card)
                     }
                 }
 
@@ -76,14 +82,17 @@ struct ForgotPasswordView: View {
                                 }
                             }
                             .frame(maxWidth: .infinity)
-                            .padding(.vertical, 6)
+                            .padding(.vertical, 14)
                         }
-                        .buttonStyle(.borderedProminent)
+                        // Stands alone on the screen background, as "Place order" (trap #47b).
+                        .buttonStyle(FogPrimary(busy: isBusy))
                         .listRowInsets(EdgeInsets())
+                        .listRowBackground(Color.clear)
                         .disabled(isBusy || (step == 0 ? email.isEmpty : code.count < 6 || newPassword.count < 8))
                     }
                 }
             }
+            .fogScreen()
             .navigationTitle(String(localized: "Reset password"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

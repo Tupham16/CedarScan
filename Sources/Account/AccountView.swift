@@ -7,8 +7,17 @@ struct AccountView: View {
 
     @EnvironmentObject private var account: AccountStore
     @State private var showDeleteAccount = false
+    @ObservedObject private var methods = PaymentMethodsFlow.shared
+    @State private var showMethodsError = false
     @AppStorage("scanCoachHaptics") private var scanCoachHaptics = true
     @AppStorage("scanCoachVoice") private var scanCoachVoice = false
+    /// Auto flashlight while scanning (AutoTorch reads the same key; default on).
+    @AppStorage("scanAutoTorch") private var scanAutoTorch = true
+    /// Hidden debug readout on the scan screen (7 taps on the version line) — owner testing via
+    /// AltStore has no console.
+    @AppStorage("scanDebugReadout") private var scanDebugReadout = false
+    @State private var versionTaps = 0
+    @State private var lastVersionTap = Date.distantPast
 
     var body: some View {
         NavigationStack {
@@ -32,11 +41,19 @@ struct AccountView: View {
                                     .foregroundStyle(.secondary)
                             }
                             .padding(.vertical, 4)
+                            .listRowBackground(Theme.card)
+                        }
+                        if account.paymentMethodsAvailable {
+                            Section {
+                                paymentMethodsRow
+                                    .listRowBackground(Theme.card)
+                            }
                         }
                         Section {
                             Link(destination: URL(string: "https://cedar247.com")!) {
                                 Label("cedar247.com", systemImage: "globe")
                             }
+                            .listRowBackground(Theme.card)
                         } header: {
                             Text(String(localized: "About"))
                         }
@@ -67,12 +84,18 @@ struct AccountView: View {
                         // không công. Chính sách chủ app chốt 2026-07-20 và vẫn đúng: mặc định
                         // PDF + JPG · yêu cầu thì thêm được SVG/PNG · DWG là add-on.
                         Section {
-                            Toggle(isOn: $scanCoachHaptics) {
-                                Label(String(localized: "Vibration alerts"), systemImage: "iphone.radiowaves.left.and.right")
+                            Group {
+                                Toggle(isOn: $scanCoachHaptics) {
+                                    Label(String(localized: "Vibration alerts"), systemImage: "iphone.radiowaves.left.and.right")
+                                }
+                                Toggle(isOn: $scanCoachVoice) {
+                                    Label(String(localized: "Voice coaching"), systemImage: "speaker.wave.2")
+                                }
+                                Toggle(isOn: $scanAutoTorch) {
+                                    Label(String(localized: "Auto flashlight"), systemImage: "flashlight.on.fill")
+                                }
                             }
-                            Toggle(isOn: $scanCoachVoice) {
-                                Label(String(localized: "Voice coaching"), systemImage: "speaker.wave.2")
-                            }
+                            .listRowBackground(Theme.card)
                         } header: {
                             Text(String(localized: "Scan coaching"))
                         } footer: {
@@ -89,6 +112,7 @@ struct AccountView: View {
                             } label: {
                                 Label(String(localized: "Sign out"), systemImage: "rectangle.portrait.and.arrow.right")
                             }
+                            .listRowBackground(Theme.card)
                         }
                         Section {
                             Button(role: .destructive) {
@@ -96,12 +120,15 @@ struct AccountView: View {
                             } label: {
                                 Label(String(localized: "Delete account"), systemImage: "trash")
                             }
+                            .listRowBackground(Theme.card)
                         } footer: {
                             // 🔴 CÂU NÀY PHẢI KHỚP `LegalView` mục "Deleting your account" VÀ khớp
                             // `account/delete/route.ts` trên server. Bản cũ ("your account and
                             // scans") mơ hồ giữa MÁY và SERVER: trên máy `submit()` chỉ gọi API rồi
                             // đăng xuất, thư mục `Documents/Scans` KHÔNG bị đụng.
-                            Text(String(localized: "Deletes your account and the scans we hold in the cloud. Scans on this iPhone are not affected. This cannot be undone."))
+                            // WrappedText: German at xxxLarge cut its last line (plan §4b #6).
+                            WrappedText(String(localized: "Deletes your account and the scans we hold in the cloud. Scans on this iPhone are not affected. This cannot be undone."),
+                                        style: .footnote, color: .secondaryLabel)
                         }
                         // Bản đang chạy. Trước đây số bản chỉ xem được ở AltStore / Cài đặt iOS,
                         // nên lúc thử bản nhánh không ai chắc máy đang chạy bản nào (20/09 đã mất
@@ -112,6 +139,9 @@ struct AccountView: View {
                                 .listRowBackground(Color.clear)
                         }
                     }
+                    // `paymentMethods` comes with `GET me`; launch asks once, this covers a fresh
+                    // sign-in and a switch flipped while the app was running.
+                    .task(id: customer.id) { await account.refresh() }
                 } else {
                     ScrollView {
                         AuthView()
@@ -119,21 +149,79 @@ struct AccountView: View {
                     }
                 }
             }
+            // Fog: `Theme.bg` behind all three states; list rows on `Theme.card`.
+            .fogScreen()
             .navigationTitle(String(localized: "Account"))
             .sheet(isPresented: $showDeleteAccount) {
                 DeleteAccountView()
             }
+            .alert(String(localized: "Something went wrong. Please try again."), isPresented: $showMethodsError) {
+                Button(String(localized: "OK"), role: .cancel) {}
+            }
         }
+    }
+
+    /// Account → "Payment methods" (mockup 60): opens Stripe's CustomerSheet. Only when the server
+    /// offers in-app payments to this account (`AccountStore.paymentMethodsAvailable`).
+    private var paymentMethodsRow: some View {
+        Button {
+            let tab = PaymentFlow.visibleTab
+            let who = AccountStore.savedCustomerId
+            Task {
+                switch await methods.open(tabWhenAsked: tab, customerWhenAsked: who) {
+                case .closed: break
+                case .unavailable: account.paymentMethodsWentAway()
+                case .failed:
+                    // Stripe's own sheet may still be animating away: an alert raised during
+                    // that is dropped by SwiftUI (and the flag would stay stuck at true).
+                    try? await Task.sleep(for: .milliseconds(700))
+                    showMethodsError = true
+                }
+            }
+        } label: {
+            HStack {
+                // "Payment methods" is also a Stripe key (trap #42): its translations in
+                // translations.json are copied from Stripe's own, so the collision is harmless.
+                Label {
+                    Text(String(localized: "Payment methods"))
+                        .foregroundStyle(Color.primary)
+                } icon: {
+                    Image(systemName: "creditcard")
+                }
+                Spacer()
+                if methods.isLoading {
+                    ProgressView()
+                } else {
+                    Image(systemName: "chevron.right")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(Color(uiColor: .tertiaryLabel))
+                        .accessibilityHidden(true)
+                }
+            }
+        }
+        .disabled(methods.isLoading)
     }
 
     /// Bản đang chạy, MỘT chỗ viết cho cả ba trạng thái tài khoản (danh sách khi đã đăng nhập,
     /// hai màn chưa đăng nhập / chờ xác minh) — hai bản sao thì sớm muộn cũng lệch nhau, mà đây
     /// đúng là dòng phải tin được.
     private var versionLine: some View {
-        Text(verbatim: "CedarScan \(Self.appVersion)")
+        Text(verbatim: "CedarScan \(Self.appVersion)" + (scanDebugReadout ? " · debug" : ""))
             .font(.footnote)
             .foregroundStyle(.secondary)
             .frame(maxWidth: .infinity, alignment: .center)
+            .contentShape(Rectangle())
+            .onTapGesture {
+                // 7 taps in a row (≤ 1.5 s apart), not 7 over a whole visit.
+                let now = Date()
+                if now.timeIntervalSince(lastVersionTap) > 1.5 { versionTaps = 0 }
+                lastVersionTap = now
+                versionTaps += 1
+                if versionTaps >= 7 {
+                    versionTaps = 0
+                    scanDebugReadout.toggle()
+                }
+            }
     }
 
     /// Mục Legal & Privacy cho hai màn KHÔNG phải `List` (chưa đăng nhập / chờ xác minh).
@@ -164,6 +252,8 @@ struct AccountView: View {
 struct DeleteAccountView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var account: AccountStore
+    /// Orders v2 B: after the deletion the account's unpaid orders are cancelled server-side.
+    @EnvironmentObject private var store: ScanStore
 
     @State private var password = ""
     @State private var isBusy = false
@@ -183,22 +273,30 @@ struct DeleteAccountView: View {
                         //     bảng Order, nên MỌI đơn ở lại, giao hay chưa. Khách có đơn đang vẽ dở
                         //     đọc câu cũ sẽ tưởng đơn biến mất theo tài khoản.
                         // (3) Không nói rõ bản quét TRONG MÁY không bị đụng (chỉ server bị xoá).
-                        Text(String(localized: "This permanently deletes your account and the scans we hold in the cloud. Your orders stay in our records, and so do the files attached to them. Scans on this iPhone are not affected. This CANNOT be undone."))
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(String(localized: "This permanently deletes your account and the scans we hold in the cloud. Your orders stay in our records, and so do the files attached to them. Scans on this iPhone are not affected. This CANNOT be undone."))
+                            // Orders v2 B: `account/delete/route.ts` cancels them first (Privacy
+                            // "Deleting your account" says the same).
+                            Text(String(localized: "An order still awaiting payment is cancelled first, where possible."))
+                        }
                         .font(.footnote)
                     } icon: {
                         Image(systemName: "exclamationmark.triangle.fill")
                             .foregroundStyle(.red)
                     }
+                    .listRowBackground(Theme.card)
                 }
                 Section {
                     SecureField(String(localized: "Enter your password to confirm"), text: $password)
                         .textContentType(.password)
+                        .listRowBackground(Theme.card)
                 }
                 if let errorMessage {
                     Section {
                         Text(errorMessage)
                             .font(.footnote)
                             .foregroundStyle(.red)
+                            .listRowBackground(Theme.card)
                     }
                 }
                 Section {
@@ -216,8 +314,10 @@ struct DeleteAccountView: View {
                         .frame(maxWidth: .infinity)
                     }
                     .disabled(isBusy || password.isEmpty)
+                    .listRowBackground(Theme.card)
                 }
             }
+            .fogScreen()
             .navigationTitle(String(localized: "Delete account"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -234,6 +334,9 @@ struct DeleteAccountView: View {
         Task {
             do {
                 _ = try await APIClient.shared.deleteAccount(password: password)
+                // Its unpaid orders were cancelled and their list is gone for good: ✗ leave
+                // "Awaiting payment" on its scans (`ScanStore.forgetAwaitingOrders`).
+                store.forgetAwaitingOrders()
                 dismiss()
                 account.signOut()
             } catch {

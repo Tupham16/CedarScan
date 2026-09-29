@@ -84,6 +84,30 @@ jobs:
       - name: Generate Xcode project
         run: xcodegen generate
 
+      # Apple Pay (in-app payments step 6, 28/09). OFF until the repo VARIABLE (not secret)
+      # APPLE_PAY_MERCHANT_ID is set, e.g. merchant.com.cedar247.cedarscan — set it only after the
+      # owner made that Merchant ID, its Stripe processing certificate and enabled Apple Pay on the
+      # App ID: an entitlement Apple cannot provision fails the signing. Unset = signing as before
+      # (no entitlement; Info.plist CedarApplePayMerchantID empty, the app offers no Apple Pay).
+      - name: Apple Pay entitlement
+        env:
+          APPLE_PAY_MERCHANT_ID: ${{ vars.APPLE_PAY_MERCHANT_ID }}
+        run: |
+          if [ -z "$APPLE_PAY_MERCHANT_ID" ]; then
+            echo "Apple Pay: off (repo variable APPLE_PAY_MERCHANT_ID not set)"
+            exit 0
+          fi
+          case "$APPLE_PAY_MERCHANT_ID" in
+            merchant.*) ;;
+            *) echo "::error::APPLE_PAY_MERCHANT_ID must start with merchant."; exit 1 ;;
+          esac
+          # PlistBuddy, ✗ plutil: plutil reads the dots of the key as a key path.
+          /usr/libexec/PlistBuddy \
+            -c "Add :com.apple.developer.in-app-payments array" \
+            -c "Add :com.apple.developer.in-app-payments:0 string $APPLE_PAY_MERCHANT_ID" \
+            Sources/CedarScan.entitlements
+          plutil -p Sources/CedarScan.entitlements
+
       # Its own step, so a package/network failure is not mistaken for a compile error.
       - name: Resolve Swift packages
         run: xcodebuild -resolvePackageDependencies -project CedarScan.xcodeproj -scheme CedarScan
@@ -106,6 +130,7 @@ jobs:
       # giờ lặp. (Info.plist trỏ CFBundleVersion về biến này — xem chú thích trong project.yml.)
       - name: Archive (ký số)
         env:
+          APPLE_PAY_MERCHANT_ID: ${{ vars.APPLE_PAY_MERCHANT_ID }}
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
@@ -123,6 +148,7 @@ jobs:
             -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
             CODE_SIGN_STYLE=Automatic \
             DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
+            CEDAR_APPLE_PAY_MERCHANT_ID="$APPLE_PAY_MERCHANT_ID" \
             CURRENT_PROJECT_VERSION=${{ github.run_number }}
 
       - name: Export IPA
@@ -222,6 +248,40 @@ jobs:
           if fail:
               for f in fail:
                   print("::error::" + f)
+              sys.exit(1)
+          PY
+
+      # Push notifications (2.61): the signed app must carry aps-environment = production (the
+      # export rewrites project.yml's `development`), or no TestFlight/App Store phone gets a token.
+      - name: Kiểm quyền push
+        env:
+          APPLE_PAY_MERCHANT_ID: ${{ vars.APPLE_PAY_MERCHANT_ID }}
+        run: |
+          IPA=$(ls build/export/*.ipa | head -1)
+          rm -rf build/ipa-check && mkdir -p build/ipa-check
+          unzip -q "$IPA" -d build/ipa-check
+          codesign -d --entitlements - --xml build/ipa-check/Payload/CedarScan.app > build/ents.plist
+          python3 - <<'PY'
+          import plistlib, sys
+          ents = plistlib.load(open("build/ents.plist", "rb"))
+          aps = ents.get("aps-environment")
+          print("aps-environment          :", aps)
+          if aps != "production":
+              print("::error::aps-environment is " + repr(aps) + ", expected 'production'")
+              sys.exit(1)
+          # Apple Pay: entitlement and Info.plist key must agree with the repo variable.
+          import os
+          want = os.environ.get("APPLE_PAY_MERCHANT_ID", "")
+          got = ents.get("com.apple.developer.in-app-payments")
+          info = plistlib.load(open("build/ipa-check/Payload/CedarScan.app/Info.plist", "rb"))
+          key = info.get("CedarApplePayMerchantID")
+          print("in-app-payments          :", got)
+          print("CedarApplePayMerchantID  :", repr(key))
+          if want and (got != [want] or key != want):
+              print("::error::Apple Pay entitlement/key do not match APPLE_PAY_MERCHANT_ID")
+              sys.exit(1)
+          if not want and (got or key):
+              print("::error::Apple Pay present although APPLE_PAY_MERCHANT_ID is unset")
               sys.exit(1)
           PY
 

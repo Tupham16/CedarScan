@@ -175,11 +175,14 @@ struct ScanAddressView: View {
             // hàng của Form là nó cuộn đi mất đúng lúc danh sách gợi ý dài ra.
             VStack(spacing: 0) {
                 AddressMapView(coordinate: geocoder.coordinate, state: geocoder.state)
-                    // Thu nhỏ khi bàn phím lên. Cả cụm này bị bàn phím đẩy lên (VStack, cố ý —
-                    // xem khối 🔴 ở trên), nên bản đồ cao cố định là bản đồ bị đẩy khuất một nửa
-                    // VÀ bóp phần Form còn lại xuống còn hai dòng: gợi ý địa chỉ + danh sách căn
-                    // đã quét không còn chỗ hiện, đúng lúc khách đang gõ và cần chúng nhất.
-                    .frame(height: addressFocused ? 130 : 230)
+                    // ẨN HẲN khi bàn phím lên (2.52; trước: thu còn 130). Cả cụm này bị bàn phím
+                    // đẩy lên (VStack, cố ý — xem khối 🔴 ở trên). Đo trên simulator 26/09 (iPhone
+                    // 13 Pro, bàn phím lên): với bản đồ 130 thì Form chỉ còn chỗ cho ô nhập + nút
+                    // "Dùng vị trí", gợi ý MapKit nằm DƯỚI mép, khuất sau nút "Bắt đầu quét" —
+                    // chủ app báo "gõ không thấy gợi ý". ✗ cho bản đồ lại chỗ lúc đang gõ. Giữ
+                    // view sống (cao 0 + trong suốt, ✗ `if`): bỏ ra dựng lại là MKMapView mới.
+                    .frame(height: addressFocused ? 0 : 230)
+                    .opacity(addressFocused ? 0 : 1)
                     // Fog card: radius 16 + hairline, 16pt side margins.
                     .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                     .overlay(

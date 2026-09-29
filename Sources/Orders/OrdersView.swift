@@ -12,7 +12,7 @@ struct OrdersView: View {
     /// Passed by hand for the same reason (it was `@EnvironmentObject` while the tab pushed nothing).
     @ObservedObject var account: AccountStore
     /// Nhảy sang tab Home và mở dự án — `RootView.requestOpenProject`. Tab này ✗ tự đổi tab.
-    let onOpenProject: (ScanProject) -> Void
+    let onOpenProject: (_ project: ScanProject, _ startScan: Bool) -> Void
     /// Pushed orders: 0 or 1 entry, IDs only (`OrderRoute`).
     @State private var path: [OrderRoute] = []
     @State private var orders: [OrderDTO] = []
@@ -30,6 +30,10 @@ struct OrdersView: View {
     @State private var errorMessage: String?
     @State private var filter: OrderFilter = .all
     @Environment(\.dynamicTypeSize) private var typeSize
+    /// Orders v2 B: back from the browser pay page (see `refreshUnpaid`).
+    @Environment(\.scenePhase) private var scenePhase
+    /// Push notifications: a tapped one's order (`openPushedOrder`), arrivals on screen (reload).
+    @ObservedObject private var push = PushNotifications.shared
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -96,9 +100,66 @@ struct OrdersView: View {
                 loadedCustomerId = currentId
             }
             if account.isSignedIn { await load() }
+            // A notification tapped before this account's first load (cold start): its turn now.
+            await openPushedOrder(reload: false)
         }
         .onChange(of: orders.map(\.orderId)) { _, ids in
             leaveGoneOrder(ids)
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { refreshUnpaid() }
+        }
+        .onChange(of: push.openOrder) { _, request in
+            if request != nil { Task { await openPushedOrder(reload: true) } }
+        }
+        // A push while the app is on screen = news about an order (delivered, cancelled…).
+        .onChange(of: push.arrivals) { _, _ in
+            if account.isSignedIn { Task { await load() } }
+        }
+    }
+
+    /// A tapped notification's order (`RootView` switched to this tab): reload (the push is news),
+    /// then push it — the only screen on the stack. Not in the list (another account's, gone) = the
+    /// list alone. Waits for this account's first load: before it `orders` may be empty or the
+    /// previous account's (`.task(id:)` calls back after that load).
+    private func openPushedOrder(reload: Bool) async {
+        guard let request = push.openOrder else { return }
+        guard account.isSignedIn else {
+            push.openOrder = nil
+            return
+        }
+        guard loadedCustomerId == account.customer?.id else { return }
+        if reload { await load() }
+        // A newer tap took over, or another call already handled this one.
+        guard push.openOrder == request, loadedCustomerId == account.customer?.id else { return }
+        push.openOrder = nil
+        guard let order = ownOrders.first(where: { $0.orderId == request.orderId }),
+              !PushNotifications.somethingOnTop else { return }
+        // Already open (by id: a reloaded house name must not pop and re-push it, cancelling a Pay Now).
+        guard path.first?.orderId != order.orderId else { return }
+        path = [OrderRoute(orderId: order.orderId, title: title(of: order), customerId: account.customer?.id)]
+    }
+
+    /// Orders v2 B: a customer who paid on the browser pay page comes back to a list (or an open
+    /// order) that still says "Awaiting payment · not placed · cancelled after 7 days" — nothing
+    /// else reloads it (`PaymentFlow` never hears of a browser payment). Only while an unpaid order
+    /// (or an unpaid purchase added to one, Orders v2 C) is listed. WordPress reports the payment a
+    /// moment later (fire-and-forget callback), so once more after a few seconds if it still reads
+    /// unpaid. Through `load()`: its guards apply.
+    private func refreshUnpaid() {
+        guard account.isSignedIn, hasUnpaid else { return }
+        Task {
+            await load()
+            guard hasUnpaid else { return }
+            try? await Task.sleep(nanoseconds: 5_000_000_000)
+            await load()
+        }
+    }
+
+    /// An order awaiting payment is listed, or items added to one (Orders v2 C) that are.
+    private var hasUnpaid: Bool {
+        ownOrders.contains { order in
+            order.isAwaitingPayment || (order.extras ?? []).contains { $0.isAwaitingPayment }
         }
     }
 
@@ -152,6 +213,13 @@ struct OrdersView: View {
         switch answer {
         case .success(let fresh):
             orders = fresh
+            // Push notifications: an account that has orders is asked once, on this tab only.
+            if !fresh.isEmpty, PaymentFlow.visibleTab == .orders {
+                PushNotifications.shared.askIfUndetermined()
+            }
+            // Orders v2 B: awaiting / cancelled states onto this device's scans (positive signals
+            // only — see `ScanStore.syncOrders`).
+            store.syncOrders(fresh)
             // An answer older than the failure shown is not the refresh that failed.
             if seq > failedSeq { errorMessage = nil }
             appliedSeq = seq
@@ -197,8 +265,15 @@ struct OrdersView: View {
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
-                Button(String(localized: "Retry")) { Task { await load() } }
-                    .buttonStyle(.bordered)
+                Button {
+                    Task { await load() }
+                } label: {
+                    Text(String(localized: "Retry"))
+                        .font(.subheadline.weight(.semibold))
+                        .padding(.horizontal, 18)
+                        .padding(.vertical, 9)
+                }
+                .buttonStyle(FogTint(radius: 12))
             } else {
                 Image(systemName: "shippingbox")
                     .font(.system(size: 44))
@@ -256,7 +331,8 @@ struct OrdersView: View {
         return keys.compactMap { $0 }
     }
 
-    private static func nonBlank(_ text: String?) -> String? {
+    /// Also `OrderDetailView.recreatedName(of:)` (same title chain for a recreated property).
+    static func nonBlank(_ text: String?) -> String? {
         let trimmed = text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         return trimmed.isEmpty ? nil : trimmed
     }
@@ -358,7 +434,7 @@ struct OrdersView: View {
             }
             ForEach(filteredOrders) { order in
                 orderRow(order)
-                    .fogCardRow(trailing: 28)
+                    .fogCardRow(trailing: 28, edge: StatusBadge.kind(order.status).edge)
             }
             }
             .listStyle(.plain)
@@ -368,40 +444,49 @@ struct OrdersView: View {
         // (Orders v2 pushes). Read the 🔴 note there before moving it back.
     }
 
-    /// One compact row (mockup 30/31): title · date · status · chevron. Tap = the order detail.
+    /// One order card (2.52, mockup 48; 2.53 no min height, mockup 49 A; before: the compact row of mockup 30/31). Top: the street
+    /// in bold + the rest of the address in grey (`AddressLines`), status badge beside the street.
+    /// Bottom: date + chevron. Left edge in the badge's colour. Tap = the order detail.
     /// A `Button` + `path.append`, ✗ `NavigationLink`: same reason as `HomeView.projectRow` — a List
     /// draws its own chevron and a full-width grey highlight across the Fog card.
     /// Everything the 2.45 card showed (Pay Now, files, tour, revision, add a scan) is in
     /// `OrderDetailView`, with the same conditions.
     private func orderRow(_ order: OrderDTO) -> some View {
         let name = title(of: order)
+        let lines = AddressLines(name)
+        // Accessibility sizes: the badge under the date — beside the street the title breaks at
+        // every syllable (simulator renders, AX3).
+        let badgeBelow = typeSize.isAccessibilitySize
         return Button {
             // One order at a time: a quick double tap must not stack the same screen twice.
             guard path.isEmpty else { return }
             path.append(OrderRoute(orderId: order.orderId, title: name, customerId: account.customer?.id))
         } label: {
-            HStack(spacing: 10) {
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(name)
-                        .font(.headline)
-                    Text(Self.formatDate(order.placedAt))
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                    // Accessibility sizes: the badge under the date — beside it the title breaks
-                    // at every syllable (simulator renders, AX3).
-                    if typeSize.isAccessibilitySize {
+            // Card height = its content (owner 26/09, mockup 49 A): ✗ a min height, it left a gap
+            // between the address and the date.
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(alignment: .top, spacing: 10) {
+                    CardAddress(lines: lines)
+                    Spacer(minLength: 8)
+                    if !badgeBelow {
                         StatusBadge(status: order.status)
-                            .padding(.top, 4)
                     }
                 }
-                Spacer(minLength: 8)
-                if !typeSize.isAccessibilitySize {
-                    StatusBadge(status: order.status)
+                HStack(alignment: .bottom, spacing: 10) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(Self.formatDate(order.placedAt))
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                        if badgeBelow {
+                            StatusBadge(status: order.status)
+                        }
+                    }
+                    Spacer(minLength: 8)
+                    Image(systemName: "chevron.right")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(.tertiary)
+                        .accessibilityHidden(true)
                 }
-                Image(systemName: "chevron.right")
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(.tertiary)
-                    .accessibilityHidden(true)
             }
             .contentShape(Rectangle())
         }
@@ -460,7 +545,7 @@ struct RevisionSheet: View {
                         VStack(spacing: 10) {
                             Image(systemName: "checkmark.circle.fill")
                                 .font(.system(size: 44))
-                                .foregroundStyle(.green)
+                                .foregroundStyle(Theme.Badge.ok.fg)
                             Text(String(localized: "Revision requested!"))
                                 .font(.headline)
                             Text(String(localized: "Our team will update your floor plan and deliver a revised version."))
@@ -470,6 +555,7 @@ struct RevisionSheet: View {
                         }
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 8)
+                        .listRowBackground(Theme.card)
                     }
                 } else {
                     Section {
@@ -479,6 +565,7 @@ struct RevisionSheet: View {
                             axis: .vertical
                         )
                         .lineLimit(4...8)
+                        .listRowBackground(Theme.card)
                     } header: {
                         Text(order.orderNumber)
                     } footer: {
@@ -490,10 +577,12 @@ struct RevisionSheet: View {
                             Text(errorMessage)
                                 .font(.footnote)
                                 .foregroundStyle(.red)
+                                .listRowBackground(Theme.card)
                         }
                     }
                 }
             }
+            .fogScreen()
             .navigationTitle(String(localized: "Request a revision"))
             .navigationBarTitleDisplayMode(.inline)
             // Vuốt xuống lúc ĐANG GỬI / ĐANG TẢI FILE thì sheet đóng mà request vẫn bay tiếp:
@@ -541,6 +630,7 @@ struct RevisionSheet: View {
                     }
                     .buttonStyle(.plain)
                 }
+                .listRowBackground(Theme.card)
             }
             Button {
                 fileUploadError = nil
@@ -567,8 +657,10 @@ struct RevisionSheet: View {
             ) { result in
                 handleFilePick(result)
             }
+            .listRowBackground(Theme.card)
             if let fileUploadError {
                 Text(fileUploadError).font(.footnote).foregroundStyle(.red)
+                    .listRowBackground(Theme.card)
             }
         } header: {
             // "(không bắt buộc)" bỏ theo mục cùng tên ở form đặt hàng (`ScanDetailView`, 13/08):
@@ -646,22 +738,26 @@ struct RevisionSheet: View {
 /// buộc, vì `.onHold` phải tách ra thì mới đếm riêng được), và nếu server thêm trạng thái thứ sáu
 /// mà không có ô "Khác" thì đơn đó KHÔNG nằm trong ô nào — khách mở tab Đơn hàng thấy nó ở "Tất
 /// cả" rồi bấm lọc là mất tích. Ô "Khác" chỉ hiện khi thật sự có đơn như vậy (xem `visibleFilters`).
+/// Orders v2 B added `awaiting_payment` (not placed until paid) and `cancelled` (cancelled unpaid;
+/// listed because the app asks `include=cancelled`) — one chip each, same rule.
 enum OrderFilter: String, CaseIterable, Identifiable {
-    case all, processing, onHold, ready, refunded, other
+    case all, awaitingPayment, processing, onHold, ready, refunded, cancelled, other
     var id: String { rawValue }
 
     /// Các trạng thái app BIẾT tên. Dùng cho ô "Khác" — đừng sửa một mình nó, phải sửa cùng `matches`.
     private static let known: Set<String> = [
-        "received", "in_production", "on_hold", "delivered", "refunded",
+        "received", "in_production", "on_hold", "delivered", "refunded", "awaiting_payment", "cancelled",
     ]
 
     var title: String {
         switch self {
         case .all: return String(localized: "All")
+        case .awaitingPayment: return String(localized: "Awaiting payment")
         case .processing: return String(localized: "Processing")
         case .onHold: return String(localized: "On hold")
         case .ready: return String(localized: "Ready")
         case .refunded: return String(localized: "Refunded")
+        case .cancelled: return String(localized: "Cancelled")
         case .other: return String(localized: "Other")
         }
     }
@@ -669,11 +765,31 @@ enum OrderFilter: String, CaseIterable, Identifiable {
     func matches(_ status: String) -> Bool {
         switch self {
         case .all: return true
+        case .awaitingPayment: return status == "awaiting_payment"
         case .processing: return status == "received" || status == "in_production"
         case .onHold: return status == "on_hold"
         case .ready: return status == "delivered"
         case .refunded: return status == "refunded"
+        case .cancelled: return status == "cancelled"
         case .other: return !Self.known.contains(status)
+        }
+    }
+}
+
+/// Street in bold + the rest of the address in grey, for the Home and Orders cards (2.52).
+/// The grey line is footnote = the size of the date under it (owner 26/09).
+struct CardAddress: View {
+    let lines: AddressLines
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 1) {
+            Text(lines.street)
+                .font(.headline)
+            if let rest = lines.rest {
+                Text(rest)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
         }
     }
 }
@@ -681,14 +797,25 @@ enum OrderFilter: String, CaseIterable, Identifiable {
 struct StatusBadge: View {
     let status: String
 
-    private var info: (String, Theme.Badge) {
+    /// The badge colours of a status; the order card's left edge reads them too.
+    static func kind(_ status: String) -> Theme.Badge {
+        info(status).1
+    }
+
+    private static func info(_ status: String) -> (String, Theme.Badge) {
         switch status {
+        // "Ready" (owner 26/09, 2.52), the filter chip's word; was "Delivered".
         case "delivered":
-            return (String(localized: "Delivered"), .ok)
+            return (String(localized: "Ready"), .ok)
         case "on_hold":
             return (String(localized: "On hold"), .warn)
         case "refunded":
             return (String(localized: "Refunded"), .danger)
+        // Orders v2 B: not placed until paid (Fog `warn`, mockups 34/35) · cancelled unpaid.
+        case "awaiting_payment":
+            return (String(localized: "Awaiting payment"), .warn)
+        case "cancelled":
+            return (String(localized: "Cancelled"), .neutral)
         // "in_production" VÀ "received"/mặc định đều hiện "Đang xử lý" — chủ app chốt bỏ nhãn
         // "Đã nhận" (khiến khách nôn nóng), gộp vào "đang xử lý".
         //
@@ -699,6 +826,7 @@ struct StatusBadge: View {
     }
 
     var body: some View {
-        FogBadge(info.0, info.1)
+        let info = Self.info(status)
+        return FogBadge(info.0, info.1)
     }
 }

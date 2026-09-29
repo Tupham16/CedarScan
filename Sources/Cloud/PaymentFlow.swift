@@ -9,7 +9,8 @@ import UIKit
 ///  1. The app sends no amount and holds no key. `payment-sheet` returns the PaymentIntent, the
 ///     customer's ephemeral key and the publishable key (test accounts get Stripe TEST keys on prod).
 ///  2. Anything but a 200 from `payment-sheet` means "pay in the browser, as before". The only
-///     exception is `already_paid`.
+///     exceptions are `already_paid`, and `order_cancelled` / `cancel_in_progress` (Orders v2 B:
+///     the order is cancelled or being cancelled — reload it, the pay page refuses it too).
 ///  3. Every sheet that goes up leaves a MARKER on disk until the server has said what became of
 ///     it. `payment-confirm` is one of three things that settle a charge on the server (webhook ·
 ///     this call · hourly sweep); the app calls it when the sheet closes — whatever the sheet
@@ -26,6 +27,9 @@ final class PaymentFlow: ObservableObject {
         case canceled
         /// In-app payment is not available for this order right now: open `paymentUrl`.
         case useBrowser
+        /// Orders v2 B: the order was cancelled unpaid, or a cancel is running (`order_cancelled` /
+        /// `cancel_in_progress`). The pay page refuses it too: reload the order, ✗ the browser.
+        case orderChanged
     }
 
     /// The order whose sheet is being prepared. One at a time; Pay Now is disabled meanwhile.
@@ -99,9 +103,14 @@ final class PaymentFlow: ObservableObject {
             loadingOrderId = nil
         } catch {
             loadingOrderId = nil
-            if (error as? APIError)?.code == "already_paid" {
+            let code = (error as? APIError)?.code
+            if code == "already_paid" {
                 paidOrderIds.insert(orderId)
                 return .paid
+            }
+            // No sheet went up and no marker was written: nothing to settle.
+            if code == "order_cancelled" || code == "cancel_in_progress" {
+                return .orderChanged
             }
             return Task.isCancelled ? .canceled : .useBrowser
         }
@@ -116,11 +125,23 @@ final class PaymentFlow: ObservableObject {
         var configuration = PaymentSheet.Configuration()
         configuration.merchantDisplayName = params.merchantDisplayName ?? "Cedar247"
         configuration.customer = .init(id: params.customer, ephemeralKeySecret: params.ephemeralKey)
-        // Cards only (the server creates the PaymentIntent that way): paid or declined on the spot.
+        // Card + Link (+ Apple Pay, a card wallet): what the server's PaymentIntent allows.
+        // `allowsDelayedPaymentMethods` does NOT govern Link's funding sources (Stripe's session
+        // does): if the account ever lets Link pay from a bank, such a payment can report
+        // `.completed` while still "processing" — shown "Paid" here, settled only by the server.
         configuration.allowsDelayedPaymentMethods = false
-        // Link off: no sign-up step, nothing but the card is collected. If it is ever turned on,
-        // call `PaymentSheet.resetCustomer()` on sign-out.
-        configuration.link = .init(display: .never)
+        // Link on (owner 28/09). The account's name + email let Link recognise a returning customer.
+        // `AccountStore.signOut()` calls `PaymentSheet.resetCustomer()` (Link's cookie).
+        configuration.link = .init(display: .automatic)
+        if let me = AccountStore.savedCustomer {
+            configuration.defaultBillingDetails.email = me.email
+            configuration.defaultBillingDetails.name = me.name
+        }
+        // Apple Pay only in builds signed with the merchant entitlement (release.yml sets the key;
+        // AltStore builds carry an empty value and must not offer it).
+        if let merchantId = Self.applePayMerchantId {
+            configuration.applePay = .init(merchantId: merchantId, merchantCountryCode: "US")
+        }
         let sheet = PaymentSheet(paymentIntentClientSecret: params.paymentIntent, configuration: configuration)
 
         mark(orderId, completed: false)
@@ -224,7 +245,16 @@ final class PaymentFlow: ObservableObject {
         UserDefaults.standard.set(try? JSONEncoder().encode(markers), forKey: Self.storeKey)
     }
 
-    private static func topViewController() -> UIViewController? {
+    /// `CedarApplePayMerchantID` in Info.plist, set only by release.yml together with the
+    /// `com.apple.developer.in-app-payments` entitlement (project.yml leaves it empty).
+    static let applePayMerchantId: String? = {
+        let value = Bundle.main.object(forInfoDictionaryKey: "CedarApplePayMerchantID") as? String
+        guard let value, value.hasPrefix("merchant.") else { return nil }
+        return value
+    }()
+
+    /// Also used by `PaymentMethodsFlow`.
+    static func topViewController() -> UIViewController? {
         let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
         let scene = scenes.first { $0.activationState == .foregroundActive } ?? scenes.first
         let window = scene?.windows.first { $0.isKeyWindow } ?? scene?.windows.first
@@ -244,6 +274,7 @@ struct PayNowButton<Content: View>: View {
     private let payInApp: Bool
     private let opensOnAppear: Bool
     private let onPaid: () -> Void
+    private let onOrderChanged: () -> Void
     private let label: () -> Content
 
     @Environment(\.openURL) private var openURL
@@ -256,12 +287,15 @@ struct PayNowButton<Content: View>: View {
     /// - Parameters:
     ///   - payInApp: the server's hint. false = the browser pay page, exactly as before.
     ///   - opensOnAppear: open the sheet once, unasked, when the button appears (after Place order).
+    ///   - onOrderChanged: the order was cancelled, or is being cancelled (Orders v2 B): reload it.
+    ///     No default on purpose (trap #13): a call site that forgets it must not compile.
     init(
         orderId: String,
         payURL: URL,
         payInApp: Bool,
         opensOnAppear: Bool = false,
         onPaid: @escaping () -> Void = {},
+        onOrderChanged: @escaping () -> Void,
         @ViewBuilder label: @escaping () -> Content
     ) {
         self.orderId = orderId
@@ -269,6 +303,7 @@ struct PayNowButton<Content: View>: View {
         self.payInApp = payInApp
         self.opensOnAppear = opensOnAppear
         self.onPaid = onPaid
+        self.onOrderChanged = onOrderChanged
         self.label = label
     }
 
@@ -316,6 +351,9 @@ struct PayNowButton<Content: View>: View {
                 onPaid()
             case .canceled:
                 break
+            case .orderChanged:
+                // ✗ `browserOnly`, ✗ the browser: /pay refuses a cancelled order as well.
+                onOrderChanged()
             case .useBrowser:
                 browserOnly = true
                 // An unasked open stops here: the customer has not tapped anything yet. A customer

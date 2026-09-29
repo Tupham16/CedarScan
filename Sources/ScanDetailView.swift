@@ -21,6 +21,12 @@ struct ScanOrderIntent: Hashable {
     let record: ScanRecord
 }
 
+/// "Add a scan" in the Orders tab on a property with no scans on this device: push
+/// `ProjectView(autoScan: true)` (opens the scanner once). Own type for the reason above.
+struct ProjectScanIntent: Hashable {
+    let project: ScanProject
+}
+
 /// Thứ cần để mở trình xem 3D GỘP (`ModelViewerScreen`) — chốt lúc khách BẤM, ✗ đọc sống.
 ///
 /// 🔴 `id = UUID()` và dùng qua `.fullScreenCover(item:)`, ✗ một cờ `Bool` + mấy `@State` đọc
@@ -122,6 +128,10 @@ struct ScanDetailView: View {
     @State private var showOrderSheet = false
     /// Màn "Gửi bổ sung bản quét" — mở khi dự án của bản quét này ĐÃ có đơn.
     @State private var showSupplementSheet = false
+    /// `supplementOrderNumber` when that sheet opened — a FALLBACK only, for when the live one turns
+    /// nil while it is up (Orders v2 B: that unpaid order was cancelled, its stamps released).
+    /// Without it the sheet would go blank (trap #20a). Live wins otherwise.
+    @State private var supplementNumberAtOpen: String?
     /// Đã tự mở form đặt hàng lần nào chưa (chỉ có nghĩa khi `autoOpenOrder`).
     ///
     /// 🔴 BẮT BUỘC. `.task` KHÔNG phải "chạy một lần" — SwiftUI huỷ nó ở `onDisappear` và chạy
@@ -428,7 +438,7 @@ struct ScanDetailView: View {
         // (khác `ProjectView`): nội dung chỉ phụ thuộc `current` + `supplementOrderNumber`, cả
         // hai đã có giá trị từ trước khi cờ lật — không có khe nil như ca `orderTarget`.
         .sheet(isPresented: $showSupplementSheet) {
-            if let orderNumber = supplementOrderNumber {
+            if let orderNumber = supplementOrderNumber ?? supplementNumberAtOpen {
                 SupplementSheet(records: [current], orderNumber: orderNumber)
             }
         }
@@ -547,6 +557,7 @@ struct ScanDetailView: View {
                 // gửi bổ sung có ĐÚNG MỘT chỗ tải lên thay vì hai, và màn này khỏi phải nhân
                 // đôi máy trạng thái `uploader.phase`.
                 Button {
+                    supplementNumberAtOpen = supplementNumber
                     showSupplementSheet = true
                 } label: {
                     Label(
@@ -613,19 +624,23 @@ struct ScanDetailView: View {
         // Fog: on `Theme.bg`, no material strip (mockup) — nothing scrolls under this card.
     }
 
-    /// "Floor plan ordered" (Fog): card with an `accentTint` icon tile.
+    /// "Floor plan ordered" (Fog): card with an `accentTint` icon tile. Orders v2 B: while its order
+    /// awaits payment, "Awaiting payment" on a `warn` tile (owner 25/09, mockup 39).
     private func orderedCard(_ orderNumber: String) -> some View {
         let shape = RoundedRectangle(cornerRadius: 16, style: .continuous)
+        let unpaid = store.isAwaitingPayment(current)
         return HStack(spacing: 12) {
-            Image(systemName: "shippingbox")
+            Image(systemName: unpaid ? "creditcard" : "shippingbox")
                 .font(.system(size: 20))
-                .foregroundStyle(Theme.accentText)
+                .foregroundStyle(unpaid ? Theme.Badge.warn.fg : Theme.accentText)
                 .frame(width: 40, height: 40)
-                .background(Theme.accentTint, in: RoundedRectangle(cornerRadius: 11, style: .continuous))
+                .background(unpaid ? Theme.Badge.warn.bg : Theme.accentTint, in: RoundedRectangle(cornerRadius: 11, style: .continuous))
             VStack(alignment: .leading, spacing: 2) {
-                Text(String(localized: "Floor plan ordered") + " · \(orderNumber)")
+                Text((unpaid ? String(localized: "Awaiting payment") : String(localized: "Floor plan ordered")) + " · \(orderNumber)")
                     .font(.subheadline.weight(.semibold))
-                Text(String(localized: "Track progress in the Orders tab."))
+                Text(unpaid
+                     ? String(localized: "Not placed until it is paid — see the Orders tab.")
+                     : String(localized: "Track progress in the Orders tab."))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -697,7 +712,8 @@ struct ScanDetailView: View {
         // mô tả: *"khi bấm vào đó rồi quét xong thì cái nút đặt hàng ngay nên sửa lại là Gửi bổ
         // sung bản quét"*. Nhãn nút ở màn preview và hành động ở đây đọc CÙNG một điều kiện
         // (`ScanStore.orderNumber(ofProject:)`) nên không thể nói một đằng làm một nẻo.
-        if supplementOrderNumber != nil {
+        if let number = supplementOrderNumber {
+            supplementNumberAtOpen = number
             showSupplementSheet = true
             return
         }
@@ -1133,6 +1149,11 @@ struct OrderSheet: View {
     /// "already ordered"). Nên khoá nút Hủy + không cancel ở onDisappear khi cờ này bật.
     @State private var placingOrder = false
     @State private var showTourPhotos = false // mở màn thêm ảnh Virtual Tour ngay sau khi đặt
+    /// Read only: the card sheet paid this order (the placed screen then says "Order placed!").
+    @ObservedObject private var flow = PaymentFlow.shared
+    /// The server said this order is paid (a browser payment: `PaymentFlow` never hears of it).
+    @State private var serverPaid = false
+    @Environment(\.scenePhase) private var scenePhase
 
     /// Ngôn ngữ bản vẽ — list cố định (chủ app chốt 2026-07-21). Giá trị gửi lên server = chính chuỗi
     /// này (đội vẽ đọc để biết viết bản vẽ bằng ngôn ngữ/biến thể nào).
@@ -1225,11 +1246,16 @@ struct OrderSheet: View {
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
-                        Button(String(localized: "Retry")) {
+                        Button {
                             self.loadError = nil
                             Task { await loadCatalog() }
+                        } label: {
+                            Text(String(localized: "Retry"))
+                                .font(.subheadline.weight(.semibold))
+                                .padding(.horizontal, 18)
+                                .padding(.vertical, 9)
                         }
-                        .buttonStyle(.bordered)
+                        .buttonStyle(FogTint(radius: 12))
                     }
                     .padding(24)
                 } else {
@@ -1266,7 +1292,15 @@ struct OrderSheet: View {
         // scene bị thu hồi…) cũng phải hủy Task, không thì đơn vẫn tạo ngầm sau khi sheet biến mất.
         // NHƯNG không hủy khi đang `placingOrder`: lúc đó để orderScan chạy trọn thì đơn tạo + đóng
         // dấu bản quét cùng chạy (nhất quán), còn hủy nửa chừng mới đẻ half-state.
-        .onDisappear { if !placingOrder { submitTask?.cancel() } }
+        .onDisappear {
+            if !placingOrder { submitTask?.cancel() }
+            // Push notifications: the first moment to ask is right after an order was placed — once
+            // this sheet has closed, so the prompt never lands on the card sheet (it opens by itself).
+            if placedOrder != nil { PushNotifications.shared.askIfUndetermined() }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { recheckPlacedOrder() }
+        }
     }
 
     private func loadCatalog() async {
@@ -1341,96 +1375,15 @@ struct OrderSheet: View {
         )
     }
 
-    /// Picker mẫu cho color/siteplan: hàng thumbnail cuộn NGANG + bản PHÓNG TO mẫu đang chọn để
-    /// khách nhìn rõ (chủ app chốt 2026-07-21).
+    /// Picker mẫu cho color/siteplan — the shared `TemplatePicker` (Orders v2 C moved its body there).
     private func templatePicker(addonId: String, templates: [CatalogTemplate]) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 10) {
-                    ForEach(templates) { tpl in
-                        Button {
-                            selectedTemplates[addonId] = tpl.id
-                        } label: {
-                            VStack(spacing: 4) {
-                                templateThumb(tpl)
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(
-                                            selectedTemplates[addonId] == tpl.id ? Theme.accentText : Theme.ghostBorder,
-                                            lineWidth: selectedTemplates[addonId] == tpl.id ? 2.5 : 1
-                                        )
-                                    )
-                                Text(tpl.name)
-                                    .font(.caption2)
-                                    .fontWeight(selectedTemplates[addonId] == tpl.id ? .semibold : .regular)
-                                    .foregroundStyle(selectedTemplates[addonId] == tpl.id ? Theme.accentText : Color.secondary)
-                                    .lineLimit(1)
-                            }
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-                .padding(.vertical, 4)
-            }
-            if let selId = selectedTemplates[addonId], let sel = templates.first(where: { $0.id == selId }) {
-                templateLargePreview(sel)
-            }
-        }
-    }
-
-    /// Bản phóng to của mẫu đang chọn: ảnh cao ~200pt (scaledToFit, không méo — hợp mọi tỉ lệ), hoặc
-    /// ô placeholder khi chưa có ảnh thật.
-    @ViewBuilder
-    private func templateLargePreview(_ tpl: CatalogTemplate) -> some View {
-        if let s = tpl.imageUrl, !s.isEmpty, let url = URL(string: s) {
-            AsyncImage(url: url) { phase in
-                if let image = phase.image {
-                    image.resizable().scaledToFit()
-                } else if phase.error != nil {
-                    Color.secondary.opacity(0.1)
-                } else {
-                    ProgressView()
-                }
-            }
-            .frame(maxWidth: .infinity)
-            .frame(height: 200)
-            .background(Theme.thumbBg)
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        } else {
-            RoundedRectangle(cornerRadius: 10)
-                .fill(Color.secondary.opacity(0.1))
-                .frame(maxWidth: .infinity)
-                .frame(height: 150)
-                .overlay(
-                    VStack(spacing: 6) {
-                        Image(systemName: "paintpalette").font(.title2)
-                        Text(tpl.name).font(.subheadline.weight(.medium))
-                        Text(String(localized: "Preview image coming soon"))
-                            .font(.caption2)
-                    }
-                    .foregroundStyle(.secondary)
-                )
-        }
-    }
-
-    /// Ô ảnh mẫu 64pt. Có imageUrl → AsyncImage; chưa có (placeholder) → ô màu + icon.
-    @ViewBuilder
-    private func templateThumb(_ tpl: CatalogTemplate) -> some View {
-        if let s = tpl.imageUrl, !s.isEmpty, let url = URL(string: s) {
-            AsyncImage(url: url) { phase in
-                if let image = phase.image {
-                    image.resizable().scaledToFill()
-                } else {
-                    Color.secondary.opacity(0.12)
-                }
-            }
-            .frame(width: 64, height: 64)
-            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-        } else {
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(Color.secondary.opacity(0.12))
-                .frame(width: 64, height: 64)
-                .overlay(Image(systemName: "paintpalette").foregroundStyle(.secondary))
-        }
+        TemplatePicker(
+            templates: templates,
+            selection: Binding(
+                get: { selectedTemplates[addonId] },
+                set: { selectedTemplates[addonId] = $0 }
+            )
+        )
     }
 
     private func handleFilePick(_ result: Result<[URL], Error>) {
@@ -1847,17 +1800,57 @@ struct OrderSheet: View {
         }
     }
 
-    @ViewBuilder
+    /// Orders v2 B: a paid order is NOT placed until paid (`status == "awaiting_payment"`), so this
+    /// screen must not say "Order placed!" before the money lands (mockup 39). Free / 100% coupon
+    /// orders come back "received" = placed at once. Paid in the sheet here = placed.
+    private func awaitsPayment(_ order: OrderScanResponse) -> Bool {
+        order.status == "awaiting_payment" && !flow.paidOrderIds.contains(order.orderId) && !serverPaid
+    }
+
+    /// Back from the browser pay page (the only way `PaymentFlow` misses a payment): ask the server,
+    /// so this screen does not keep saying "not placed, cancelled after 7 days" to someone who paid.
+    /// Only a positive "paid" flips it — ✗ read anything into the order's absence or an error.
+    /// WordPress reports a browser payment a moment later (fire-and-forget callback): asked again
+    /// once after a few seconds.
+    private func recheckPlacedOrder() {
+        guard let placed = placedOrder, awaitsPayment(placed) else { return }
+        Task {
+            for attempt in 0..<2 {
+                if attempt > 0 { try? await Task.sleep(nanoseconds: 5_000_000_000) }
+                if let list = try? await APIClient.shared.listOrders(),
+                   let live = list.orders.first(where: { $0.orderId == placed.orderId }),
+                   live.paid == true, !live.isCancelled {
+                    serverPaid = true
+                    store.noteOrderStatus(orderNumber: live.orderNumber, status: live.status)
+                    return
+                }
+            }
+        }
+    }
+
+    /// A plain function first, so the state is a parameter: a local `let` inside a ViewBuilder is
+    /// where this CI has died of "type-check timeout" (`ScanAddressView`).
     private func successContent(_ order: OrderScanResponse) -> some View {
+        successBody(order, unpaid: awaitsPayment(order))
+    }
+
+    /// Fog: tick on an `ok` disc; a card on a `warn` disc while the order awaits payment.
+    private func successDisc(unpaid: Bool) -> some View {
+        let kind = unpaid ? Theme.Badge.warn : Theme.Badge.ok
+        return Image(systemName: unpaid ? "creditcard" : "checkmark")
+            .font(.system(size: unpaid ? 28 : 30, weight: unpaid ? .semibold : .bold))
+            .foregroundStyle(kind.fg)
+            .frame(width: 76, height: 76)
+            .background(Circle().fill(kind.bg))
+    }
+
+    @ViewBuilder
+    private func successBody(_ order: OrderScanResponse, unpaid: Bool) -> some View {
         VStack(spacing: 14) {
-            // Fog: tick on an `ok` disc.
-            Image(systemName: "checkmark")
-                .font(.system(size: 30, weight: .bold))
-                .foregroundStyle(Theme.Badge.ok.fg)
-                .frame(width: 76, height: 76)
-                .background(Circle().fill(Theme.Badge.ok.bg))
-            Text(String(localized: "Order placed!"))
+            successDisc(unpaid: unpaid)
+            Text(unpaid ? String(localized: "Awaiting payment") : String(localized: "Order placed!"))
                 .font(.title3.weight(.bold))
+                .multilineTextAlignment(.center)
             Text(order.orderNumber)
                 .font(.title3.monospaced().weight(.bold))
             // Dòng "MIỄN PHÍ — khuyến mãi đơn đầu 🎁" ĐÃ BỎ 2026-09-01 theo chủ app. Đơn free
@@ -1877,44 +1870,8 @@ struct OrderSheet: View {
                     .foregroundStyle(Theme.Badge.warn.fg)
                     .multilineTextAlignment(.center)
             }
-            // Câu "Đội ngũ Cedar247 sẽ bắt đầu…" (CẢ HAI nhánh free/trả tiền) ĐÃ BỎ 2026-09-01
-            // theo chủ app — thay bằng lời cảm ơn, GIỮ đúng dòng "Theo dõi…". Việc "trả tiền ở
-            // bước sau" vẫn hiện qua nút "Thanh toán ngay" / câu "gửi link qua email" ngay dưới.
-            Text(String(localized: "Thank you for choosing Cedar247!"))
-                .font(.subheadline.weight(.medium))
-                .multilineTextAlignment(.center)
-                .padding(.horizontal)
-            Text(String(localized: "Track progress in the Orders tab."))
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal)
-
-            // The card sheet opens by itself right after Place order when the server offers in-app
-            // payment; closing it leaves this button. Otherwise the browser, as before — `PaymentFlow`.
-            if let payURL = httpsURL(order.paymentUrl) {
-                PayNowButton(
-                    orderId: order.orderId,
-                    payURL: payURL,
-                    payInApp: order.payInApp == true,
-                    opensOnAppear: true
-                ) {
-                    Label(String(localized: "Pay Now"), systemImage: "creditcard.fill")
-                        .font(.headline)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .padding(.horizontal, 12)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                }
-                // Restyled here only; ✗ edit `PaymentFlow.swift`. Loading = disabled = grey, so the
-                // spinner keeps its default grey (white would vanish on it).
-                .buttonStyle(FogPrimary())
-            } else if order.free != true {
-                Text(String(localized: "We will email you a payment link shortly."))
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-            }
+            successNotes(order, unpaid: unpaid)
+            successPay(order, unpaid: unpaid)
 
             // Đơn có Virtual Tour → mời khách thêm ảnh phòng ngay (làm sớm = giao sớm)
             if order.hasTour == true {
@@ -1940,6 +1897,78 @@ struct OrderSheet: View {
         }
     }
 
+    /// What happens next: the not-placed sentence while it awaits payment, else the thanks.
+    @ViewBuilder
+    private func successNotes(_ order: OrderScanResponse, unpaid: Bool) -> some View {
+        if unpaid {
+            // Orders v2 B: the same sentence as the order detail (mockup 34). `WrappedText`:
+            // a sentence the customer must read whole (trap #44).
+            WrappedText(PayFirstCopy.notPlaced(expires: order.payBy != nil), style: .subheadline, alignment: .center)
+                .padding(.horizontal)
+        } else {
+            // Câu "Đội ngũ Cedar247 sẽ bắt đầu…" (CẢ HAI nhánh free/trả tiền) ĐÃ BỎ 2026-09-01
+            // theo chủ app — thay bằng lời cảm ơn, GIỮ đúng dòng "Theo dõi…". Việc "trả tiền ở
+            // bước sau" vẫn hiện qua nút "Thanh toán ngay" / câu "gửi link qua email" ngay dưới.
+            Text(String(localized: "Thank you for choosing Cedar247!"))
+                .font(.subheadline.weight(.medium))
+                .multilineTextAlignment(.center)
+                .padding(.horizontal)
+            Text(String(localized: "Track progress in the Orders tab."))
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal)
+        }
+    }
+
+    @ViewBuilder
+    private func successPay(_ order: OrderScanResponse, unpaid: Bool) -> some View {
+        // The card sheet opens by itself right after Place order when the server offers in-app
+        // payment; closing it leaves this button. Otherwise the browser, as before — `PaymentFlow`.
+        if serverPaid {
+            // Paid in the browser (`recheckPlacedOrder`): what `PayNowButton` shows once it knows.
+            Label(String(localized: "Paid"), systemImage: "checkmark.seal.fill")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.green)
+        } else if let payURL = httpsURL(order.paymentUrl) {
+            PayNowButton(
+                orderId: order.orderId,
+                payURL: payURL,
+                payInApp: order.payInApp == true,
+                opensOnAppear: true,
+                // Paid = placed: its scans read "Ordered" at once (Home, property page).
+                onPaid: { store.noteOrderStatus(orderNumber: order.orderNumber, status: "received") },
+                // Cancelled / being cancelled seconds after it was placed (only another device
+                // can do that): nothing to reload here, the Orders tab shows it. ✗ the browser.
+                onOrderChanged: {}
+            ) {
+                // "Pay Now", ✗ "Pay $X": `total` is the Woo total ROUNDED to whole dollars and a
+                // coupon can leave cents — the card sheet / pay page charge the exact amount.
+                Label(String(localized: "Pay Now"), systemImage: "creditcard.fill")
+                    .font(.headline)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, 12)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+            }
+            // Restyled here only; ✗ edit `PaymentFlow.swift`. Loading = disabled = grey, so the
+            // spinner keeps its default grey (white would vanish on it).
+            .buttonStyle(FogPrimary())
+            if unpaid {
+                Text(String(localized: "You can also pay later in the Orders tab."))
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal)
+            }
+        } else if order.free != true {
+            Text(String(localized: "We will email you a payment link shortly."))
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+            .multilineTextAlignment(.center)
+        }
+    }
+
     private func submit() {
         isBusy = true
         errorMessage = nil
@@ -1960,7 +1989,11 @@ struct OrderSheet: View {
         let languageSnapshot = language
         let floorNamingSnapshot = floorNaming
         let couponSnapshot = couponCode.trimmingCharacters(in: .whitespacesAndNewlines)
-        submitTask = Task {
+        submitTask = Task { @MainActor in
+            // 2.59: screen awake + background time for the WHOLE flow (uploads → order), released
+            // on every exit. The uploads themselves survive lock / app switch (`BackgroundUploads`).
+            UploadKeepAlive.shared.begin()
+            defer { UploadKeepAlive.shared.end() }
             // Tải lên mọi bản quét CHƯA có trên server (kể cả bản chính — khi đặt từ trang dự án)
             @MainActor
             func ensureUploaded(_ scan: ScanRecord) async -> String? {
@@ -1976,12 +2009,13 @@ struct OrderSheet: View {
                 // hành vi cũ (upload sẽ tự hỏng và báo lỗi) thay vì im lặng bỏ qua.
                 let live = store.records.first { $0.id == scan.id } ?? scan
                 if let existing = live.cloudScanId { return existing }
-                busyLabel = String(localized: "Uploading \(live.name)…")
                 let uploader = ScanUploader()
                 if let cloudId = await uploader.upload(record: live, folder: store.folderURL(for: live)) {
                     store.setCloudScanId(live, cloudScanId: cloudId)
                     return cloudId
                 }
+                // First failure wins: the others were cancelled because of it.
+                guard errorMessage == nil else { return nil }
                 if case .failed(let message) = uploader.phase {
                     errorMessage = "\(live.name): \(message)"
                 } else {
@@ -1990,20 +2024,49 @@ struct OrderSheet: View {
                 return nil
             }
 
-            guard let primaryCloudId = await ensureUploaded(record) else {
+            // 2.59: every scan's files are queued AT ONCE, while the app is on screen. One after
+            // the other, floor 2 would be queued after the phone locked = a discretionary transfer
+            // iOS may hold until Wi-Fi + power. Deduped by id: one record uploading twice at once
+            // = two server scans (#20b). Order of ids = [record] + extras, as before.
+            var queue: [ScanRecord] = []
+            for scan in [record] + extras where !queue.contains(where: { $0.id == scan.id }) {
+                queue.append(scan)
+            }
+            // One label for the whole batch (they all run at once).
+            let toSend = queue.filter { scan in
+                (store.records.first { $0.id == scan.id } ?? scan).cloudScanId == nil
+            }
+            if toSend.count == 1 {
+                busyLabel = String(localized: "Uploading \(toSend[0].name)…")
+            } else if toSend.count > 1 {
+                busyLabel = String(localized: "Uploading…")
+            }
+            var cloudIds: [UUID: String] = [:]
+            var uploadFailed = false
+            await withTaskGroup(of: (UUID, String?).self) { group in
+                for scan in queue {
+                    group.addTask { @MainActor in (scan.id, await ensureUploaded(scan)) }
+                }
+                for await (id, cloudId) in group {
+                    if let cloudId {
+                        cloudIds[id] = cloudId
+                    } else if !uploadFailed {
+                        uploadFailed = true
+                        group.cancelAll()
+                    }
+                }
+            }
+            guard !uploadFailed, let primaryCloudId = cloudIds[record.id] else {
                 isBusy = false
                 busyLabel = nil
                 return
             }
-            var extraCloudIds: [String] = []
-            for extra in extras {
-                guard let cloudId = await ensureUploaded(extra) else {
-                    isBusy = false
-                    busyLabel = nil
-                    return
-                }
-                extraCloudIds.append(cloudId)
-            }
+            let extraCloudIds = extras.compactMap { cloudIds[$0.id] }
+
+            // Uploads can finish while the phone is locked. The order is placed with the app on
+            // screen: a request cut by suspension after the server created the order = half-state
+            // (#26). Cancel while waiting → the [3] checkpoint below stops it.
+            await UploadKeepAlive.untilActive()
 
             // [20] Làm tươi suất miễn phí NGAY TRƯỚC khi đặt. Nút vừa bấm chốt `isFreePromo` theo
             // catalog tải lúc MỞ sheet, mà giữa đó là cả quãng điền form + upload 40–200MB × số tầng
@@ -2024,11 +2087,16 @@ struct OrderSheet: View {
             // [3] Checkpoint HỦY — mấu chốt tiền: sau các await tải lên (nơi khách bấm Hủy / vuốt
             // đóng), nếu Task đã bị cancel thì DỪNG TRƯỚC orderScan. Upload dở bỏ đi không mất gì
             // (server chưa có đơn); nhưng một khi orderScan chạy là đơn đã tạo, tốn suất free/tiền.
+            // The free-slot GET above may have taken the app off screen again: re-check here, no
+            // await between this and `orderScan`.
+            await UploadKeepAlive.untilActive()
             if Task.isCancelled {
                 isBusy = false
                 busyLabel = nil
                 return
             }
+            // Fresh background time for `orderScan` (the customer may switch app right now).
+            UploadKeepAlive.shared.renew()
 
             // Từ đây là điểm KHÔNG QUAY ĐẦU: khoá hủy (nút + onDisappear) để orderScan chạy trọn.
             // Đặt cờ trên MainActor TRƯỚC `await` nên UI kịp disable nút Hủy trước khi request bay đi.
@@ -2058,7 +2126,9 @@ struct OrderSheet: View {
                 // `ProjectView` đã đoán sai đúng kiểu đó: nó đóng dấu lên MỌI bản quét chưa đặt
                 // của dự án, kể cả tầng khách vừa BỎ CHỌN ngay trong form này. Tầng đó chưa hề
                 // lên server nhưng mang nhãn "Đã đặt · #LS-…", mất luôn nút đặt hàng VĨNH VIỄN
-                // (không code nào trả `cloudOrderNumber` về nil) và rơi khỏi `otherScans` nên
+                // (`cloudOrderNumber` chỉ về nil khi một đơn CHƯA TRẢ bị huỷ, và chỉ cho bản quét
+                // server trả lại — tầng chưa hề lên server không bao giờ nằm trong đó) và rơi khỏi
+                // `otherScans` nên
                 // không gộp được vào đơn nào về sau — khách trả tiền cho "cả căn" mà đội vẽ
                 // không bao giờ nhận được tầng ấy.
                 //
@@ -2070,6 +2140,9 @@ struct OrderSheet: View {
                 for extra in extras {
                     store.setOrderNumber(extra, orderNumber: result.orderNumber)
                 }
+                // Orders v2 B: an order awaiting payment reserves these scans (still stamped) but
+                // is not placed — they read "Awaiting payment" until it is paid or cancelled.
+                store.noteOrderStatus(orderNumber: result.orderNumber, status: result.status)
             } catch {
                 errorMessage = error.localizedDescription
             }
