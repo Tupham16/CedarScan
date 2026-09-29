@@ -209,6 +209,8 @@ struct MeshScanFlowView: View {
                     topBar
                     // Hidden debug flag only (7 taps on the version line in Account).
                     TorchDebugReadout(torch: controller.torch)
+                    // 🧪 TEST build only (ExposureCap): nil line = nothing drawn.
+                    ExposureCapDebugReadout(cap: controller.exposureCap)
                     Spacer()
                     bottomControls
                 }
@@ -755,6 +757,22 @@ private struct TorchDebugReadout: View {
 
     var body: some View {
         if let line = torch.debugLine {
+            Text(verbatim: line)
+                .font(.caption2.monospaced())
+                .foregroundStyle(Color.white)
+                .padding(6)
+                .background(Color.black.opacity(0.6), in: RoundedRectangle(cornerRadius: 6))
+                .accessibilityHidden(true)
+        }
+    }
+}
+
+/// Exposure-cap numbers (ExposureCap.debugLine) — test build + hidden debug flag only.
+private struct ExposureCapDebugReadout: View {
+    @ObservedObject var cap: ExposureCap
+
+    var body: some View {
+        if let line = cap.debugLine {
             Text(verbatim: line)
                 .font(.caption2.monospaced())
                 .foregroundStyle(Color.white)

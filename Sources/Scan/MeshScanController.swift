@@ -42,6 +42,8 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
     let qualityMonitor: ScanQualityMonitor
     /// Auto flashlight (26/09) — see AutoTorch.
     let torch: AutoTorch
+    /// 🧪 TEST-ONLY exposure cap (2.70.1 branch) — see ExposureCap; inert unless `testBuild`.
+    let exposureCap = ExposureCap()
     let quality: MeshQuality
 
     private var recorder: ScanVideoRecorder?
@@ -152,6 +154,7 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
         texShots.torch = torch
         texShots.start()
         scheduleWhiteBalanceLock()
+        exposureCap.start(device: wbDevice, arSession: arSession)
         // Before qualityMonitor.setActive(true), which forwards to the torch.
         torch.start(device: wbDevice)
         qualityMonitor.start()
@@ -245,7 +248,7 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
         // zip). nil on any failure — never blocks the save.
         let reportURL = report?.write(
             hitCap: hitCap, vertexCount: vertexCount, fastSave: fastSave, shots: texshots?.stats,
-            torch: torch.stats
+            torch: torch.stats, exposureCap: ExposureCap.testBuild ? exposureCap.stats : nil
         )
         report = nil
         let meshURL = await colorMesh?.exportColoredPLY(geometryOnly: fastSave, progress: progress)
@@ -298,6 +301,8 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
         // Both exits run this BEFORE arSession.pause(): the camera device outlives the session,
         // so a lock left behind would carry into the next scan's first seconds.
         releaseWhiteBalance()
+        // Same reason: the test exposure cap goes back to the device's own limit.
+        exposureCap.stop()
         // Same reason: a lit torch must not outlive the scan.
         torch.stop()
         UIApplication.shared.isIdleTimerDisabled = false

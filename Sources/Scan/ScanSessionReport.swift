@@ -219,6 +219,10 @@ final class ScanSessionReport {
         let whiteBalance: WhiteBalance
         /// Auto torch (26/09): status, level, switch counts, lit seconds.
         let torch: AutoTorch.Stats
+        /// 🧪 TEST build only (ExposureCap, 2.70.1): the selected cap in ms (0 = off) and its
+        /// status/figures. nil = key absent (every normal build).
+        let exposureCapMs: Int?
+        let exposureCap: ExposureCap.Stats?
     }
 
     private struct WhiteBalance: Encodable {
@@ -230,18 +234,25 @@ final class ScanSessionReport {
 
     /// Writes the report to a temp file; nil on any failure (the scan saves without it).
     func write(
-        hitCap: Bool, vertexCount: Int, fastSave: Bool, shots: ShotStats?, torch: AutoTorch.Stats
+        hitCap: Bool, vertexCount: Int, fastSave: Bool, shots: ShotStats?, torch: AutoTorch.Stats,
+        exposureCap: ExposureCap.Stats?
     ) -> URL? {
         markStopped()
         let secs = trackingSeconds.compactMapValues { Self.fin($0) }
+        var note = "CedarScan scan diagnostics. Times in seconds since session start. "
+            + "trackingSec = time per ARKit tracking state. poseDelta = texture shot pose "
+            + "at capture (m) vs final ARKit anchor pose at stop (m2): cm / degrees. "
+            + "torch.trace = auto-torch signal at 1 Hz: t (s), bv (smoothed EXIF "
+            + "BrightnessValue), d (near LiDAR depth m, -1 none), on (torch lit). "
+            + "Not read by the workstation yet."
+        if exposureCap != nil {
+            note += " TEST BUILD: exposureCapMs = auto-exposure limit selected for this scan "
+                + "(ms, 0 = off); exposureCap = how it went (status, device default/applied "
+                + "limit ms, resets, frames sampled / over the cap)."
+        }
         let file = File(
             version: 1,
-            note: "CedarScan scan diagnostics. Times in seconds since session start. "
-                + "trackingSec = time per ARKit tracking state. poseDelta = texture shot pose "
-                + "at capture (m) vs final ARKit anchor pose at stop (m2): cm / degrees. "
-                + "torch.trace = auto-torch signal at 1 Hz: t (s), bv (smoothed EXIF "
-                + "BrightnessValue), d (near LiDAR depth m, -1 none), on (torch lit). "
-                + "Not read by the workstation yet.",
+            note: note,
             device: Self.deviceModel(),
             ios: UIDevice.current.systemVersion,
             app: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?",
@@ -268,7 +279,9 @@ final class ScanSessionReport {
                 t.onSec = Self.fin(t.onSec) ?? 0
                 t.level = t.level.flatMap { $0.isFinite ? $0 : nil }
                 return t
-            }()
+            }(),
+            exposureCapMs: exposureCap?.capMs,
+            exposureCap: exposureCap
         )
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("scan-report-\(UUID().uuidString.prefix(8)).json")

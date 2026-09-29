@@ -74,7 +74,7 @@ targets:
         # tiếng, cùng hiện "1.0" → chủ app test trúng bản cũ mà không ai biết, báo "lỗi vẫn
         # nguyên" oan. AltStore (My Apps) và Cài đặt iOS đều hiện số này — nó là cách DUY NHẤT
         # xác minh từ xa máy ông đang chạy bản nào. Ghi số giao kèm vào SESSION-HANDOFF §STATE.
-        MARKETING_VERSION: "2.70"
+        MARKETING_VERSION: "2.70.1"
         # See CedarApplePayMerchantID below; release.yml overrides it on the command line.
         CEDAR_APPLE_PAY_MERCHANT_ID: ""
     # Push notifications (2.61, owner 26/09). XcodeGen writes this file (gitignored, like Info.plist)

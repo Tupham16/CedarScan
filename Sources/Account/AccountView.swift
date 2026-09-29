@@ -16,6 +16,8 @@ struct AccountView: View {
     /// Hidden debug readout on the scan screen (7 taps on the version line) — owner testing via
     /// AltStore has no console.
     @AppStorage("scanDebugReadout") private var scanDebugReadout = false
+    /// 🧪 TEST build only: exposure cap selector (ExposureCap reads the same key at scan start).
+    @AppStorage(ExposureCap.settingKey) private var exposureCapMs = ExposureCap.defaultMs
     @State private var versionTaps = 0
     @State private var lastVersionTap = Date.distantPast
 
@@ -138,6 +140,9 @@ struct AccountView: View {
                             versionLine
                                 .listRowBackground(Color.clear)
                         }
+                        if ExposureCap.testBuild && scanDebugReadout {
+                            exposureCapSection
+                        }
                     }
                     // `paymentMethods` comes with `GET me`; launch asks once, this covers a fresh
                     // sign-in and a switch flipped while the app was running.
@@ -222,6 +227,23 @@ struct AccountView: View {
                     scanDebugReadout.toggle()
                 }
             }
+    }
+
+    /// 🧪 TEST build only (ExposureCap, 2.70.1), behind the hidden debug flag. English, verbatim:
+    /// owner-only, no translation keys (a short key could also collide with Stripe's, trap #42).
+    private var exposureCapSection: some View {
+        Section {
+            Picker(selection: $exposureCapMs) {
+                ForEach(ExposureCap.choices, id: \.self) { ms in
+                    Text(verbatim: ms == 0 ? "Off" : "\(ms) ms").tag(ms)
+                }
+            } label: {
+                Text(verbatim: "Exposure cap (test)")
+            }
+            .listRowBackground(Theme.card)
+        } footer: {
+            Text(verbatim: "Test build only. Applies from the next scan.")
+        }
     }
 
     /// Mục Legal & Privacy cho hai màn KHÔNG phải `List` (chưa đăng nhập / chờ xác minh).

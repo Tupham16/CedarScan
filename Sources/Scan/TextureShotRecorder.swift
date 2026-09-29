@@ -292,6 +292,9 @@ final class TextureShotRecorder {
         var blurPx0: Float?
         /// Seconds from that opening frame to this one (0 = the opening frame was kept).
         var win: Double?
+        /// 🧪 TEST build only (ExposureCap, 2.70.1): the device's auto-exposure upper limit in
+        /// force at capture, ms (finite). nil = key absent (every normal build).
+        var expMaxMs: Float?
     }
     /// The ONE held copy of a choice window (main only). `buffer` is the recorder's own
     /// downscaled BGRA buffer — never an ARKit buffer.
@@ -601,7 +604,8 @@ final class TextureShotRecorder {
             exp: expo.exp, iso: expo.iso, bv: expo.bv,
             wb: wbGains,
             torch: torch?.levelForShot,
-            blurPx: blurPx
+            blurPx: blurPx,
+            expMaxMs: ExposureCap.limitMsForShot(captureDevice)
         )
 
         // Thu nhỏ về buffer RIÊNG ngay trên main (GPU, ~vài ms) — sau dòng render này
@@ -825,7 +829,7 @@ final class TextureShotRecorder {
                 var stats = self.applyFinalPoses(finalAnchorPoses, taken: taken)
                 let file = ShotsFile(
                     version: 1,
-                    note: Self.shotsNote,
+                    note: Self.shotsNote + Self.exposureCapNote,
                     shots: self.metas
                 )
                 do {
@@ -898,6 +902,12 @@ final class TextureShotRecorder {
         "motion is measured over the ~0.33 s before it, later frames over ~0.05 s); ",
         "win = seconds from that frame to this one.",
     ].joined()
+
+    /// 🧪 TEST build only (ExposureCap, 2.70.1) — appended to `note`; "" in every other build.
+    private static let exposureCapNote: String = ExposureCap.testBuild
+        ? " TEST BUILD: expMaxMs = the camera's auto-exposure upper limit in force at capture "
+            + "(ms); scan-report.json exposureCapMs = the cap selected for the scan (0 = off)."
+        : ""
 
     /// ioQueue. Fills `m2` from the final anchor poses and builds the report figures.
     /// m2 only when all 16 numbers are finite (NaN rule: one bad number kills the package).
