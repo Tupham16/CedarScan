@@ -12,22 +12,18 @@ final class Fog6Shots: XCTestCase {
         continueAfterFailure = true
         let en = lang("en", "US")
         let de = lang("de", "DE")
-        // Fog step 7 screens.
-        for screen in ["account", "account-signedout", "account-verify", "forgot", "delete", "gate-signedout",
-                       "revision", "supplement", "tour"] {
-            capture(screen, en, end: true)
+        // Fog step 7, round 2: field taps, German wraps.
+        capture("account-signedout", de + xxxl) { app in
+            let f = app.textFields.firstMatch
+            guard f.waitForExistence(timeout: 5) else { return }
+            // Tap the top edge of the box (inside the padding, outside the text line).
+            f.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: -0.3)).tap()
+            sleep(2)
+            self.shot("signin-edge-tap-de-xxxl")
         }
-        capture("faq", en) { app in self.expandFAQ(app); self.pages(app, "faq-open-en") }
-        capture("legal", en, pages: true)
-        capture("account", de + xxxl, pages: true)
-        capture("account-signedout", de + xxxl, pages: true)
-        capture("account-verify", de + xxxl)
-        capture("faq", de) { app in self.expandFAQ(app); self.pages(app, "faq-open-de") }
-        capture("faq", de + xxxl) { app in self.expandFAQ(app); self.pages(app, "faq-open-de-xxxl") }
-        capture("legal", de + xxxl, pages: true)
-        for screen in ["forgot", "delete", "revision", "supplement", "gate-signedout"] {
-            capture(screen, de + xxxl, end: true)
-        }
+        capture("supplement", de + xxxl)
+        capture("supplement", de)
+        capture("account-verify", en)
     }
 
     /// Opens the first questions of every group (answers are separate list rows).
