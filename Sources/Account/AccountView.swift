@@ -41,16 +41,19 @@ struct AccountView: View {
                                     .foregroundStyle(.secondary)
                             }
                             .padding(.vertical, 4)
+                            .listRowBackground(Theme.card)
                         }
                         if account.paymentMethodsAvailable {
                             Section {
                                 paymentMethodsRow
+                                    .listRowBackground(Theme.card)
                             }
                         }
                         Section {
                             Link(destination: URL(string: "https://cedar247.com")!) {
                                 Label("cedar247.com", systemImage: "globe")
                             }
+                            .listRowBackground(Theme.card)
                         } header: {
                             Text(String(localized: "About"))
                         }
@@ -81,15 +84,18 @@ struct AccountView: View {
                         // không công. Chính sách chủ app chốt 2026-07-20 và vẫn đúng: mặc định
                         // PDF + JPG · yêu cầu thì thêm được SVG/PNG · DWG là add-on.
                         Section {
-                            Toggle(isOn: $scanCoachHaptics) {
-                                Label(String(localized: "Vibration alerts"), systemImage: "iphone.radiowaves.left.and.right")
+                            Group {
+                                Toggle(isOn: $scanCoachHaptics) {
+                                    Label(String(localized: "Vibration alerts"), systemImage: "iphone.radiowaves.left.and.right")
+                                }
+                                Toggle(isOn: $scanCoachVoice) {
+                                    Label(String(localized: "Voice coaching"), systemImage: "speaker.wave.2")
+                                }
+                                Toggle(isOn: $scanAutoTorch) {
+                                    Label(String(localized: "Auto flashlight"), systemImage: "flashlight.on.fill")
+                                }
                             }
-                            Toggle(isOn: $scanCoachVoice) {
-                                Label(String(localized: "Voice coaching"), systemImage: "speaker.wave.2")
-                            }
-                            Toggle(isOn: $scanAutoTorch) {
-                                Label(String(localized: "Auto flashlight"), systemImage: "flashlight.on.fill")
-                            }
+                            .listRowBackground(Theme.card)
                         } header: {
                             Text(String(localized: "Scan coaching"))
                         } footer: {
@@ -106,6 +112,7 @@ struct AccountView: View {
                             } label: {
                                 Label(String(localized: "Sign out"), systemImage: "rectangle.portrait.and.arrow.right")
                             }
+                            .listRowBackground(Theme.card)
                         }
                         Section {
                             Button(role: .destructive) {
@@ -113,12 +120,15 @@ struct AccountView: View {
                             } label: {
                                 Label(String(localized: "Delete account"), systemImage: "trash")
                             }
+                            .listRowBackground(Theme.card)
                         } footer: {
                             // 🔴 CÂU NÀY PHẢI KHỚP `LegalView` mục "Deleting your account" VÀ khớp
                             // `account/delete/route.ts` trên server. Bản cũ ("your account and
                             // scans") mơ hồ giữa MÁY và SERVER: trên máy `submit()` chỉ gọi API rồi
                             // đăng xuất, thư mục `Documents/Scans` KHÔNG bị đụng.
-                            Text(String(localized: "Deletes your account and the scans we hold in the cloud. Scans on this iPhone are not affected. This cannot be undone."))
+                            // WrappedText: German at xxxLarge cut its last line (plan §4b #6).
+                            WrappedText(String(localized: "Deletes your account and the scans we hold in the cloud. Scans on this iPhone are not affected. This cannot be undone."),
+                                        style: .footnote, color: .secondaryLabel)
                         }
                         // Bản đang chạy. Trước đây số bản chỉ xem được ở AltStore / Cài đặt iOS,
                         // nên lúc thử bản nhánh không ai chắc máy đang chạy bản nào (20/09 đã mất
@@ -139,6 +149,8 @@ struct AccountView: View {
                     }
                 }
             }
+            // Fog: `Theme.bg` behind all three states; list rows on `Theme.card`.
+            .fogScreen()
             .navigationTitle(String(localized: "Account"))
             .sheet(isPresented: $showDeleteAccount) {
                 DeleteAccountView()
@@ -272,16 +284,19 @@ struct DeleteAccountView: View {
                         Image(systemName: "exclamationmark.triangle.fill")
                             .foregroundStyle(.red)
                     }
+                    .listRowBackground(Theme.card)
                 }
                 Section {
                     SecureField(String(localized: "Enter your password to confirm"), text: $password)
                         .textContentType(.password)
+                        .listRowBackground(Theme.card)
                 }
                 if let errorMessage {
                     Section {
                         Text(errorMessage)
                             .font(.footnote)
                             .foregroundStyle(.red)
+                            .listRowBackground(Theme.card)
                     }
                 }
                 Section {
@@ -299,8 +314,10 @@ struct DeleteAccountView: View {
                         .frame(maxWidth: .infinity)
                     }
                     .disabled(isBusy || password.isEmpty)
+                    .listRowBackground(Theme.card)
                 }
             }
+            .fogScreen()
             .navigationTitle(String(localized: "Delete account"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

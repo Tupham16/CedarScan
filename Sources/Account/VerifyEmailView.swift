@@ -27,7 +27,7 @@ struct VerifyEmailView: View {
                 .keyboardType(.numberPad)
                 .multilineTextAlignment(.center)
                 .font(.system(size: 30, weight: .bold, design: .monospaced))
-                .textFieldStyle(.roundedBorder)
+                .fogField()
                 .onChange(of: code) { _, newValue in
                     code = String(newValue.filter(\.isNumber).prefix(6))
                 }
@@ -36,7 +36,7 @@ struct VerifyEmailView: View {
                 Text(errorMessage).font(.footnote).foregroundStyle(.red)
             }
             if let infoMessage {
-                Text(infoMessage).font(.footnote).foregroundStyle(.green)
+                Text(infoMessage).font(.footnote).foregroundStyle(Theme.Badge.ok.fg)
             }
 
             Button {
@@ -48,9 +48,9 @@ struct VerifyEmailView: View {
                 }
                 .font(.headline)
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
+                .padding(.vertical, 14)
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(FogPrimary(busy: isBusy))
             .disabled(isBusy || code.count != 6)
 
             Button {

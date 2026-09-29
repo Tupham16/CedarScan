@@ -35,6 +35,7 @@ struct LearnView: View {
                         }
                         .padding(.vertical, 2)
                     }
+                    .listRowBackground(Theme.card)
                 } header: {
                     Text(String(localized: "Scanning"))
                 }
@@ -60,12 +61,14 @@ struct LearnView: View {
                         }
                         .padding(.vertical, 2)
                     }
+                    .listRowBackground(Theme.card)
                 } header: {
                     Text(String(localized: "Orders"))
                 } footer: {
                     Text(String(localized: "More guides are on the way."))
                 }
             }
+            .fogScreen()
             .navigationTitle(String(localized: "Learn"))
             .navigationDestination(for: Topic.self) { topic in
                 switch topic {

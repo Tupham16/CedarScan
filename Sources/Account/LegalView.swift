@@ -475,9 +475,9 @@ struct LegalDocumentView: View {
                     VStack(alignment: .leading, spacing: 6) {
                         Text(section.heading)
                             .font(.headline)
-                        Text(section.text)
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                        // WrappedText: iOS 26 cut the last line of a body in a German app
+                        // (plan §4b #1–2). Selectable, like the `.textSelection` below.
+                        WrappedText(section.text, style: .subheadline, color: .secondaryLabel, selectable: true)
                     }
                 }
             }
@@ -486,6 +486,7 @@ struct LegalDocumentView: View {
             // Văn bản dài + chọn được chữ: khách copy được đoạn cần gửi cho luật sư/kế toán của họ.
             .textSelection(.enabled)
         }
+        .fogScreen()
         .navigationTitle(doc.title)
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -504,6 +505,8 @@ struct LegalLinks: View {
             } label: {
                 Label(doc.title, systemImage: doc.icon)
             }
+            // Per row, not on the caller: outside a List (signed-out screen) it does nothing.
+            .listRowBackground(Theme.card)
         }
     }
 }

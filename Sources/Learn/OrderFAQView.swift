@@ -88,6 +88,7 @@ struct OrderFAQContent: View {
                 Section {
                     ForEach(group.items) { item in
                         row(item)
+                            .listRowBackground(Theme.card)
                     }
                 } header: {
                     Text(group.title)
@@ -95,6 +96,7 @@ struct OrderFAQContent: View {
             }
             bottomSpacer
         }
+        .fogScreen()
     }
 
     /// 🔴 CHỖ CHỪA CHO THANH TAB TỰ VẼ. Màn này được **PUSH** trong `NavigationStack` của tab
@@ -124,9 +126,8 @@ struct OrderFAQContent: View {
     /// hình, thay vì một bức tường chữ phải cuộn mãi mới biết ở đây có những mục gì.
     private func row(_ item: FAQItem) -> some View {
         DisclosureGroup {
-            Text(item.answer)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+            // WrappedText: German at default size cut an answer's last line (plan §4b #5).
+            WrappedText(item.answer, style: .subheadline, color: .secondaryLabel)
                 .padding(.vertical, 4)
         } label: {
             Text(item.question)

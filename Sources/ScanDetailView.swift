@@ -1246,11 +1246,16 @@ struct OrderSheet: View {
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
-                        Button(String(localized: "Retry")) {
+                        Button {
                             self.loadError = nil
                             Task { await loadCatalog() }
+                        } label: {
+                            Text(String(localized: "Retry"))
+                                .font(.subheadline.weight(.semibold))
+                                .padding(.horizontal, 18)
+                                .padding(.vertical, 9)
                         }
-                        .buttonStyle(.bordered)
+                        .buttonStyle(FogTint(radius: 12))
                     }
                     .padding(24)
                 } else {

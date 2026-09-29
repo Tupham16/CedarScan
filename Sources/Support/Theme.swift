@@ -186,6 +186,17 @@ extension View {
             .listRowInsets(EdgeInsets(top: 17, leading: 32, bottom: 18, trailing: trailing))
     }
 
+    /// Text field on the screen background (sign-in, verify code): card fill, radius 12,
+    /// hairline border. Replaces `.roundedBorder` (system colours, off the Fog palette).
+    func fogField() -> some View {
+        let shape = RoundedRectangle(cornerRadius: 12, style: .continuous)
+        return self
+            .padding(.horizontal, 14)
+            .padding(.vertical, 11)
+            .background(shape.fill(Theme.card))
+            .overlay(shape.strokeBorder(Theme.hairline, lineWidth: 1).allowsHitTesting(false))
+    }
+
     /// Dark glass behind controls over the camera (scan screen), dark in light mode too:
     /// blur + black 30% + 1pt white 16% border. Measured on simulator renders: ≈ the mockup's
     /// tone over a room, and white text stays ≥ 7:1 over a white wall (thin material alone: 4.4:1).
@@ -202,21 +213,28 @@ extension View {
 /// Wrapped text a customer must read whole (instructions, notes). iOS 26 can measure a SwiftUI
 /// `Text` or `UILabel` in fewer lines than it draws and cut the last line (German, trap #44).
 /// Here one TextKit layout measures and draws, at the full proposed width. VoiceOver reads it
-/// as a plain `Text`. Primary colour; font = `style` at the environment's Dynamic Type size.
+/// as a plain `Text`. Font = `style` at the environment's Dynamic Type size.
 struct WrappedText: View {
     let text: String
     let style: UIFont.TextStyle
     /// `.center` for a centred screen (the placed screen); line breaks do not depend on it.
     let alignment: NSTextAlignment
+    /// `.secondaryLabel` for grey text (FAQ answers, footers, legal bodies).
+    let color: UIColor
+    /// Legal texts: the customer can select and copy a passage.
+    let selectable: Bool
 
-    init(_ text: String, style: UIFont.TextStyle = .body, alignment: NSTextAlignment = .natural) {
+    init(_ text: String, style: UIFont.TextStyle = .body, alignment: NSTextAlignment = .natural,
+         color: UIColor = .label, selectable: Bool = false) {
         self.text = text
         self.style = style
         self.alignment = alignment
+        self.color = color
+        self.selectable = selectable
     }
 
     var body: some View {
-        WrappedTextView(text: text, style: style, alignment: alignment)
+        WrappedTextView(text: text, style: style, alignment: alignment, color: color, selectable: selectable)
             .accessibilityRepresentation { Text(text) }
     }
 }
@@ -226,17 +244,24 @@ struct WrappedTextView: UIViewRepresentable {
     let text: String
     let style: UIFont.TextStyle
     var alignment: NSTextAlignment = .natural
+    var color: UIColor = .label
+    var selectable = false
 
     func makeUIView(context: Context) -> UITextView {
-        Self.makeTextView()
+        let view = Self.makeTextView()
+        if selectable {
+            view.isSelectable = true
+            view.isUserInteractionEnabled = true
+        }
+        return view
     }
 
     func updateUIView(_ view: UITextView, context: Context) {
-        Self.configure(view, text: text, font: Self.font(style, context.environment), alignment: alignment)
+        Self.configure(view, text: text, font: Self.font(style, context.environment), alignment: alignment, color: color)
     }
 
     func sizeThatFits(_ proposal: ProposedViewSize, uiView view: UITextView, context: Context) -> CGSize? {
-        Self.configure(view, text: text, font: Self.font(style, context.environment), alignment: alignment)
+        Self.configure(view, text: text, font: Self.font(style, context.environment), alignment: alignment, color: color)
         return Self.fittingSize(view, width: proposal.width, scale: context.environment.displayScale)
     }
 
@@ -269,11 +294,13 @@ struct WrappedTextView: UIViewRepresentable {
         return UIFont.preferredFont(forTextStyle: style, compatibleWith: traits)
     }
 
-    static func configure(_ view: UITextView, text: String, font: UIFont, alignment: NSTextAlignment = .natural) {
-        guard view.attributedText?.string != text || view.font != font || view.textAlignment != alignment else { return }
+    static func configure(_ view: UITextView, text: String, font: UIFont, alignment: NSTextAlignment = .natural,
+                          color: UIColor = .label) {
+        guard view.attributedText?.string != text || view.font != font || view.textAlignment != alignment
+                || view.textColor != color else { return }
         var attributes: [NSAttributedString.Key: Any] = [
             .font: font,
-            .foregroundColor: UIColor.label,
+            .foregroundColor: color,
         ]
         // Only when asked: the default (.natural) keeps the exact attributes the German sweep measured.
         if alignment != .natural {

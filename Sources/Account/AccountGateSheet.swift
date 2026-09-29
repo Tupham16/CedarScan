@@ -57,6 +57,7 @@ struct AccountGateSheet: View {
                     AuthView()
                 }
             }
+            .fogScreen()
             // CỐ Ý không có `.navigationTitle`: `AuthView` và `VerifyEmailView` đều tự vẽ tiêu đề
             // lớn của mình (`AuthView.swift:20`, `VerifyEmailView.swift:19`), thêm tiêu đề nav là
             // hai tầng chữ chồng nhau. Tệ hơn, tiêu đề nav KHÔNG thấy được state `isRegistering`

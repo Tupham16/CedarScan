@@ -58,6 +58,7 @@ struct SupplementSheet: View {
     var body: some View {
         NavigationStack {
             Form { content }
+                .fogScreen()
                 .navigationTitle(String(localized: "Send extra scan"))
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
@@ -106,6 +107,7 @@ struct SupplementSheet: View {
             ForEach(records) { record in
                 Label(record.name, systemImage: "cube.transparent")
                     .font(.subheadline)
+                    .listRowBackground(Theme.card)
             }
         } header: {
             Text(String(localized: "Scans to send"))
@@ -125,9 +127,10 @@ struct SupplementSheet: View {
                           systemImage: "paperplane.fill")
                         .font(.headline)
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 6)
+                        .padding(.vertical, 14)
                 }
-                .buttonStyle(.borderedProminent)
+                // Stands alone on the screen background, as "Place order" (trap #47b).
+                .buttonStyle(FogPrimary())
                 .listRowInsets(EdgeInsets())
                 .listRowBackground(Color.clear)
             }
@@ -137,15 +140,19 @@ struct SupplementSheet: View {
                     ProgressView()
                     Text(label).font(.subheadline)
                 }
+                .listRowBackground(Theme.card)
             }
         case .sent(let count):
             Section {
-                Label(
-                    String(localized: "Sent — \(count) scan(s) added to \(orderNumber)"),
-                    systemImage: "checkmark.circle.fill"
-                )
-                .foregroundStyle(.green)
-                Button(String(localized: "Done")) { dismiss() }
+                Group {
+                    Label(
+                        String(localized: "Sent — \(count) scan(s) added to \(orderNumber)"),
+                        systemImage: "checkmark.circle.fill"
+                    )
+                    .foregroundStyle(Theme.Badge.ok.fg)
+                    Button(String(localized: "Done")) { dismiss() }
+                }
+                .listRowBackground(Theme.card)
             } footer: {
                 // 🔴 BA CÂU, ✗ MỘT. Đơn ĐÃ GIAO đi qua đường này từ 19/08, và khách vừa cầm bản
                 // vẽ trong tay: nói đúng một câu "đội đã được báo" là để họ tưởng bản vẽ CŨ đã
@@ -154,7 +161,9 @@ struct SupplementSheet: View {
                 // thẻ về cột Fix (`orders/route.ts` chỉ trả `deliveryFiles` khi stage == "done").
                 // Khách mở tab Đơn hàng thấy nút Tải biến mất mà không được báo trước là một cú
                 // hoảng không đáng có, và là loại việc Support phải trả lời từng người.
-                Text(deliveredNote ?? String(localized: "Our team has been notified so the new area goes into your drawing."))
+                // WrappedText: German at xxxLarge cut its last line (plan §4b #7).
+                WrappedText(deliveredNote ?? String(localized: "Our team has been notified so the new area goes into your drawing."),
+                            style: .footnote, color: .secondaryLabel)
             }
         case .delivered(let message):
             // Chủ app chốt: *"đã giao thì chỉ là yêu cầu sửa"*. SERVER là nơi phán quyết (app chỉ
@@ -162,15 +171,17 @@ struct SupplementSheet: View {
             // chỉ chạy khi server ĐÃ nói không.
             Section {
                 Text(message).font(.subheadline)
+                    .listRowBackground(Theme.card)
                 Button {
                     openRevision()
                 } label: {
                     Label(String(localized: "Request a revision"), systemImage: "arrow.uturn.backward")
                         .font(.headline)
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 6)
+                        .padding(.vertical, 14)
                 }
-                .buttonStyle(.borderedProminent)
+                // Stands alone on the screen background, as "Place order" (trap #47b).
+                .buttonStyle(FogPrimary())
                 .listRowInsets(EdgeInsets())
                 .listRowBackground(Color.clear)
             } header: {
@@ -178,16 +189,22 @@ struct SupplementSheet: View {
             }
         case .failed(let message):
             Section {
-                Text(message)
-                    .font(.subheadline)
-                    .foregroundStyle(.red)
-                Button(String(localized: "Try again")) { send() }
+                Group {
+                    Text(message)
+                        .font(.subheadline)
+                        .foregroundStyle(.red)
+                    Button(String(localized: "Try again")) { send() }
+                }
+                .listRowBackground(Theme.card)
             }
         case .orderCancelled(let message):
             Section {
                 // Must be read whole (trap #44).
-                WrappedText(message, style: .subheadline)
-                Button(String(localized: "Close")) { dismiss() }
+                Group {
+                    WrappedText(message, style: .subheadline)
+                    Button(String(localized: "Close")) { dismiss() }
+                }
+                .listRowBackground(Theme.card)
             }
         }
     }

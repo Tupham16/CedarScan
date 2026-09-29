@@ -265,8 +265,15 @@ struct OrdersView: View {
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
-                Button(String(localized: "Retry")) { Task { await load() } }
-                    .buttonStyle(.bordered)
+                Button {
+                    Task { await load() }
+                } label: {
+                    Text(String(localized: "Retry"))
+                        .font(.subheadline.weight(.semibold))
+                        .padding(.horizontal, 18)
+                        .padding(.vertical, 9)
+                }
+                .buttonStyle(FogTint(radius: 12))
             } else {
                 Image(systemName: "shippingbox")
                     .font(.system(size: 44))
@@ -538,7 +545,7 @@ struct RevisionSheet: View {
                         VStack(spacing: 10) {
                             Image(systemName: "checkmark.circle.fill")
                                 .font(.system(size: 44))
-                                .foregroundStyle(.green)
+                                .foregroundStyle(Theme.Badge.ok.fg)
                             Text(String(localized: "Revision requested!"))
                                 .font(.headline)
                             Text(String(localized: "Our team will update your floor plan and deliver a revised version."))
@@ -548,6 +555,7 @@ struct RevisionSheet: View {
                         }
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 8)
+                        .listRowBackground(Theme.card)
                     }
                 } else {
                     Section {
@@ -557,6 +565,7 @@ struct RevisionSheet: View {
                             axis: .vertical
                         )
                         .lineLimit(4...8)
+                        .listRowBackground(Theme.card)
                     } header: {
                         Text(order.orderNumber)
                     } footer: {
@@ -568,10 +577,12 @@ struct RevisionSheet: View {
                             Text(errorMessage)
                                 .font(.footnote)
                                 .foregroundStyle(.red)
+                                .listRowBackground(Theme.card)
                         }
                     }
                 }
             }
+            .fogScreen()
             .navigationTitle(String(localized: "Request a revision"))
             .navigationBarTitleDisplayMode(.inline)
             // Vuốt xuống lúc ĐANG GỬI / ĐANG TẢI FILE thì sheet đóng mà request vẫn bay tiếp:
@@ -619,6 +630,7 @@ struct RevisionSheet: View {
                     }
                     .buttonStyle(.plain)
                 }
+                .listRowBackground(Theme.card)
             }
             Button {
                 fileUploadError = nil
@@ -645,8 +657,10 @@ struct RevisionSheet: View {
             ) { result in
                 handleFilePick(result)
             }
+            .listRowBackground(Theme.card)
             if let fileUploadError {
                 Text(fileUploadError).font(.footnote).foregroundStyle(.red)
+                    .listRowBackground(Theme.card)
             }
         } header: {
             // "(không bắt buộc)" bỏ theo mục cùng tên ở form đặt hàng (`ScanDetailView`, 13/08):

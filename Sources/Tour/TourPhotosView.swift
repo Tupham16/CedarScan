@@ -62,17 +62,25 @@ struct TourPhotosView: View {
                     VStack(spacing: 12) {
                         Text(loadError).font(.subheadline).foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
-                        Button(String(localized: "Retry")) {
+                        Button {
                             self.loadError = nil
                             Task { await load() }
+                        } label: {
+                            Text(String(localized: "Retry"))
+                                .font(.subheadline.weight(.semibold))
+                                .padding(.horizontal, 18)
+                                .padding(.vertical, 9)
                         }
-                        .buttonStyle(.bordered)
+                        .buttonStyle(FogTint(radius: 12))
                     }
                     .padding(24)
                 } else {
                     ProgressView()
                 }
             }
+            // Fog: `Theme.bg` behind every state; form rows on `Theme.card`.
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Theme.bg.ignoresSafeArea())
             .navigationTitle(String(localized: "Tour photos"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -125,23 +133,26 @@ struct TourPhotosView: View {
     private var content: some View {
         Form {
             Section {
-                Text(String(localized: "Add 1–3 photos per room. Our team will pin them to the right spot on your floor plan and you'll get a shareable tour link with your delivery."))
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-                if isPublished {
-                    Label(
-                        String(localized: "The tour has been delivered — photos are locked. Contact support for changes."),
-                        systemImage: "lock.fill"
-                    )
+                Group {
+                    Text(String(localized: "Add 1–3 photos per room. Our team will pin them to the right spot on your floor plan and you'll get a shareable tour link with your delivery."))
                     .font(.footnote)
-                    .foregroundStyle(.orange)
-                }
-                if let url = httpsURL(tour?.tourUrl) {
-                    Link(destination: url) {
-                        Label(String(localized: "View your Virtual Tour"), systemImage: "house.fill")
-                            .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    if isPublished {
+                        Label(
+                            String(localized: "The tour has been delivered — photos are locked. Contact support for changes."),
+                            systemImage: "lock.fill"
+                        )
+                        .font(.footnote)
+                        .foregroundStyle(Theme.Badge.warn.fg)
+                    }
+                    if let url = httpsURL(tour?.tourUrl) {
+                        Link(destination: url) {
+                            Label(String(localized: "View your Virtual Tour"), systemImage: "house.fill")
+                                .font(.subheadline.weight(.semibold))
+                        }
                     }
                 }
+                .listRowBackground(Theme.card)
             }
 
             if scans.count > 1 {
@@ -155,6 +166,7 @@ struct TourPhotosView: View {
                         }
                     }
                     .pickerStyle(.segmented)
+                    .listRowBackground(Theme.card)
                 }
             }
 
@@ -171,6 +183,7 @@ struct TourPhotosView: View {
                         onUpload: { items in uploadPhotos(items, room: group.room) },
                         onDelete: { photo in deletePhoto(photo) }
                     )
+                    .listRowBackground(Theme.card)
                 } header: {
                     Text(group.room)
                 }
@@ -187,15 +200,18 @@ struct TourPhotosView: View {
                     } label: {
                         Label(String(localized: "Add a room"), systemImage: "plus.circle.fill")
                     }
+                    .listRowBackground(Theme.card)
                 }
             }
 
             if let errorMessage {
                 Section {
                     Text(errorMessage).font(.footnote).foregroundStyle(.red)
+                        .listRowBackground(Theme.card)
                 }
             }
         }
+        .fogScreen()
     }
 
     private func uploadPhotos(_ items: [PhotosPickerItem], room: String) {
@@ -279,7 +295,7 @@ private struct RoomPhotosRow: View {
                             if let image = phase.image {
                                 image.resizable().scaledToFill()
                             } else {
-                                Color.gray.opacity(0.15)
+                                Theme.thumbBg
                             }
                         }
                         .frame(width: 92, height: 69)
@@ -312,10 +328,10 @@ private struct RoomPhotosRow: View {
                             Text("\(photos.count)/\(maxPerRoom)").font(.caption2)
                         }
                         .frame(width: 92, height: 69)
-                        .background(Color.accentColor.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
+                        .background(Theme.accentTint, in: RoundedRectangle(cornerRadius: 8))
                         .overlay(
                             RoundedRectangle(cornerRadius: 8)
-                                .strokeBorder(Color.accentColor.opacity(0.4), style: StrokeStyle(lineWidth: 1, dash: [4]))
+                                .strokeBorder(Theme.accentText.opacity(0.4), style: StrokeStyle(lineWidth: 1, dash: [4]))
                         )
                     }
                     .onChange(of: picked) { _, items in

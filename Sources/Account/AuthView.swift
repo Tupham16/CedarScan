@@ -30,17 +30,17 @@ struct AuthView: View {
                 if isRegistering {
                     TextField(String(localized: "Your name"), text: $name)
                         .textContentType(.name)
-                        .textFieldStyle(.roundedBorder)
+                        .fogField()
                 }
                 TextField("Email", text: $email)
                     .keyboardType(.emailAddress)
                     .textContentType(.emailAddress)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
-                    .textFieldStyle(.roundedBorder)
+                    .fogField()
                 SecureField(String(localized: "Password (min 8 characters)"), text: $password)
                     .textContentType(isRegistering ? .newPassword : .password)
-                    .textFieldStyle(.roundedBorder)
+                    .fogField()
             }
 
             if let errorMessage {
@@ -64,9 +64,9 @@ struct AuthView: View {
                 }
                 .font(.headline)
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
+                .padding(.vertical, 14)
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(FogPrimary(busy: isBusy))
             .disabled(isBusy || email.isEmpty || password.isEmpty || (isRegistering && name.isEmpty))
 
             Button {
