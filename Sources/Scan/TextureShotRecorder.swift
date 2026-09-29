@@ -121,9 +121,20 @@ final class TextureCoverageGrid {
 ///    + chép depth thô 256×192 NGAY TRÊN MAIN vào buffer RIÊNG (không giữ CVPixelBuffer
 ///    của ARKit qua async — pool của ARKit rất nhỏ, giữ lâu là tracking sụt), nén JPEG
 ///    + DEFLATE depth + ghi đĩa ở queue nền.
-///  - Kho đầy (800 ảnh, ~160KB/ảnh jpg+depth ≈ 128MB): BỎ 1 ẢNH XEN KẼ TRÊN ĐĨA (kèm file
-///    depth của nó) rồi nhân đôi giãn cách — đúng cơ chế trải-đều của kho khung màu,
-///    nhưng trả giá bằng đĩa (rẻ) thay vì RAM.
+///  - Sharpest frame (2.70, owner 29/09 "hướng 1"): a shot that is DUE no longer saves the
+///    first frame through the gates. That frame opens a CHOICE WINDOW (≤ 0.8 s, ticks at
+///    20Hz meanwhile); the recorder keeps ONE downscaled copy of the least-blurred frame
+///    seen and saves it when the window ends. Blur is PREDICTED, no image work: exposure
+///    time × image speed from two consecutive ARKit poses (see `predictBlur`). The
+///    window ends early on a sharp frame (≤ 1 px), when the camera leaves an 8° / 15 cm cone
+///    around the opening frame, and on Stop. The gates run on the OPENING frame exactly as
+///    before, so shots come as often as before; each saved frame is within 8° / 15 cm /
+///    0.8 s of the one the old rule saved. Why: the owner's textures looked smeared next to
+///    Scaniverse / 3D Scanner App, and the workstation measured the RAW shots as already
+///    soft (motion blur while turning, q0.55) — bake-side fixes did not help.
+///  - Kho đầy (800 ảnh, ~210–270KB/ảnh jpg+depth since q0.8 — estimate, see jpegQuality):
+///    BỎ 1 ẢNH XEN KẼ TRÊN ĐĨA (kèm file depth của nó) rồi nhân đôi giãn cách — đúng cơ chế
+///    trải-đều của kho khung màu, nhưng trả giá bằng đĩa (rẻ) thay vì RAM.
 ///  - Ảnh giữ NGUYÊN HƯỚNG CẢM BIẾN (landscape) — không xoay pixel, không gắn EXIF:
 ///    intrinsics của ARKit tham chiếu đúng lưới pixel đó, xoay ảnh là phải xoay cả
 ///    intrinsics (chỗ sai kinh điển, lộ ra thành texture lệch toàn bộ mà không ai bắt được
@@ -137,8 +148,13 @@ final class TextureShotRecorder {
     /// Chất lượng JPEG — hạ 0.62 → 0.55 làm đối trọng cho 2.25× pixel của mức 1440:
     /// (đời trần 480, 30/07) kho 480 ảnh ~50MB (960/q0.62) → ~90–100MB thay vì ~110MB,
     /// nằm trong mức "+50–60MB zip" chủ app duyệt lúc đó (nay trần 800, xem maxShots).
-    /// Độ nét ăn theo RESOLUTION, không theo nấc q này.
-    private static let jpegQuality: Double = 0.55
+    /// 0.55 → 0.8 (2.70, owner 29/09, accepted ~2× the photo part of the zip): the workstation
+    /// found q0.55 among the causes of soft raw shots (fabric weave / wood grain lost).
+    /// Measured at 0.55: jpg ~107KB (up to ~139KB mean on a dim scan) + depth ~52KB. At 0.8:
+    /// ESTIMATE ~1.5–2× jpg ≈ 160–215KB → ~210–270KB/shot, full 800 store ≈ 170–215MB (was
+    /// ~128MB); zip worst case ≈ that + mesh/GLB ~100MB, under the 500MB objzip cap
+    /// (order-webapp app-storage.ts). Re-measure on the first device scan.
+    private static let jpegQuality: Double = 0.8
     /// Giãn cách TỐI THIỂU giữa hai ảnh (giây) — nhân đôi mỗi lần kho đầy.
     private static let startInterval: TimeInterval = 1.2
     /// Ngưỡng "đã sang góc nhìn mới": dịch ≥ 0.4m HOẶC xoay ≥ 25°. Đứng yên một chỗ thì
@@ -165,11 +181,39 @@ final class TextureShotRecorder {
     /// ~8% of faces got no photo (#LS-MSLINTGA7, 949 m², 268 shots). Measured ~160KB/shot
     /// (jpg ~107KB + depth ~52KB) → full store ~128MB; worst gap vs 480 ≈ 400 shots
     /// ≈ +64MB zip (800 full vs 400 just-thinned), only for scans past ~10 min.
+    /// Since q0.8 (2.70) ~210–270KB/shot (estimate) → full store ~170–215MB.
     /// Server objzip cap 500MB (order-webapp app-storage.ts). Paired with
     /// tex-worker-config.json "maxShots" (bake set-cover cap) on the workstation.
     private static let maxShots = 800
     /// Còn quá nhiều ảnh chờ nén thì bỏ lượt này (I/O nghẽn) — không xếp hàng vô hạn.
+    /// Checked when a choice window OPENS (pending ≤ 2 then), so the held copy + the queue
+    /// never hold more than 3 downscaled buffers (~6MB each), as before 2.70.
     private static let maxPendingEncodes = 3
+    // ── Choice window (2.70, see the class comment). Tuning levers; the gates above and the
+    // coach are NOT part of it.
+    /// Longest wait for a sharper frame after a shot fell due (host clock).
+    private static let windowSec: CFTimeInterval = 0.8
+    /// A frame this sharp (predicted, stored-image px) is saved at once — also the opening
+    /// frame, so bright scenes / a still phone behave exactly as before 2.70.
+    private static let sharpEnoughPx: Float = 1.0
+    /// A later frame replaces the held copy only when clearly sharper (both rules): each copy
+    /// is a main-thread GPU downscale, so small gains are not worth one.
+    private static let improveFactor: Float = 0.7
+    private static let improveMinPx: Float = 0.5
+    /// Copies per window, the opening one included; a sharp-enough frame is always taken.
+    private static let maxCopiesPerWindow = 4
+    /// The saved frame stays this close to the opening frame (the one the old rule saved):
+    /// beyond it the camera looks at something else — save the held copy now. Bounds how
+    /// far photo coverage can move vs before 2.70.
+    private static let maxDriftDeg: Float = 8
+    private static let maxDriftM: Float = 0.15
+    /// Ranking only, when ARFrame.exifData has no exposure time (typical indoor value;
+    /// `blurPx` is then not recorded).
+    private static let assumedExposureSec: Double = 1.0 / 60
+    /// Tick rates: 3Hz between windows (unchanged), 20Hz inside one — pose deltas ~50ms
+    /// apart estimate the motion during a ~10–16ms exposure far better than 333ms apart.
+    private static let slowRate = CAFrameRateRange(minimum: 2, maximum: 5, preferred: 3)
+    private static let fastRate = CAFrameRateRange(minimum: 10, maximum: 30, preferred: 20)
     /// Name of the per-shot ARAnchor (item 1, 26/09) — MeshScanController picks the final
     /// poses by it. Other anchor readers (ColorMeshBuilder, MeshOverlayRenderer) take
     /// `ARMeshAnchor` only; ARSCNView gives each anchor an empty node (no delegate).
@@ -193,7 +237,8 @@ final class TextureShotRecorder {
     private let ioQueue = DispatchQueue(label: "com.cedar247.texshots", qos: .utility)
 
     private struct ShotMeta: Encodable {
-        let file: String
+        /// Named at commit (`shot-NNNN.jpg`) — a held window copy has no number yet.
+        var file: String
         /// frame.timestamp của ARKit (đồng hồ máy, giây) — KHÔNG khớp PTS video, chỉ để
         /// máy trạm biết thứ tự/giãn cách thời gian.
         let t: Double
@@ -234,6 +279,28 @@ final class TextureShotRecorder {
         /// Torch-lit = harsh hotspot, 1/d² falloff, cold LED under a locked white balance —
         /// the workstation may later prefer shots with 0. Finite 0…1 (AutoTorch.levelForShot).
         var torch: Float?
+        // ── 2.70 additions (owner 29/09). PHASE RULE as above: record only, optional, finite.
+        /// Predicted motion blur of THIS frame in stored-image px (`predictBlur`). nil =
+        /// motion or exposure time unknown.
+        var blurPx: Float?
+        /// Same for the frame that opened the choice window = the frame builds before 2.70
+        /// would have saved; blurPx0 − blurPx is what the choice gained.
+        var blurPx0: Float?
+        /// Seconds from that opening frame to this one (0 = the opening frame was kept).
+        var win: Double?
+    }
+    /// The ONE held copy of a choice window (main only). `buffer` is the recorder's own
+    /// downscaled BGRA buffer — never an ARKit buffer.
+    private struct Candidate {
+        var buffer: CVPixelBuffer
+        var depthRaw: Data?
+        var depthW: Int
+        var depthH: Int
+        /// `file`/`depth` names are given at commit.
+        var meta: ShotMeta
+        var transform: simd_float4x4
+        /// Predicted blur used for ranking; .infinity = motion unknown.
+        var rank: Float
     }
     private struct ShotsFile: Encodable {
         let version: Int
@@ -253,13 +320,21 @@ final class TextureShotRecorder {
     private var approxShotCount = 0
     private var shotIndex = 0
     private var pendingEncodes = 0
+    /// Time + pose of the last window-OPENING frame (= the frame the pre-2.70 rule saved).
+    /// The interval / travel / turn gates measure from it, so the shot cadence is unchanged.
     private var lastShotTime: TimeInterval = 0
     private var lastShotPosition: SIMD3<Float>?
     private var lastShotQuat: simd_quatf?
     private var lastSeenFrameTime: TimeInterval = 0
     private var prevTickTime: TimeInterval = 0
     private var prevTickQuat: simd_quatf?
+    private var prevTickPosition: SIMD3<Float>?
     private var isFinishing = false
+    /// Choice window (2.70): open ⇔ `candidate != nil`.
+    private var candidate: Candidate?
+    private var windowOpenedAt: CFTimeInterval = 0
+    private var windowCopies = 0
+    private var windowBlur0: Float?
 
     /// ARKit's configurable primary camera (set by MeshScanController) — only READ here, for
     /// the per-shot white-balance gains. nil = no gains recorded.
@@ -280,7 +355,7 @@ final class TextureShotRecorder {
             at: shotsDirURL, withIntermediateDirectories: true
         )
         let link = CADisplayLink(target: self, selector: #selector(tick))
-        link.preferredFrameRateRange = CAFrameRateRange(minimum: 2, maximum: 5, preferred: 3)
+        link.preferredFrameRateRange = Self.slowRate
         link.add(to: .main, forMode: .common)
         displayLink = link
     }
@@ -288,7 +363,13 @@ final class TextureShotRecorder {
     @objc private func tick() {
         let perfT0 = ScanPerfProfiler.tickBegin()
         defer { ScanPerfProfiler.tickEnd(.texShot, perfT0) }
-        guard !isFinishing, let frame = arSession?.currentFrame else { return }
+        guard !isFinishing else { return }
+        // Choice-window deadline on the HOST clock, before every frame gate: an interruption
+        // (frozen frame) or a tracking loss must not keep the held copy — and its shot — waiting.
+        if candidate != nil, CACurrentMediaTime() - windowOpenedAt >= Self.windowSec {
+            commitCandidate()
+        }
+        guard let frame = arSession?.currentFrame else { return }
         // Phiên pause/gián đoạn thì currentFrame lặp lại khung cũ — bỏ qua ngay cho rẻ.
         guard frame.timestamp != lastSeenFrameTime else { return }
         lastSeenFrameTime = frame.timestamp
@@ -310,17 +391,47 @@ final class TextureShotRecorder {
 
         // Cổng "đang lia quá nhanh": đo tốc độ xoay giữa hai tick liên tiếp.
         // Cập nhật mốc tick TRƯỚC khi qua các cổng sau — mốc phải mới ở MỌI tick normal.
+        // 2.70: the camera velocity too (blur prediction). Both unknown after a gap > 1 s
+        // (turnRate 0 for the gate as before, velocity nil = motion unknown for the blur).
         var turnRate: Float = 0
-        if let prevQuat = prevTickQuat, frame.timestamp > prevTickTime,
-           frame.timestamp - prevTickTime <= 1.0 {
+        var velocity: SIMD3<Float>?
+        if let prevQuat = prevTickQuat, let prevPos = prevTickPosition,
+           frame.timestamp > prevTickTime, frame.timestamp - prevTickTime <= 1.0 {
             let dt = Float(frame.timestamp - prevTickTime)
             turnRate = Self.angleDeg(prevQuat, quat) / dt
+            velocity = (pos - prevPos) / dt
         }
         prevTickQuat = quat
+        prevTickPosition = pos
         prevTickTime = frame.timestamp
+
+        // Window open and the camera left the cone around the opening frame: no later frame
+        // shows that view any more → save the held copy now.
+        if candidate != nil, let openPos = lastShotPosition, let openQuat = lastShotQuat,
+           simd_distance(pos, openPos) > Self.maxDriftM
+            || Self.angleDeg(openQuat, quat) > Self.maxDriftDeg {
+            commitCandidate()
+        }
+
         guard turnRate <= Self.maxTurnRateDegPerSec else { return }
         // Torch just switched: exposure is still moving (over/under-exposed frame).
         if let torch, torch.isSettling(at: frame.timestamp) { return }
+
+        if let best = candidate?.rank {
+            // Window open: this frame competes with the held copy.
+            let (blurPx, rank) = predictBlur(frame: frame, cam2world: tf, intrinsics: k,
+                                             turnRate: turnRate, velocity: velocity)
+            let sharp = rank <= Self.sharpEnoughPx
+            let better = rank < best * Self.improveFactor && best - rank >= Self.improveMinPx
+            guard sharp || (better && windowCopies < Self.maxCopiesPerWindow) else { return }
+            guard let copy = makeCandidate(frame: frame, cam2world: tf, intrinsics: k,
+                                           blurPx: blurPx, rank: rank,
+                                           reuse: candidate?.buffer) else { return }
+            candidate = copy
+            windowCopies += 1
+            if sharp { commitCandidate() }
+            return
+        }
 
         guard frame.timestamp - lastShotTime >= minInterval else { return }
 
@@ -332,35 +443,96 @@ final class TextureShotRecorder {
 
         guard pendingEncodes < Self.maxPendingEncodes else { return }
 
-        // Thu nhỏ về buffer RIÊNG ngay trên main (GPU, ~vài ms) — sau dòng render này
-        // không còn đụng gì tới buffer của ARKit nữa.
+        // A shot is due: this frame (the one builds before 2.70 saved) opens the choice window
+        // as its first copy — the fallback when no sharper frame comes.
+        let (blurPx, rank) = predictBlur(frame: frame, cam2world: tf, intrinsics: k,
+                                         turnRate: turnRate, velocity: velocity)
+        guard let copy = makeCandidate(frame: frame, cam2world: tf, intrinsics: k,
+                                       blurPx: blurPx, rank: rank, reuse: nil) else { return }
+        candidate = copy
+        windowOpenedAt = CACurrentMediaTime()
+        windowCopies = 1
+        windowBlur0 = blurPx
+        lastShotTime = frame.timestamp
+        lastShotPosition = pos
+        lastShotQuat = quat
+        if rank <= Self.sharpEnoughPx {
+            commitCandidate()
+        } else {
+            displayLink?.preferredFrameRateRange = Self.fastRate
+        }
+    }
+
+    /// Predicted motion blur of a frame, in STORED-image px: exposure time × image speed.
+    /// Image speed ≈ fx·ω (rotation ω rad/s moves every pixel ~fx·ω; roll moves the centre
+    /// less, so an upper bound) + fx·v⊥/d (a camera moving sideways at v⊥ m/s shifts a surface
+    /// at depth d by fx·v⊥/d; motion along the view axis mostly zooms — left out).
+    /// d = median LiDAR depth of the frame, 2 m without depth. No image work.
+    /// Returns (blurPx to record — nil when motion or exposure time is unknown, rank for the
+    /// choice — the assumed exposure when unknown, .infinity when motion is unknown).
+    private func predictBlur(
+        frame: ARFrame, cam2world tf: simd_float4x4, intrinsics k: simd_float3x3,
+        turnRate: Float, velocity: SIMD3<Float>?
+    ) -> (blurPx: Float?, rank: Float) {
+        guard let velocity else { return (nil, .infinity) }
+        let srcW = CVPixelBufferGetWidth(frame.capturedImage)
+        guard srcW > 0 else { return (nil, .infinity) }
+        let fx = k.columns.0.x * Float(min(1, CGFloat(Self.targetWidth) / CGFloat(srcW)))
+        let axis = SIMD3(tf.columns.2.x, tf.columns.2.y, tf.columns.2.z)
+        let lateral = velocity - simd_dot(velocity, axis) * axis
+        let depth = max(0.3, Self.medianDepth(of: frame) ?? 2)
+        let speed = fx * (turnRate * .pi / 180 + simd_length(lateral) / depth)
+        guard speed.isFinite, speed >= 0 else { return (nil, .infinity) }
+        let exp = Self.exposure(from: frame).exp
+        let rank = speed * Float(exp ?? Self.assumedExposureSec)
+        guard rank.isFinite else { return (nil, .infinity) }
+        let blurPx: Float? = exp != nil ? (rank * 100).rounded() / 100 : nil
+        return (blurPx, rank)
+    }
+
+    /// Median of a sparse 8×6 grid of the frame's LiDAR depth (finite, 0.25–5 m). The ARKit
+    /// buffer is locked, read and unlocked inside this call (✗ keep it). nil = no depth.
+    private static func medianDepth(of frame: ARFrame) -> Float? {
+        guard let depthMap = frame.sceneDepth?.depthMap,
+              CVPixelBufferGetPixelFormatType(depthMap) == kCVPixelFormatType_DepthFloat32,
+              CVPixelBufferLockBaseAddress(depthMap, .readOnly) == kCVReturnSuccess
+        else { return nil }
+        defer { CVPixelBufferUnlockBaseAddress(depthMap, .readOnly) }
+        guard let base = CVPixelBufferGetBaseAddress(depthMap) else { return nil }
+        let w = CVPixelBufferGetWidth(depthMap)
+        let h = CVPixelBufferGetHeight(depthMap)
+        let rowBytes = CVPixelBufferGetBytesPerRow(depthMap)
+        guard w > 0, h > 0, rowBytes >= w * 4 else { return nil }
+        var samples: [Float] = []
+        samples.reserveCapacity(48)
+        for j in 0..<6 {
+            let row = (base + ((2 * j + 1) * h / 12) * rowBytes)
+                .assumingMemoryBound(to: Float32.self)
+            for i in 0..<8 {
+                let d = row[(2 * i + 1) * w / 16]
+                if d.isFinite, d > 0.25, d < 5 { samples.append(d) }
+            }
+        }
+        guard !samples.isEmpty else { return nil }
+        samples.sort()
+        return samples[samples.count / 2]
+    }
+
+    /// One window copy: downscales the camera image into the recorder's OWN buffer (`reuse` =
+    /// the held copy's buffer) and copies the raw depth, on main — nothing of ARKit's outlives
+    /// this call. Everything that can fail runs BEFORE the render, so a nil return leaves a
+    /// reused buffer (= the held copy) intact.
+    private func makeCandidate(
+        frame: ARFrame, cam2world tf: simd_float4x4, intrinsics k: simd_float3x3,
+        blurPx: Float?, rank: Float, reuse: CVPixelBuffer?
+    ) -> Candidate? {
         let srcBuffer = frame.capturedImage
         let srcW = CVPixelBufferGetWidth(srcBuffer)
         let srcH = CVPixelBufferGetHeight(srcBuffer)
-        guard srcW > 0, srcH > 0 else { return }
+        guard srcW > 0, srcH > 0 else { return nil }
         let scale = min(1, CGFloat(Self.targetWidth) / CGFloat(srcW))
         let outW = Int((CGFloat(srcW) * scale).rounded())
         let outH = Int((CGFloat(srcH) * scale).rounded())
-
-        var outBuffer: CVPixelBuffer?
-        let bufferAttrs = [
-            kCVPixelBufferIOSurfacePropertiesKey as String: [String: Any](),
-        ] as CFDictionary
-        CVPixelBufferCreate(
-            kCFAllocatorDefault, outW, outH, kCVPixelFormatType_32BGRA,
-            bufferAttrs, &outBuffer
-        )
-        guard let outBuffer else { return }
-        var image = CIImage(cvPixelBuffer: srcBuffer)
-            .transformed(by: CGAffineTransform(scaleX: scale, y: scale))
-        image = image.transformed(by: CGAffineTransform(
-            translationX: -image.extent.origin.x, y: -image.extent.origin.y
-        ))
-        ciContext.render(
-            image, to: outBuffer,
-            bounds: CGRect(x: 0, y: 0, width: outW, height: outH),
-            colorSpace: CGColorSpaceCreateDeviceRGB()
-        )
 
         // Mục 4 PLAN-NANG-NET: chép depth thô (~256×192 Float32) NGAY TRÊN MAIN vào
         // buffer RIÊNG — 🔴 ✗ giữ CVPixelBuffer của ARKit qua async (pool nhỏ, giữ lâu
@@ -403,29 +575,79 @@ final class TextureShotRecorder {
            g.redGain.isFinite, g.greenGain.isFinite, g.blueGain.isFinite {
             wbGains = [g.redGain, g.greenGain, g.blueGain]
         }
-        shotIndex += 1
         let meta = ShotMeta(
-            file: String(format: "shot-%04d.jpg", shotIndex),
+            file: "",
             t: frame.timestamp,
             m: Self.columnMajor(tf),
             fx: k.columns.0.x * s, fy: k.columns.1.y * s,
             cx: k.columns.2.x * s, cy: k.columns.2.y * s,
             w: outW, h: outH,
             ev: evRaw.isFinite ? evRaw : 0,
-            depth: depthRaw != nil ? String(format: "shot-%04d.depth", shotIndex) : nil,
+            depth: nil,
             dw: depthRaw != nil ? depthW : nil,
             dh: depthRaw != nil ? depthH : nil,
             exp: expo.exp, iso: expo.iso, bv: expo.bv,
             wb: wbGains,
-            torch: torch?.levelForShot
+            torch: torch?.levelForShot,
+            blurPx: blurPx
         )
+
+        // Thu nhỏ về buffer RIÊNG ngay trên main (GPU, ~vài ms) — sau dòng render này
+        // không còn đụng gì tới buffer của ARKit nữa. A held copy's buffer is reused (same
+        // size): at most ONE extra ~6MB buffer while a window is open.
+        var outBuffer: CVPixelBuffer?
+        if let reuse, CVPixelBufferGetWidth(reuse) == outW, CVPixelBufferGetHeight(reuse) == outH {
+            outBuffer = reuse
+        } else {
+            let bufferAttrs = [
+                kCVPixelBufferIOSurfacePropertiesKey as String: [String: Any](),
+            ] as CFDictionary
+            CVPixelBufferCreate(
+                kCFAllocatorDefault, outW, outH, kCVPixelFormatType_32BGRA,
+                bufferAttrs, &outBuffer
+            )
+        }
+        guard let outBuffer else { return nil }
+        var image = CIImage(cvPixelBuffer: srcBuffer)
+            .transformed(by: CGAffineTransform(scaleX: scale, y: scale))
+        image = image.transformed(by: CGAffineTransform(
+            translationX: -image.extent.origin.x, y: -image.extent.origin.y
+        ))
+        ciContext.render(
+            image, to: outBuffer,
+            bounds: CGRect(x: 0, y: 0, width: outW, height: outH),
+            colorSpace: CGColorSpaceCreateDeviceRGB()
+        )
+        return Candidate(buffer: outBuffer, depthRaw: depthRaw, depthW: depthW, depthH: depthH,
+                         meta: meta, transform: tf, rank: rank)
+    }
+
+    /// Saves the held copy as the next shot and closes the window (main; no-op without one).
+    /// Numbering, anchor, counters, the ioQueue encode and the store cap all happen HERE, so a
+    /// copy that gets replaced leaves no trace. The anchor gets the copy's capture pose, up
+    /// to `windowSec` old (map corrections within that span are missing from m2 − m; tiny).
+    private func commitCandidate() {
+        guard let copy = candidate else { return }
+        candidate = nil
+        displayLink?.preferredFrameRateRange = Self.slowRate
+        shotIndex += 1
+        var shotMeta = copy.meta
+        shotMeta.file = String(format: "shot-%04d.jpg", shotIndex)
+        shotMeta.depth = copy.depthRaw != nil ? String(format: "shot-%04d.depth", shotIndex) : nil
+        shotMeta.blurPx0 = windowBlur0
+        // lastShotTime = the opening frame's timestamp (no newer window can exist yet).
+        let waited = shotMeta.t - lastShotTime
+        if waited.isFinite { shotMeta.win = max(0, (waited * 100).rounded() / 100) }
+        let meta = shotMeta
+        let outBuffer = copy.buffer
+        let depthRaw = copy.depthRaw
+        let depthW = copy.depthW
+        let depthH = copy.depthH
+        let tf = copy.transform
         // Item 1 (26/09): an anchor at the camera pose — ARKit moves it when it corrects the
         // map; `finish(finalAnchorPoses:)` writes its final pose as `m2`. Main thread (tick).
         let anchor = ARAnchor(name: Self.anchorName, transform: tf)
         arSession?.add(anchor: anchor)
-        lastShotTime = frame.timestamp
-        lastShotPosition = pos
-        lastShotQuat = quat
         pendingEncodes += 1
         approxShotCount += 1
 
@@ -567,6 +789,9 @@ final class TextureShotRecorder {
     ) {
         guard !isFinishing else { return (nil, 0, ScanSessionReport.ShotStats()) }
         isFinishing = true
+        // Normally a no-op (stopTicking saved it). Before `taken` and before the package block:
+        // its encode is queued first on the serial ioQueue, so shots.json lists it.
+        commitCandidate()
         displayLink?.invalidate()
         displayLink = nil
         let dirURL = shotsDirURL
@@ -586,26 +811,7 @@ final class TextureShotRecorder {
                 var stats = self.applyFinalPoses(finalAnchorPoses, taken: taken)
                 let file = ShotsFile(
                     version: 1,
-                    note: "ARKit: m = camera-to-world, column-major; camera looks -Z, +X right, "
-                        + "+Y up. Images kept in SENSOR orientation (landscape), no EXIF; "
-                        + "intrinsics match stored pixels. Pixel origin top-left, +u right, "
-                        + "+v down. Project world point P: q = inverse(m)*P; "
-                        + "u = fx*q.x/(-q.z) + cx; v = fy*(-q.y)/(-q.z) + cy; valid when q.z < 0. "
-                        + "t = ARKit frame timestamp (device clock, NOT video PTS). "
-                        + "ev = ARKit exposureOffset (EV). "
-                        + "Optional per-shot 'depth' file (dw*dh): raw DEFLATE, no zlib "
-                        + "header — Python: zlib.decompress(data, -15) -> Float32 "
-                        + "little-endian, row-major, meters, same sensor orientation as "
-                        + "the JPEG; scale intrinsics by dw/w, dh/h. Raw ARKit sceneDepth "
-                        + "(values may be non-finite) — reserved for future fusion, "
-                        + "no consumer yet. "
-                        + "Optional, recorded only (no consumer yet): m2 = final ARKit anchor "
-                        + "pose of the shot read at scan stop (map corrections such as loop "
-                        + "closure applied; same convention as m; m = pose at capture); "
-                        + "exp = exposure time (s), iso = ISO, bv = EXIF BrightnessValue, "
-                        + "from ARFrame.exifData; wb = white-balance gains [r,g,b] at capture; "
-                        + "torch = flashlight level at capture (0 = off, key absent = no torch "
-                        + "device) — torch-lit shots have a hotspot/falloff and a cold tint.",
+                    note: Self.shotsNote,
                     shots: self.metas
                 )
                 do {
@@ -625,7 +831,11 @@ final class TextureShotRecorder {
 
     /// Stop taking shots (Stop & Save, before the final anchor poses are read). Pending
     /// encodes still land; `finish` writes the package as usual. Main thread.
+    /// A held choice-window copy is SAVED, not dropped (it is the last shot); its anchor is
+    /// added after the last frame was made, so it gets no m2 (accepted, like the last-tick
+    /// shot before 2.70).
     func stopTicking() {
+        commitCandidate()
         displayLink?.invalidate()
         displayLink = nil
     }
@@ -633,6 +843,7 @@ final class TextureShotRecorder {
     /// Hủy (khách bấm Hủy buổi quét) — xoá sạch thư mục tạm.
     func cancel() {
         isFinishing = true
+        candidate = nil
         displayLink?.invalidate()
         displayLink = nil
         let parent = shotsDirURL.deletingLastPathComponent()
@@ -640,6 +851,37 @@ final class TextureShotRecorder {
             try? FileManager.default.removeItem(at: parent)
         }
     }
+
+    /// shots.json `note` — the projection contract the workstation reads (fuse.py appends to
+    /// it: keep it a STRING). An array join rather than a `+` chain (CI type-check time).
+    private static let shotsNote: String = [
+        "ARKit: m = camera-to-world, column-major; camera looks -Z, +X right, ",
+        "+Y up. Images kept in SENSOR orientation (landscape), no EXIF; ",
+        "intrinsics match stored pixels. Pixel origin top-left, +u right, ",
+        "+v down. Project world point P: q = inverse(m)*P; ",
+        "u = fx*q.x/(-q.z) + cx; v = fy*(-q.y)/(-q.z) + cy; valid when q.z < 0. ",
+        "t = ARKit frame timestamp (device clock, NOT video PTS). ",
+        "ev = ARKit exposureOffset (EV). ",
+        "Optional per-shot 'depth' file (dw*dh): raw DEFLATE, no zlib ",
+        "header — Python: zlib.decompress(data, -15) -> Float32 ",
+        "little-endian, row-major, meters, same sensor orientation as ",
+        "the JPEG; scale intrinsics by dw/w, dh/h. Raw ARKit sceneDepth ",
+        "(values may be non-finite) — reserved for future fusion, ",
+        "no consumer yet. ",
+        "Optional, recorded only (no consumer yet): m2 = final ARKit anchor ",
+        "pose of the shot read at scan stop (map corrections such as loop ",
+        "closure applied; same convention as m; m = pose at capture); ",
+        "exp = exposure time (s), iso = ISO, bv = EXIF BrightnessValue, ",
+        "from ARFrame.exifData; wb = white-balance gains [r,g,b] at capture; ",
+        "torch = flashlight level at capture (0 = off, key absent = no torch ",
+        "device) — torch-lit shots have a hotspot/falloff and a cold tint. ",
+        "Since app 2.70 each shot is the least-blurred frame of a short choice ",
+        "window (<= 0.8 s) opened when a shot fell due; blurPx = predicted motion ",
+        "blur of this frame in stored-image px = exp * fx * (rotation rate rad/s + ",
+        "sideways camera speed / median LiDAR depth), from consecutive ARKit poses ",
+        "(absent = unknown); blurPx0 = same for the frame that opened the window ",
+        "(the frame older builds saved); win = seconds from that frame to this one.",
+    ].joined()
 
     /// ioQueue. Fills `m2` from the final anchor poses and builds the report figures.
     /// m2 only when all 16 numbers are finite (NaN rule: one bad number kills the package).

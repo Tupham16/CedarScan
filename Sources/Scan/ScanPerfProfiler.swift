@@ -72,7 +72,7 @@ final class ScanPerfProfiler {
             switch self {
             case .colorMesh: return "ColorMeshBuilder(~3Hz)"
             case .overlay: return "MeshOverlayRenderer(30Hz)"
-            case .texShot: return "TextureShotRecorder(~3Hz)"
+            case .texShot: return "TextureShotRecorder(3Hz, 20Hz in a window)"
             case .video: return "ScanVideoRecorder(~8Hz)"
             case .quality: return "ScanQualityMonitor(~12Hz)"
             case .tooClose: return "TooCloseSheet(10/30Hz)"
