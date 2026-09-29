@@ -10,6 +10,7 @@ struct VerifyEmailView: View {
     @State private var infoMessage: String?
     @State private var resendCooldown = 0
     @State private var timer: Timer?
+    @FocusState private var focused: Bool?
 
     var body: some View {
         VStack(spacing: 18) {
@@ -27,7 +28,7 @@ struct VerifyEmailView: View {
                 .keyboardType(.numberPad)
                 .multilineTextAlignment(.center)
                 .font(.system(size: 30, weight: .bold, design: .monospaced))
-                .fogField()
+                .fogField($focused, true)
                 .onChange(of: code) { _, newValue in
                     code = String(newValue.filter(\.isNumber).prefix(6))
                 }

@@ -11,6 +11,9 @@ struct AuthView: View {
     @State private var isBusy = false
     @State private var errorMessage: String?
     @State private var showForgotPassword = false
+    @FocusState private var focused: Field?
+
+    private enum Field { case name, email, password }
 
     var body: some View {
         VStack(spacing: 18) {
@@ -30,17 +33,17 @@ struct AuthView: View {
                 if isRegistering {
                     TextField(String(localized: "Your name"), text: $name)
                         .textContentType(.name)
-                        .fogField()
+                        .fogField($focused, .name)
                 }
                 TextField("Email", text: $email)
                     .keyboardType(.emailAddress)
                     .textContentType(.emailAddress)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
-                    .fogField()
+                    .fogField($focused, .email)
                 SecureField(String(localized: "Password (min 8 characters)"), text: $password)
                     .textContentType(isRegistering ? .newPassword : .password)
-                    .fogField()
+                    .fogField($focused, .password)
             }
 
             if let errorMessage {

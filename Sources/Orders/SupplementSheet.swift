@@ -126,6 +126,9 @@ struct SupplementSheet: View {
                     Label(String(localized: "Send to order \(orderNumber)"),
                           systemImage: "paperplane.fill")
                         .font(.headline)
+                        // German wraps: keep both lines centred and whole (trap #47d).
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
                 }
@@ -172,11 +175,18 @@ struct SupplementSheet: View {
             Section {
                 Text(message).font(.subheadline)
                     .listRowBackground(Theme.card)
+            } header: {
+                Text(String(localized: "Order already delivered"))
+            }
+            // Own section: the button stands alone on the screen background, as in `.ready`.
+            Section {
                 Button {
                     openRevision()
                 } label: {
                     Label(String(localized: "Request a revision"), systemImage: "arrow.uturn.backward")
                         .font(.headline)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
                 }
@@ -184,8 +194,6 @@ struct SupplementSheet: View {
                 .buttonStyle(FogPrimary())
                 .listRowInsets(EdgeInsets())
                 .listRowBackground(Color.clear)
-            } header: {
-                Text(String(localized: "Order already delivered"))
             }
         case .failed(let message):
             Section {
