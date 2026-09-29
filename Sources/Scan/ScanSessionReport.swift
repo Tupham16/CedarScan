@@ -239,7 +239,7 @@ final class ScanSessionReport {
     ) -> URL? {
         markStopped()
         let secs = trackingSeconds.compactMapValues { Self.fin($0) }
-        var note = "CedarScan scan diagnostics. Times in seconds since session start. "
+        var note: String = "CedarScan scan diagnostics. Times in seconds since session start. "
             + "trackingSec = time per ARKit tracking state. poseDelta = texture shot pose "
             + "at capture (m) vs final ARKit anchor pose at stop (m2): cm / degrees. "
             + "torch.trace = auto-torch signal at 1 Hz: t (s), bv (smoothed EXIF "
@@ -248,7 +248,9 @@ final class ScanSessionReport {
         if exposureCap != nil {
             note += " TEST BUILD: exposureCapMs = auto-exposure limit selected for this scan "
                 + "(ms, 0 = off); exposureCap = how it went (status, device default/applied "
-                + "limit ms, resets, frames sampled / over the cap)."
+                + "limit ms, set times, frames sampled / over / at the cap / at max ISO) and "
+                + "trace = 1 Hz t (s), raw EXIF bv, exp (ms), iso, ev (ARKit exposureOffset), "
+                + "lim (device auto-exposure limit ms)."
         }
         let file = File(
             version: 1,
