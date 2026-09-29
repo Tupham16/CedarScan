@@ -109,6 +109,12 @@ enum Fog6 {
         return try? JSONDecoder().decode(OrderScanResponse.self, from: Data(json.utf8))
     }
 
+    /// Delivered order for the revision sheet.
+    static func order() -> OrderDTO {
+        let json = ##"{"orderId":"h1","orderNumber":"#10482","status":"delivered","placedAt":"2026-09-20T10:00:00.000Z","deliveredAt":"2026-09-22T10:00:00.000Z"}"##
+        return try! JSONDecoder().decode(OrderDTO.self, from: Data(json.utf8))
+    }
+
     static var docs: URL { FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0] }
     static func folder(_ id: UUID) -> URL {
         docs.appendingPathComponent("Scans", isDirectory: true).appendingPathComponent(id.uuidString, isDirectory: true)
@@ -313,6 +319,40 @@ struct Fog6ShotRoot: View {
         case "order-paid":
             Color.gray.opacity(0.35).ignoresSafeArea()
                 .sheet(isPresented: $sheet) { orderSheet(project: true) }
+        // Fog step 7
+        case "account", "account-signedout", "account-verify":
+            AccountView()
+                .overlay(alignment: .bottom) { CedarTabBar(selection: .constant(.account), onScan: {}) }
+        case "forgot":
+            Color.gray.opacity(0.35).ignoresSafeArea()
+                .sheet(isPresented: $sheet) { ForgotPasswordView() }
+        case "delete":
+            Color.gray.opacity(0.35).ignoresSafeArea()
+                .sheet(isPresented: $sheet) { DeleteAccountView().environmentObject(account).environmentObject(store) }
+        case "gate-signedout":
+            Color.gray.opacity(0.35).ignoresSafeArea()
+                .sheet(isPresented: $sheet) { AccountGateSheet().environmentObject(account) }
+        case "faq":
+            NavigationStack {
+                OrderFAQContent()
+                    .navigationTitle(String(localized: "Order Q&A"))
+                    .navigationBarTitleDisplayMode(.inline)
+            }
+            .overlay(alignment: .bottom) { CedarTabBar(selection: .constant(.learn), onScan: {}) }
+        case "legal":
+            NavigationStack { LegalDocumentView(doc: .eula) }
+        case "revision":
+            Color.gray.opacity(0.35).ignoresSafeArea()
+                .sheet(isPresented: $sheet) { RevisionSheet(order: Fog6.order(), onSent: {}) }
+        case "supplement":
+            Color.gray.opacity(0.35).ignoresSafeArea()
+                .sheet(isPresented: $sheet) {
+                    SupplementSheet(records: store.records.filter { $0.id == Fog6.rExtra }, orderNumber: "#10482")
+                        .environmentObject(store)
+                }
+        case "tour":
+            Color.gray.opacity(0.35).ignoresSafeArea()
+                .sheet(isPresented: $sheet) { TourPhotosView(orderId: "harness") }
         default:
             Text(verbatim: "unknown screen \(screen)")
         }

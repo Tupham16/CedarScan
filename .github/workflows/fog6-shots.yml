@@ -3,7 +3,7 @@ name: Fog6 screens shots (throwaway)
 
 on:
   push:
-    branches: ['claude/fog6b-shots']
+    branches: ['claude/fog7-shots']
 
 jobs:
   shots:
@@ -11,7 +11,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        device: [iPhone-13-Pro, iPhone-16-Pro, iPhone-16-Pro-Max]
+        device: [iPhone-13-Pro, iPhone-16-Pro]
     steps:
       - uses: actions/checkout@v4
 

@@ -12,68 +12,33 @@ final class Fog6Shots: XCTestCase {
         continueAfterFailure = true
         let en = lang("en", "US")
         let de = lang("de", "DE")
-        // 6b round 4: header grey, terms line size, Pay Now height, scroll at AX sizes.
-        let axl = ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityL"]
-        capture("order", en, end: true)
-        capture("order", de + xxxl, end: true)
-        capture("order-paid", de, end: true)
-        capture("order-error", de, end: true)
-        capture("placed", en)
-        capture("placed", de + xxxl)
-        capture("placed-badcoupon", de + xxxl)
-        capture("placed-tall", de + axl, end: true)
-        capture("placed", de + axl, end: true)
-        if ProcessInfo.processInfo.environment["SHOTS_ONLY"] != "all" {
-            return
+        // Fog step 7 screens.
+        for screen in ["account", "account-signedout", "account-verify", "forgot", "delete", "gate-signedout",
+                       "revision", "supplement", "tour"] {
+            capture(screen, en, end: true)
         }
-        if ProcessInfo.processInfo.environment["SHOTS_ONLY"] == "naming" {
-            let xxl = ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryXXL"]
-            let small = ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryS"]
-            for extra in [[], small, xxl, xxxl] {
-                capture("naming", en + extra)
-                capture("naming-typing", en + extra)
-                capture("naming", de + extra)
-            }
-            return
+        capture("faq", en) { app in self.expandFAQ(app); self.pages(app, "faq-open-en") }
+        capture("legal", en, pages: true)
+        capture("account", de + xxxl, pages: true)
+        capture("account-signedout", de + xxxl, pages: true)
+        capture("account-verify", de + xxxl)
+        capture("faq", de) { app in self.expandFAQ(app); self.pages(app, "faq-open-de") }
+        capture("faq", de + xxxl) { app in self.expandFAQ(app); self.pages(app, "faq-open-de-xxxl") }
+        capture("legal", de + xxxl, pages: true)
+        for screen in ["forgot", "delete", "revision", "supplement", "gate-signedout"] {
+            capture(screen, de + xxxl, end: true)
         }
-        for screen in ["detail", "detail-ordered", "detail-extra", "detail-low", "detail-nomodel", "detail-signedout", "detail-verify"] {
-            capture(screen, en)
+    }
+
+    /// Opens the first questions of every group (answers are separate list rows).
+    private func expandFAQ(_ app: XCUIApplication) {
+        let cells = app.collectionViews.cells
+        guard cells.firstMatch.waitForExistence(timeout: 5) else { return }
+        for i in [0, 2, 4] where cells.count > i {
+            cells.element(boundBy: i).tap()
+            sleep(1)
         }
-        capture("detail", de)
-        capture("detail-low", de)
-        capture("viewer", en)
-        capture("saved", en) { app in
-            self.tapSegment(app, 1)
-            self.shot("saved-3d-en")
-        }
-        capture("saved-extra", en)
-        capture("saved-novideo", de)
-        capture("address", en) { app in
-            let field = app.textFields.firstMatch
-            guard field.waitForExistence(timeout: 5) else { return }
-            field.tap()
-            app.typeText("7 Maple")
-            sleep(3)
-            self.shot("address-typing-en")
-            app.typeText(" Court\n")
-            sleep(4)
-            self.shot("address-filled-en")
-        }
-        capture("address", de)
-        capture("naming", en)
-        capture("naming", de)
-        capture("naming", de + xxxl)
-        capture("guide", en, pages: true)
-        capture("guide", de, pages: true)
-        capture("guide", de + xxxl, pages: true)
-        capture("learn", en) { app in
-            self.openGuide(app)
-            self.pages(app, "learn-guide-en")
-        }
-        capture("learn", de + xxxl) { app in
-            self.openGuide(app)
-            self.pages(app, "learn-guide-de-xxxl")
-        }
+        sleep(1)
     }
 
     /// Fast drags up until the form's end is on screen.
