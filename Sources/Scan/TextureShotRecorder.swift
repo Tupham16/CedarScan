@@ -150,10 +150,14 @@ final class TextureShotRecorder {
     /// nằm trong mức "+50–60MB zip" chủ app duyệt lúc đó (nay trần 800, xem maxShots).
     /// 0.55 → 0.8 (2.70, owner 29/09, accepted ~2× the photo part of the zip): the workstation
     /// found q0.55 among the causes of soft raw shots (fabric weave / wood grain lost).
-    /// Measured at 0.55: jpg ~107KB (up to ~139KB mean on a dim scan) + depth ~52KB. At 0.8:
-    /// ESTIMATE ~1.5–2× jpg ≈ 160–215KB → ~210–270KB/shot, full 800 store ≈ 170–215MB (was
-    /// ~128MB); zip worst case ≈ that + mesh/GLB ~100MB, under the 500MB objzip cap
-    /// (order-webapp app-storage.ts). Re-measure on the first device scan.
+    /// Measured at 0.55: jpg ~107KB (~139KB mean on a dim scan) + depth ~52KB. At 0.8 =
+    /// ESTIMATE (Apple's 0.55 table ≈ libjpeg q80 already): clean frames ~1.5–2× jpg ≈
+    /// 160–215KB → ~210–270KB/shot, full 800 store ≈ 170–215MB (was ~128MB); dim/noisy scans
+    /// (noise q0.55 zeroed now survives) up to ~2.5× ≈ 330–400KB/shot → ≤ ~320MB. A full
+    /// store always takes the fast-save path (≥ fastSaveMinShots, no GLB), so zip worst case
+    /// ≈ store + OBJ 40–60MB ≈ 380MB, under the 500MB objzip cap (order-webapp
+    /// app-storage.ts). The zip is a second copy on disk while saving. Re-measure KB/shot
+    /// (and the JPEG chroma subsampling) on the first device scan.
     private static let jpegQuality: Double = 0.8
     /// Giãn cách TỐI THIỂU giữa hai ảnh (giây) — nhân đôi mỗi lần kho đầy.
     private static let startInterval: TimeInterval = 1.2
@@ -181,7 +185,7 @@ final class TextureShotRecorder {
     /// ~8% of faces got no photo (#LS-MSLINTGA7, 949 m², 268 shots). Measured ~160KB/shot
     /// (jpg ~107KB + depth ~52KB) → full store ~128MB; worst gap vs 480 ≈ 400 shots
     /// ≈ +64MB zip (800 full vs 400 just-thinned), only for scans past ~10 min.
-    /// Since q0.8 (2.70) ~210–270KB/shot (estimate) → full store ~170–215MB.
+    /// Since q0.8 (2.70) ~210–400KB/shot (estimate, see jpegQuality) → full store ≤ ~320MB.
     /// Server objzip cap 500MB (order-webapp app-storage.ts). Paired with
     /// tex-worker-config.json "maxShots" (bake set-cover cap) on the workstation.
     private static let maxShots = 800
@@ -298,7 +302,9 @@ final class TextureShotRecorder {
         var depthH: Int
         /// `file`/`depth` names are given at commit.
         var meta: ShotMeta
-        var transform: simd_float4x4
+        /// Added to the session when the copy is MADE (capture-time map, as before 2.70) and
+        /// removed when a sharper copy replaces it.
+        var anchor: ARAnchor
         /// Predicted blur used for ranking; .infinity = motion unknown.
         var rank: Float
     }
@@ -424,9 +430,14 @@ final class TextureShotRecorder {
             let sharp = rank <= Self.sharpEnoughPx
             let better = rank < best * Self.improveFactor && best - rank >= Self.improveMinPx
             guard sharp || (better && windowCopies < Self.maxCopiesPerWindow) else { return }
+            // No depth = ranked at the 2 m fallback (may look sharper than it is) and no white
+            // coverage mark — never trade a held copy WITH depth for one without.
+            if candidate?.depthRaw != nil, frame.sceneDepth == nil { return }
+            let replaced = candidate?.anchor
             guard let copy = makeCandidate(frame: frame, cam2world: tf, intrinsics: k,
                                            blurPx: blurPx, rank: rank,
                                            reuse: candidate?.buffer) else { return }
+            if let replaced { arSession?.remove(anchor: replaced) }
             candidate = copy
             windowCopies += 1
             if sharp { commitCandidate() }
@@ -486,7 +497,8 @@ final class TextureShotRecorder {
         let exp = Self.exposure(from: frame).exp
         let rank = speed * Float(exp ?? Self.assumedExposureSec)
         guard rank.isFinite else { return (nil, .infinity) }
-        let blurPx: Float? = exp != nil ? (rank * 100).rounded() / 100 : nil
+        let rounded = (rank * 100).rounded() / 100
+        let blurPx: Float? = exp != nil && rounded.isFinite ? rounded : nil
         return (blurPx, rank)
     }
 
@@ -618,14 +630,19 @@ final class TextureShotRecorder {
             bounds: CGRect(x: 0, y: 0, width: outW, height: outH),
             colorSpace: CGColorSpaceCreateDeviceRGB()
         )
+        // Item 1 (26/09): an anchor at the camera pose — ARKit moves it when it corrects the
+        // map; `finish(finalAnchorPoses:)` writes its final pose as `m2`. Added HERE, at
+        // capture, so it lives in the capture-time map (a copy committed after an interruption
+        // or at Stop keeps a meaningful m2). Main thread (tick).
+        let anchor = ARAnchor(name: Self.anchorName, transform: tf)
+        arSession?.add(anchor: anchor)
         return Candidate(buffer: outBuffer, depthRaw: depthRaw, depthW: depthW, depthH: depthH,
-                         meta: meta, transform: tf, rank: rank)
+                         meta: meta, anchor: anchor, rank: rank)
     }
 
     /// Saves the held copy as the next shot and closes the window (main; no-op without one).
-    /// Numbering, anchor, counters, the ioQueue encode and the store cap all happen HERE, so a
-    /// copy that gets replaced leaves no trace. The anchor gets the copy's capture pose, up
-    /// to `windowSec` old (map corrections within that span are missing from m2 − m; tiny).
+    /// Numbering, counters, the ioQueue encode and the store cap all happen HERE, so a copy
+    /// that gets replaced leaves no file and no number (its anchor was removed on replace).
     private func commitCandidate() {
         guard let copy = candidate else { return }
         candidate = nil
@@ -643,11 +660,8 @@ final class TextureShotRecorder {
         let depthRaw = copy.depthRaw
         let depthW = copy.depthW
         let depthH = copy.depthH
-        let tf = copy.transform
-        // Item 1 (26/09): an anchor at the camera pose — ARKit moves it when it corrects the
-        // map; `finish(finalAnchorPoses:)` writes its final pose as `m2`. Main thread (tick).
-        let anchor = ARAnchor(name: Self.anchorName, transform: tf)
-        arSession?.add(anchor: anchor)
+        let anchor = copy.anchor
+        let tf = anchor.transform
         pendingEncodes += 1
         approxShotCount += 1
 
@@ -831,9 +845,9 @@ final class TextureShotRecorder {
 
     /// Stop taking shots (Stop & Save, before the final anchor poses are read). Pending
     /// encodes still land; `finish` writes the package as usual. Main thread.
-    /// A held choice-window copy is SAVED, not dropped (it is the last shot); its anchor is
-    /// added after the last frame was made, so it gets no m2 (accepted, like the last-tick
-    /// shot before 2.70).
+    /// A held choice-window copy is SAVED, not dropped (it is the last shot). Its anchor was
+    /// added when the copy was made; a copy made on the very last tick may still miss m2
+    /// (anchor not yet in the final frame — accepted, as before 2.70).
     func stopTicking() {
         commitCandidate()
         displayLink?.invalidate()
@@ -878,9 +892,11 @@ final class TextureShotRecorder {
         "Since app 2.70 each shot is the least-blurred frame of a short choice ",
         "window (<= 0.8 s) opened when a shot fell due; blurPx = predicted motion ",
         "blur of this frame in stored-image px = exp * fx * (rotation rate rad/s + ",
-        "sideways camera speed / median LiDAR depth), from consecutive ARKit poses ",
-        "(absent = unknown); blurPx0 = same for the frame that opened the window ",
-        "(the frame older builds saved); win = seconds from that frame to this one.",
+        "sideways camera speed / median LiDAR depth, 2 m when no depth), from ",
+        "consecutive ARKit poses (absent = motion or exposure unknown); blurPx0 = same ",
+        "for the frame that opened the window, i.e. the frame older builds saved (its ",
+        "motion is measured over the ~0.33 s before it, later frames over ~0.05 s); ",
+        "win = seconds from that frame to this one.",
     ].joined()
 
     /// ioQueue. Fills `m2` from the final anchor poses and builds the report figures.
