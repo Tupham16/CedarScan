@@ -263,10 +263,11 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
         // toán tử không-phải-gán, và một vòng CI đắt hơn ba dòng.
         var previewURL: URL?
         if meshURL != nil {
-            // Chặng CÂM ngắn (một tới bốn lượt gom voxel, ~0,2–4s tuỳ số đỉnh): cố ý KHÔNG
+            // Chặng CÂM ngắn (từ 2.75 là quadric `PreviewSimplifier`: ~1,1s trên desktop cho nhà
+            // 1,55 triệu đỉnh, ƯỚC ~1,5–2,5s trên iPhone, chưa bấm giờ máy thật): cố ý KHÔNG
             // xỏ đầu thu vào `buildPreview` — thêm tham số vào file trap-dense nhất app để
             // mua 1–3 nhịp báo là không đáng. Nếu máy thật cho thấy nó đứng lâu hơn ~4s thì
-            // báo theo từng lượt trong `buildPreview` là chỗ sửa đúng.
+            // báo theo từng ô 4m của chặng A trong `PreviewSimplifier` là chỗ sửa đúng.
             progress(.previewMesh, 0)
             previewURL = await colorMesh?.exportPreviewMesh()
         }

@@ -551,25 +551,33 @@ final class ColorMeshBuilder {
     /// Vertex budget for the preview. **Owner picked "Nhẹ — 120k đỉnh" on 2026-08-10** when
     /// shown the three options (120k ≈ 3–6MB/scan, 200k ≈ 5–10MB, 400k ≈ 10–19MB) — same
     /// standing constraint as everywhere else in this app: "nhẹ và nhanh cho khách".
-    /// It is a SOFT budget: `buildPreview` coarsens and retries a bounded number of times, so
-    /// a pathological scan may land somewhat above it rather than looping forever.
+    /// It is a SOFT budget: both paths below may land somewhat above it on a pathological scan
+    /// rather than loop forever. Since 2.75 (quadric) a real scan lands at 0.9–1× of it: 96–119k
+    /// vertices, ~4.4–5.4MB on the three measured houses (clustering landed at 37–40k).
     /// ✗ raise it without asking him — it is a per-scan cost on the customer's phone.
     private static let previewVertexBudget = 120_000
+    /// FALLBACK ONLY since 2.75 (`PreviewSimplifier` returned nil or overshot 1.5× the budget).
     /// Never cluster finer than this. ARKit's own mesh sits around 4–6cm (see
     /// `refineEdgeThreshold`), so 3cm merges little beyond true duplicates — a small scan is
     /// therefore not coarsened any further than this weld, and the seams between neighbouring
     /// anchors get welded, which looks better, not worse.
     /// ⚠ Still a WELD, ✗ read it as lossless — see the warning on `clusterPreview`.
     private static let previewMinVoxel: Float = 0.03
-    /// Assumed ARKit vertex spacing, used ONLY to guess the first voxel size. The two
-    /// directions of being wrong are NOT symmetric:
-    /// · too SMALL → first pass lands over budget → one extra clustering pass, then correct;
+    /// Assumed ARKit vertex spacing, used ONLY to guess the first voxel size of the FALLBACK
+    /// clustering. The two directions of being wrong are NOT symmetric:
+    /// · too SMALL → first pass lands over budget → one extra pass, ≥1.35× coarser: a small
+    ///   overshoot lands ~45% UNDER budget;
     /// · too LARGE → first pass lands under budget and the loop breaks immediately. NOT
-    ///   self-correcting: `buildPreview` only ever coarsens, never refines, so the preview
+    ///   self-correcting: `clusterWithRetries` only ever coarsens, never refines, so the preview
     ///   just comes out blockier than the budget paid for, silently.
-    /// Look here first if the owner ever says the 3D preview is too coarse.
-    private static let previewAssumedSpacing: Float = 0.05
+    /// Measured 30/09 (3 owner houses, 0.46–1.55M vertices): the voxel that lands exactly on
+    /// 120k implies 2.7–2.85cm; 0.03 lands pass 1 at 98–108k. The old 0.05 landed at 37–40k
+    /// (voxel 10–18cm), one of the two causes of the torn preview walls.
+    private static let previewAssumedSpacing: Float = 0.03
     private static let previewMaxPasses = 4
+    /// Quadric result above this many vertices = treat as failed, use the clustering fallback
+    /// (which provably coarsens). Never seen on real scans; guards the file size.
+    private static let previewQuadricCeiling = previewVertexBudget * 3 / 2
 
     /// Writes a small grey mesh (`MeshPreviewFile` format) to a temp file and returns its URL;
     /// `ScanStore.saveMeshScan` moves it into the scan folder. nil = no preview for this scan
@@ -579,12 +587,13 @@ final class ColorMeshBuilder {
     /// SERIAL, so running it first would push the delivery file — the thing the customer is
     /// actually waiting on behind "Đang dựng mô hình 3D…" — behind a nice-to-have; (2) if this
     /// code ever misbehaves, the file that matters is already on disk.
-    /// Cost measured by construction, not by stopwatch, and quoted PER CLUSTERING PASS: one
-    /// hash lookup per source vertex plus three array reads per face — ~0.2s on a normal house,
-    /// well under ~1s on a 2M vertex scan. `buildPreview` re-sweeps the WHOLE mesh on every
-    /// retry (the pass gets coarser, the input does not get smaller), so multiply by the pass
-    /// count: one retry is ordinary — see `previewAssumedSpacing` — and `previewMaxPasses` = 4
-    /// is the ceiling. RAM ~10MB on top of `pieces`, which is alive either way.
+    /// Cost of the quadric path (`PreviewSimplifier`), measured 30/09 with the same C++ on a
+    /// desktop Ryzen 7700 for a 1.55M-vertex house: ~1.1s (clustering ~0.3s) — expect ~1.5–2.5s
+    /// on an iPhone, not yet timed on one. RAM on top of `pieces` (alive either way), same house:
+    /// peak ~85MB during stage A (welded positions 18MB + indices 34MB + ≤20MB inside the
+    /// library), ~45MB in stage B — under `buildPLY`'s own peak on the same scan (~150MB plus
+    /// `pieces`). One meshoptimizer call on the whole house would have been ~260MB inside the
+    /// library alone; that is why `PreviewSimplifier` works per 4m cell first.
     @MainActor
     func exportPreviewMesh() async -> URL? {
         let pieces = self.pieces
@@ -606,6 +615,45 @@ final class ColorMeshBuilder {
         }
         guard totalVerts > 0 else { return nil }
 
+        // 2.75: quadric edge collapse first (`PreviewSimplifier`, doc there), clustering only as
+        // the fallback. `map(\.…)` hands over array references, no vertex data is copied.
+        var result: (positions: [SIMD3<Float>], normals: [SIMD3<Float>], indices: [UInt32])
+            = ([], [], [])
+        let ordered = keys.compactMap { pieces[$0] }
+        if let quadric = PreviewSimplifier.build(
+            vertexLists: ordered.map(\.worldVertices),
+            faceLists: ordered.map(\.faces),
+            budget: previewVertexBudget
+        ), quadric.positions.count <= previewQuadricCeiling {
+            result = (quadric.positions, quadric.normals, quadric.indices)
+        } else {
+            result = clusterWithRetries(pieces: pieces, keys: keys, totalVerts: totalVerts)
+        }
+
+        guard !result.positions.isEmpty, !result.indices.isEmpty else { return nil }
+
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("mesh-preview-\(UUID().uuidString.prefix(8)).bin")
+        do {
+            try MeshPreviewFile.write(
+                positions: result.positions,
+                normals: result.normals,
+                indices: result.indices,
+                to: url
+            )
+            return url
+        } catch {
+            // Never fail the save because of the preview — the scan itself is already exported.
+            try? FileManager.default.removeItem(at: url)
+            return nil
+        }
+    }
+
+    /// FALLBACK path (the pre-2.75 preview, spacing guess fixed): voxel clustering with bounded
+    /// coarsening retries. Welds thin walls into mixed-winding sheets — see `clusterPreview`.
+    private static func clusterWithRetries(
+        pieces: [UUID: MeshPiece], keys: [UUID], totalVerts: Int
+    ) -> (positions: [SIMD3<Float>], normals: [SIMD3<Float>], indices: [UInt32]) {
         // First guess: output ≈ surfaceArea / voxel², and surfaceArea ≈ totalVerts × spacing²,
         // hence voxel ≈ spacing × sqrt(totalVerts / budget). Already under budget → clamp to
         // the floor: the finest we ever cluster, but still the WELD described on
@@ -634,24 +682,7 @@ final class ColorMeshBuilder {
             let over = Float(result.positions.count) / Float(previewVertexBudget)
             voxel *= max(1.35, over.squareRoot())
         } while pass < previewMaxPasses
-
-        guard !result.positions.isEmpty, !result.indices.isEmpty else { return nil }
-
-        let url = FileManager.default.temporaryDirectory
-            .appendingPathComponent("mesh-preview-\(UUID().uuidString.prefix(8)).bin")
-        do {
-            try MeshPreviewFile.write(
-                positions: result.positions,
-                normals: result.normals,
-                indices: result.indices,
-                to: url
-            )
-            return url
-        } catch {
-            // Never fail the save because of the preview — the scan itself is already exported.
-            try? FileManager.default.removeItem(at: url)
-            return nil
-        }
+        return result
     }
 
     /// Voxel-cluster every piece into one shared vertex table and remap the faces.

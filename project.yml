@@ -14,6 +14,10 @@ packages:
   Stripe:
     url: https://github.com/stripe/stripe-ios-spm
     revision: 18508f5216629b2c100e8fc3a7f686e7d71aa498
+  # meshoptimizer 1.3 (MIT), VENDORED as a local package: upstream has no Package.swift. Only the grey
+  # 3D preview uses it (Sources/Scan/PreviewSimplifier.swift). Version + update steps: its README.md.
+  MeshOptimizer:
+    path: Packages/MeshOptimizer
 targets:
   CedarScan:
     type: application
@@ -39,6 +43,8 @@ targets:
     dependencies:
       - package: Stripe
         product: StripePaymentSheet
+      - package: MeshOptimizer
+        product: CMeshOptimizer
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.cedar247.cedarscan
@@ -74,7 +80,7 @@ targets:
         # tiếng, cùng hiện "1.0" → chủ app test trúng bản cũ mà không ai biết, báo "lỗi vẫn
         # nguyên" oan. AltStore (My Apps) và Cài đặt iOS đều hiện số này — nó là cách DUY NHẤT
         # xác minh từ xa máy ông đang chạy bản nào. Ghi số giao kèm vào SESSION-HANDOFF §STATE.
-        MARKETING_VERSION: "2.74"
+        MARKETING_VERSION: "2.75"
         # See CedarApplePayMerchantID below; release.yml overrides it on the command line.
         CEDAR_APPLE_PAY_MERCHANT_ID: ""
     # Push notifications (2.61, owner 26/09). XcodeGen writes this file (gitignored, like Info.plist)

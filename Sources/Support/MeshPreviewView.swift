@@ -121,35 +121,28 @@ struct MeshPreviewView: View {
     ///   are the LIVE scan overlay: two `fillMode = .lines` wireframes (culling would drop the
     ///   back-facing lines of every wireframe) and the depth mask that punches holes in the red
     ///   unscanned-area tint (culling it leaves red bleeding over scanned areas). §Lưới + phủ đỏ.
-    /// · 🔴 KNOWN COST, ACCEPTED — and BIGGER than "a big house", so do not go hunting for a
-    ///   new bug when it shows up. `ColorMeshBuilder.buildPreview` picks `voxel = 0.03` while
-    ///   `totalVerts <= 120_000`, and `max(0.03, 0.05 · sqrt(totalVerts / 120_000))` above it.
-    ///   Source verts → pass-1 voxel: 300k ⇒ ~8cm, 600k ⇒ ~11cm, 1M ⇒ ~14cm, and
-    ///   `wholeHomePreset.maxVertices` = 2M — the ceiling a whole house is sized to fit under —
-    ///   ⇒ ~20cm. Retries only ever COARSEN, by `max(1.35, sqrt(over))` PER RETRY: ONE retry —
-    ///   which `exportPreviewMesh`'s doc calls the ordinary case — is ≥1.35× ⇒ ~27cm from 2M;
-    ///   only the full four passes reach ≥1.35³ ≈ 2.5× ⇒ ~50cm. Those are FLOORS, ✗ caps —
-    ///   `sqrt(over)` is unbounded and nothing clamps the voxel; the only ceiling in that loop
-    ///   is `previewMaxPasses`.
-    ///   A partition is 7–12cm thick, so on a whole-house scan the voxel is at or past it
-    ///   ALREADY ON PASS 1, and the wall's two faces weld into ONE zero-thickness sheet
-    ///   carrying triangles of BOTH windings (`clusterPreview` says the same thing at its
-    ///   zero-normal fallback). Culling drops one winding ⇒ those partitions read as TORN,
-    ///   ✗ as pinholes. `mesh-preview.bin` is a look-at file, ✗ a measurement source.
-    ///   ⚠ Size the expectation from the ONE RECORDED MEASUREMENT, ✗ from a room count:
-    ///   `MeshOverlayView`'s mask-ledger comment records a real 2-storey house at **~0.5–1.5M
-    ///   anchor vertices** ⇒ pass-1 voxel ~10–18cm, straddling the partition band ⇒ EXPECT torn
-    ///   partitions on a normal whole-house scan, ✗ treat it as a surprise. That figure is the
-    ///   overlay's ledger, not `buildPreview`'s own `totalVerts`, so confirm it on the first
-    ///   whole-house run; a one-room scan sits near the 3cm floor, looks clean, proves nothing.
-    ///   Escape hatches, in cost order — ALL THREE ARE OWNER CONVERSATIONS, ✗ pick one alone:
-    ///   (a) accept it; (b) `isDoubleSided = true` again and tell him the dollhouse costs torn
-    ///   partitions; (c) raise `previewVertexBudget` — 🔴 he personally chose "Nhẹ — 120k đỉnh",
-    ///   ✗ raise it without asking. ✗ the "re-orient each triangle to match its own normals"
-    ///   idea: for a welded partition the two sides' normals point OPPOSITE ways, so it is a
-    ///   no-op for exactly this failure, and it would read post-weld normals that may be the
-    ///   invented `SIMD3(0,1,0)`. And any decimator change helps NEW scans only —
-    ///   `mesh-preview.bin` cannot be rebuilt on-device.
+    /// · 🔴 KNOWN COST, ACCEPTED — MEASURED 30/09 on three owner houses (1.55M / 1.10M / 0.46M
+    ///   vertices; harness `scratch_mesh-holes/` in the root checkout: Blender, this camera,
+    ///   culling on; metric = see-through area inside the full mesh's silhouette, in points
+    ///   ABOVE what the full culled mesh itself shows, top view / mean of four 30° views):
+    ///   · up to 2.74, voxel clustering (`ColorMeshBuilder.clusterPreview`): the spacing guess
+    ///     was 2× too big, so houses landed at 37–40k vertices, voxel 10–18cm — past a 7–12cm
+    ///     partition, whose two faces then welded into ONE sheet carrying triangles of BOTH
+    ///     windings (~15% of faces on the big houses, 2–3% flipped). Culling dropped one
+    ///     winding ⇒ torn walls, blocky holes: +4.5/+3.0 · +4.1/+3.4 · +2.4/+1.9 points.
+    ///   · from 2.75, quadric edge collapse (`PreviewSimplifier`) at 96–119k vertices: an edge
+    ///     collapse never merges the two faces of a wall, flips are refused:
+    ///     +0.6/+0.4 · +0.4/+0.3 · +0.1/+0.0 points.
+    ///   What is left is REAL: the full mesh itself shows 4–8% see-through from the top (never
+    ///   measured by the LiDAR: under / behind furniture, wall bases, stairwell — same holes in
+    ///   model.obj) ⇒ a hole report on a 2.75+ scan is first a scanning question, ✗ this viewer.
+    ///   Clustering still runs as the FALLBACK (spacing guess fixed to 3cm ⇒ ~100k vertices);
+    ///   a fallback preview shows the old torn walls again, so "torn walls on a new scan" = the
+    ///   simplifier failed on that scan, look there first.
+    ///   Old scans keep their old preview: `mesh-preview.bin` cannot be rebuilt on-device.
+    ///   ✗ the "re-orient each triangle to match its own normals" idea for welded walls: the two
+    ///   sides' normals point OPPOSITE ways, so it is a no-op for exactly that failure.
+    ///   ✗ raise `previewVertexBudget` — 🔴 he personally chose "Nhẹ — 120k đỉnh".
     private static let greyMaterial: SCNMaterial = {
         let m = SCNMaterial()
         m.lightingModel = .blinn

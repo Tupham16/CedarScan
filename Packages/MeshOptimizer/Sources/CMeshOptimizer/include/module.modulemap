@@ -1,0 +1,4 @@
+module CMeshOptimizer {
+    header "meshoptimizer.h"
+    export *
+}
