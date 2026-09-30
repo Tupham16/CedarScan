@@ -276,7 +276,8 @@ final class ExposureCap: ObservableObject {
         /// true = the device's own limit is back (at a give-up or at teardown, or the device already
         /// held its own again), false = restore failed (retried later), nil = nothing to restore.
         var restored: Bool?
-        /// 1 Hz, whole scan (also with the cap Off = the A/B baseline), ≤ `traceMax` points.
+        /// 1 Hz, whole scan (also with debug Off = the A/B baseline; empty when the server
+        /// switch is off — no loop), ≤ `traceMax` points.
         var trace: [TracePoint] = []
     }
     private(set) var stats = Stats()
@@ -385,6 +386,13 @@ final class ExposureCap: ObservableObject {
                 Self.stale = nil
             } else {
                 stats.staleAtStart = true
+                // Lock busy, or AE not running yet right after `run`: one more try shortly (the
+                // server-off path has no loop, and the first set treats a leftover as the
+                // device's own limit). Harmless if it finds nothing of that scan on the device.
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    guard let s = Self.stale else { return }
+                    if Self.restore(s.device, original: s.original, ours: s.ours) { Self.stale = nil }
+                }
             }
         }
         let resolved = Self.resolveMode()
@@ -408,7 +416,11 @@ final class ExposureCap: ObservableObject {
         }
         // Server kill switch: fully inert — no Timer, no reads, no trace (also covers a problem
         // in the loop itself). Debug Off keeps the loop: its trace is the A/B baseline.
-        guard resolved.source != "server" else { return }
+        guard resolved.source != "server" else {
+            // One static line for the owner's kill-switch check (no loop to refresh it).
+            if debug { debugLine = "cap off (server switch)" }
+            return
+        }
         let timer = Timer(timeInterval: Self.tickSec, repeats: true) { [weak self] _ in
             self?.tick()
         }

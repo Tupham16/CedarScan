@@ -33,13 +33,14 @@ struct ScanQualityConfig: Codable {
     // White balance lock (26/09, owner-approved): texbake says blotchy colour comes mainly from
     // exposure/colour jumping between shots. MeshScanController locks WHITE BALANCE ONLY (never
     // exposure) once tracking is normal, this many seconds after start. Kill-switch:
-    // `{"lockWhiteBalance": false}`. ⚠ Server values only arrive after OrderSheet opens
-    // (`APIClient.catalog()`), so a kill reaches a device one order-form visit later.
+    // `{"lockWhiteBalance": false}`. ⚠ Server values arrive with `APIClient.catalog()`: the order
+    // form, and since 2.73 also launch / sign-in / foreground while signed in (RootView, ≥ 30 min
+    // apart); a phone never signed in only via the order form. Applies from the next scan.
     var lockWhiteBalance: Bool
     var whiteBalanceLockDelaySec: Double
 
-    // Auto torch (26/09, see AutoTorch). Kill-switch `{"autoTorch": false}` (same delivery lag
-    // as above). torchLevel (0, 1] — heat: the LED sits next to the camera module.
+    // Auto torch (26/09, see AutoTorch). Kill-switch `{"autoTorch": false}` (same delivery as
+    // above). torchLevel (0, 1] — heat: the LED sits next to the camera module.
     // Thresholds in EXIF BrightnessValue (APEX, absolute), NOT ambientIntensity (2.62, see
     // AutoTorch): on below torchOnBelowBV, off when brightness minus the torch's own share bound
     // (torchShareK / d², at level 0.7) is above torchOffAboveBV; AutoTorch forces off ≥ on + 1.
@@ -176,8 +177,9 @@ struct ScanQualityConfig: Codable {
     // `.defaults` → MẤT cấu hình mà vận hành đã đẩy xuống từ server (kể cả kill-switch
     // `{"enabled": false}`).
     //
-    // Và nó KHÔNG tự lành nhanh: `APIClient.catalog()` chỉ có MỘT nơi gọi là `OrderSheet`
-    // (mở form đặt hàng). Khách không đặt hàng thì cấu hình server KHÔNG BAO GIỜ về — mất vĩnh viễn.
+    // Và nó KHÔNG tự lành nhanh: tới 2.72 `APIClient.catalog()` chỉ được gọi từ form đặt hàng
+    // (khách không đặt hàng thì cấu hình server KHÔNG BAO GIỜ về). Từ 2.73 RootView gọi thêm lúc
+    // mở app / đăng nhập / quay lại foreground khi ĐÃ đăng nhập — máy chưa đăng nhập vẫn chỉ qua form.
     // Cái giá của việc giữ v1 chỉ là lần persist kế tiếp ghi đè blob 29 field bằng 8 field, tức
     // vứt đúng những field đã chết. Không ai mất gì.
     private static let storageKey = "scanQualityConfig.v1"

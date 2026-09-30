@@ -246,7 +246,8 @@ final class ScanSessionReport {
         "limit / at max ISO, exifIsoMax, ceilingMs, stepsUp / stepsDown, steps = t (s), lim (ms ",
         "after the step), iso (EXIF), diso (device ISO the loop used), ev, bv0 (EXIF BV at the ",
         "step) and for the first 12 steps bv = EXIF BV at ~10 Hz for 1 s after it) and trace = ",
-        "1 Hz t (s), raw EXIF bv, exp (ms), iso (EXIF), diso (device ISO), ev (ARKit ",
+        "(empty when source = server) 1 Hz t (s), raw EXIF bv, exp (ms), iso (EXIF), ",
+        "diso (device ISO), ev (ARKit ",
         "exposureOffset = auto-exposure target offset, EV), lim (device auto-exposure limit ms).",
     ].joined()
 

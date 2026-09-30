@@ -252,7 +252,8 @@ struct AccountView: View {
         }
     }
 
-    /// Read at render (the server value changes only with the order form's catalog fetch).
+    /// Read at render (the server value changes with a catalog fetch: order form, launch /
+    /// foreground — not observed, so it shows the value as of this render).
     private var exposureCapFooter: String {
         let server = ScanQualityConfig.current.exposureCapOff ? "off (server switch)" : "adaptive"
         return "Debug only, from the next scan. Default = \(server). Debug off = Default."
