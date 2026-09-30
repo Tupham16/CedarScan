@@ -501,7 +501,11 @@ struct LegalLinks: View {
     var body: some View {
         ForEach(LegalDoc.allCases) { doc in
             NavigationLink {
+                // Pushed in the Account tab: room for `CedarTabBar` (`reservedHeight`), else the
+                // document's last lines stay under the bar. Here, ✗ inside `LegalDocumentView`:
+                // sheets show it too, without a bar.
                 LegalDocumentView(doc: doc)
+                    .safeAreaPadding(.bottom, CedarTabBar.reservedHeight)
             } label: {
                 Label(doc.title, systemImage: doc.icon)
             }
