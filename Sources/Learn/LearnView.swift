@@ -69,13 +69,17 @@ struct LearnView: View {
                 }
             }
             .fogScreen()
+            .tabRootBarRoom()
             .navigationTitle(String(localized: "Learn"))
             .navigationDestination(for: Topic.self) { topic in
                 switch topic {
                 case .scanGuide:
                     // RUỘT của hướng dẫn (không kèm NavigationStack riêng) — lồng hai
                     // NavigationStack là mất nút Back và có hai thanh tiêu đề chồng nhau.
+                    // Pushed: room for `CedarTabBar` (`reservedHeight`) — the guide's last tips
+                    // stayed under the bar. Here, ✗ inside: `ScanGuideView` shows it in a sheet.
                     ScanGuideContent()
+                        .safeAreaPadding(.bottom, CedarTabBar.reservedHeight)
                         .navigationTitle(String(localized: "How to scan well"))
                         .navigationBarTitleDisplayMode(.inline)
                 case .orderFAQ:

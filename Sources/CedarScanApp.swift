@@ -113,6 +113,9 @@ struct RootView: View {
         // 2026-07-29 khung đó có dải trong suốt 28pt phía trên divider cho nút SCAN nhô lên
         // (xem `CedarTabBar.totalHeight`), tức điểm dừng cuộn cách đường kẻ 28pt chứ không sát.
         // Overlay thì thanh đè lên dòng cuối cùng và không ai chạm được nó.
+        // 🔴 Measured 30/09 (2.71, iOS 26 SDK build, iOS 26.2 + 18 runtimes): the inset does NOT
+        // reach the tab ROOTS either (cause unknown) — each root scroll view reserves the bar
+        // itself (`tabRootBarRoom`, see there).
         //
         // `.tabItem` vẫn khai đủ nhãn/icon: nếu một bản iOS nào đó không ẩn được thanh gốc thì app
         // vẫn dùng được (hai thanh, xấu nhưng không kẹt), thay vì còn một dải nút trắng trơn.

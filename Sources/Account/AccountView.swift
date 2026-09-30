@@ -156,6 +156,8 @@ struct AccountView: View {
             }
             // Fog: `Theme.bg` behind all three states; list rows on `Theme.card`.
             .fogScreen()
+            // All three states scroll; the signed-in list ends with Delete account + the version line.
+            .tabRootBarRoom()
             .navigationTitle(String(localized: "Account"))
             .sheet(isPresented: $showDeleteAccount) {
                 DeleteAccountView()

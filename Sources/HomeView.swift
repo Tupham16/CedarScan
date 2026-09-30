@@ -473,6 +473,7 @@ struct HomeView: View {
                 .foregroundStyle(.secondary)
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
+                .listSectionSeparator(.hidden) // grouped: its implicit section draws hairlines
             }
             if !visibleProjects.isEmpty {
                 Section {
@@ -489,8 +490,14 @@ struct HomeView: View {
                 looseScansSection
             }
         }
-        .listStyle(.plain)
+        // Grouped, not plain (owner 30/09, mockup 63 A): a plain list PINS section headers, and on
+        // iOS 26 the pinned "Properties" is drawn with no background over the top card. Grouped
+        // headers scroll away with the cards; at rest the screen measured identical on iOS 26
+        // (iOS 18: 10pt higher). ✗ an opaque header band (mockup 63 C: on iOS 26 the card shows
+        // above AND below it). Harness: throwaway branch `claude/home-header-shots`.
+        .listStyle(.grouped)
         .fogScreen()
+        .tabRootBarRoom()
         // `.searchable` KHÔNG nằm ở đây — nó đã được chuyển lên `body`, cùng cấp với
         // `.navigationTitle`. Xem chú thích 🔴 ở đó trước khi định đưa nó về lại.
     }

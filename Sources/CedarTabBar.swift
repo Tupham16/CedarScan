@@ -83,6 +83,9 @@ struct CedarTabBar: View {
     /// Đã cân nhắc và loại: VStack làm bàn phím đẩy CẢ thanh tab lên, mà chữa bằng
     /// `.ignoresSafeArea(.keyboard)` ở VStack thì tắt luôn việc né bàn phím của NỘI DUNG — ô địa
     /// chỉ/ô tìm kiếm chui xuống dưới bàn phím. `.safeAreaInset` là công cụ đúng cho việc này.
+    ///
+    /// 🔴 Since 2.71 the TAB ROOTS reserve it too (`tabRootBarRoom`): measured, the TabView's inset
+    /// does not reach them either.
     static let reservedHeight: CGFloat = totalHeight
 
     var body: some View {
@@ -205,5 +208,25 @@ struct CedarTabBar: View {
                 .font(.system(size: 24, weight: .semibold))
                 .foregroundStyle(.white)
         }
+    }
+}
+
+extension View {
+    /// 🔴 Room for `CedarTabBar` at the end of a TAB ROOT's scroll view (Home, Orders, Learn,
+    /// Account). Owner 30/09: many properties on Home -> the last card stopped half under the bar,
+    /// its trash could not be tapped. Measured (simulator harness `claude/home-bottom-shots`, iOS 26
+    /// SDK build, iOS 26.2 on 390 + 402pt and iOS 18): Home's List had bottom inset 34 = home
+    /// indicator only, ✗ 34 + 94 — the TabView's `.safeAreaInset` does not reach the tab roots
+    /// (cause unknown; pushed screens: never, see `reservedHeight`). With this: inset 128 on both
+    /// runtimes (no doubling on 18), last trash 46pt above the bar, tap opens the alert.
+    /// Non-scrolling states (Home/Orders empty, Orders signed out) are centred over the bar area —
+    /// accepted (nothing reaches it at normal text sizes).
+    /// Safe-area padding: the scroll indicator stops above the bar too.
+    /// ✗ `contentMargins`: it flows down the environment, i.e. into inline `NavigationLink`
+    /// destinations (Account -> `LegalDocumentView`).
+    /// ⚠ If an iOS honours the TabView inset (iOS 17 not measured, a later iOS), this doubles the
+    /// gap (a blank band at the end, nothing hidden) — gate or drop it then.
+    func tabRootBarRoom() -> some View {
+        safeAreaPadding(.bottom, CedarTabBar.reservedHeight)
     }
 }

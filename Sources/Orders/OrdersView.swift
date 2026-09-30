@@ -438,6 +438,7 @@ struct OrdersView: View {
             }
             }
             .listStyle(.plain)
+            .tabRootBarRoom()
         }
         .fogScreen()
         // `.searchable` is NOT here any more: it moved up to `body`, level with `.navigationTitle`
