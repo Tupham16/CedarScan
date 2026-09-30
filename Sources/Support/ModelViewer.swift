@@ -269,8 +269,8 @@ struct ModelViewerScreen: View {
 
     private var floorRow: some View {
         HStack(spacing: 2) {
-            // Own key, ✗ the Orders filter's "All": fr/es need the gender of "floor"
-            // (Tous / Todas vs Toutes / Todos). English shows "All" (`source` in translations.json).
+            // Own key, ✗ the Orders filter's "All": fr needs the gender of "niveau" (Tous vs
+            // Toutes). English shows "All" (`source` in translations.json).
             ViewerSegment(title: String(localized: "All floors"), selected: floor == nil, action: {
                 floor = nil
             }) {
@@ -460,7 +460,11 @@ struct LoadedModel {
     /// ✗ a tighter test (containment ± 0.2 m, both ends): fusion may also ADD surface the
     /// ARKit mesh lacked (it fills holes), and only a gross import transform is expected here.
     static func sameFrame(_ minA: Float, _ maxA: Float, _ minB: Float, _ maxB: Float) -> Bool {
-        abs(minA - minB) < 1 || abs(maxA - maxB) < 1
+        let oneEnd = abs(minA - minB) < 1 || abs(maxA - maxB) < 1
+        // + spans within 2× of each other: a unit scale pulls both ends toward 0 by less.
+        let spanA = maxA - minA
+        let spanB = maxB - minB
+        return oneEnd && spanA < 2 * spanB && spanB < 2 * spanA
     }
 }
 
@@ -544,8 +548,8 @@ enum FloorClip {
     }
 
     static func remove(from material: SCNMaterial) {
-        // Only OUR modifier: anything a USD import might have set stays (All = as before).
-        guard var modifiers = material.shaderModifiers, modifiers[.surface] == source else { return }
+        // Only OUR modifier (marker, not an exact string match on what SceneKit hands back).
+        guard var modifiers = material.shaderModifiers, modifiers[.surface]?.contains(loKey) == true else { return }
         modifiers[.surface] = nil
         material.shaderModifiers = modifiers.isEmpty ? nil : modifiers
     }
