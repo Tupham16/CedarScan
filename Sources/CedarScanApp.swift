@@ -6,6 +6,8 @@ struct CedarScanApp: App {
     @StateObject private var store = ScanStore()
     @StateObject private var account = AccountStore()
 
+    init() { HomeShots.seed() } // THROWAWAY harness
+
     var body: some Scene {
         WindowGroup {
             RootView()
@@ -22,6 +24,7 @@ struct CedarScanApp: App {
                 .scanCoverLayer()
                 .environmentObject(store)
                 .environmentObject(account)
+                .overlay(alignment: .topTrailing) { if HomeShots.on { HomeProbe().padding(.top, 50) } }
         }
     }
 }

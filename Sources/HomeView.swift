@@ -491,6 +491,7 @@ struct HomeView: View {
         }
         .listStyle(.plain)
         .fogScreen()
+        .modifier(HomeShots.Fix())
         // `.searchable` KHÔNG nằm ở đây — nó đã được chuyển lên `body`, cùng cấp với
         // `.navigationTitle`. Xem chú thích 🔴 ở đó trước khi định đưa nó về lại.
     }
