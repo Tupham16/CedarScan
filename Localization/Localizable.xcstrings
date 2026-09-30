@@ -90,7 +90,7 @@
         "vi": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld tin nhắn trước"
+            "value": "%lld tin nhắn cũ hơn"
           }
         }
       }
@@ -419,7 +419,7 @@
         "vi": {
           "stringUnit": {
             "state": "translated",
-            "value": "1 tin nhắn trước"
+            "value": "1 tin nhắn cũ hơn"
           }
         }
       }
@@ -3479,6 +3479,53 @@
         }
       }
     },
+    "Collapsed": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sbaleno"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zugeklappt"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Contraído"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Réduit"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Samengevouwen"
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zbalené"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đang thu gọn"
+          }
+        }
+      }
+    },
     "Compressing…": {
       "extractionState": "manual",
       "localizations": {
@@ -5214,6 +5261,53 @@
           "stringUnit": {
             "state": "translated",
             "value": "Đúng con số trên nút \"Đặt hàng\": gói cộng dịch vụ thêm bạn chọn. Mã giảm giá được trừ ở trang thanh toán nên nút vẫn hiện giá đầy đủ. Nhà rất lớn có thể có phụ phí — app không tự đo được diện tích nên khoản đó tính sau, và luôn báo bạn trước khi thu."
+          }
+        }
+      }
+    },
+    "Expanded": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rozbaleno"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aufgeklappt"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Desplegado"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Développé"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uitgevouwen"
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rozbalené"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đang mở"
           }
         }
       }
@@ -18296,7 +18390,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Wir haben Ihnen diese Nachricht auch per E-Mail geschickt. Um zu antworten, antworten Sie auf diese E-Mail."
+            "value": "Wir haben Ihnen diese Nachricht auch per E-Mail geschickt. Antworten Sie einfach auf diese E-Mail."
           }
         },
         "es": {

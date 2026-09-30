@@ -19,7 +19,14 @@ struct OrderMessagesCard: View {
 
     init(orderId: String, messages: [OrderMessageDTO]) {
         self.orderId = orderId
-        self.messages = messages.filter(Self.hasContent)
+        let shown = messages.filter(Self.hasContent)
+        self.messages = shown
+        // First frame already right (✗ collapsed, then opened in onAppear). Read only: `decide()`
+        // records the message as shown. Later inits are ignored by @State.
+        if let newest = shown.first {
+            _expanded = State(initialValue: OrderMessageMemory.seenMessageId(orderId) != newest.id
+                || OrderMessageMemory.keptOpen(orderId))
+        }
     }
 
     var body: some View {
@@ -41,6 +48,7 @@ struct OrderMessagesCard: View {
         } else if expanded == nil {
             expanded = OrderMessageMemory.keptOpen(orderId)
         }
+        // (A reload that brings no new message leaves the customer's current choice alone.)
     }
 
     private func toggle() {
@@ -70,6 +78,7 @@ struct OrderMessagesCard: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .accessibilityValue(isOpen ? String(localized: "Expanded") : String(localized: "Collapsed"))
             if isOpen {
                 VStack(alignment: .leading, spacing: 10) {
                     messageBody(newest)
@@ -108,6 +117,8 @@ struct OrderMessagesCard: View {
                 Text(String(localized: "Message from Cedar247"))
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(Color.primary)
+                    // Wraps at large sizes, ✗ squeezed to one cut line in a Button label (trap #47d).
+                    .fixedSize(horizontal: false, vertical: true)
                 if typeSize.isAccessibilitySize {
                     time(newest)
                 }
@@ -149,6 +160,8 @@ struct OrderMessagesCard: View {
                     fileLink(files[index])
                 }
             }
+            // Mockup 70: the file list is ruled above and below.
+            .overlay(alignment: .bottom) { Self.hairline }
         }
     }
 
@@ -189,6 +202,7 @@ struct OrderMessagesCard: View {
                          : String(localized: "\(older.count) earlier messages"))
                         .font(.subheadline.weight(.medium))
                         .foregroundStyle(Theme.accentText)
+                        .fixedSize(horizontal: false, vertical: true)
                     Spacer(minLength: 0)
                     Image(systemName: showEarlier ? "chevron.up" : "chevron.down")
                         .font(.footnote.weight(.semibold))
@@ -201,6 +215,7 @@ struct OrderMessagesCard: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .accessibilityValue(showEarlier ? String(localized: "Expanded") : String(localized: "Collapsed"))
             .overlay(alignment: .top) { Self.hairline }
             if showEarlier {
                 ForEach(older) { message in
@@ -233,8 +248,9 @@ struct OrderMessagesCard: View {
         message.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
     }
 
+    /// An entry the server sent oddly (`OrderMessageDTO` decodes it with no id) is skipped too.
     private static func hasContent(_ message: OrderMessageDTO) -> Bool {
-        !text(message).isEmpty || !files(message).isEmpty
+        !message.id.isEmpty && (!text(message).isEmpty || !files(message).isEmpty)
     }
 
     /// Collapsed card: the text on one line, or the number of files when there is no text.

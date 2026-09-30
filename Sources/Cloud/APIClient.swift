@@ -175,13 +175,26 @@ struct TexturedScanDTO: Decodable, Hashable {
     let url: String
 }
 
-/// A message from the team about an order (PLAN-THONG-BAO-DAY.md §5). Only `id` is required: one
-/// odd entry must not fail the whole order list (the `texturedScans` rule).
+/// A message from the team about an order (PLAN-THONG-BAO-DAY.md §5). Decoding never throws: one
+/// odd entry (a field of another type, not an object) must not fail the whole order list (the
+/// `texturedScans` rule) — it decodes empty (`id` "") and `OrderMessagesCard` skips it.
 struct OrderMessageDTO: Decodable, Identifiable, Hashable {
     let id: String
     let text: String?
     let attachments: [OrderMessageAttachmentDTO]?
     let sentAt: String?
+
+    private enum CodingKeys: String, CodingKey {
+        case id, text, attachments, sentAt
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try? decoder.container(keyedBy: CodingKeys.self)
+        id = (try? c?.decodeIfPresent(String.self, forKey: .id)) ?? ""
+        text = try? c?.decodeIfPresent(String.self, forKey: .text)
+        attachments = try? c?.decodeIfPresent([OrderMessageAttachmentDTO].self, forKey: .attachments)
+        sentAt = try? c?.decodeIfPresent(String.self, forKey: .sentAt)
+    }
 }
 
 struct OrderMessageAttachmentDTO: Decodable, Hashable {

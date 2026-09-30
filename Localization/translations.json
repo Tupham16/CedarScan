@@ -5081,7 +5081,7 @@
    "translations": {
     "vi": "Chúng tôi cũng đã gửi tin nhắn này qua email. Để trả lời, hãy phản hồi email đó.",
     "fr": "Nous vous avons aussi envoyé ce message par courriel. Pour répondre, répondez à ce courriel.",
-    "de": "Wir haben Ihnen diese Nachricht auch per E-Mail geschickt. Um zu antworten, antworten Sie auf diese E-Mail.",
+    "de": "Wir haben Ihnen diese Nachricht auch per E-Mail geschickt. Antworten Sie einfach auf diese E-Mail.",
     "cs": "Tuto zprávu jsme vám poslali také e-mailem. Chcete-li odpovědět, odpovězte na tento e-mail.",
     "sk": "Túto správu sme vám poslali aj e-mailom. Ak chcete odpovedať, odpovedzte na tento e-mail.",
     "es": "También te enviamos este mensaje por correo. Para responder, contesta a ese correo.",
@@ -5091,7 +5091,7 @@
   {
    "key": "1 earlier message",
    "translations": {
-    "vi": "1 tin nhắn trước",
+    "vi": "1 tin nhắn cũ hơn",
     "fr": "1 message précédent",
     "de": "1 frühere Nachricht",
     "cs": "1 starší zpráva",
@@ -5103,7 +5103,7 @@
   {
    "key": "%lld earlier messages",
    "translations": {
-    "vi": "%lld tin nhắn trước",
+    "vi": "%lld tin nhắn cũ hơn",
     "fr": "%lld messages précédents",
     "de": "%lld frühere Nachrichten",
     "cs": "Starší zprávy: %lld",
@@ -5134,6 +5134,30 @@
     "sk": "Prílohy: %lld",
     "es": "%lld archivos adjuntos",
     "nl": "%lld bijlagen"
+   }
+  },
+  {
+   "key": "Expanded",
+   "translations": {
+    "vi": "Đang mở",
+    "fr": "Développé",
+    "de": "Aufgeklappt",
+    "cs": "Rozbaleno",
+    "sk": "Rozbalené",
+    "es": "Desplegado",
+    "nl": "Uitgevouwen"
+   }
+  },
+  {
+   "key": "Collapsed",
+   "translations": {
+    "vi": "Đang thu gọn",
+    "fr": "Réduit",
+    "de": "Zugeklappt",
+    "cs": "Sbaleno",
+    "sk": "Zbalené",
+    "es": "Contraído",
+    "nl": "Samengevouwen"
    }
   },
   {
