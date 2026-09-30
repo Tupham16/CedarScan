@@ -6,25 +6,36 @@ final class HomeShots: XCTestCase {
 
     func testShots() {
         continueAfterFailure = true
-        // Header round 1: pinned "Properties" header over the top card; A/B the fixes.
-        for fix in ["none", "bg", "row", "nohdr", "grouped"] {
-            let app = launch(20, ["-homeFix", fix])
-            report(app, "\(fix)-0top")
-            nudge(app, 0.15)
-            report(app, "\(fix)-1small")
-            nudge(app, 0.30)
-            report(app, "\(fix)-2mid")
-            app.terminate()
+        // Header round 2: the real fix (2.72, grouped list).
+        let app = launch(20)
+        report(app, "fix-0top")
+        nudge(app, 0.15)
+        report(app, "fix-1small")
+        nudge(app, 0.30)
+        report(app, "fix-2mid")
+        scrollToEnd(app)
+        report(app, "fix-end")
+        tryLastTrash(app, "fix-end")
+        app.terminate()
+        let loose = launch(3, ["-homeLoose", "2"])
+        report(loose, "loose-0top")
+        nudge(loose, 0.30)
+        report(loose, "loose-1scrolled")
+        loose.terminate()
+        let search = launch(20)
+        let field = search.searchFields.firstMatch
+        if field.waitForExistence(timeout: 5) {
+            field.tap()
+            field.typeText("zzz")
+            sleep(2)
+            report(search, "search-nomatch")
+            field.typeText(XCUIKeyboardKey.delete.rawValue + XCUIKeyboardKey.delete.rawValue + XCUIKeyboardKey.delete.rawValue + "Oak")
+            sleep(2)
+            report(search, "search-oak")
+        } else {
+            note("no search field")
         }
-        let inApp = launch(1, ["-homeSignedIn"])
-        tab(inApp, "Orders")
-        sleep(2)
-        report(inApp, "orders-0top")
-        nudge(inApp, 0.15)
-        report(inApp, "orders-1small")
-        nudge(inApp, 0.30)
-        report(inApp, "orders-2mid")
-        inApp.terminate()
+        search.terminate()
     }
 
     /// Slow drag up by `frac` of the screen, held so the list stops where the finger stops.

@@ -41,6 +41,16 @@ enum HomeShots {
             try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
             try? JSONEncoder().encode(r).write(to: dir.appendingPathComponent("meta.json"))
         }
+        let a = ProcessInfo.processInfo.arguments
+        if let i = a.firstIndex(of: "-homeLoose"), i + 1 < a.count, let loose = Int(a[i + 1]) {
+            for k in 0..<loose {
+                let r = ScanRecord(id: UUID(), name: "Old scan \(k + 1)", createdAt: now, roomCount: 0,
+                                   cloudOrderNumber: nil, projectId: nil)
+                let dir = scans.appendingPathComponent(r.id.uuidString, isDirectory: true)
+                try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
+                try? JSONEncoder().encode(r).write(to: dir.appendingPathComponent("meta.json"))
+            }
+        }
         try? JSONEncoder().encode(projects).write(to: docs.appendingPathComponent("projects.json"))
     }
 
