@@ -24,6 +24,9 @@ import simd
 ///  · không có xám (bản quét lưu TRƯỚC bản 1.4 — `mesh-preview.bin` không dựng lại được), có
 ///    texture → mở thẳng texture, không có công tắc;
 ///  · không có gì → `ScanDetailView` không hiện nút, màn này không bao giờ mở.
+/// **2.77 — phone colours (`PreviewColorizer`, owner 30/09):** grey + `mesh-preview-colors.bin`
+/// and no baked texture ⇒ the switch shows too, and ON = the phone-coloured preview (instant, no
+/// network). A baked texture still wins whenever the scan has one (download as before).
 ///
 /// **Views + floors (2.76, owner 30/09, `PLAN-XEM-3D-TANG-MAU.md`, mockup 73 minus Floor plan):**
 /// bottom glass capsules `All · Floor 1 · Floor 2…` (≥ 2 floors, found ON THE PHONE by
@@ -59,6 +62,9 @@ struct ModelViewerScreen: View {
     @State private var greyFailed = false
     @State private var texture: LoadedModel?
     @State private var textureFailed = false
+    /// The grey preview coloured on the phone at save (2.77). nil = none (older scan, valve,
+    /// failure) — then the switch exists only for a baked texture, as before.
+    @State private var colored: LoadedModel?
 
     /// Floors + wall direction from the GREY preview (`MeshLayout`). Also drives the textured
     /// model when it sits in the same frame (`shownLayout(for:)`), so the floor buttons do not
@@ -82,17 +88,24 @@ struct ModelViewerScreen: View {
     private var floorCount: Int { active.map { shownLayout(for: $0).floors.count } ?? 0 }
 
     private var hasTexture: Bool { texturedRemote != nil && cloudScanId != nil }
-    /// Công tắc chỉ có nghĩa khi có ĐỦ CẢ HAI thứ để gạt qua gạt lại.
-    private var canToggle: Bool { greyURL != nil && hasTexture }
+    /// Công tắc chỉ có nghĩa khi có ĐỦ CẢ HAI thứ để gạt qua gạt lại. From 2.77 the "on"
+    /// side is the baked texture, or else the phone colours.
+    private var canToggle: Bool { greyURL != nil && (hasTexture || colored != nil) }
 
-    private var active: LoadedModel? { wantTexture ? texture : grey }
+    /// Texture ON: baked texture when the scan has one, else phone colours.
+    private var active: LoadedModel? {
+        guard wantTexture else { return grey }
+        return hasTexture ? texture : colored
+    }
+    /// The colour path never sets `textureFailed`, so this stays as before (and keeps the
+    /// "nothing to download" safety net of `beginTexture`).
     private var activeFailed: Bool { wantTexture ? textureFailed : greyFailed }
 
     /// Lỗi TẢI (khác lỗi MỞ ở `activeFailed`). Rút ra thành computed property vì `if case` lồng
     /// trong chuỗi `else if` của một ViewBuilder là chỗ trình biên dịch SwiftUI hay khó chịu, mà
     /// CI là nơi duy nhất bắt được — không đáng đánh đổi lấy hai dòng.
     private var downloadError: String? {
-        guard wantTexture, case .failed(let message) = textured.phase else { return nil }
+        guard wantTexture, hasTexture, case .failed(let message) = textured.phase else { return nil }
         return message
     }
 
@@ -203,7 +216,8 @@ struct ModelViewerScreen: View {
             get: { wantTexture },
             set: { on in
                 wantTexture = on
-                guard on else { return }
+                // Phone colours are already loaded: nothing to fetch.
+                guard on, hasTexture else { return }
                 Task { await beginTexture() }
             }
         )
@@ -363,6 +377,25 @@ struct ModelViewerScreen: View {
             center: SCNVector3Zero,
             worldOffset: -centre,
             clipMaterials: clip,
+            worldMin: decoded.boundsMin,
+            worldMax: decoded.boundsMax
+        )
+
+        // 2.77: phone colours next to the preview (same mesh, checked by vertex count). Off
+        // main (non-isolated async). Same framing / centre as grey, so the Texture carry-over
+        // and the floors work unchanged.
+        // A baked texture always wins: then the coloured scene could never show.
+        guard !hasTexture else { return }
+        let colorsURL = url.deletingLastPathComponent().appendingPathComponent(MeshPreviewColors.fileName)
+        guard let colors = await MeshPreviewColors.loadLinear(colorsURL, vertexCount: decoded.vertexCount)
+        else { return }
+        let coloredBuilt = MeshPreviewView.makeScene(decoded, linearColors: colors)
+        colored = LoadedModel(
+            scene: coloredBuilt.scene,
+            camera: coloredBuilt.camera,
+            center: SCNVector3Zero,
+            worldOffset: -centre,
+            clipMaterials: FloorClip.prepare(coloredBuilt.scene.rootNode, copying: true),
             worldMin: decoded.boundsMin,
             worldMax: decoded.boundsMax
         )

@@ -34,9 +34,12 @@ enum ColoredOBJExporter {
     /// số — không nhánh nào ở đây đọc nó, và bỏ hết lời gọi đi thì file zip ra y hệt.
     /// ✗ cho nó giá trị mặc định (bẫy #13): quên truyền là thanh % chết im ở đúng đoạn chờ
     /// lâu nhất của cả quy trình lưu.
+    /// `beforePacking`: runs on this thread right before `extraFiles` are copied (2.77: the phone
+    /// colour job joins here and writes its numbers into scan-report.json). No default (trap
+    /// #13): a call site that forgot it would ship reports without them, silently.
     static func makeOBJZip(
         fromPLY plyURL: URL, to zipURL: URL, includeGLB: Bool = false, extraFiles: [URL] = [],
-        progress: @escaping SaveStageReport
+        beforePacking: () -> Void, progress: @escaping SaveStageReport
     ) throws {
         // Đọc lại PLY vừa ghi (~100MB, một lượt quét thẳng) — không có mốc nào để báo giữa
         // chừng nên đây là chặng CÂM, màn hình hiện vòng xoay nhỏ.
@@ -61,7 +64,10 @@ enum ColoredOBJExporter {
         // tiến độ và không có callback nào. Màn hình chuyển sang vòng xoay + nhãn "Đang nén…",
         // thanh đứng yên tại mốc của chặng. ✗ bịa một thanh tự bò ở đây; muốn nó chạy thật
         // thì phải thay bộ nén, mà thay bộ nén là đổi FILE GIAO.
+        // Packaging first: its spinner + "Compressing…" covers the colour join below (the
+        // writing stage has no spinner — a wait there looks like a frozen bar).
         progress(.packaging, 0)
+        beforePacking()
         for extra in extraFiles {
             try? fm.copyItem(at: extra, to: work.appendingPathComponent(extra.lastPathComponent))
         }

@@ -373,11 +373,18 @@ final class ScanStore: ObservableObject {
         //     `ScanUploader.fileKinds`. Cả hai đều là danh sách LIỆT KÊ TƯỜNG MINH nên chỉ ghi
         //     file vào thư mục là không rò đi đâu cả.
         //     Gác `hasMesh`: bản chỉ-có-video không có gì để xem 3D.
+        //     1c'. (2.77) Phone colours for that preview (`PreviewColorizer`), from the texture
+        //     shots — which exist only now, in tmp. Runs on its own queue beside the zip step
+        //     below; the zip step waits for it just before packing (so scan-report.json carries
+        //     `previewColour`) and this function waits for it before returning (the `defer`
+        //     above deletes the shots). Bounded by its 10 s valve; any failure = grey as before.
+        var colourJob: PreviewColorJob?
         if hasMesh, let previewURL, fileManager.fileExists(atPath: previewURL.path) {
-            try? fileManager.moveItem(
-                at: previewURL,
-                to: folder.appendingPathComponent(MeshPreviewFile.fileName)
-            )
+            let dest = folder.appendingPathComponent(MeshPreviewFile.fileName)
+            if (try? fileManager.moveItem(at: previewURL, to: dest)) != nil,
+               let texshotsURL, fileManager.fileExists(atPath: texshotsURL.path) {
+                colourJob = PreviewColorJob(previewURL: dest, shotsDir: texshotsURL)
+            }
         }
 
         // 2. Mô hình 3D: giữ OBJ màu ĐÃ NÉN (obj+mtl+glb trong model-colored.zip). OBJ là text
@@ -410,11 +417,17 @@ final class ScanStore: ObservableObject {
             // ~40MB rác: không giúp đội vẽ gì, làm zip to hơn cho khách upload qua 4G, và là
             // bước cấp phát lớn nhất còn lại nên cũng là thủ phạm số 1 khi ĐĨA ĐẦY.
             let wantGLB = !geometryOnly
+            // Colours join here, right before scan-report.json is copied into the zip.
+            // `@Sendable`: runs on the zip thread; a plain closure written in this @MainActor
+            // class would be inferred main-actor-isolated.
+            let job = colourJob
+            let reportForJob = savedReportURL
+            let beforePacking: @Sendable () -> Void = { job?.finishAndReport(to: reportForJob) }
             let converted = await Task.detached(priority: .userInitiated) { () -> Bool in
                 do {
                     try ColoredOBJExporter.makeOBJZip(
                         fromPLY: meshURL, to: zipURL, includeGLB: wantGLB, extraFiles: extraFiles,
-                        progress: progress
+                        beforePacking: beforePacking, progress: progress
                     )
                     return true
                 } catch {
@@ -434,7 +447,7 @@ final class ScanStore: ObservableObject {
                         // ở đây là đúng sự thật: đang làm lại việc vừa hỏng.
                         try ColoredOBJExporter.makeOBJZip(
                             fromPLY: meshURL, to: zipURL, includeGLB: false, extraFiles: extraFiles,
-                            progress: progress
+                            beforePacking: beforePacking, progress: progress
                         )
                         return true
                     } catch {
@@ -458,6 +471,12 @@ final class ScanStore: ObservableObject {
         }
 
         // (Dọn thư mục ảnh texture tạm: xem defer ở đầu hàm — phủ cả các đường throw.)
+        // …which must not run under a colour job still reading the shots: the zip step
+        // normally joined it already; if it never got that far (PLY unreadable), stop it now.
+        if let colourJob {
+            colourJob.cancel()
+            await colourJob.finished(within: 3)
+        }
 
         // meta.json đã được ghi ngay sau `createDirectory` (xem trên), và `record` là `let` không
         // đổi suốt hàm nên không cần ghi lại — tới đây chỉ còn đưa bản ghi vào danh sách trong bộ nhớ.

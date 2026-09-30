@@ -160,12 +160,34 @@ struct MeshPreviewView: View {
         return m
     }()
 
+    /// Material of the PHONE-COLOURED preview (2.77, `PreviewColorizer`): the colours are
+    /// photos, so no lighting — `.constant`, white diffuse × vertex colour, one ambient light,
+    /// like the textured model (`TexturedSceneLoader`). Same shared cull mode.
+    private static let colorMaterial: SCNMaterial = {
+        let m = SCNMaterial()
+        m.lightingModel = .constant
+        m.diffuse.contents = UIColor.white
+        m.isDoubleSided = false
+        m.cullMode = MeshPreviewView.sharedCullMode
+        return m
+    }()
+
     /// ⚠ INTERNAL, ✗ private: `ModelViewerScreen` (trình xem gộp xám+texture ở
     /// `ModelViewer.swift`) gọi CHÍNH hàm này cho nhánh xám của nó. Chép một bản thứ hai là đẻ
     /// ra hai bố cục lệch nhau ngay lần đầu ai đó chỉnh góc mở — đúng thứ repo này đã trả giá.
     static func makeScene(
         _ decoded: MeshPreviewFile.Decoded
     ) -> (scene: SCNScene, camera: SCNNode) {
+        makeScene(decoded, linearColors: nil)
+    }
+
+    /// Same geometry, framing and camera; `linearColors` (Float RGB per vertex, linear —
+    /// `MeshPreviewColors.loadLinear`) ⇒ the phone-coloured, unlit version. A block of the
+    /// wrong size is ignored (grey).
+    static func makeScene(
+        _ decoded: MeshPreviewFile.Decoded, linearColors: Data?
+    ) -> (scene: SCNScene, camera: SCNNode) {
+        let colors = linearColors.flatMap { $0.count == decoded.vertexCount * 12 ? $0 : nil }
         // Zero-copy: both sources point INTO the file bytes at their own offset/stride.
         let positions = SCNGeometrySource(
             data: decoded.raw,
@@ -193,8 +215,21 @@ struct MeshPreviewView: View {
             primitiveCount: decoded.triangleCount,
             bytesPerIndex: MemoryLayout<UInt32>.size
         )
-        let geometry = SCNGeometry(sources: [positions, normals], elements: [element])
-        geometry.materials = [greyMaterial]
+        var sources = [positions, normals]
+        if let colors {
+            sources.append(SCNGeometrySource(
+                data: colors,
+                semantic: .color,
+                vectorCount: decoded.vertexCount,
+                usesFloatComponents: true,
+                componentsPerVector: 3,
+                bytesPerComponent: MemoryLayout<Float>.size,
+                dataOffset: 0,
+                dataStride: 12
+            ))
+        }
+        let geometry = SCNGeometry(sources: sources, elements: [element])
+        geometry.materials = [colors == nil ? greyMaterial : colorMaterial]
 
         let scene = SCNScene()
 
@@ -251,19 +286,23 @@ struct MeshPreviewView: View {
         // headlight lights every visible face equally and flattens a grey mesh into a
         // silhouette; the offset keeps walls, floors and ceilings at different brightness so
         // rooms read as rooms.
-        let keyLight = SCNLight()
-        keyLight.type = .directional
-        keyLight.color = UIColor(white: 1, alpha: 1)
-        keyLight.intensity = 900
-        let keyNode = SCNNode()
-        keyNode.light = keyLight
-        keyNode.eulerAngles = SCNVector3(-0.55, 0.6, 0)
-        cameraNode.addChildNode(keyNode)
+        // Coloured: no key light (the photos carry the light), full ambient like the textured
+        // model — see `colorMaterial`.
+        if colors == nil {
+            let keyLight = SCNLight()
+            keyLight.type = .directional
+            keyLight.color = UIColor(white: 1, alpha: 1)
+            keyLight.intensity = 900
+            let keyNode = SCNNode()
+            keyNode.light = keyLight
+            keyNode.eulerAngles = SCNVector3(-0.55, 0.6, 0)
+            cameraNode.addChildNode(keyNode)
+        }
 
         let ambientLight = SCNLight()
         ambientLight.type = .ambient
         ambientLight.color = UIColor(white: 1, alpha: 1)
-        ambientLight.intensity = 380
+        ambientLight.intensity = colors == nil ? 380 : 1000
         let ambientNode = SCNNode()
         ambientNode.light = ambientLight
         scene.rootNode.addChildNode(ambientNode)
