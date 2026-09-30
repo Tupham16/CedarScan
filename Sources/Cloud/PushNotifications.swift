@@ -245,7 +245,10 @@ enum PushText {
         "Your order for %@ is ready.",
         "Your added items for %@ are ready.",
         "The revised files for %@ are ready.",
+        // The server's text until 30/09/2026 (builds up to 2.73 show it); kept until no build gets it.
         "We sent you a message about your order for %@. Please check your email.",
+        // The message is shown in the order (`OrderMessagesCard`).
+        "You have a new message about your order for %@.",
         "Your order for %@ is awaiting payment. It will be cancelled within 24 hours if unpaid.",
         "Your added items for %@ are awaiting payment. They will be cancelled within 24 hours if unpaid.",
         "Your order for %@ was cancelled because it was not paid within 7 days.",

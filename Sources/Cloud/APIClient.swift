@@ -175,6 +175,20 @@ struct TexturedScanDTO: Decodable, Hashable {
     let url: String
 }
 
+/// A message from the team about an order (PLAN-THONG-BAO-DAY.md §5). Only `id` is required: one
+/// odd entry must not fail the whole order list (the `texturedScans` rule).
+struct OrderMessageDTO: Decodable, Identifiable, Hashable {
+    let id: String
+    let text: String?
+    let attachments: [OrderMessageAttachmentDTO]?
+    let sentAt: String?
+}
+
+struct OrderMessageAttachmentDTO: Decodable, Hashable {
+    let name: String?
+    let url: String?
+}
+
 struct OrderDTO: Decodable, Identifiable {
     let orderId: String
     let orderNumber: String
@@ -227,6 +241,9 @@ struct OrderDTO: Decodable, Identifiable {
     /// The server allows "Add to this order" now (paid, not refunded / closed, nothing awaiting
     /// payment, something left to add). `orders/{id}/extras` decides again.
     let canAddItems: Bool?
+    /// Messages from the team ("Nhắn khách", also emailed), newest first — this order's and its
+    /// extras' (root orders only). Optional: older servers. `lib/order-messages.ts`.
+    let messages: [OrderMessageDTO]?
 
     var id: String { orderId }
 

@@ -5053,6 +5053,90 @@
    }
   },
   {
+   "key": "You have a new message about your order for %@.",
+   "translations": {
+    "vi": "Bạn có tin nhắn mới về đơn hàng cho %@.",
+    "fr": "Vous avez un nouveau message au sujet de votre commande pour %@.",
+    "de": "Sie haben eine neue Nachricht zu Ihrer Bestellung für %@.",
+    "cs": "Máte novou zprávu k vaší objednávce pro %@.",
+    "sk": "Máte novú správu k vašej objednávke pre %@.",
+    "es": "Tienes un mensaje nuevo sobre tu pedido para %@.",
+    "nl": "Je hebt een nieuw bericht over je bestelling voor %@."
+   }
+  },
+  {
+   "key": "Message from Cedar247",
+   "translations": {
+    "vi": "Tin nhắn từ Cedar247",
+    "fr": "Message de Cedar247",
+    "de": "Nachricht von Cedar247",
+    "cs": "Zpráva od Cedar247",
+    "sk": "Správa od Cedar247",
+    "es": "Mensaje de Cedar247",
+    "nl": "Bericht van Cedar247"
+   }
+  },
+  {
+   "key": "We also emailed you this message. To reply, answer that email.",
+   "translations": {
+    "vi": "Chúng tôi cũng đã gửi tin nhắn này qua email. Để trả lời, hãy phản hồi email đó.",
+    "fr": "Nous vous avons aussi envoyé ce message par courriel. Pour répondre, répondez à ce courriel.",
+    "de": "Wir haben Ihnen diese Nachricht auch per E-Mail geschickt. Um zu antworten, antworten Sie auf diese E-Mail.",
+    "cs": "Tuto zprávu jsme vám poslali také e-mailem. Chcete-li odpovědět, odpovězte na tento e-mail.",
+    "sk": "Túto správu sme vám poslali aj e-mailom. Ak chcete odpovedať, odpovedzte na tento e-mail.",
+    "es": "También te enviamos este mensaje por correo. Para responder, contesta a ese correo.",
+    "nl": "We hebben je dit bericht ook gemaild. Reageer op die e-mail om te antwoorden."
+   }
+  },
+  {
+   "key": "1 earlier message",
+   "translations": {
+    "vi": "1 tin nhắn trước",
+    "fr": "1 message précédent",
+    "de": "1 frühere Nachricht",
+    "cs": "1 starší zpráva",
+    "sk": "1 staršia správa",
+    "es": "1 mensaje anterior",
+    "nl": "1 eerder bericht"
+   }
+  },
+  {
+   "key": "%lld earlier messages",
+   "translations": {
+    "vi": "%lld tin nhắn trước",
+    "fr": "%lld messages précédents",
+    "de": "%lld frühere Nachrichten",
+    "cs": "Starší zprávy: %lld",
+    "sk": "Staršie správy: %lld",
+    "es": "%lld mensajes anteriores",
+    "nl": "%lld eerdere berichten"
+   }
+  },
+  {
+   "key": "1 attachment",
+   "translations": {
+    "vi": "1 tệp đính kèm",
+    "fr": "1 pièce jointe",
+    "de": "1 Anhang",
+    "cs": "1 příloha",
+    "sk": "1 príloha",
+    "es": "1 archivo adjunto",
+    "nl": "1 bijlage"
+   }
+  },
+  {
+   "key": "%lld attachments",
+   "translations": {
+    "vi": "%lld tệp đính kèm",
+    "fr": "%lld pièces jointes",
+    "de": "%lld Anhänge",
+    "cs": "Přílohy: %lld",
+    "sk": "Prílohy: %lld",
+    "es": "%lld archivos adjuntos",
+    "nl": "%lld bijlagen"
+   }
+  },
+  {
    "key": "Your order for %@ is awaiting payment. It will be cancelled within 24 hours if unpaid.",
    "translations": {
     "vi": "Đơn hàng cho %@ đang chờ thanh toán. Đơn sẽ bị hủy trong vòng 24 giờ nếu chưa thanh toán.",

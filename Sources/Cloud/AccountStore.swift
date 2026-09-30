@@ -100,6 +100,8 @@ final class AccountStore: ObservableObject {
         paymentMethodsAvailable = false
         // Link remembers the customer on this phone; the next account must not inherit it.
         PaymentSheet.resetCustomer()
+        // Which team messages were shown / left open, per order.
+        OrderMessageMemory.clear()
     }
 
     private func apply(_ auth: AuthResponse) {

@@ -11,7 +11,8 @@ struct OrderRoute: Hashable {
     let customerId: String?
 }
 
-/// One order (mockups 32/33): summary + Pay Now, files, what was ordered, revision / add a scan.
+/// One order (mockups 32/33): summary + Pay Now, messages from the team (mockups 68–70), files,
+/// what was ordered, revision / add a scan.
 /// Every visibility condition is the 2.45 Orders card's (`orderCard` helpers), copied verbatim;
 /// only the layout changed. Downloads stay `Link`s to the browser (App Store rule: no in-app
 /// viewer, no thumbnail of a deliverable).
@@ -138,6 +139,8 @@ struct OrderDetailView: View {
                     .padding(.bottom, 12)
             }
             summary(order)
+            // Messages from the team (PLAN-THONG-BAO-DAY.md §5): right under the summary.
+            OrderMessagesCard(orderId: order.orderId, messages: order.messages ?? [])
             files(order)
             orderedItems(order)
             addedItems(order)

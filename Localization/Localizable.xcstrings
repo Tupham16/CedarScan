@@ -1,6 +1,100 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "%lld attachments": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Přílohy: %lld"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld Anhänge"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld archivos adjuntos"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld pièces jointes"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld bijlagen"
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prílohy: %lld"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld tệp đính kèm"
+          }
+        }
+      }
+    },
+    "%lld earlier messages": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Starší zprávy: %lld"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld frühere Nachrichten"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld mensajes anteriores"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld messages précédents"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld eerdere berichten"
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Staršie správy: %lld"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld tin nhắn trước"
+          }
+        }
+      }
+    },
     "%lld new": {
       "extractionState": "manual",
       "localizations": {
@@ -232,6 +326,100 @@
           "stringUnit": {
             "state": "translated",
             "value": "0 bản quét"
+          }
+        }
+      }
+    },
+    "1 attachment": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 příloha"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 Anhang"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 archivo adjunto"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 pièce jointe"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 bijlage"
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 príloha"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 tệp đính kèm"
+          }
+        }
+      }
+    },
+    "1 earlier message": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 starší zpráva"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 frühere Nachricht"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 mensaje anterior"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 message précédent"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 eerder bericht"
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 staršia správa"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 tin nhắn trước"
           }
         }
       }
@@ -7846,6 +8034,53 @@
           "stringUnit": {
             "state": "translated",
             "value": "Đang gom lưới…"
+          }
+        }
+      }
+    },
+    "Message from Cedar247": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zpráva od Cedar247"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nachricht von Cedar247"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mensaje de Cedar247"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Message de Cedar247"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bericht van Cedar247"
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Správa od Cedar247"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tin nhắn từ Cedar247"
           }
         }
       }
@@ -18049,6 +18284,53 @@
         }
       }
     },
+    "We also emailed you this message. To reply, answer that email.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tuto zprávu jsme vám poslali také e-mailem. Chcete-li odpovědět, odpovězte na tento e-mail."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wir haben Ihnen diese Nachricht auch per E-Mail geschickt. Um zu antworten, antworten Sie auf diese E-Mail."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "También te enviamos este mensaje por correo. Para responder, contesta a ese correo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nous vous avons aussi envoyé ce message par courriel. Pour répondre, répondez à ce courriel."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "We hebben je dit bericht ook gemaild. Reageer op die e-mail om te antwoorden."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Túto správu sme vám poslali aj e-mailom. Ak chcete odpovedať, odpovedzte na tento e-mail."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chúng tôi cũng đã gửi tin nhắn này qua email. Để trả lời, hãy phản hồi email đó."
+          }
+        }
+      }
+    },
     "We couldn't cancel this order right now. Please try again in a few minutes.": {
       "extractionState": "manual",
       "localizations": {
@@ -19267,6 +19549,53 @@
           "stringUnit": {
             "state": "translated",
             "value": "Bạn vẫn đặt được và đội ngũ sẽ được báo trước, nhưng quét lại tầng đó thường cho bản vẽ chính xác hơn. Còn nếu màn bản quét hiện dòng cam báo chưa thu được mô hình 3D thì bạn quét lại khu đó giúp nhé — chỉ có video thì chúng tôi không dựng được mặt bằng."
+          }
+        }
+      }
+    },
+    "You have a new message about your order for %@.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Máte novou zprávu k vaší objednávce pro %@."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sie haben eine neue Nachricht zu Ihrer Bestellung für %@."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tienes un mensaje nuevo sobre tu pedido para %@."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vous avez un nouveau message au sujet de votre commande pour %@."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Je hebt een nieuw bericht over je bestelling voor %@."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Máte novú správu k vašej objednávke pre %@."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bạn có tin nhắn mới về đơn hàng cho %@."
           }
         }
       }
