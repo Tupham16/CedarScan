@@ -388,9 +388,11 @@ final class ExposureCap: ObservableObject {
                 stats.staleAtStart = true
                 // Lock busy, or AE not running yet right after `run`: one more try shortly (the
                 // server-off path has no loop, and the first set treats a leftover as the
-                // device's own limit). Harmless if it finds nothing of that scan on the device.
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                    guard let s = Self.stale else { return }
+                // device's own limit). Only while nothing of THIS scan is on the device: once the
+                // first set adopted the leftover as `original`, teardown puts it back and the
+                // stale retry after `stop()` finishes the job.
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+                    guard let s = Self.stale, self?.ourValue == nil else { return }
                     if Self.restore(s.device, original: s.original, ours: s.ours) { Self.stale = nil }
                 }
             }

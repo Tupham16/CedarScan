@@ -193,13 +193,14 @@ struct RootView: View {
     /// while signed in (catalog needs a token; a phone never signed in keeps its defaults), at
     /// most every 30 min, in its own Task (nothing else waits on it); `catalog()` stores the
     /// config on main. GET only, no server change. Failure = retried at the next foreground.
-    /// Uptime, not the wall clock (a clock set back must not stop the fetches). nil = never / failed.
-    private static var scanConfigFetchedAt: TimeInterval?
+    /// Wall clock (keeps counting while the phone sleeps — uptime does not); `abs` so a clock set
+    /// back cannot stop the fetches. nil = never / failed.
+    private static var scanConfigFetchedAt: Date?
 
     private func refreshScanQualityConfig() {
         guard account.isSignedIn else { return }
-        let now = ProcessInfo.processInfo.systemUptime
-        if let last = Self.scanConfigFetchedAt, now - last < 30 * 60 { return }
+        let now = Date()
+        if let last = Self.scanConfigFetchedAt, abs(now.timeIntervalSince(last)) < 30 * 60 { return }
         Self.scanConfigFetchedAt = now
         Task {
             if (try? await APIClient.shared.catalog()) == nil {
