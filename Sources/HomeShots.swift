@@ -82,7 +82,7 @@ struct HomeProbe: View {
         var out = ["win h\(Int(window.bounds.height)) safeB\(Int(window.safeAreaInsets.bottom))"]
         func walk(_ v: UIView) {
             if let s = v as? UIScrollView, s.window != nil, !s.isHidden, s.alpha > 0.01,
-               s.contentSize.height > s.bounds.height * 0.3, s.bounds.height > 200 {
+               s.bounds.height > 200, s.bounds.width > 200 {
                 let f = s.convert(s.bounds, to: window)
                 if f.intersects(window.bounds) {
                     let maxOff = s.contentSize.height + s.adjustedContentInset.bottom - s.bounds.height

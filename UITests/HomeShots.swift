@@ -104,11 +104,13 @@ final class HomeShots: XCTestCase {
 
     /// Finger-like tap on the centre of the LAST trash button (no auto-scroll): alert or not.
     private func tryLastTrash(_ app: XCUIApplication, _ tag: String) {
-        guard let last = trashes(app).last else { return note("\(tag) no trash"); }
-        last.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        guard let last = trashes(app).last, last.exists else { return note("\(tag) no trash") }
+        let frame = last.frame
+        app.coordinate(withNormalizedOffset: .zero)
+            .withOffset(CGVector(dx: frame.midX, dy: frame.midY)).tap()
         let alert = app.alerts.firstMatch
         let ok = alert.waitForExistence(timeout: 3)
-        note("\(tag) last trash \(last.frame) -> alert=\(ok)")
+        note("\(tag) last trash \(frame) -> alert=\(ok)")
         if ok {
             shot(tag + "-alert")
             alert.buttons["Cancel"].tap()
