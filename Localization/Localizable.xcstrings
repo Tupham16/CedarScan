@@ -5894,25 +5894,25 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Etage %lld"
+            "value": "Ebene %lld"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Planta %lld"
+            "value": "Nivel %lld"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Étage %lld"
+            "value": "Niveau %lld"
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Verdieping %lld"
+            "value": "Niveau %lld"
           }
         },
         "sk": {

@@ -61,8 +61,8 @@ struct ModelViewerScreen: View {
     @State private var textureFailed = false
 
     /// Floors + wall direction from the GREY preview (`MeshLayout`). Also drives the textured
-    /// model (same ARKit frame), so the floor buttons do not change when Texture flips.
-    /// nil = no grey (pre-1.4 scan) or analysis failed ⇒ no floor buttons.
+    /// model when it sits in the same frame (`shownLayout(for:)`), so the floor buttons do not
+    /// change when Texture flips. nil = no grey (pre-1.4 scan) or analysis failed ⇒ no floors.
     @State private var layout: MeshLayout?
     /// Floor shown; nil = All. Kept across the Texture switch and the view switch.
     @State private var floor: Int?
@@ -451,10 +451,16 @@ struct LoadedModel {
 
     /// Do the grey floors / footprint apply to this model? The textured OBJ keeps the ARKit
     /// frame (checked offline), but only the phone shows how SceneKit loads the USDZ: a Y-up /
-    /// units conversion would move the whole range by metres. Fusion only trims strays
-    /// (#LS-MTR8E4ZI5: min Y equal, max Y 6 cm lower), hence 1 m.
+    /// units conversion would move BOTH ends of the Y range by metres. Fusion only trims strays,
+    /// which moves ONE end (#LS-MTR8E4ZI5: min Y equal, max Y 6 cm lower) ⇒ one end within 1 m.
     func sharesFrame(with grey: LoadedModel) -> Bool {
-        abs(worldMin.y - grey.worldMin.y) < 1 && abs(worldMax.y - grey.worldMax.y) < 1
+        Self.sameFrame(worldMin.y, worldMax.y, grey.worldMin.y, grey.worldMax.y)
+    }
+
+    /// ✗ a tighter test (containment ± 0.2 m, both ends): fusion may also ADD surface the
+    /// ARKit mesh lacked (it fills holes), and only a gross import transform is expected here.
+    static func sameFrame(_ minA: Float, _ maxA: Float, _ minB: Float, _ maxB: Float) -> Bool {
+        abs(minA - minB) < 1 || abs(maxA - maxB) < 1
     }
 }
 
@@ -538,7 +544,8 @@ enum FloorClip {
     }
 
     static func remove(from material: SCNMaterial) {
-        guard var modifiers = material.shaderModifiers, modifiers[.surface] != nil else { return }
+        // Only OUR modifier: anything a USD import might have set stays (All = as before).
+        guard var modifiers = material.shaderModifiers, modifiers[.surface] == source else { return }
         modifiers[.surface] = nil
         material.shaderModifiers = modifiers.isEmpty ? nil : modifiers
     }
@@ -850,7 +857,7 @@ private struct ModelSceneView: UIViewRepresentable {
         }
 
         if framing.serial != coordinator.serial {
-            // A view-switch tap, or the first apply of this view (serial starts at Int.min).
+            // A view-switch tap, or the screen's first apply (`ViewerCamera.serial` = Int.min).
             coordinator.serial = framing.serial
             coordinator.mode = framing.mode
             // Controls first: re-enabling SceneKit's controller must not undo the orbit target
@@ -858,12 +865,18 @@ private struct ModelSceneView: UIViewRepresentable {
             coordinator.syncControls(view)
             coordinator.frame(view)
         } else if coordinator.mode == .topView, sceneChanged || floorChanged {
-            // Texture flipped or floor changed in Top view: same spot, same zoom, same turn; a
-            // floor change moves the camera with the floor (height kept above the new floor).
-            if floorChanged {
-                coordinator.top.baseY = layout.topBase(floor)
+            if sceneChanged, !coordinator.topFits(model) {
+                // The camera was placed in another frame (textured model failing `sharesFrame`):
+                // frame this model afresh rather than aim beside it.
+                coordinator.frame(view)
+            } else {
+                // Texture flipped or floor changed in Top view: same spot, same zoom, same turn;
+                // a floor change moves the camera with the floor (height kept above it).
+                if floorChanged {
+                    coordinator.top.baseY = layout.topBase(floor)
+                }
+                coordinator.placeTopCamera(view)
             }
-            coordinator.placeTopCamera(view)
         }
 
         if sceneChanged || floorChanged {
@@ -973,12 +986,15 @@ private struct ModelSceneView: UIViewRepresentable {
         /// nearest the current heading, so the house does not spin when the mode changes.
         private func frameTop(_ view: SCNView) {
             guard let layout else { return }
-            // Heading from front + up: for the orbit camera (yaw ψ, pitch down e) its flat part
-            // is −(cos e + sin e)(sin ψ, cos ψ), never 0 even looking straight down; for the Top
-            // camera it is exactly screen-up (−sin yaw, −cos yaw). Either way atan2(−x, −z) = ψ.
+            // Heading from front ± up: for the orbit camera (yaw ψ, pitch down e) the flat part
+            // of front + up is −(cos e + sin e)(sin ψ, cos ψ) — never 0 looking down, even
+            // straight down; looking UP (from under the house, front.y > 0) front − up gives
+            // −(cos e − sin e)(sin ψ, cos ψ), e < 0. The Top camera: exactly screen-up
+            // (−sin yaw, −cos yaw). Every case: atan2(−x, −z) = ψ.
             let pov = view.pointOfView
             let front = pov?.simdWorldFront ?? SIMD3<Float>(0, 0, -1)
-            let d = front + (pov?.simdWorldUp ?? SIMD3<Float>(0, 1, 0))
+            let up = pov?.simdWorldUp ?? SIMD3<Float>(0, 1, 0)
+            let d = front.y <= 0 ? front + up : front - up
             let heading = d.x * d.x + d.z * d.z > 1e-6 ? atan2(-d.x, -d.z) : top.yaw
             let theta = layout.wallAngle
             var yaw = Self.wrap(-theta)
@@ -1021,7 +1037,16 @@ private struct ModelSceneView: UIViewRepresentable {
             // A bad layout must not poison `top` (every later gesture would carry the NaN).
             guard framed.isUsable else { return }
             top = framed
+            if let model {
+                memory.topFrameY = SIMD2<Float>(model.worldMin.y, model.worldMax.y)
+            }
             placeTopCamera(view)
+        }
+
+        /// Is `top` (ARKit world of the model it was framed on) valid for `model`?
+        func topFits(_ model: LoadedModel) -> Bool {
+            guard let y = memory.topFrameY else { return false }
+            return LoadedModel.sameFrame(model.worldMin.y, model.worldMax.y, y.x, y.y)
         }
 
         func placeTopCamera(_ view: SCNView) {
@@ -1073,6 +1098,7 @@ private struct ModelSceneView: UIViewRepresentable {
             let k = metresPerPoint(view)
             // The ground follows the finger: the camera moves the other way.
             top.target += screenRight * (-Float(t.x) * k) + screenUp * (Float(t.y) * k)
+            keepHouseInReach()
             placeTopCamera(view)
         }
 
@@ -1086,6 +1112,7 @@ private struct ModelSceneView: UIViewRepresentable {
             let newHeight = min(max(top.height / scale, Self.minHeight), top.maxHeight)
             top.target = anchor + (top.target - anchor) * (newHeight / top.height)
             top.height = newHeight
+            keepHouseInReach()
             placeTopCamera(view)
         }
 
@@ -1103,7 +1130,26 @@ private struct ModelSceneView: UIViewRepresentable {
             let turned = SIMD2<Float>(d.x * c + d.y * s, d.y * c - d.x * s)
             top.target = anchor + turned
             top.yaw = Self.wrap(top.yaw + a)
+            keepHouseInReach()
             placeTopCamera(view)
+        }
+
+        /// The screen centre stays over the footprint (± 2 m): the house cannot be dragged off
+        /// screen for good (re-tapping Top view was the only way back).
+        private func keepHouseInReach() {
+            guard let layout else { return }
+            let theta = layout.wallAngle
+            let r = SIMD2<Float>(cos(theta), sin(theta))
+            let f = SIMD2<Float>(-sin(theta), cos(theta))
+            let margin: Float = 2
+            let along = min(max(simd_dot(top.target, r), layout.along.lowerBound - margin),
+                            layout.along.upperBound + margin)
+            let across = min(max(simd_dot(top.target, f), layout.across.lowerBound - margin),
+                             layout.across.upperBound + margin)
+            let clamped = r * along + f * across
+            if clamped.x.isFinite, clamped.y.isFinite {
+                top.target = clamped
+            }
         }
 
         /// Angle into (−π, π].
@@ -1142,4 +1188,6 @@ private final class ViewerCamera {
     var serial = Int.min
     var mode: ViewerMode = .dollhouse
     var top = TopCamera()
+    /// World Y range (min, max) of the model `top` was framed on (`LoadedModel.sameFrame`).
+    var topFrameY: SIMD2<Float>?
 }

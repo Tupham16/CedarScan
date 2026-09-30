@@ -5225,12 +5225,12 @@
    "key": "Floor %lld",
    "translations": {
     "vi": "Tầng %lld",
-    "fr": "Étage %lld",
-    "de": "Etage %lld",
+    "fr": "Niveau %lld",
+    "de": "Ebene %lld",
     "cs": "Podlaží %lld",
     "sk": "Podlažie %lld",
-    "es": "Planta %lld",
-    "nl": "Verdieping %lld"
+    "es": "Nivel %lld",
+    "nl": "Niveau %lld"
    }
   },
   {
