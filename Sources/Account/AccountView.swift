@@ -16,8 +16,9 @@ struct AccountView: View {
     /// Hidden debug readout on the scan screen (7 taps on the version line) — owner testing via
     /// AltStore has no console.
     @AppStorage("scanDebugReadout") private var scanDebugReadout = false
-    /// 🧪 TEST build only: exposure cap selector (ExposureCap reads the same key at scan start).
-    @AppStorage(ExposureCap.settingKey) private var exposureCapMode: ExposureCap.Mode = ExposureCap.defaultMode
+    /// Debug-only exposure cap picker (ExposureCap.resolveMode reads the same key at scan start,
+    /// and only while `scanDebugReadout` is on).
+    @AppStorage(ExposureCap.debugChoiceKey) private var exposureCapChoice: ExposureCap.DebugChoice = .auto
     @State private var versionTaps = 0
     @State private var lastVersionTap = Date.distantPast
 
@@ -140,7 +141,8 @@ struct AccountView: View {
                             versionLine
                                 .listRowBackground(Color.clear)
                         }
-                        if ExposureCap.testBuild && scanDebugReadout {
+                        // Hidden debug mode only — customers never see it (ExposureCap).
+                        if scanDebugReadout {
                             exposureCapSection
                         }
                     }
@@ -231,22 +233,28 @@ struct AccountView: View {
             }
     }
 
-    /// 🧪 TEST build only (ExposureCap, 2.70.1 / 2.70.2), behind the hidden debug flag. English,
-    /// verbatim: owner-only, no translation keys (a short key could also collide with Stripe's,
-    /// trap #42).
+    /// Exposure cap picker (ExposureCap, 2.73), behind the hidden debug flag — the owner's own
+    /// tests. English, verbatim: owner-only, no translation keys (a short key could also collide
+    /// with Stripe's, trap #42). "Default" = the customer path (adaptive, or off by the server).
     private var exposureCapSection: some View {
         Section {
-            Picker(selection: $exposureCapMode) {
-                ForEach(ExposureCap.Mode.allCases) { mode in
-                    Text(verbatim: mode.label).tag(mode)
+            Picker(selection: $exposureCapChoice) {
+                ForEach(ExposureCap.DebugChoice.allCases) { choice in
+                    Text(verbatim: choice.label).tag(choice)
                 }
             } label: {
-                Text(verbatim: "Exposure cap (test)")
+                Text(verbatim: "Exposure cap (debug)")
             }
             .listRowBackground(Theme.card)
         } footer: {
-            Text(verbatim: "Test build only. Applies from the next scan.")
+            Text(verbatim: exposureCapFooter)
         }
+    }
+
+    /// Read at render (the server value changes only with the order form's catalog fetch).
+    private var exposureCapFooter: String {
+        let server = ScanQualityConfig.current.exposureCapOff ? "off (server switch)" : "adaptive"
+        return "Debug only, from the next scan. Default = \(server). Debug off = Default."
     }
 
     /// Mục Legal & Privacy cho hai màn KHÔNG phải `List` (chưa đăng nhập / chờ xác minh).

@@ -219,9 +219,9 @@ final class ScanSessionReport {
         let whiteBalance: WhiteBalance
         /// Auto torch (26/09): status, level, switch counts, lit seconds.
         let torch: AutoTorch.Stats
-        /// 🧪 TEST build only (ExposureCap, 2.70.1 / 2.70.2): the selected floor / fixed limit in
-        /// ms (0 = off), the mode (adaptive | hard | off) and its status/figures. nil = key absent
-        /// (every normal build).
+        /// Exposure cap (ExposureCap; test builds 2.70.1 / 2.70.2, every build since 2.73): the
+        /// floor / fixed limit in ms (0 = off), the mode (adaptive | hard | off) and its
+        /// status/figures (`exposureCap.source` = default | server | debug). nil = key absent.
         let exposureCapMs: Int?
         let exposureCapMode: String?
         let exposureCap: ExposureCap.Stats?
@@ -234,14 +234,15 @@ final class ScanSessionReport {
         let relocks: Int
     }
 
-    /// 🧪 TEST build only (ExposureCap, 2.70.1 / 2.70.2): appended to `note` when the report has
-    /// an `exposureCap` block. An array join, not a long `+` chain (Swift type-check time on CI).
+    /// Appended to `note` when the report has an `exposureCap` block. An array join, not a long
+    /// `+` chain (Swift type-check time on CI).
     private static let exposureCapNote: String = [
-        " TEST BUILD: exposureCapMode = adaptive (auto-exposure limit starts at exposureCapMs, ",
+        " exposureCapMode = adaptive (auto-exposure limit starts at exposureCapMs, ",
         "is raised up to the device default only while ISO is at max and frames are ",
         "underexposed, lowered again when ISO has headroom) | hard (fixed at exposureCapMs) | ",
         "off; exposureCapMs = floor / fixed limit (ms, 0 = off); exposureCap = how it went ",
-        "(status, device default / applied limit ms, set times, frames sampled / over / at the ",
+        "(source = default | server (kill switch) | debug (owner picker), ",
+        "status, device default / applied limit ms, set times, frames sampled / over / at the ",
         "limit / at max ISO, exifIsoMax, ceilingMs, stepsUp / stepsDown, steps = t (s), lim (ms ",
         "after the step), iso (EXIF), diso (device ISO the loop used), ev, bv0 (EXIF BV at the ",
         "step) and for the first 12 steps bv = EXIF BV at ~10 Hz for 1 s after it) and trace = ",

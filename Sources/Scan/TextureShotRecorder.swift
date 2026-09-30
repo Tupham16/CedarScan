@@ -291,8 +291,8 @@ final class TextureShotRecorder {
         var blurPx0: Float?
         /// Seconds from that opening frame to this one (0 = the opening frame was kept).
         var win: Double?
-        /// 🧪 TEST build only (ExposureCap, 2.70.1): the device's auto-exposure upper limit in
-        /// force at capture, ms (finite). nil = key absent (every normal build).
+        /// ExposureCap (test builds 2.70.1 / 2.70.2, every build since 2.73): the device's
+        /// auto-exposure upper limit in force at capture, ms (finite). nil = key absent.
         var expMaxMs: Float?
     }
     /// The ONE held copy of a choice window (main only). `buffer` is the recorder's own
@@ -349,8 +349,8 @@ final class TextureShotRecorder {
     weak var captureDevice: AVCaptureDevice?
     /// Auto torch — per-shot `torch` level + skip frames right after a switch. nil = none.
     weak var torch: AutoTorch?
-    /// 🧪 TEST build only (ExposureCap, 2.70.2): skip frames right after an exposure-limit change
-    /// (AE still moving). Never settling outside the test build. nil = none.
+    /// ExposureCap (2.70.2, every build since 2.73): skip frames right after an exposure-limit
+    /// change (AE still moving; never settling while the cap is off). nil = none.
     weak var exposureCap: ExposureCap?
 
     init(arSession: ARSession) {
@@ -907,16 +907,13 @@ final class TextureShotRecorder {
         "win = seconds from that frame to this one.",
     ].joined()
 
-    /// 🧪 TEST build only (ExposureCap, 2.70.1 / 2.70.2) — appended to `note`; "" in every other
-    /// build.
-    private static let exposureCapNote: String = ExposureCap.testBuild
-        ? [
-            " TEST BUILD: expMaxMs = the camera's auto-exposure upper limit (ms) read when the ",
-            "frame was copied (within a frame of its capture; moves during the scan when ",
-            "scan-report.json exposureCapMode = adaptive; frames within 0.3 s after a change ",
-            "are skipped); exposureCapMs = the floor / fixed limit selected (0 = off).",
-        ].joined()
-        : ""
+    /// ExposureCap (every build since 2.73) — appended to `note`.
+    private static let exposureCapNote: String = [
+        " expMaxMs = the camera's auto-exposure upper limit (ms) read when the ",
+        "frame was copied (within a frame of its capture; moves during the scan when ",
+        "scan-report.json exposureCapMode = adaptive; frames within 0.3 s after a change ",
+        "are skipped); scan-report.json exposureCapMs = the floor / fixed limit (0 = off).",
+    ].joined()
 
     /// ioQueue. Fills `m2` from the final anchor poses and builds the report figures.
     /// m2 only when all 16 numbers are finite (NaN rule: one bad number kills the package).

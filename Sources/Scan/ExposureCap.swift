@@ -6,9 +6,21 @@ import CoreMedia
 import ImageIO
 import QuartzCore
 
-/// 🧪 TEST-ONLY EXPOSURE CAP (owner 30/09; branch `claude/exposure-cap-adaptive`, app 2.70.2, on top of
-/// 2.70.1's hard cap). ✗ main, ✗ customers. `testBuild` is the compile-time switch: false = not one
-/// device call, no Timer, no Account row, no report / shots.json key — the app behaves like 2.70.
+/// EXPOSURE CAP — ON FOR EVERY CUSTOMER since 2.73 (owner 30/09 "ok làm 2.72" after the 2.70.2
+/// measurements; 2.72 went to the Home headers first). Tested as branch `claude/exposure-cap-adaptive`
+/// (2.70.1 hard, 2.70.2 adaptive).
+/// Which mode a scan runs is decided ONCE at its start (`resolveMode`):
+///  1. hidden debug mode on (7 taps on the version line in Account) AND a pick other than "Default"
+///     in its "Exposure cap" picker → that pick (Off / Adaptive / Hard 4 / 6 / 8 ms; owner tests);
+///  2. else the SERVER KILL SWITCH: `scan-quality-config` `{"exposureCap": "off"}` → off
+///     (ScanQualityConfig.exposureCap; arrives with `catalog()` = the order form, persisted, so an
+///     "off" applies from the device's next scan after that);
+///  3. else adaptive (the default; also with no server row / no key).
+/// Off never sets anything on the device (it still traces and records `expMaxMs` = the baseline).
+///
+/// MEASURED 2.70.2 ADAPTIVE (owner's phone, #LS-MUNOBU41H): 56% of shots at 4 ms, blur p50 3.4 px
+/// (2.70: 8.4), darkest-quarter photo luma 100 (uncapped 96) = dark rooms no darker, tracking
+/// normal, 20 up / 18 down steps, JPEG 105 KB/shot, device ISO / EXIF ISO 0.996. No tube-light test.
 ///
 /// WHY: texture photos are motion-blurred. ARKit's auto-exposure never goes below 10 ms (the 50 Hz
 /// anti-flicker step) / 16.4 ms, even in bright rooms, and the phone turns ~31°/s at shot time.
@@ -43,8 +55,9 @@ import QuartzCore
 ///  - restored at teardown (both exits, BEFORE arSession.pause — the device outlives the session)
 ///    to the device's own value, only if the device still holds OUR value; a failed restore is
 ///    retried 0.5 s later and then at the next scan's start (`stale`; stuck there = `staleAtStart`).
-///  - Kill switch = the Account selector (7 taps on the version line first): Off never sets
-///    anything (it still traces, shows the debug readout and records `expMaxMs` = A/B baseline).
+///  - Kill switches: server `{"exposureCap": "off"}` for everyone; the debug picker per phone
+///    (resolution order at the top). Off never sets anything (it still traces, shows the debug
+///    readout and records `expMaxMs` = A/B baseline).
 ///
 /// ADAPTIVE (mode `adaptive4`, the default). Loop at 10 Hz on main (2.70.1: 2 Hz), inputs = the
 /// capture device's `iso` / `activeFormat.maxISO` (`isoFrac`: same scale, unrounded — review R1: EXIF
@@ -72,16 +85,18 @@ import QuartzCore
 ///    dark room stays 1–2 stops underexposed for seconds (tracking risk below). Cost: one
 ///    `currentFrame` + `exifData` read per tick (AutoTorch already does the same at 10 Hz) and
 ///    unlocked device reads; ≤ 2 locked sets per second by construction (settle + sustain).
-///  - Offline sim on the 2.70.1 scan (session scratchpad sim.py): ~55% of shots at a full 4 ms, blur
-///    p50 ~3.0 px (uncapped 9.5, hard 4 ms 2.3), shots > 0.3 stop underexposed ~7% (uncapped 3%,
-///    hard 4 ms 32%), ~50 UP / ~35 DOWN steps in 476 s. The workstation's ideal rule said 65% / 2.9 px
-///    / 0%: hysteresis + ramp lag cost the difference.
+///  - Offline sim on the 2.70.1 scan (`scratch_exposure-cap/sim-2.70.2/sim.py` in the main
+///    checkout, untracked): ~55% of shots at a full 4 ms, blur p50 ~3.0 px (uncapped 9.5, hard
+///    4 ms 2.3), shots > 0.3 stop underexposed ~7% (uncapped 3%, hard 4 ms 32%), ~50 UP / ~35 DOWN
+///    steps in 476 s. The workstation's ideal rule said 65% / 2.9 px / 0%: hysteresis + ramp lag
+///    cost the difference. Measured on the device (2.70.2): 56% / 3.4 px (top of this comment).
 ///  - HARD modes (`hard4/6/8`) = 2.70.1: fixed limit, no steps.
 ///
 /// What to expect / risks:
 ///  - Banding under mains-flickering light (tubes, cheap LED drivers): only an exposure of whole
 ///    flicker periods (10 ms at 50 Hz, 8.3 ms at 60 Hz) averages it out. Lit rooms stay at 4 ms in
-///    adaptive mode too → same banding risk as hard 4 ms (none found in the owner's house).
+///    adaptive mode too → same banding risk as hard 4 ms (none found in the owner's house; no
+///    tube-light test yet). Customers report bands → the server kill switch (top of this comment).
 ///  - Dark rooms: adaptive climbs to the device default (= uncapped) within ~1 s, so a dark room
 ///    gets what 2.70 gave it after that ramp; the 2.70.1 risk (dim room ~2 stops darker for ARKit
 ///    while the torch waits 2 s) is reduced to that ramp.
@@ -104,14 +119,9 @@ import QuartzCore
 /// MAIN THREAD ONLY (own Timer on main, like the other scan loops). Reads `arSession.currentFrame`,
 /// never takes the session delegate.
 final class ExposureCap: ObservableObject {
-    /// 🔴 Compile-time switch. true ONLY on the test branch; false everywhere else.
-    static let testBuild = true
-
-    /// Account selector choices (2.70.2).
-    enum Mode: String, CaseIterable, Identifiable {
+    /// What a scan runs (resolved at its start, see `resolveMode`).
+    enum Mode: String {
         case off, adaptive4, hard4, hard6, hard8
-
-        var id: String { rawValue }
 
         /// The floor (adaptive) or the fixed limit (hard), ms; 0 = off.
         var capMs: Int {
@@ -133,10 +143,22 @@ final class ExposureCap: ObservableObject {
             case .hard4, .hard6, .hard8: return "hard"
             }
         }
+    }
 
-        /// Picker text (English, verbatim — owner-only test UI).
+    /// Hidden debug picker (Account, only while the debug mode is on). `auto` = what customers
+    /// get (adaptive, or off when the server says so).
+    enum DebugChoice: String, CaseIterable, Identifiable {
+        case auto, off, adaptive4, hard4, hard6, hard8
+
+        var id: String { rawValue }
+
+        /// nil = `auto`.
+        var mode: Mode? { Mode(rawValue: rawValue) }
+
+        /// Picker text (English, verbatim — owner-only debug UI, no translation keys).
         var label: String {
             switch self {
+            case .auto: return "Default"
             case .off: return "Off"
             case .adaptive4: return "Adaptive 4 ms"
             case .hard4: return "Hard 4 ms"
@@ -146,18 +168,25 @@ final class ExposureCap: ObservableObject {
         }
     }
 
-    /// UserDefaults key of the Account selector (Mode raw value). NEW in 2.70.2: 2.70.1's Int key
-    /// `scanExposureCapMs` is ignored, so a phone that picked "4 ms" there gets the new default.
-    static let settingKey = "scanExposureCapMode"
-    static let defaultMode: Mode = .adaptive4
+    /// UserDefaults key of the debug picker (DebugChoice raw value). NEW in 2.73: the test builds'
+    /// keys (`scanExposureCapMs` 2.70.1, `scanExposureCapMode` 2.70.2) are ignored, so a test pick
+    /// never carries into the customer build.
+    static let debugChoiceKey = "scanExposureCapDebug"
+    /// Account's hidden debug flag (AccountView `scanDebugReadout`).
+    static let debugFlagKey = "scanDebugReadout"
 
-    /// The selected mode; always off outside the test build. Read at scan start.
-    static var settingMode: Mode {
-        guard testBuild else { return .off }
-        guard let raw = UserDefaults.standard.string(forKey: settingKey), let mode = Mode(rawValue: raw) else {
-            return defaultMode
+    /// The mode of a scan starting now + where it came from (scan-report `exposureCap.source`):
+    /// the debug pick only while the debug mode is ON (a customer never has it; turning debug off
+    /// puts the owner's phone back on the customer path), else the server switch, else adaptive.
+    static func resolveMode() -> (mode: Mode, source: String) {
+        let defaults = UserDefaults.standard
+        if defaults.bool(forKey: debugFlagKey),
+           let raw = defaults.string(forKey: debugChoiceKey),
+           let mode = DebugChoice(rawValue: raw)?.mode {
+            return (mode, "debug")
         }
-        return mode
+        if ScanQualityConfig.current.exposureCapOff { return (.off, "server") }
+        return (.adaptive4, "default")
     }
 
     /// Debug readout (only with the hidden debug flag): mode, device limit, exp/iso/ev of the frame.
@@ -196,6 +225,8 @@ final class ExposureCap: ObservableObject {
         var status = "notStarted"
         /// off | adaptive | hard
         var mode = "off"
+        /// Where the mode came from: default (adaptive) | server (kill switch "off") | debug (picker).
+        var source = "default"
         /// Floor (adaptive) / fixed limit (hard), ms; 0 = off.
         var capMs = 0
         /// Device limit read back after our first set, ms.
@@ -341,11 +372,11 @@ final class ExposureCap: ObservableObject {
 
     /// Scan start, right after `arSession.run` (MeshScanController.startSession).
     func start(device primary: AVCaptureDevice?, arSession session: ARSession) {
-        guard Self.testBuild, t0 == 0 else { return }
+        guard t0 == 0 else { return }
         t0 = CACurrentMediaTime()
         arSession = session
         readDevice = primary
-        debug = UserDefaults.standard.bool(forKey: "scanDebugReadout")
+        debug = UserDefaults.standard.bool(forKey: Self.debugFlagKey)
         if let s = Self.stale {
             if Self.restore(s.device, original: s.original, ours: s.ours) {
                 Self.stale = nil
@@ -353,9 +384,11 @@ final class ExposureCap: ObservableObject {
                 stats.staleAtStart = true
             }
         }
-        mode = Self.settingMode
+        let resolved = Self.resolveMode()
+        mode = resolved.mode
         capMs = mode.capMs
         stats.mode = mode.reportName
+        stats.source = resolved.source
         stats.capMs = capMs
         if capMs <= 0 {
             stats.status = "off"
@@ -370,7 +403,7 @@ final class ExposureCap: ObservableObject {
         } else {
             stats.status = "noDevice"
         }
-        // Always in the test build: the trace of an Off scan is the A/B baseline.
+        // Always, also Off: the trace of an Off scan is the A/B baseline.
         let timer = Timer(timeInterval: Self.tickSec, repeats: true) { [weak self] _ in
             self?.tick()
         }
@@ -913,10 +946,10 @@ final class ExposureCap: ObservableObject {
         return iso.isFinite && iso > 0 ? fin(iso) : nil
     }
 
-    /// shots.json `expMaxMs`: the device's AE limit when the frame is copied (ms); nil outside the
-    /// test build.
+    /// shots.json `expMaxMs`: the device's AE limit when the frame is copied (ms); nil = no device
+    /// or no numeric limit.
     static func limitMsForShot(_ device: AVCaptureDevice?) -> Float? {
-        guard testBuild, let device, let v = ms(device.activeMaxExposureDuration) else { return nil }
+        guard let device, let v = ms(device.activeMaxExposureDuration) else { return nil }
         let f = Float(v)
         return f.isFinite ? f : nil
     }
@@ -955,7 +988,7 @@ final class ExposureCap: ObservableObject {
     private func publishDebug(_ expo: Exposure, ev: Double?, limitMs: Double?) {
         var s: String
         switch mode {
-        case .off: s = "cap off"
+        case .off: s = stats.source == "server" ? "cap off(srv)" : "cap off"
         case .adaptive4: s = "adp \(capMs)-" + String(format: "%.1f", ceilS * 1000)
         case .hard4, .hard6, .hard8: s = "hard \(capMs)"
         }
