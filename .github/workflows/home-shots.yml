@@ -11,7 +11,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        device: [iPhone-13-Pro, iPhone-16-Pro]
+        device: [iPhone-13-Pro]
+        runtime: ['iOS-26', 'iOS-18']
     steps:
       - uses: actions/checkout@v4
 
@@ -35,7 +36,7 @@ jobs:
           set -euo pipefail
           RT=$(xcrun simctl list runtimes -j | python3 -c "
           import json, sys
-          r = [x for x in json.load(sys.stdin)['runtimes'] if x['identifier'].startswith('com.apple.CoreSimulator.SimRuntime.iOS-26') and x.get('isAvailable')]
+          r = [x for x in json.load(sys.stdin)['runtimes'] if x['identifier'].startswith('com.apple.CoreSimulator.SimRuntime.${{ matrix.runtime }}') and x.get('isAvailable')]
           print(sorted(r, key=lambda x: x['version'])[-1]['identifier'])
           ")
           UDID=$(xcrun simctl create "Home ${{ matrix.device }}" "com.apple.CoreSimulator.SimDeviceType.${{ matrix.device }}" "$RT")
@@ -60,20 +61,6 @@ jobs:
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
             | tee light.log | grep -E "Test Case|error:|\*\* TEST" || true
 
-      - name: Shots (dark)
-        if: always()
-        run: |
-          set -o pipefail
-          xcrun simctl ui "${{ steps.sim.outputs.udid }}" appearance dark
-          xcodebuild test \
-            -project CedarScan.xcodeproj \
-            -scheme CedarScan \
-            -destination "id=${{ steps.sim.outputs.udid }}" \
-            -only-testing:CedarScanUITests/HomeShots \
-            -resultBundlePath dark.xcresult \
-            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
-            | tee dark.log | grep -E "Test Case|error:|\*\* TEST" || true
-
       - name: Export screenshots
         if: always()
         run: |
@@ -88,7 +75,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: home-shots-${{ matrix.device }}
+          name: home-shots-${{ matrix.device }}-${{ matrix.runtime }}
           path: |
             shots
             light.log

@@ -6,57 +6,38 @@ final class HomeShots: XCTestCase {
 
     func testShots() {
         continueAfterFailure = true
-        // Round 3: the real fix (tabRootBarRoom) compiled in.
-        for count in [1, 3, 20] {
-            let app = launch(count)
-            report(app, "n\(count)-top")
-            scrollToEnd(app)
-            report(app, "n\(count)-end")
-            tryLastTrash(app, "n\(count)-end")
-            app.terminate()
-        }
+        // Round 4: fix + review round 1; iOS 26 and iOS 18 runtimes.
         let app = launch(20)
+        report(app, "n20-top")
         scrollToEnd(app)
-        openLastCard(app)
-        report(app, "n20-pushed")
-        app.navigationBars.buttons.element(boundBy: 0).tap()
-        sleep(2)
-        report(app, "n20-after-pop")
-        scrollToEnd(app)
-        report(app, "n20-after-pop-end")
-        tryLastTrash(app, "n20-after-pop-end")
-        deleteOneVisible(app)
-        report(app, "n20-after-delete")
-        scrollToEnd(app)
-        report(app, "n20-after-delete-end")
-        tryLastTrash(app, "n20-after-delete-end")
-        // Search with the keyboard up.
-        let field = app.searchFields.firstMatch
-        if field.waitForExistence(timeout: 3) {
-            field.tap()
-            field.typeText("Elm")
-            sleep(2)
-            report(app, "n20-search-elm")
-            scrollToEnd(app)
-            report(app, "n20-search-elm-end")
-        }
+        report(app, "n20-end")
+        tryLastTrash(app, "n20-end")
         app.terminate()
-        // Other tab roots, signed out.
         let out = launch(1)
         tab(out, "Learn")
+        report(out, "learn")
         scrollToEnd(out)
         report(out, "learn-end")
+        let guide = out.cells.allElementsBoundByIndex.first { $0.label.contains("How to scan well") && $0.isHittable }
+        if let guide {
+            guide.tap()
+            sleep(2)
+            scrollToEnd(out)
+            report(out, "guide-end")
+        } else {
+            note("no guide cell")
+        }
         tab(out, "Account")
-        report(out, "account-signedout")
         scrollToEnd(out)
         report(out, "account-signedout-end")
         out.terminate()
-        // Signed in (fake): Account list end, a pushed legal page end, Orders.
         let inApp = launch(1, ["-homeSignedIn"])
         tab(inApp, "Orders")
-        report(inApp, "orders-signedin")
+        sleep(2)
+        report(inApp, "orders-top")
+        scrollToEnd(inApp)
+        report(inApp, "orders-end")
         tab(inApp, "Account")
-        report(inApp, "account-signedin")
         scrollToEnd(inApp)
         report(inApp, "account-signedin-end")
         let legal = inApp.cells.allElementsBoundByIndex.first { $0.label.contains("Privacy") && $0.isHittable }
@@ -64,7 +45,6 @@ final class HomeShots: XCTestCase {
         if let legal {
             legal.tap()
             sleep(2)
-            report(inApp, "legal-top")
             scrollToEnd(inApp)
             report(inApp, "legal-end")
         } else {

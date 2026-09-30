@@ -204,7 +204,16 @@ struct OrdersView: View {
         Task { await PaymentFlow.shared.confirmPending() }
         let answer: Result<[OrderDTO], Error>
         do {
+            if ProcessInfo.processInfo.arguments.contains("-homeSignedIn") { // THROWAWAY harness
+                let rows = (0..<20).map { i in
+                    ##"{"orderId":"h\##(i)","orderNumber":"#104\##(10 + i)","status":"delivered","placedAt":"2026-09-20T10:00:00.000Z","projectName":"\##(100 + i) Elm Street, Springfield"}"##
+                }
+                let json = "{\"orders\":[" + rows.joined(separator: ",") + "]}"
+                struct Wrap: Decodable { let orders: [OrderDTO] }
+                answer = .success(try JSONDecoder().decode(Wrap.self, from: Data(json.utf8)).orders)
+            } else {
             answer = .success(try await APIClient.shared.listOrders().orders)
+            }
         } catch {
             answer = .failure(error)
         }
