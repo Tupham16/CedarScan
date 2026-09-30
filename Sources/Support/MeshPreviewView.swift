@@ -121,21 +121,27 @@ struct MeshPreviewView: View {
     ///   are the LIVE scan overlay: two `fillMode = .lines` wireframes (culling would drop the
     ///   back-facing lines of every wireframe) and the depth mask that punches holes in the red
     ///   unscanned-area tint (culling it leaves red bleeding over scanned areas). §Lưới + phủ đỏ.
-    /// · 🔴 KNOWN COST, ACCEPTED — MEASURED 30/09 on three owner houses (1.55M / 1.10M / 0.46M
-    ///   vertices; harness `scratch_mesh-holes/` in the root checkout: Blender, this camera,
-    ///   culling on; metric = see-through area inside the full mesh's silhouette, in points
-    ///   ABOVE what the full culled mesh itself shows, top view / mean of four 30° views):
+    /// · 🔴 KNOWN COST, ACCEPTED — MEASURED 30/09 on five owner houses (1.55M / 1.10M / 0.46M /
+    ///   1.72M / 1.80M vertices; harness `tools/preview-harness/`: Blender, this camera, culling
+    ///   on; metric = see-through area inside the full mesh's silhouette, in points ABOVE what the
+    ///   full culled mesh itself shows, top view / mean of four 30° views):
     ///   · up to 2.74, voxel clustering (`ColorMeshBuilder.clusterPreview`): the spacing guess
-    ///     was 2× too big, so houses landed at 37–40k vertices, voxel 10–18cm — past a 7–12cm
+    ///     was 2× too big, so houses landed at 37–40k vertices, voxel 10–19cm — past a 7–12cm
     ///     partition, whose two faces then welded into ONE sheet carrying triangles of BOTH
     ///     windings (~15% of faces on the big houses, 2–3% flipped). Culling dropped one
-    ///     winding ⇒ torn walls, blocky holes: +4.5/+3.0 · +4.1/+3.4 · +2.4/+1.9 points.
-    ///   · from 2.75, quadric edge collapse (`PreviewSimplifier`) at 96–119k vertices: an edge
+    ///     winding ⇒ torn walls, blocky holes: +4.5/+3.0 · +4.1/+3.4 · +2.4/+1.9 · +5.5/+3.9 ·
+    ///     +4.4/+3.6 points.
+    ///   · from 2.75, quadric edge collapse (`PreviewSimplifier`) at 108–119k vertices: an edge
     ///     collapse never merges the two faces of a wall, flips are refused:
-    ///     +0.6/+0.4 · +0.4/+0.3 · +0.1/+0.0 points.
+    ///     +0.6/+0.4 · +0.4/+0.3 · +0.1/+0.0 · +0.8/+0.5 · +0.9/+0.5 points.
     ///   What is left is REAL: the full mesh itself shows 4–8% see-through from the top (never
     ///   measured by the LiDAR: under / behind furniture, wall bases, stairwell — same holes in
     ///   model.obj) ⇒ a hole report on a 2.75+ scan is first a scanning question, ✗ this viewer.
+    ///   Shading: the file's normals are smooth, so a big flat wall triangle whose corners sit
+    ///   on creases shades as a soft diagonal light/dark band — cosmetic, ✗ a hole. Still fewer
+    ///   bad normals than before (area where a corner normal faces away from its triangle: ~14%
+    ///   → ~3% on the big houses). If the owner dislikes the bands, faceted shading is a viewer
+    ///   change (an owner conversation), ✗ a reason to go back to clustering.
     ///   Clustering still runs as the FALLBACK (spacing guess fixed to 3cm ⇒ ~100k vertices);
     ///   a fallback preview shows the old torn walls again, so "torn walls on a new scan" = the
     ///   simplifier failed on that scan, look there first.

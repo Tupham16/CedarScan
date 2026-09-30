@@ -10,27 +10,31 @@ import CMeshOptimizer
 /// into one sheet carrying triangles of BOTH windings and flips small triangles; with `.back`
 /// culling (`MeshPreviewView.sharedCullMode`) those walls read as torn and holed. An edge collapse
 /// only merges vertices joined by an edge, so the two faces of a partition stay two surfaces.
-/// Measured offline on three owner scans (1.55M / 1.10M / 0.46M vertices, extra see-through area
-/// vs the full mesh, top / 30° views): clustering 4.5/3.0 · 4.1/3.4 · 2.4/1.9 points → this
-/// 0.6/0.4 · 0.4/0.3 · 0.1/0.0.
+/// Measured offline on five owner houses (0.46–1.80M vertices), extra see-through area vs the full
+/// mesh, top / 30° views: clustering +1.9…+5.5 points → this +0.0…+0.9 (numbers per house:
+/// `MeshPreviewView.greyMaterial`).
 ///
-/// 🔴 `scratch_mesh-holes/mirror2.py` (root checkout) repeats these steps in the same order with the
-/// same library calls, so it feeds meshoptimizer the same bytes as the app does — that is how the
-/// numbers above were measured. Change a step here ⇒ change it there and re-measure.
+/// 🔴 `tools/preview-harness/mirror2.py` repeats these steps in the same order with the same library
+/// calls, so meshoptimizer gets the same INPUT bytes as in the app — that is how the numbers above
+/// were measured. Change a step here ⇒ change it there and re-measure (README there). The OUTPUT is
+/// not bit-identical: the iPhone build fuses multiply-adds (FMA) inside the library, the harness DLL
+/// does not; an FMA build moved the hole numbers by ≤ 0.03 points.
 ///  1. WELD on the 0.1 mm grid of the delivery OBJ (`ColoredOBJExporter` writes 4 decimals with the
 ///     same `.rounded()`). ARKit anchors repeat their seam vertices; unwelded, every seam is two
 ///     touching borders that simplify separately and open into cracks.
 ///  2. STAGE A per 4 m cell, vertices shared by two cells locked, each cell cut to twice the
 ///     final share. One call on the whole house peaks at ~260 MB inside meshoptimizer (1.55M
-///     vertices); cells keep it at ~15 MB, and stage B then works on ~0.2M vertices (~35 MB).
+///     vertices); cells keep it at 15–24 MB, and stage B then works on ~0.2M vertices (~35 MB).
 ///  3. STAGE B on the whole stage-A mesh, target moved until the vertex count lands in
 ///     [0.9, 1] × budget (≤ 3 passes; a pathological mesh may stay above it — soft budget).
-///  4. Normals from the result's own faces (area-weighted).
+///  4. Normals from the result's own faces (area-weighted). Tried and rejected offline: the source
+///     (ARKit-like) normals of the kept vertices, with or without meshoptimizer's attribute metric —
+///     not clearly nicer, disagree with their faces more often, and ~22 MB more in stage B.
 /// Positions are never moved: every output vertex is a welded input vertex (≤ 0.05 mm off).
 ///
 /// Runs on `ColorMeshBuilder.queue` (background), AFTER `exportColoredPLY` — see `exportPreviewMesh`.
 enum PreviewSimplifier {
-    struct Result {
+    struct Mesh {
         let positions: [SIMD3<Float>]
         let normals: [SIMD3<Float>]
         let indices: [UInt32]
@@ -39,14 +43,15 @@ enum PreviewSimplifier {
     /// 10 000 steps per metre = the 4 decimals `ColoredOBJExporter.appendFixed` writes, same rounding.
     private static let gridPerMetre: Double = 10_000
     /// Farther than this from the scan origin = garbage vertex, dropped with its faces. Also keeps
-    /// two grid points from rounding to one Float (Float spacing reaches 0.1 mm near 800 m): equal
-    /// positions would reach meshoptimizer as attribute seams, a path this caller never exercises.
+    /// two grid points from rounding to one Float (Float spacing stays under 0.1 mm up to 1024 m):
+    /// equal positions would reach meshoptimizer as attribute seams, a path this caller never uses.
     private static let maxCoordinate: Float = 500
-    /// Stage A cell edge (metres). ARKit anchors are ~2 m chunks, a cell holds ≤ ~0.2M triangles
-    /// on the measured houses.
+    /// Stage A cell edge (metres). ARKit anchors are ~2 m chunks; a cell held ≤ 0.25M triangles on
+    /// the measured houses. A big surface lying exactly on a cell plane gets mostly locked and is
+    /// left to stage B: more RAM there, same result.
     private static let cellSize: Float = 4
-    /// Vertices per triangle of the simplified result, measured 0.63–0.69 on the three scans
-    /// (plenty of open borders) — sizes the first stage-B target.
+    /// Vertices per triangle of the simplified result, measured 0.55–0.69 on five houses (plenty
+    /// of open borders) — sizes the first stage-B target.
     private static let firstVertexPerTriangle: Double = 0.7
     /// Stage A keeps this many times the first stage-B target, so stage B still chooses globally
     /// where detail goes (offline: 2× and 3× gave the same holes, 2× less RAM).
@@ -56,12 +61,13 @@ enum PreviewSimplifier {
     private static let maxInputVertices = 50_000_000
 
     /// `vertexLists[k]` / `faceLists[k]` = one ARKit anchor piece, in `buildPreview`'s sorted-key
-    /// order (the order of model.obj). nil = could not build; the caller falls back to clustering.
+    /// order (the order of a fast-save model.obj; a slow-save OBJ is subdivided, so it is NOT this
+    /// input). nil = could not build; the caller falls back to clustering.
     static func build(
         vertexLists: [[SIMD3<Float>]],
         faceLists: [[(UInt32, UInt32, UInt32)]],
         budget: Int
-    ) -> Result? {
+    ) -> Mesh? {
         guard budget > 0, vertexLists.count == faceLists.count else { return nil }
         var total = 0
         for list in vertexLists { total += list.count }
@@ -194,7 +200,8 @@ enum PreviewSimplifier {
             var scratch = [UInt32](repeating: 0, count: largest * 3)
             var kept = [UInt32]()
             kept.reserveCapacity(min(indices.count, Int(Double(indices.count) * ratio) + 3 * blockCount + 3))
-            let options = UInt32(meshopt_SimplifySparse) | UInt32(meshopt_SimplifyErrorAbsolute)
+            // No error limit anywhere (FLT_MAX): the target count decides.
+            let options = UInt32(meshopt_SimplifySparse)
             for block in 0..<blockCount where faceCount[block] > 0 {
                 let start = starts[block] * 3
                 let count = faceCount[block] * 3
@@ -242,7 +249,6 @@ enum PreviewSimplifier {
         var out = [UInt32](repeating: 0, count: stage.indices.count)
         var best: (positions: [Float], indices: [UInt32])?
         var bestVerts = 0
-        let options = UInt32(meshopt_SimplifyErrorAbsolute)
         for _ in 0..<maxPasses {
             let written = stage.indices.withUnsafeBufferPointer { ib in
                 stage.positions.withUnsafeBufferPointer { pb in
@@ -250,7 +256,7 @@ enum PreviewSimplifier {
                         meshopt_simplify(
                             ob.baseAddress, ib.baseAddress, stageTris * 3,
                             pb.baseAddress, stageVerts, 12,
-                            target * 3, Float.greatestFiniteMagnitude, options, nil
+                            target * 3, Float.greatestFiniteMagnitude, 0, nil
                         )
                     }
                 }
@@ -258,7 +264,11 @@ enum PreviewSimplifier {
             guard written > 0, written <= stageTris * 3, written % 3 == 0,
                   let result = compact(positions: stage.positions, vertexCount: stageVerts,
                                        indices: out, indexCount: written)
-            else { return nil }
+            else {
+                // A failed later pass must not throw away a usable earlier one.
+                if best != nil { break }
+                return nil
+            }
             let verts = result.positions.count / 3
             let tris = written / 3
             let better: Bool
@@ -350,7 +360,7 @@ enum PreviewSimplifier {
 
     /// Packs the result and gives every vertex the area-weighted normal of its faces (winding =
     /// ARKit's, so these point the same way as the scan's own normals — into the rooms).
-    private static func finish(_ flat: [Float], _ indices: [UInt32]) -> Result? {
+    private static func finish(_ flat: [Float], _ indices: [UInt32]) -> Mesh? {
         let count = flat.count / 3
         guard count > 0, !indices.isEmpty, indices.count % 3 == 0 else { return nil }
         var positions = [SIMD3<Float>]()
@@ -373,6 +383,6 @@ enum PreviewSimplifier {
             // Only sliver-only vertices land here; a zero normal would shade pure black.
             normals[v] = len > 1e-12 && len.isFinite ? normals[v] / len : SIMD3<Float>(0, 1, 0)
         }
-        return Result(positions: positions, normals: normals, indices: indices)
+        return Mesh(positions: positions, normals: normals, indices: indices)
     }
 }

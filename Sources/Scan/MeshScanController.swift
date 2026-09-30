@@ -263,8 +263,9 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
         // toán tử không-phải-gán, và một vòng CI đắt hơn ba dòng.
         var previewURL: URL?
         if meshURL != nil {
-            // Chặng CÂM ngắn (từ 2.75 là quadric `PreviewSimplifier`: ~1,1s trên desktop cho nhà
-            // 1,55 triệu đỉnh, ƯỚC ~1,5–2,5s trên iPhone, chưa bấm giờ máy thật): cố ý KHÔNG
+            // Chặng CÂM ngắn (từ 2.75 là quadric `PreviewSimplifier`: riêng thư viện 0,84s trên
+            // desktop cho nhà 1,55 triệu đỉnh, ƯỚC ~1,3–2,7s trên iPhone, tới ~3,5s ở 1,8–2 triệu
+            // đỉnh khi máy nóng — chưa bấm giờ máy thật): cố ý KHÔNG
             // xỏ đầu thu vào `buildPreview` — thêm tham số vào file trap-dense nhất app để
             // mua 1–3 nhịp báo là không đáng. Nếu máy thật cho thấy nó đứng lâu hơn ~4s thì
             // báo theo từng ô 4m của chặng A trong `PreviewSimplifier` là chỗ sửa đúng.

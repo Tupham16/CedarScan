@@ -552,11 +552,11 @@ final class ColorMeshBuilder {
     /// shown the three options (120k ≈ 3–6MB/scan, 200k ≈ 5–10MB, 400k ≈ 10–19MB) — same
     /// standing constraint as everywhere else in this app: "nhẹ và nhanh cho khách".
     /// It is a SOFT budget: both paths below may land somewhat above it on a pathological scan
-    /// rather than loop forever. Since 2.75 (quadric) a real scan lands at 0.9–1× of it: 96–119k
-    /// vertices, ~4.4–5.4MB on the three measured houses (clustering landed at 37–40k).
+    /// rather than loop forever. Since 2.75 (quadric) a real scan lands at 0.9–1× of it: 108–119k
+    /// vertices, 4.7–5.4MB on five measured houses (clustering landed at 37–40k, ~1.5–2MB).
     /// ✗ raise it without asking him — it is a per-scan cost on the customer's phone.
     private static let previewVertexBudget = 120_000
-    /// FALLBACK ONLY since 2.75 (`PreviewSimplifier` returned nil or overshot 1.5× the budget).
+    /// FALLBACK ONLY since 2.75 (`PreviewSimplifier` returned nil or overshot 1.25× the budget).
     /// Never cluster finer than this. ARKit's own mesh sits around 4–6cm (see
     /// `refineEdgeThreshold`), so 3cm merges little beyond true duplicates — a small scan is
     /// therefore not coarsened any further than this weld, and the seams between neighbouring
@@ -576,8 +576,9 @@ final class ColorMeshBuilder {
     private static let previewAssumedSpacing: Float = 0.03
     private static let previewMaxPasses = 4
     /// Quadric result above this many vertices = treat as failed, use the clustering fallback
-    /// (which provably coarsens). Never seen on real scans; guards the file size.
-    private static let previewQuadricCeiling = previewVertexBudget * 3 / 2
+    /// (which provably coarsens). Never seen on real scans; keeps the file near the 3–6MB the
+    /// owner accepted (150k vertices ≈ 6.3MB).
+    private static let previewQuadricCeiling = previewVertexBudget * 5 / 4
 
     /// Writes a small grey mesh (`MeshPreviewFile` format) to a temp file and returns its URL;
     /// `ScanStore.saveMeshScan` moves it into the scan folder. nil = no preview for this scan
@@ -586,14 +587,18 @@ final class ColorMeshBuilder {
     /// 🔴 CALL THIS **AFTER** `exportColoredPLY`, never before. Two reasons: (1) `queue` is
     /// SERIAL, so running it first would push the delivery file — the thing the customer is
     /// actually waiting on behind "Đang dựng mô hình 3D…" — behind a nice-to-have; (2) if this
-    /// code ever misbehaves, the file that matters is already on disk.
+    /// code returns nil, the delivery PLY already exists. ⚠ It is only a temp file: nothing is
+    /// STORED before `ScanStore.saveMeshScan`, so a crash or jetsam in here still loses the scan.
     /// Cost of the quadric path (`PreviewSimplifier`), measured 30/09 with the same C++ on a
-    /// desktop Ryzen 7700 for a 1.55M-vertex house: ~1.1s (clustering ~0.3s) — expect ~1.5–2.5s
-    /// on an iPhone, not yet timed on one. RAM on top of `pieces` (alive either way), same house:
-    /// peak ~85MB during stage A (welded positions 18MB + indices 34MB + ≤20MB inside the
-    /// library), ~45MB in stage B — under `buildPLY`'s own peak on the same scan (~150MB plus
-    /// `pieces`). One meshoptimizer call on the whole house would have been ~260MB inside the
-    /// library alone; that is why `PreviewSimplifier` works per 4m cell first.
+    /// desktop Ryzen 7700: the library alone 0.84s for a 1.55M-vertex house, ~1.0s at 1.8M
+    /// (clustering ~0.3s). Expect ~1.3–2.7s on an iPhone 12 Pro class phone, up to ~3.5s at
+    /// 1.8–2M vertices — whole-house scans end in thermal `.serious`; not yet timed on a phone.
+    /// RAM on top of `pieces` (alive either way): stage A peak 74 / 87 / 93MB at 1.55 / 1.72 /
+    /// 1.80M vertices, ~105MB at the 2M cap (welded positions + index buffer + ≈97 bytes per
+    /// triangle of the densest 4m cell inside the library), ~46MB in stage B — ~55% of
+    /// `buildPLY`'s own fast-save peak on the same scan, which runs seconds earlier from the same
+    /// starting point. One meshoptimizer call on the whole house would have been ~260MB inside
+    /// the library alone; that is why `PreviewSimplifier` works per 4m cell first.
     @MainActor
     func exportPreviewMesh() async -> URL? {
         let pieces = self.pieces

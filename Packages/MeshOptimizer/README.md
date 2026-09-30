@@ -10,5 +10,8 @@ Used only by `Sources/Scan/PreviewSimplifier.swift` (grey 3D preview, `mesh-prev
   `Package.swift` are ours.
 - Vendored, not a remote SPM package: upstream has no `Package.swift`.
 - `NDEBUG` is defined for every configuration (see `Package.swift`).
+- Swift sees the WHOLE header, but only functions defined in the four `.cpp` files link. Calling another
+  one (e.g. `meshopt_optimizeVertexCache`) compiles and then fails at link time: vendor its upstream
+  `.cpp` too.
 - Update: copy the same five files from a new tag, record tag + commit here, then re-run the offline
-  harness (`C:\Block\CedarScan\scratch_mesh-holes\`, README there) before shipping.
+  harness (`tools/preview-harness/`, README there) before shipping.

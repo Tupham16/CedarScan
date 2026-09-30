@@ -23,3 +23,8 @@ dsym-*/
 # Rác Python khi chạy tools/ — `git add tools/` một lần đã nuốt cả .pyc vào index.
 __pycache__/
 *.pyc
+
+# tools/preview-harness: the DLL is built locally from Packages/MeshOptimizer (README there).
+tools/preview-harness/*.dll
+tools/preview-harness/*.pdb
+tools/preview-harness/*.lib
