@@ -29,8 +29,9 @@ import simd
 /// bottom glass capsules `All · Floor 1 · Floor 2…` (≥ 2 floors, found ON THE PHONE by
 /// `MeshLayout` from the grey preview) and `Dollhouse | Top view` (`ViewerMode.offered`).
 /// Opens Dollhouse + All = the old default camera. Top view = perspective straight down, own
-/// pan / pinch / twist, no tilt, straightened along the main walls. Floors clip every material
-/// with a shader modifier (`FloorClip`). The Texture switch keeps view + floor.
+/// pan / pinch / twist, no tilt, straightened along the main walls. A picked floor clips every
+/// material with a shader modifier (`FloorClip`); on All there is no modifier at all (= 2.75).
+/// The Texture switch keeps view + floor.
 ///
 /// ✗ đổi thành `NavigationStack` + nút Đóng trên `.toolbar`: bar-item host chính là chỗ vụ văng
 /// 06/08 sống (`UIKitBarItemHost` đọc `@EnvironmentObject` trước khi cầu environment nối). Nút
@@ -66,9 +67,19 @@ struct ModelViewerScreen: View {
     /// Floor shown; nil = All. Kept across the Texture switch and the view switch.
     @State private var floor: Int?
     /// Last tap on the view switch. A tap on the mode already shown re-frames it (serial).
-    @State private var framing = FramingRequest(mode: .dollhouse, serial: 0)
+    @State private var framing = FramingRequest(mode: ViewerMode.offered[0], serial: 0)
+    /// Camera state that must outlive one `ModelSceneView`: SwiftUI rebuilds that view when the
+    /// shown model goes nil (texture loading, cancel), and Top view must survive it.
+    @State private var cameraMemory = ViewerCamera()
 
-    private var floorCount: Int { layout?.floors.count ?? 0 }
+    /// Floors + footprint for the model on screen: the grey layout when that model sits in the
+    /// grey model's frame (`LoadedModel.sharesFrame`), else its own bounds (no floors).
+    private func shownLayout(for model: LoadedModel) -> MeshLayout {
+        guard let layout, let grey, model.sharesFrame(with: grey) else { return model.boundsLayout }
+        return layout
+    }
+
+    private var floorCount: Int { active.map { shownLayout(for: $0).floors.count } ?? 0 }
 
     private var hasTexture: Bool { texturedRemote != nil && cloudScanId != nil }
     /// Công tắc chỉ có nghĩa khi có ĐỦ CẢ HAI thứ để gạt qua gạt lại.
@@ -93,9 +104,10 @@ struct ModelViewerScreen: View {
             if let active {
                 ModelSceneView(
                     model: active,
-                    layout: layout ?? active.boundsLayout,
+                    layout: shownLayout(for: active),
                     floor: floor,
-                    framing: framing
+                    framing: framing,
+                    memory: cameraMemory
                 )
                 .ignoresSafeArea()
                 bottomControls
@@ -247,7 +259,12 @@ struct ModelViewerScreen: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 floorRow
             }
+            // Scrolled capsules run to the screen edge instead of a hard cut 16 pt before it.
+            .scrollClipDisabled()
         }
+        // VoiceOver: "Floor" + "All, selected" instead of a bare "All".
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(String(localized: "Floor"))
     }
 
     private var floorRow: some View {
@@ -346,7 +363,8 @@ struct ModelViewerScreen: View {
             center: SCNVector3Zero,
             worldOffset: -centre,
             clipMaterials: clip,
-            boundsLayout: MeshLayout(boundsMin: decoded.boundsMin, boundsMax: decoded.boundsMax)
+            worldMin: decoded.boundsMin,
+            worldMax: decoded.boundsMax
         )
     }
 
@@ -396,29 +414,47 @@ struct LoadedModel {
     let clipMaterials: [SCNMaterial]
     /// Footprint of this model alone: used when there is no grey `MeshLayout`.
     let boundsLayout: MeshLayout
+    /// Bounding box in ARKit world (scene − `worldOffset`).
+    let worldMin: SIMD3<Float>
+    let worldMax: SIMD3<Float>
     /// Opening camera: tapping Dollhouse goes back to it.
     let openTransform: simd_float4x4
     let openFieldOfView: CGFloat
     let openZFar: Double
 
     init(scene: SCNScene, camera: SCNNode, center: SCNVector3, worldOffset: SIMD3<Float>,
-         clipMaterials: [SCNMaterial], boundsLayout: MeshLayout) {
+         clipMaterials: [SCNMaterial], worldMin: SIMD3<Float>, worldMax: SIMD3<Float>) {
         self.scene = scene
         self.camera = camera
         self.center = center
         self.worldOffset = worldOffset
         self.clipMaterials = clipMaterials
-        self.boundsLayout = boundsLayout
+        self.worldMin = worldMin
+        self.worldMax = worldMax
+        boundsLayout = MeshLayout(boundsMin: worldMin, boundsMax: worldMax)
         openTransform = camera.simdTransform
         openFieldOfView = camera.camera?.fieldOfView ?? 55
         openZFar = camera.camera?.zFar ?? 1000
     }
 
-    /// Clip band in ARKit world Y → scene Y.
+    /// Clip band in ARKit world Y → scene Y. An open band (All) removes the shader modifier.
     func setClip(_ band: (lo: Float, hi: Float)) {
+        let open = band.lo <= -MeshLayout.openEnd && band.hi >= MeshLayout.openEnd
         for material in clipMaterials {
-            FloorClip.set(material, lo: band.lo + worldOffset.y, hi: band.hi + worldOffset.y)
+            if open {
+                FloorClip.remove(from: material)
+            } else {
+                FloorClip.install(on: material, lo: band.lo + worldOffset.y, hi: band.hi + worldOffset.y)
+            }
         }
+    }
+
+    /// Do the grey floors / footprint apply to this model? The textured OBJ keeps the ARKit
+    /// frame (checked offline), but only the phone shows how SceneKit loads the USDZ: a Y-up /
+    /// units conversion would move the whole range by metres. Fusion only trims strays
+    /// (#LS-MTR8E4ZI5: min Y equal, max Y 6 cm lower), hence 1 m.
+    func sharesFrame(with grey: LoadedModel) -> Bool {
+        abs(worldMin.y - grey.worldMin.y) < 1 && abs(worldMax.y - grey.worldMax.y) < 1
     }
 }
 
@@ -453,10 +489,12 @@ struct FramingRequest: Equatable {
     let serial: Int
 }
 
-/// Floor buttons clip the model by world height. SceneKit has no clipping planes, so every
-/// viewer material (grey + textured) carries this surface shader modifier; a floor tap only
-/// changes two uniforms (no shader rebuild). `_surface.position` is view space; the inverse
-/// view transform takes it to scene space. Device-only check: no Swift/Metal compiler here.
+/// Floor buttons clip the model by world height. SceneKit has no clipping planes, so while a
+/// floor is picked every viewer material (grey + textured) carries this surface shader
+/// modifier; floor to floor only changes two uniforms. On All there is NO modifier: if the
+/// shader ever failed on some device, only the floor views would break, never the viewer
+/// that works today. `_surface.position` is view space; the inverse view transform takes it
+/// to scene space. Device-only check: no Swift/Metal compiler here.
 /// ✗ put it on `MeshPreviewView.greyMaterial` itself (shared with the after-scan viewer).
 enum FloorClip {
     private static let loKey = "cedarClipLo"
@@ -472,19 +510,14 @@ enum FloorClip {
     }
     """
 
-    /// Installs the clip (band open) on every material under `root`. `copying`: give each
-    /// geometry its own material copies first. Replaces any surface modifier (none today).
+    /// The materials under `root` that floors will clip (no modifier yet). `copying`: give each
+    /// geometry its own material copies first.
     static func prepare(_ root: SCNNode, copying: Bool) -> [SCNMaterial] {
         var out: [SCNMaterial] = []
         root.enumerateHierarchy { node, _ in
             guard let geometry = node.geometry else { return }
             geometry.materials = geometry.materials.map { material in
                 let own = copying ? ((material.copy() as? SCNMaterial) ?? material) : material
-                var modifiers = own.shaderModifiers ?? [:]
-                modifiers[.surface] = source
-                own.shaderModifiers = modifiers
-                // Unset uniforms read 0 ⇒ band [0, 0] ⇒ everything discarded. Open it now.
-                set(own, lo: -MeshLayout.openEnd, hi: MeshLayout.openEnd)
                 out.append(own)
                 return own
             }
@@ -492,14 +525,30 @@ enum FloorClip {
         return out
     }
 
-    static func set(_ material: SCNMaterial, lo: Float, hi: Float) {
+    /// Uniforms first, then the modifier: the first frame that uses it already has the band
+    /// (unset uniforms read 0 ⇒ band [0, 0] ⇒ everything discarded).
+    static func install(on material: SCNMaterial, lo: Float, hi: Float) {
         material.setValue(NSNumber(value: lo), forKey: loKey)
         material.setValue(NSNumber(value: hi), forKey: hiKey)
+        var modifiers = material.shaderModifiers ?? [:]
+        if modifiers[.surface] != source {
+            modifiers[.surface] = source
+            material.shaderModifiers = modifiers
+        }
+    }
+
+    static func remove(from material: SCNMaterial) {
+        guard var modifiers = material.shaderModifiers, modifiers[.surface] != nil else { return }
+        modifiers[.surface] = nil
+        material.shaderModifiers = modifiers.isEmpty ? nil : modifiers
     }
 }
 
 /// One segment of the glass capsules (mockup 73: 36 pt high, white fill when selected).
 private struct ViewerSegment<Icon: View>: View {
+    private static var selectedInk: Color { Color(red: 17.0 / 255, green: 24.0 / 255, blue: 39.0 / 255) }
+    private static var idleInk: Color { Color.white.opacity(0.86) }
+
     let title: String
     let selected: Bool
     let action: () -> Void
@@ -522,7 +571,7 @@ private struct ViewerSegment<Icon: View>: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
             }
-            .foregroundStyle(selected ? Color(red: 17 / 255, green: 24 / 255, blue: 39 / 255) : Color.white.opacity(0.86))
+            .foregroundStyle(selected ? Self.selectedInk : Self.idleInk)
             .padding(.horizontal, 12)
             .frame(minHeight: 36)
             .background {
@@ -624,7 +673,7 @@ enum TexturedSceneLoader {
             }
         }
 
-        // Floor clip on the same materials (fresh from this file, no copy needed).
+        // Floor clip targets: the same materials (fresh from this file, no copy needed).
         let clip = FloorClip.prepare(scene.rootNode, copying: false)
 
         let ambient = SCNLight()
@@ -684,7 +733,8 @@ enum TexturedSceneLoader {
             center: SCNVector3(center.x, center.y, center.z),
             worldOffset: .zero,
             clipMaterials: clip,
-            boundsLayout: MeshLayout(boundsMin: bounds.lo, boundsMax: bounds.hi)
+            worldMin: bounds.lo,
+            worldMax: bounds.hi
         )
     }
 
@@ -734,8 +784,9 @@ private struct ModelSceneView: UIViewRepresentable {
     let layout: MeshLayout
     let floor: Int?
     let framing: FramingRequest
+    let memory: ViewerCamera
 
-    func makeCoordinator() -> Coordinator { Coordinator() }
+    func makeCoordinator() -> Coordinator { Coordinator(memory: memory) }
 
     func makeUIView(context: Context) -> SCNView {
         let view = SCNView()
@@ -802,6 +853,9 @@ private struct ModelSceneView: UIViewRepresentable {
             // A view-switch tap, or the first apply of this view (serial starts at Int.min).
             coordinator.serial = framing.serial
             coordinator.mode = framing.mode
+            // Controls first: re-enabling SceneKit's controller must not undo the orbit target
+            // `frame` sets for Dollhouse.
+            coordinator.syncControls(view)
             coordinator.frame(view)
         } else if coordinator.mode == .topView, sceneChanged || floorChanged {
             // Texture flipped or floor changed in Top view: same spot, same zoom, same turn; a
@@ -820,19 +874,6 @@ private struct ModelSceneView: UIViewRepresentable {
         coordinator.syncControls(view)
     }
 
-    /// Top view camera, kept in ARKit WORLD (so it survives the Texture switch): looks straight
-    /// down from `height` above the plane `baseY`, `target` = world (x, z) under the screen
-    /// centre on that plane, `yaw` = turn about the vertical.
-    struct TopCamera {
-        var target = SIMD2<Float>(0, 0)
-        var baseY: Float = 0
-        var height: Float = 10
-        var yaw: Float = 0
-        var maxHeight: Float = 30
-        /// Footprint diagonal, for `zFar`.
-        var reach: Float = 10
-    }
-
     @MainActor
     final class Coordinator: NSObject, UIGestureRecognizerDelegate {
         var shown: SCNScene?
@@ -841,9 +882,20 @@ private struct ModelSceneView: UIViewRepresentable {
         var layout: MeshLayout?
         var floor: Int?
         var applied = false
-        var serial = Int.min
-        var mode: ViewerMode = .dollhouse
-        var top = TopCamera()
+        private let memory: ViewerCamera
+        /// Last framing applied, view mode, Top view camera: in `memory` (outlives this view).
+        var serial: Int {
+            get { memory.serial }
+            set { memory.serial = newValue }
+        }
+        var mode: ViewerMode {
+            get { memory.mode }
+            set { memory.mode = newValue }
+        }
+        var top: TopCamera {
+            get { memory.top }
+            set { memory.top = newValue }
+        }
         private weak var view: SCNView?
         private var recognizers: [UIGestureRecognizer] = []
         private var redrawSerial = 0
@@ -854,6 +906,11 @@ private struct ModelSceneView: UIViewRepresentable {
         private static var halfFov: Float { fovDegrees * .pi / 360 }
         /// Closest the camera gets to the floor it looks at.
         private static let minHeight: Float = 1.5
+
+        init(memory: ViewerCamera) {
+            self.memory = memory
+            super.init()
+        }
 
         func attach(to view: SCNView) {
             self.view = view
@@ -916,11 +973,13 @@ private struct ModelSceneView: UIViewRepresentable {
         /// nearest the current heading, so the house does not spin when the mode changes.
         private func frameTop(_ view: SCNView) {
             guard let layout else { return }
-            let front = view.pointOfView?.simdWorldFront ?? SIMD3<Float>(0, 0, -1)
-            let flat = SIMD2<Float>(front.x, front.z)
-            // Screen-up on the ground = (−sin yaw, −cos yaw) ⇒ yaw = atan2(−x, −z). Already
-            // looking down (a Top view re-tap): keep the current turn.
-            let heading = simd_length(flat) > 0.2 ? atan2(-front.x, -front.z) : top.yaw
+            // Heading from front + up: for the orbit camera (yaw ψ, pitch down e) its flat part
+            // is −(cos e + sin e)(sin ψ, cos ψ), never 0 even looking straight down; for the Top
+            // camera it is exactly screen-up (−sin yaw, −cos yaw). Either way atan2(−x, −z) = ψ.
+            let pov = view.pointOfView
+            let front = pov?.simdWorldFront ?? SIMD3<Float>(0, 0, -1)
+            let d = front + (pov?.simdWorldUp ?? SIMD3<Float>(0, 1, 0))
+            let heading = d.x * d.x + d.z * d.z > 1e-6 ? atan2(-d.x, -d.z) : top.yaw
             let theta = layout.wallAngle
             var yaw = Self.wrap(-theta)
             var quarter = 0
@@ -945,11 +1004,13 @@ private struct ModelSceneView: UIViewRepresentable {
             let acrossMid = (layout.across.lowerBound + layout.across.upperBound) / 2
             let centre = r * alongMid + f * acrossMid
             let size = view.bounds.size
-            // Before the first layout the view is 0×0: a portrait phone's shape.
-            let aspect: Float = size.width > 1 && size.height > 1 ? Float(size.width / size.height) : 390.0 / 844.0
+            // Fit into the band between the top bar and the bottom capsules (~260 pt together
+            // with the safe areas). Before the first layout the view is 0×0: a portrait phone.
+            let usable = max(size.height - 260, size.height / 2)
+            let aspect: Float = size.width > 1 && usable > 1 ? Float(size.width / usable) : 390.0 / 584.0
             let halfWidth = max(max(width / 2, depth / 2 * aspect) * 1.06, 1)
             let height = halfWidth / tan(Self.halfFov) * 1.12 + 2.8
-            top = TopCamera(
+            let framed = TopCamera(
                 target: centre,
                 baseY: layout.topBase(floor),
                 height: height,
@@ -957,14 +1018,14 @@ private struct ModelSceneView: UIViewRepresentable {
                 maxHeight: max(height * 3, 10),
                 reach: (alongSpan * alongSpan + acrossSpan * acrossSpan).squareRoot()
             )
+            // A bad layout must not poison `top` (every later gesture would carry the NaN).
+            guard framed.isUsable else { return }
+            top = framed
             placeTopCamera(view)
         }
 
         func placeTopCamera(_ view: SCNView) {
-            guard let model, let camera = model.camera.camera else { return }
-            guard top.target.x.isFinite, top.target.y.isFinite, top.baseY.isFinite,
-                  top.height.isFinite, top.yaw.isFinite
-            else { return }
+            guard let model, let camera = model.camera.camera, top.isUsable else { return }
             let o = model.worldOffset
             model.camera.simdPosition = SIMD3<Float>(
                 top.target.x + o.x,
@@ -1037,7 +1098,10 @@ private struct ModelSceneView: UIViewRepresentable {
             guard a.isFinite else { return }
             let anchor = groundPoint(g.location(in: view), in: view)
             let d = top.target - anchor
-            top.target = anchor + SIMD2<Float>(d.x * cos(a) + d.y * sin(a), -d.x * sin(a) + d.y * cos(a))
+            let c = cos(a)
+            let s = sin(a)
+            let turned = SIMD2<Float>(d.x * c + d.y * s, d.y * c - d.x * s)
+            top.target = anchor + turned
             top.yaw = Self.wrap(top.yaw + a)
             placeTopCamera(view)
         }
@@ -1050,4 +1114,32 @@ private struct ModelSceneView: UIViewRepresentable {
             return a
         }
     }
+}
+
+/// Top view camera, kept in ARKit WORLD (so it survives the Texture switch): looks straight
+/// down from `height` above the plane `baseY`, `target` = world (x, z) under the screen
+/// centre on that plane, `yaw` = turn about the vertical.
+private struct TopCamera {
+    var target = SIMD2<Float>(0, 0)
+    var baseY: Float = 0
+    var height: Float = 10
+    var yaw: Float = 0
+    var maxHeight: Float = 30
+    /// Footprint diagonal, for `zFar`.
+    var reach: Float = 10
+
+    var isUsable: Bool {
+        target.x.isFinite && target.y.isFinite && baseY.isFinite && yaw.isFinite
+            && height.isFinite && height > 0 && maxHeight.isFinite && reach.isFinite
+    }
+}
+
+/// Owned by `ModelViewerScreen` (`@State`), shared with every `ModelSceneView.Coordinator` it
+/// ever makes: a rebuilt view keeps the mode, the last framing tap and the Top view camera
+/// instead of re-framing from the new model's opening camera.
+private final class ViewerCamera {
+    /// `FramingRequest.serial` already applied. `Int.min` = none yet: the first view frames.
+    var serial = Int.min
+    var mode: ViewerMode = .dollhouse
+    var top = TopCamera()
 }

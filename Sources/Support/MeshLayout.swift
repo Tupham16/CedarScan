@@ -11,16 +11,23 @@ import simd
 /// height; bins by area (desc, tie: lower first) down to 15% of the best; a bin is a floor when
 /// it is ≥ 2 m from every floor already taken. ✗ server floors (`plan-transform.json` z_floor):
 /// 0.4–0.6 m off the mesh on #LS-MTR8E4ZI5 (−4.83 / −0.88 vs −5.25 / −1.50 here).
+/// Two guards the web does not need: a best bin under `floorMinArea` = no floors (a scan of
+/// walls with a few specks), at most `maxFloors` (a corrupt file).
 /// Band of floor i = [level_i − 0.3, level_{i+1} − 0.3), top floor open (= `plan-floors.ts`
-/// `floorBand` for auto floors).
+/// `floorBand` for auto floors) — EXCEPT the lowest floor, open below: a split-level half
+/// floor or a deck 0.4 m+ lower is not a floor of its own (< 2 m) and would vanish from every
+/// floor view. From above, nothing under the ground floor needs hiding.
 ///
 /// Wall angle = area-weighted histogram of wall-normal angle mod 90° (|n.y| < 0.2), 0.5° bins,
 /// smoothed ±3 bins (#LS-MTR8E4ZI5: 8.25° vs workstation `rotate_deg` 7.64°).
-/// Offline mirror of this file: `PLAN-GIAO-DIEN-mockups/m9/render.py` (same steps).
+/// Offline mirror of this file: `PLAN-GIAO-DIEN-mockups/m9/render.py` (same steps). Footprint
+/// = vertex percentiles as there (a detailed corner weighs more: framing only).
 struct MeshLayout {
     static let floorBin: Double = 0.25
     static let floorMinFraction: Double = 0.15
     static let floorMinGap: Double = 2
+    static let floorMinArea: Double = 2
+    static let maxFloors = 8
     static let bandBelow: Float = 0.3
     /// Open end of a clip band. Finite on purpose: it goes into a shader uniform.
     static let openEnd: Float = 1_000_000
@@ -59,11 +66,12 @@ struct MeshLayout {
         self.minY = minY
     }
 
-    /// Clip band, world Y, for `floor` (nil = All).
+    /// Clip band, world Y, for `floor` (nil = All). Lowest floor open below (see type doc).
     func band(_ floor: Int?) -> (lo: Float, hi: Float) {
         guard let i = floor, floors.indices.contains(i) else { return (-Self.openEnd, Self.openEnd) }
+        let lo = i == 0 ? -Self.openEnd : floors[i] - Self.bandBelow
         let hi = i + 1 < floors.count ? floors[i + 1] - Self.bandBelow : Self.openEnd
-        return (floors[i] - Self.bandBelow, hi)
+        return (lo, hi)
     }
 
     /// Plane Top view frames and pans on: the floor shown; All = the top floor (seen from above,
@@ -74,9 +82,10 @@ struct MeshLayout {
     }
 
     /// `nonisolated` + `async` ON PURPOSE (SE-0338): called from the viewer's `@MainActor`
-    /// `.task`, it runs on the cooperative pool. ~0.2M triangles + two sorts of ~0.1M floats.
-    /// Indices were range-checked by `MeshPreviewFile.readSync`; positions were not (only the
-    /// bounds), so every triangle is checked finite before an `Int(...)` conversion can trap.
+    /// `.task`, it runs on the cooperative pool. ~0.2M triangles + two sorts of ~0.1M floats,
+    /// ~30 ms. Positions are read straight from the file bytes (no copy). Indices were
+    /// range-checked by `MeshPreviewFile.readSync`; positions were not (only the bounds), so
+    /// every value is checked finite before an `Int(...)` conversion can trap.
     static func analyse(_ d: MeshPreviewFile.Decoded) async -> MeshLayout? {
         let vertexCount = d.vertexCount
         let triangleCount = d.triangleCount
@@ -85,92 +94,97 @@ struct MeshLayout {
               d.raw.count >= d.positionOffset + vertexCount * 12
         else { return nil }
 
-        var positions = [SIMD3<Double>]()
-        positions.reserveCapacity(vertexCount)
-        d.raw.withUnsafeBytes { (buf: UnsafeRawBufferPointer) in
-            guard let base = buf.baseAddress else { return }
-            for i in 0..<vertexCount {
-                let o = d.positionOffset + i * 12
-                positions.append(SIMD3<Double>(
-                    Double(base.loadUnaligned(fromByteOffset: o, as: Float.self)),
-                    Double(base.loadUnaligned(fromByteOffset: o + 4, as: Float.self)),
-                    Double(base.loadUnaligned(fromByteOffset: o + 8, as: Float.self))
-                ))
-            }
-        }
-        guard positions.count == vertexCount else { return nil }
-
         var bins: [Int: Double] = [:]
         var wallHist = [Double](repeating: 0, count: 180)
-        d.indexData.withUnsafeBytes { (buf: UnsafeRawBufferPointer) in
-            guard let base = buf.baseAddress else { return }
-            for t in 0..<triangleCount {
-                let o = t * 12
-                let ia = Int(base.loadUnaligned(fromByteOffset: o, as: UInt32.self))
-                let ib = Int(base.loadUnaligned(fromByteOffset: o + 4, as: UInt32.self))
-                let ic = Int(base.loadUnaligned(fromByteOffset: o + 8, as: UInt32.self))
-                guard ia < vertexCount, ib < vertexCount, ic < vertexCount else { continue }
-                let a = positions[ia], b = positions[ib], c = positions[ic]
-                let n = simd_cross(b - a, c - a)
-                // Same as mesh-area.ts: plain sqrt of the sum of squares.
-                let len = (n.x * n.x + n.y * n.y + n.z * n.z).squareRoot()
-                guard len > 1e-12, len.isFinite else { continue }
-                if n.y / len > 0.9 {
-                    let q = (((a.y + b.y + c.y) / 3) / floorBin).rounded(.down)
-                    if q.isFinite, abs(q) < 1_000_000 {
-                        bins[Int(q), default: 0] += 0.5 * len
+        var alongValues = [Float]()
+        var acrossValues = [Float]()
+        var theta: Double = 0
+
+        d.raw.withUnsafeBytes { (rawBuf: UnsafeRawBufferPointer) in
+            guard let pos = rawBuf.baseAddress else { return }
+            func point(_ i: Int) -> SIMD3<Double> {
+                let o = d.positionOffset + i * 12
+                return SIMD3<Double>(
+                    Double(pos.loadUnaligned(fromByteOffset: o, as: Float.self)),
+                    Double(pos.loadUnaligned(fromByteOffset: o + 4, as: Float.self)),
+                    Double(pos.loadUnaligned(fromByteOffset: o + 8, as: Float.self))
+                )
+            }
+
+            d.indexData.withUnsafeBytes { (indexBuf: UnsafeRawBufferPointer) in
+                guard let idx = indexBuf.baseAddress else { return }
+                for t in 0..<triangleCount {
+                    let o = t * 12
+                    let ia = Int(idx.loadUnaligned(fromByteOffset: o, as: UInt32.self))
+                    let ib = Int(idx.loadUnaligned(fromByteOffset: o + 4, as: UInt32.self))
+                    let ic = Int(idx.loadUnaligned(fromByteOffset: o + 8, as: UInt32.self))
+                    guard ia < vertexCount, ib < vertexCount, ic < vertexCount else { continue }
+                    let a = point(ia), b = point(ib), c = point(ic)
+                    let n = simd_cross(b - a, c - a)
+                    // Same as mesh-area.ts: plain sqrt of the sum of squares.
+                    let len = (n.x * n.x + n.y * n.y + n.z * n.z).squareRoot()
+                    guard len > 1e-12, len.isFinite else { continue }
+                    if n.y / len > 0.9 {
+                        let q = (((a.y + b.y + c.y) / 3) / floorBin).rounded(.down)
+                        // ±1 km: anything beyond is a corrupt file, not a house.
+                        if q.isFinite, abs(q) < 4000 {
+                            bins[Int(q), default: 0] += 0.5 * len
+                        }
+                    }
+                    if abs(n.y) / len < 0.2 {
+                        var deg = atan2(n.z, n.x) * 180 / .pi
+                        deg = deg.truncatingRemainder(dividingBy: 90)
+                        if deg < 0 { deg += 90 }
+                        // Area weight (×2, like render.py); the scale does not move the peak.
+                        wallHist[min(max(Int(deg / 0.5), 0), 179)] += len
                     }
                 }
-                if abs(n.y) / len < 0.2 {
-                    var deg = atan2(n.z, n.x) * 180 / .pi
-                    deg = deg.truncatingRemainder(dividingBy: 90)
-                    if deg < 0 { deg += 90 }
-                    // Area weight (×2, like render.py); the scale does not move the peak.
-                    wallHist[min(max(Int(deg / 0.5), 0), 179)] += len
+            }
+
+            // Main wall direction: circular ±3-bin window, first maximum.
+            if wallHist.contains(where: { $0 > 0 }) {
+                var bestK = 0
+                var bestSum = -1.0
+                for k in 0..<180 {
+                    var sum = 0.0
+                    for j in -3...3 { sum += wallHist[(k + j + 180) % 180] }
+                    if sum > bestSum {
+                        bestSum = sum
+                        bestK = k
+                    }
                 }
+                theta = (Double(bestK) * 0.5 + 0.25) * .pi / 180
+            }
+
+            // Footprint along the straightened axes, 1–99% of vertices (strays through windows out).
+            let r = SIMD2<Double>(cos(theta), sin(theta))
+            let f = SIMD2<Double>(-sin(theta), cos(theta))
+            alongValues.reserveCapacity(vertexCount)
+            acrossValues.reserveCapacity(vertexCount)
+            for i in 0..<vertexCount {
+                let p = point(i)
+                guard p.x.isFinite, p.z.isFinite else { continue }
+                alongValues.append(Float(p.x * r.x + p.z * r.y))
+                acrossValues.append(Float(p.x * f.x + p.z * f.y))
             }
         }
 
-        // findFloorLevels
+        // findFloorLevels (+ the two guards in the type doc).
         let order = bins.sorted { $0.value != $1.value ? $0.value > $1.value : $0.key < $1.key }
         var levels: [Double] = []
-        if let best = order.first?.value {
+        if let best = order.first?.value, best >= floorMinArea {
             for (bin, area) in order {
-                if area < floorMinFraction * best { break }
+                if area < floorMinFraction * best || levels.count >= maxFloors { break }
                 let y = Double(bin) * floorBin
                 if levels.allSatisfy({ abs(y - $0) >= floorMinGap }) { levels.append(y) }
             }
         }
         levels.sort()
 
-        // Main wall direction: circular ±3-bin window, first maximum.
-        var theta: Double = 0
-        if wallHist.contains(where: { $0 > 0 }) {
-            var bestK = 0
-            var bestSum = -1.0
-            for k in 0..<180 {
-                var sum = 0.0
-                for j in -3...3 { sum += wallHist[(k + j + 180) % 180] }
-                if sum > bestSum {
-                    bestSum = sum
-                    bestK = k
-                }
-            }
-            theta = (Double(bestK) * 0.5 + 0.25) * .pi / 180
-        }
-
-        // Footprint along the straightened axes, 1–99% of vertices (strays through windows out).
-        let r = SIMD2<Double>(cos(theta), sin(theta))
-        let f = SIMD2<Double>(-sin(theta), cos(theta))
-        var alongValues = [Float]()
-        var acrossValues = [Float]()
-        alongValues.reserveCapacity(vertexCount)
-        acrossValues.reserveCapacity(vertexCount)
-        for p in positions where p.x.isFinite && p.z.isFinite {
-            alongValues.append(Float(p.x * r.x + p.z * r.y))
-            acrossValues.append(Float(p.x * f.x + p.z * f.y))
-        }
-        guard !alongValues.isEmpty else { return nil }
+        // Non-finite x/z were skipped, but a huge finite Double can still become ±inf as Float.
+        alongValues.removeAll { !$0.isFinite }
+        acrossValues.removeAll { !$0.isFinite }
+        guard !alongValues.isEmpty, !acrossValues.isEmpty else { return nil }
         alongValues.sort()
         acrossValues.sort()
 
