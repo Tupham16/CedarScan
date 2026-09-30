@@ -556,7 +556,7 @@ final class ColorMeshBuilder {
     /// vertices, 4.7–5.4MB on five measured houses (clustering landed at 37–40k, ~1.5–2MB).
     /// ✗ raise it without asking him — it is a per-scan cost on the customer's phone.
     private static let previewVertexBudget = 120_000
-    /// FALLBACK ONLY since 2.75 (`PreviewSimplifier` returned nil or overshot 1.25× the budget).
+    /// FALLBACK ONLY since 2.75 (`PreviewSimplifier` returned nil or overshot `previewQuadricCeiling`).
     /// Never cluster finer than this. ARKit's own mesh sits around 4–6cm (see
     /// `refineEdgeThreshold`), so 3cm merges little beyond true duplicates — a small scan is
     /// therefore not coarsened any further than this weld, and the seams between neighbouring
@@ -598,7 +598,9 @@ final class ColorMeshBuilder {
     /// 1.80M vertices, ~105MB at the 2M cap (welded positions + index buffer + ≈97 bytes per
     /// triangle of the densest 4m cell inside the library), ~46MB in stage B — ~55% of
     /// `buildPLY`'s own fast-save peak on the same scan, which runs seconds earlier from the same
-    /// starting point. One meshoptimizer call on the whole house would have been ~260MB inside
+    /// starting point. Worst case, not seen on real houses: a surface lying on a cell plane stays
+    /// locked through stage A; stage B is then bounded at ~140MB by `maxStageVertices`, above it
+    /// → clustering fallback. One meshoptimizer call on the whole house would have been ~260MB inside
     /// the library alone; that is why `PreviewSimplifier` works per 4m cell first.
     @MainActor
     func exportPreviewMesh() async -> URL? {

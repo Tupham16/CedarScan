@@ -21,9 +21,10 @@ multiply-adds; the iPhone build does, so phone output differs in ~half the trian
 (`-mfma`) moved the hole numbers by <= 0.03 points.
 
 ## Run
-🔴 Run in a DATA folder OUTSIDE this repo (e.g. a gitignored `scratch_*` folder at the repo root) and call the
-scripts by path: the repo is public and the inputs are customer houses. `.gitignore` keeps everything here
-but the sources out of git anyway.
+🔴 Run in a DATA folder outside git's tracked tree (a gitignored `scratch_*` folder at the repo root works) and
+call the scripts by path: the repo is public and the inputs are customer houses. `.gitignore` keeps everything
+in this folder but `*.py`, `*.cpp` and `README.md` out of git; a new source type or a subfolder here needs its
+own `!` exception there.
 
 Input: fast-save scan zips (`model.obj` == the app's anchor pieces in sorted-key order). Extract `TAG-model.obj`, then
 with `H` = this folder:

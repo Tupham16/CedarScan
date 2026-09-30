@@ -1,8 +1,8 @@
 # Line-by-line mirror of Sources/Scan/PreviewSimplifier.swift — KEEP THE TWO IN STEP.
 # Input = a fast-save model.obj (== ColorMeshBuilder.pieces in sorted-key order, coordinates on the 0.1 mm
-# grid the OBJ writer uses), cached by load_cache.py. Same meshoptimizer calls in the same order, so the
-# library gets the same input bytes as in the app (its output may differ slightly: the iPhone build fuses
-# multiply-adds, this DLL does not).
+# grid the OBJ writer uses), cached by load_cache.py. Same meshoptimizer calls in the same order: the weld and
+# stage A get the same input bytes as in the app; stage B starts from a slightly different mesh on the phone
+# (the iPhone build fuses multiply-adds, this DLL does not).
 # Usage (in the data folder): python <this dir>/mirror2.py TAG NAME [budget=120000]
 #   -> TAG-NAME.ply (Blender axes, for render.py), TAG-NAME.json (stats), TAG-NAME-normals.npy (app normals)
 import sys, json, time, math, ctypes
@@ -175,7 +175,11 @@ if __name__ == "__main__":
     budget = int(kw.get("budget", BUDGET))
     built = build(d["V"], d["F"], budget=budget, stats=st)
     if built is None:
-        sys.exit(f"{tag}: nil -> the app would use the clustering fallback")
+        import os
+        for stale in (f"{tag}-{name}.ply", f"{tag}-{name}.json", f"{tag}-{name}-normals.npy"):
+            if os.path.exists(stale):
+                os.remove(stale)  # an older run's output must not be rendered as this one
+        sys.exit(f"{tag}: nil -> the app would use the clustering fallback. {json.dumps(st)}")
     cpos, cidx = built
     st.update({"out_verts": int(len(cpos)), "out_tris": int(len(cidx) // 3),
                "file_MB": round((40 + len(cpos) * 24 + len(cidx) * 4) / 1e6, 2),
