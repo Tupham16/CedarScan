@@ -475,21 +475,46 @@ struct HomeView: View {
                 .listRowSeparator(.hidden)
             }
             if !visibleProjects.isEmpty {
+                if HomeShots.fix == "row" || HomeShots.fix == "nohdr" { // THROWAWAY harness
+                    Section {
+                        if HomeShots.fix == "row" {
+                            sectionHeader(String(localized: "Properties"))
+                                .listRowBackground(Color.clear)
+                                .listRowSeparator(.hidden)
+                                .listRowInsets(EdgeInsets(top: 10, leading: 20, bottom: 0, trailing: 20))
+                        }
+                        ForEach(visibleProjects) { project in
+                            projectRow(project)
+                                .fogCardRow(edge: Theme.homeEdge)
+                        }
+                    }
+                    .listSectionSeparator(.hidden)
+                } else {
                 Section {
                     ForEach(visibleProjects) { project in
                         projectRow(project)
                             .fogCardRow(edge: Theme.homeEdge)
                     }
                 } header: {
+                    if HomeShots.fix == "bg" { // THROWAWAY harness
+                        sectionHeader(String(localized: "Properties"))
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 20)
+                            .padding(.vertical, 8)
+                            .background(Theme.bg)
+                            .listRowInsets(EdgeInsets())
+                    } else {
                     sectionHeader(String(localized: "Properties"))
+                    }
                 }
                 .listSectionSeparator(.hidden)
+                }
             }
             if !visibleLooseScans.isEmpty {
                 looseScansSection
             }
         }
-        .listStyle(.plain)
+        .modifier(HomeShots.Style()) // THROWAWAY harness (was .listStyle(.plain))
         .fogScreen()
         .tabRootBarRoom()
         // `.searchable` KHÔNG nằm ở đây — nó đã được chuyển lên `body`, cùng cấp với

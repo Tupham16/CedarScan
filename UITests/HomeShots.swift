@@ -6,51 +6,33 @@ final class HomeShots: XCTestCase {
 
     func testShots() {
         continueAfterFailure = true
-        // Round 4: fix + review round 1; iOS 26 and iOS 18 runtimes.
-        let app = launch(20)
-        report(app, "n20-top")
-        scrollToEnd(app)
-        report(app, "n20-end")
-        tryLastTrash(app, "n20-end")
-        app.terminate()
-        let out = launch(1)
-        tab(out, "Learn")
-        report(out, "learn")
-        scrollToEnd(out)
-        report(out, "learn-end")
-        let guide = out.cells.allElementsBoundByIndex.first { $0.label.contains("How to scan well") && $0.isHittable }
-        if let guide {
-            guide.tap()
-            sleep(2)
-            scrollToEnd(out)
-            report(out, "guide-end")
-        } else {
-            note("no guide cell")
+        // Header round 1: pinned "Properties" header over the top card; A/B the fixes.
+        for fix in ["none", "bg", "row", "nohdr", "grouped"] {
+            let app = launch(20, ["-homeFix", fix])
+            report(app, "\(fix)-0top")
+            nudge(app, 0.15)
+            report(app, "\(fix)-1small")
+            nudge(app, 0.30)
+            report(app, "\(fix)-2mid")
+            app.terminate()
         }
-        tab(out, "Account")
-        scrollToEnd(out)
-        report(out, "account-signedout-end")
-        out.terminate()
         let inApp = launch(1, ["-homeSignedIn"])
         tab(inApp, "Orders")
         sleep(2)
-        report(inApp, "orders-top")
-        scrollToEnd(inApp)
-        report(inApp, "orders-end")
-        tab(inApp, "Account")
-        scrollToEnd(inApp)
-        report(inApp, "account-signedin-end")
-        let legal = inApp.cells.allElementsBoundByIndex.first { $0.label.contains("Privacy") && $0.isHittable }
-            ?? inApp.buttons.allElementsBoundByIndex.first { $0.label.contains("Privacy") && $0.isHittable }
-        if let legal {
-            legal.tap()
-            sleep(2)
-            scrollToEnd(inApp)
-            report(inApp, "legal-end")
-        } else {
-            note("no Privacy link")
-        }
+        report(inApp, "orders-0top")
+        nudge(inApp, 0.15)
+        report(inApp, "orders-1small")
+        nudge(inApp, 0.30)
+        report(inApp, "orders-2mid")
         inApp.terminate()
+    }
+
+    /// Slow drag up by `frac` of the screen, held so the list stops where the finger stops.
+    private func nudge(_ app: XCUIApplication, _ frac: CGFloat) {
+        let from = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.75))
+        let to = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.75 - frac))
+        from.press(forDuration: 0.1, thenDragTo: to, withVelocity: 150, thenHoldForDuration: 0.6)
+        sleep(2)
     }
 
     private func launch(_ count: Int, _ extra: [String] = []) -> XCUIApplication {

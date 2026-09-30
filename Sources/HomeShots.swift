@@ -59,6 +59,22 @@ enum HomeShots {
     }
 }
 
+extension HomeShots {
+    /// A/B on the list style: "grouped" = non-sticky headers; "row" = plain + small min row height.
+    struct Style: ViewModifier {
+        func body(content: Content) -> some View {
+            switch HomeShots.fix {
+            case "grouped":
+                content.listStyle(.grouped)
+            case "row":
+                content.listStyle(.plain).environment(\.defaultMinListRowHeight, 10)
+            default:
+                content.listStyle(.plain)
+            }
+        }
+    }
+}
+
 /// Every visible vertical scroll view: frame in window, insets, content size, offset.
 struct HomeProbe: View {
     @State private var text = "probe"

@@ -1,9 +1,9 @@
-# THROWAWAY: Home last card vs CedarTabBar. Never merge to main.
+# THROWAWAY: Home pinned section header (and last card) shots. Never merge to main.
 name: Home bottom shots (throwaway)
 
 on:
   push:
-    branches: ['claude/home-bottom-shots']
+    branches: ['claude/home-header-shots']
 
 jobs:
   shots:
@@ -60,6 +60,12 @@ jobs:
             -resultBundlePath light.xcresult \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
             | tee light.log | grep -E "Test Case|error:|\*\* TEST" || true
+
+      - name: Shots (dark)
+        run: |
+          set -o pipefail
+          xcrun simctl ui "${{ steps.sim.outputs.udid }}" appearance dark
+          xcodebuild test             -project CedarScan.xcodeproj             -scheme CedarScan             -destination "id=${{ steps.sim.outputs.udid }}"             -only-testing:CedarScanUITests/HomeShots             -resultBundlePath dark.xcresult             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=""             | tee dark.log | grep -E "Test Case|error:|\*\* TEST" || true
 
       - name: Export screenshots
         if: always()
