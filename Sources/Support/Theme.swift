@@ -177,7 +177,7 @@ extension View {
             .background(Theme.bg.ignoresSafeArea())
     }
 
-    /// Plain-list row drawn as a card (16pt screen margin, 12pt gap between cards).
+    /// List row drawn as a card, plain or grouped list (16pt screen margin, 12pt gap between cards).
     /// `trailing` 20 suits Home's 44pt trash button; 32 = 16pt inside the card.
     func fogCardRow(trailing: CGFloat = 20, edge: Color? = nil) -> some View {
         self
