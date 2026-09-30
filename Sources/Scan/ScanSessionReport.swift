@@ -234,6 +234,21 @@ final class ScanSessionReport {
         let relocks: Int
     }
 
+    /// 🧪 TEST build only (ExposureCap, 2.70.1 / 2.70.2): appended to `note` when the report has
+    /// an `exposureCap` block. An array join, not a long `+` chain (Swift type-check time on CI).
+    private static let exposureCapNote: String = [
+        " TEST BUILD: exposureCapMode = adaptive (auto-exposure limit starts at exposureCapMs, ",
+        "is raised up to the device default only while ISO is at max and frames are ",
+        "underexposed, lowered again when ISO has headroom) | hard (fixed at exposureCapMs) | ",
+        "off; exposureCapMs = floor / fixed limit (ms, 0 = off); exposureCap = how it went ",
+        "(status, device default / applied limit ms, set times, frames sampled / over / at the ",
+        "limit / at max ISO, exifIsoMax, ceilingMs, stepsUp / stepsDown, steps = t (s), lim (ms ",
+        "after the step), iso (EXIF), diso (device ISO the loop used), ev, bv0 (EXIF BV at the ",
+        "step) and for the first 12 steps bv = EXIF BV at ~10 Hz for 1 s after it) and trace = ",
+        "1 Hz t (s), raw EXIF bv, exp (ms), iso (EXIF), diso (device ISO), ev (ARKit ",
+        "exposureOffset = auto-exposure target offset, EV), lim (device auto-exposure limit ms).",
+    ].joined()
+
     /// Writes the report to a temp file; nil on any failure (the scan saves without it).
     func write(
         hitCap: Bool, vertexCount: Int, fastSave: Bool, shots: ShotStats?, torch: AutoTorch.Stats,
@@ -248,15 +263,7 @@ final class ScanSessionReport {
             + "BrightnessValue), d (near LiDAR depth m, -1 none), on (torch lit). "
             + "Not read by the workstation yet."
         if exposureCap != nil {
-            note += " TEST BUILD: exposureCapMode = adaptive (auto-exposure limit starts at "
-                + "exposureCapMs, is raised up to the device default only while ISO is at max "
-                + "and frames are underexposed, lowered again when ISO has headroom) | hard "
-                + "(fixed at exposureCapMs) | off; exposureCapMs = floor / fixed limit (ms, 0 = "
-                + "off); exposureCap = how it went (status, device default/applied limit ms, "
-                + "set times, frames sampled / over / at the limit / at max ISO, ceilingMs, "
-                + "stepsUp / stepsDown, steps = t (s), lim (ms after the step), iso, ev) and "
-                + "trace = 1 Hz t (s), raw EXIF bv, exp (ms), iso, ev (ARKit exposureOffset = "
-                + "auto-exposure target offset, EV), lim (device auto-exposure limit ms)."
+            note += Self.exposureCapNote
         }
         let file = File(
             version: 1,

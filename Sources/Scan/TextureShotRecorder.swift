@@ -349,6 +349,9 @@ final class TextureShotRecorder {
     weak var captureDevice: AVCaptureDevice?
     /// Auto torch — per-shot `torch` level + skip frames right after a switch. nil = none.
     weak var torch: AutoTorch?
+    /// 🧪 TEST build only (ExposureCap, 2.70.2): skip frames right after an exposure-limit change
+    /// (AE still moving). Never settling outside the test build. nil = none.
+    weak var exposureCap: ExposureCap?
 
     init(arSession: ARSession) {
         self.arSession = arSession
@@ -424,6 +427,8 @@ final class TextureShotRecorder {
         guard turnRate <= Self.maxTurnRateDegPerSec else { return }
         // Torch just switched: exposure is still moving (over/under-exposed frame).
         if let torch, torch.isSettling(at: frame.timestamp) { return }
+        // Same for a test-build exposure-limit step (ExposureCap, 2.70.2).
+        if let exposureCap, exposureCap.isSettling(at: frame.timestamp) { return }
 
         if let best = candidate?.rank {
             // Window open: this frame competes with the held copy.
@@ -905,9 +910,12 @@ final class TextureShotRecorder {
     /// 🧪 TEST build only (ExposureCap, 2.70.1 / 2.70.2) — appended to `note`; "" in every other
     /// build.
     private static let exposureCapNote: String = ExposureCap.testBuild
-        ? " TEST BUILD: expMaxMs = the camera's auto-exposure upper limit in force at capture "
-            + "(ms; moves during the scan when scan-report.json exposureCapMode = adaptive); "
-            + "exposureCapMs = the floor / fixed limit selected for the scan (0 = off)."
+        ? [
+            " TEST BUILD: expMaxMs = the camera's auto-exposure upper limit (ms) read when the ",
+            "frame was copied (within a frame of its capture; moves during the scan when ",
+            "scan-report.json exposureCapMode = adaptive; frames within 0.3 s after a change ",
+            "are skipped); exposureCapMs = the floor / fixed limit selected (0 = off).",
+        ].joined()
         : ""
 
     /// ioQueue. Fills `m2` from the final anchor poses and builds the report figures.

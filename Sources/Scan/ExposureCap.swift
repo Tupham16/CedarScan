@@ -32,12 +32,13 @@ import QuartzCore
 ///  - the setter RAISES (ObjC exception = crash, not a throw) outside activeFormat's
 ///    min…maxExposureDuration and without the configuration lock: every value is clamped under the
 ///    lock to [floor, ceiling] ⊂ that range (floor = the mode's ms clamped to the range, ceiling =
-///    the device's own limit clamped to it); an unusable range = give up;
+///    the device's own limit clamped to it; exact CMTimeCompare); an unusable range = give up;
 ///  - never ABOVE the device's own limit (ARKit's default, 16.667 ms measured): device limit already
 ///    ≤ floor → nothing set ("notNeeded");
-///  - read-back checked (`appliedTolerance` both ways): the setter ignored = give up, with whatever
-///    of ours is on the device still restorable; lock failures: give up after `maxLockFailures` IN
-///    A ROW (adaptive locks far more often than 2.70.1);
+///  - read-back checked (`appliedTolerance` both ways): the setter ignored = give up; lock failures:
+///    retried ≥ `lockRetrySec` apart, give up after `maxLockFailures` IN A ROW (≥ 5 s, as 2.70.1);
+///  - any give-up puts the device's own limit back at once when ours is on it (review R1: a short
+///    limit left behind would keep a dark room dark), retried every `lockRetrySec`, else at teardown;
 ///  - only while AE runs (continuous/auto): a locked/custom exposure mode ignores the limit;
 ///  - restored at teardown (both exits, BEFORE arSession.pause — the device outlives the session)
 ///    to the device's own value, only if the device still holds OUR value; a failed restore is
@@ -46,10 +47,13 @@ import QuartzCore
 ///    anything (it still traces, shows the debug readout and records `expMaxMs` = A/B baseline).
 ///
 /// ADAPTIVE (mode `adaptive4`, the default). Loop at 10 Hz on main (2.70.1: 2 Hz), inputs = the
-/// current frame's EXIF ISO / format maxISO (`isoFrac`; measured 3200 vs 3168 at the top) and ARKit's
-/// `exposureOffset` (`ev`, AE's target offset: measured on 2.70.1 to track the underexposure, r −0.98).
+/// capture device's `iso` / `activeFormat.maxISO` (`isoFrac`: same scale, unrounded — review R1: EXIF
+/// ISO is rounded to 1/3-stop values, a 2112 max reads 2000 = 0.947, so an EXIF bar at 0.95 would
+/// never fire; EXIF ISO / maxISO only if the device gives no ISO) and ARKit's `exposureOffset`
+/// (`ev`, AE's target offset: measured on 2.70.1 to track the underexposure, r −0.98).
 ///  - Start: 4 ms; a scan that starts in a dim room starts directly at the limit where its ISO would
-///    sit at `startISOFrac` of the max (else a 2-stop dip right when tracking starts).
+///    sit at `startISOFrac` of the max (else a 2-stop dip right when tracking starts). After a reset
+///    (interruption, format change) ours goes back as max(ours, that estimate for the current light).
 ///  - UP (starved): isoFrac ≥ 0.95 AND ev ≤ −0.3 for `upSustainSec` (0.2 s, 3 ticks) → limit ×
 ///    2^(0.8 × shortfall), shortfall = the LEAST negative ev of the window, step ×1.25…×2, ≤ ceiling.
 ///    Proportional, not a fixed ×1.25: walking into a BV −2.3 room the offline sim (2.70.1 trace,
@@ -59,8 +63,11 @@ import QuartzCore
 ///    well under the 0.95 UP bar: one step can never trigger the opposite one (hysteresis ≥ 0.6
 ///    stop plus the 0.3-stop ev bar). A positive ev alone does NOT step down: with AE using the whole
 ///    limit it is a transient that the ISO settles within frames.
+///  - A step landing within 5 % of the ceiling / floor snaps to it (no 16.0 / 4.17 ms leftovers).
 ///  - No decision for `settleSec` (0.3 s) after any set (AE follows a new limit within a few frames;
 ///    30 fps when hot), and the sustain windows restart after every set and on a paused frame.
+///    Texture shots skip the frames of that settle too (`isSettling`, like the torch's).
+///  - No ISO or ev for `noSignalSec` (1 s) = give up (`gaveUp:noSignal`) + restore.
 ///  - Why 10 Hz: an UP needs ≥ 3 samples in its 0.2 s window; at 2 Hz each step takes ≥ 1.5 s and a
 ///    dark room stays 1–2 stops underexposed for seconds (tracking risk below). Cost: one
 ///    `currentFrame` + `exifData` read per tick (AutoTorch already does the same at 10 Hz) and
@@ -80,16 +87,19 @@ import QuartzCore
 ///    while the torch waits 2 s) is reduced to that ramp.
 ///  - Auto torch (EXIF BrightnessValue): BV is compensated for exposure, ISO and ev (2.70.1 k-check:
 ///    bv − (Tv − Sv) − ev on the capped scan's ISO-max shots 1.61 vs 1.62 expected from the uncapped
-///    trend) → the limit does not move BV, the torch decides at the same scene brightness (2.70.1:
-///    5 ON / 5 OFF, 0 false offs, 92 s lit at 4 ms). One-way coupling: the torch changes the light,
-///    the loop follows it (torch ON → ISO falls → maybe DOWN after ≥ 1 s; OFF → UP within ~0.5 s);
-///    nothing here reads the torch and nothing in AutoTorch reads the limit → no fight, no loop.
+///    trend) → the limit should not move BV, the torch decides at the same scene brightness (2.70.1:
+///    5 ON / 5 OFF, 0 false offs, 92 s lit at 4 ms). Nothing here reads the torch and nothing in
+///    AutoTorch reads the limit → no loop. 🔴 But a torch-lit dark room still reads BV −1…−2, where
+///    4 ms runs out of ISO (2.70.1 trace: torch on at ISO 3200, ev −0.9…−1.4) → adaptive steps UP
+///    to ~8–16 ms and torch-lit shots lose most of the 4 ms gain; torch OFF (lit room) → ISO falls
+///    → DOWN after ≥ 1 s. Owner's policy call later; unchanged here. `steps[].bv` (10 Hz EXIF BV for
+///    1 s after each of the first `stepBVLogSteps` steps) checks that a step does not move BV.
 ///  - "Turn on lights" coach (ambientIntensity, falls when AE runs out): back to 2.70's behaviour
 ///    after the ramp.
 ///  - Data: scan-report.json `exposureCapMs` (floor / hard ms, 0 = off), `exposureCapMode`
-///    (adaptive | hard | off), `exposureCap` {…, ceilingMs, stepsUp, stepsDown, limMsMax, `steps`
-///    t / lim / iso / ev per step, `trace` 1 Hz t / bv / exp / iso / ev / lim}; shots.json per shot
-///    `expMaxMs` (the device's AE limit at capture).
+///    (adaptive | hard | off), `exposureCap` {…, ceilingMs, stepsUp, stepsDown, limMsMax, exifIsoMax,
+///    `steps` t / lim / iso / diso / ev / bv0 / bv, `trace` 1 Hz t / bv / exp / iso / diso / ev /
+///    lim}; shots.json per shot `expMaxMs` (the device's AE limit when the frame was copied).
 ///
 /// MAIN THREAD ONLY (own Timer on main, like the other scan loops). Reads `arSession.currentFrame`,
 /// never takes the session delegate.
@@ -153,31 +163,36 @@ final class ExposureCap: ObservableObject {
     /// Debug readout (only with the hidden debug flag): mode, device limit, exp/iso/ev of the frame.
     @Published private(set) var debugLine: String?
 
-    /// One 1 Hz sample (seconds since scan start; raw EXIF bv, exposure ms, ISO; ARKit
-    /// exposureOffset; the device limit in ms). Absent keys = not available.
+    /// One 1 Hz sample (seconds since scan start; raw EXIF bv, exposure ms, ISO; the device's ISO;
+    /// ARKit exposureOffset; the device limit in ms). Absent keys = not available.
     struct TracePoint: Encodable {
         let t: Double
         let bv: Double?
         let exp: Double?
         let iso: Double?
+        let diso: Double?
         let ev: Double?
         let lim: Double?
     }
 
     /// One adaptive step: seconds since scan start, the limit the device read back after it (ms),
-    /// and the EXIF ISO / ARKit exposureOffset of the tick that decided it.
+    /// the EXIF ISO / device ISO / ARKit exposureOffset / EXIF BV of the tick that decided it, and
+    /// (first `stepBVLogSteps` steps only) the EXIF BV of every tick for `stepBVLogSec` after it.
     struct StepPoint: Encodable {
         let t: Double
         let lim: Double?
         let iso: Double?
+        let diso: Double?
         let ev: Double?
+        let bv0: Double?
+        var bv: [Double]?
     }
 
     /// scan-report.json `exposureCap`. Doubles are rounded and finite (JSONEncoder rule).
     struct Stats: Encodable {
         /// notStarted | off | noDevice | unsupported | pending | capped | notNeeded | notApplied
         /// | notAutoExposure:<mode> | lockFailed:<code> | badRange | gaveUp:lockFailed
-        /// | gaveUp:resetLoop | gaveUp:notApplied | gaveUp:stepNotApplied
+        /// | gaveUp:resetLoop | gaveUp:notApplied | gaveUp:stepNotApplied | gaveUp:noSignal
         var status = "notStarted"
         /// off | adaptive | hard
         var mode = "off"
@@ -211,9 +226,11 @@ final class ExposureCap: ObservableObject {
         var framesOverCap = 0
         /// …at ≥ 0.8 × the limit = the limit was actually binding (a bright room never reaches it);
         var framesAtCap = 0
-        /// …at ≥ 0.95 × the format's max ISO = AE had run out (darker than uncapped).
+        /// …at ≥ 0.95 × the format's max ISO (EXIF, rounded) = AE had run out (darker than uncapped).
         var framesIsoMax = 0
         var expMsMax: Double?
+        /// Highest EXIF ISO seen (2 Hz samples) — vs formatMaxISO: the EXIF scale / rounding.
+        var exifIsoMax: Double?
         /// Adaptive top = the device's own limit (ms) at the first set / last reset.
         var ceilingMs: Double?
         var stepsUp = 0
@@ -222,8 +239,8 @@ final class ExposureCap: ObservableObject {
         var limMsMax: Double?
         /// Every adaptive step, ≤ `maxStepLog`.
         var steps: [StepPoint] = []
-        /// Teardown: true = the old limit is back (or the device already held its own again),
-        /// false = restore failed (retried later), nil = nothing to restore.
+        /// true = the device's own limit is back (at a give-up or at teardown, or the device already
+        /// held its own again), false = restore failed (retried later), nil = nothing to restore.
         var restored: Bool?
         /// 1 Hz, whole scan (also with the cap Off = the A/B baseline), ≤ `traceMax` points.
         var trace: [TracePoint] = []
@@ -240,10 +257,13 @@ final class ExposureCap: ObservableObject {
     private static let loopSets = 10
     private static let loopWindowSec: CFTimeInterval = 30
     private static let maxSetTimes = 100
-    /// Lock failures IN A ROW before giving up.
+    /// Lock failures IN A ROW before giving up; a failed lock is retried after `lockRetrySec`.
     private static let maxLockFailures = 10
+    private static let lockRetrySec: CFTimeInterval = 0.5
     private static let traceMax = 3600
     private static let maxStepLog = 300
+    private static let stepBVLogSteps = 12
+    private static let stepBVLogSec: CFTimeInterval = 1.0
     /// A read-back outside want ÷/× this = the setter did not take.
     private static let appliedTolerance = 1.25
     // ── Adaptive loop (class comment). Tuning levers; the sim barely moved with them (±0.2 px).
@@ -260,8 +280,12 @@ final class ExposureCap: ObservableObject {
     private static let downMinFactor = 0.5
     private static let downMaxFactor = 0.8
     private static let reverseDwellSec: CFTimeInterval = 2.0
+    /// Within this share of the ceiling / floor: no step (not worth a lock) / a step snaps to it.
+    private static let edgeBand = 0.05
     /// First adaptive limit = the one where the ISO would sit at this fraction of the max.
     private static let startISOFrac = 0.8
+    /// Adaptive without ISO or ev this long = give up (+ restore).
+    private static let noSignalSec: CFTimeInterval = 1.0
     /// Sustain windows are measured on a ~10 Hz Timer: this much slack for its jitter.
     private static let tickSlack: CFTimeInterval = 0.01
 
@@ -280,8 +304,12 @@ final class ExposureCap: ObservableObject {
     private var gaveUp = false
     private var recentSets: [CFTimeInterval] = []
     private var lockFailuresInRow = 0
+    /// No lock (set or give-up restore) before this host time: lock-failure back-off.
+    private var nextLockAt: CFTimeInterval = 0
     /// AE needs a few frames to follow a new limit: no decision / honoured-sample right after a set.
     private var lastSetAt: CFTimeInterval = -.greatestFiniteMagnitude
+    /// ARFrame.timestamp of the tick that set the limit last (texture-shot settle gate).
+    private var lastSetFrameT: TimeInterval = -.greatestFiniteMagnitude
     private var lastUpAt: CFTimeInterval = -.greatestFiniteMagnitude
     private var lastSampleAt: CFTimeInterval = -.greatestFiniteMagnitude
     private var lastTraceAt: CFTimeInterval = -.greatestFiniteMagnitude
@@ -299,6 +327,10 @@ final class ExposureCap: ObservableObject {
     private var starvedEVMax = 0.0
     private var brightSince: CFTimeInterval?
     private var brightISOMax = 0.0
+    private var noSignalSince: CFTimeInterval?
+    /// Step whose EXIF BV is being logged at every tick, until `bvLogUntil`.
+    private var bvLogIndex: Int?
+    private var bvLogUntil: CFTimeInterval = 0
 
     /// A restore that failed at the end of an earlier scan (lock busy): retried at the next start.
     private static var stale: (device: AVCaptureDevice, original: CMTime, ours: CMTime)?
@@ -357,7 +389,8 @@ final class ExposureCap: ObservableObject {
         if let device, let original, let ourValue {
             self.original = nil
             self.ourValue = nil
-            if Self.restore(device, original: original, ours: ourValue) {
+            // Ours == the device's own (adaptive at the ceiling): nothing to put back.
+            if Self.sameValue(original, ourValue) || Self.restore(device, original: original, ours: ourValue) {
                 stats.restored = true
             } else {
                 stats.restored = false
@@ -382,19 +415,28 @@ final class ExposureCap: ObservableObject {
     /// Safety net only — both scan exits call `stop()` first (teardownCommon).
     deinit {
         timer?.invalidate()
-        if let device, let original, let ourValue {
+        if let device, let original, let ourValue, !Self.sameValue(original, ourValue) {
             _ = Self.restore(device, original: original, ours: ourValue)
         }
+    }
+
+    /// Texture shots skip frames captured this close after a limit change (AE still moving;
+    /// TextureShotRecorder, like `AutoTorch.isSettling`). `t` = ARFrame.timestamp.
+    func isSettling(at t: TimeInterval) -> Bool {
+        t - lastSetFrameT < Self.settleSec
     }
 
     // MARK: - Loop (main, 10 Hz)
 
     private func tick() {
-        guard !stopped, let frame = arSession?.currentFrame else { return }
+        guard !stopped, let frame = arSession?.currentFrame else {
+            pauseReset()
+            return
+        }
         let t = frame.timestamp
         // Paused / interrupted = the same frame again: no set, no sample, windows start over.
         guard t != lastFrameT else {
-            clearSustain()
+            pauseReset()
             return
         }
         lastFrameT = t
@@ -413,16 +455,27 @@ final class ExposureCap: ObservableObject {
         let sampleDue = now - lastSampleAt >= Self.sampleSec
         let traceDue = now - lastTraceAt >= Self.traceSec && stats.trace.count < Self.traceMax
         let controlling = !gaveUp && device != nil && now >= dueAt
-        guard controlling || sampleDue || traceDue else { return }
+        let bvLogging = bvLogIndex != nil
+        let restoreDue = gaveUp && ourValue != nil
+        guard controlling || sampleDue || traceDue || bvLogging || restoreDue else { return }
         let expo = Self.exifExposure(frame)
         let evRaw = Double(frame.camera.exposureOffset)
         let ev: Double? = evRaw.isFinite ? evRaw : nil
         if controlling, let device {
-            control(device, expo: expo, ev: ev, normal: normal, tracked: tracked, now: now)
+            control(device, frame: frame, expo: expo, ev: ev, normal: normal, tracked: tracked, now: now)
+        }
+        if gaveUp { restoreAfterGiveUp(now: now) }
+        if let i = bvLogIndex {
+            if now > bvLogUntil || i >= stats.steps.count {
+                bvLogIndex = nil
+            } else if let bv = expo.bv.flatMap({ Self.fin($0) }) {
+                stats.steps[i].bv?.append(bv)
+            }
         }
         let limitMs = readDevice.flatMap { Self.ms($0.activeMaxExposureDuration) }
         if sampleDue {
             lastSampleAt = now
+            if let iso = expo.iso { stats.exifIsoMax = Self.fin(max(stats.exifIsoMax ?? 0, iso)) }
             // Honoured? Only while the device holds OUR limit and AE had time to follow it.
             if normal, let device, let ours = ourValue, now - lastSetAt >= 0.5,
                Self.atOrBelow(device.activeMaxExposureDuration, ours),
@@ -444,6 +497,7 @@ final class ExposureCap: ObservableObject {
                 bv: expo.bv.flatMap { Self.fin($0) },
                 exp: expo.expMs.flatMap { Self.fin($0) },
                 iso: expo.iso.flatMap { Self.fin($0) },
+                diso: readDevice.flatMap { Self.deviceISO($0) },
                 ev: ev.flatMap { Self.fin($0) },
                 lim: limitMs
             ))
@@ -452,9 +506,10 @@ final class ExposureCap: ObservableObject {
 
     /// First set, reset re-set, or an adaptive step.
     private func control(
-        _ device: AVCaptureDevice, expo: Exposure, ev: Double?, normal: Bool, tracked: Bool,
-        now: CFTimeInterval
+        _ device: AVCaptureDevice, frame: ARFrame, expo: Exposure, ev: Double?, normal: Bool,
+        tracked: Bool, now: CFTimeInterval
     ) {
+        let frameT = frame.timestamp
         guard let ours = ourValue else {
             // Nothing of ours on the device yet: first set at a normal tick, like 2.70.1. Unlocked
             // pre-check — a device whose own limit is already ≤ the floor takes no lock (re-checked
@@ -472,32 +527,50 @@ final class ExposureCap: ObservableObject {
                 }
                 return
             }
-            apply(device, want: startLimit(device, expo: expo, ev: ev), kind: .first, now: now)
+            apply(device, want: startLimit(device, expo: expo, ev: ev), kind: .first, now: now, frameT: frameT)
             return
         }
         // Unlocked read: the common case (the device holds ours) takes no lock.
         guard Self.sameValue(device.activeMaxExposureDuration, ours) else {
             // Someone else changed it (format change / capture restart): its value is the
-            // device's own limit now; ours goes back on at a normal tick.
+            // device's own limit now; ours goes back on at a normal tick — no shorter than the
+            // current light needs (the room may have changed during an interruption).
             clearSustain()
-            if normal { apply(device, want: ours, kind: .reset, now: now) }
+            guard normal else { return }
+            let start = startLimit(device, expo: expo, ev: ev)
+            let want = CMTimeCompare(start, ours) > 0 ? start : ours
+            apply(device, want: want, kind: .reset, now: now, frameT: frameT)
             return
         }
         guard mode.isAdaptive, tracked, now - lastSetAt >= Self.settleSec,
-              let iso = expo.iso, let ev, let limit = Self.seconds(ours) else {
+              let limit = Self.seconds(ours) else {
             clearSustain()
             return
         }
         let maxISO = Double(device.activeFormat.maxISO)
-        guard maxISO.isFinite, maxISO > 0 else {
+        let diso = Self.deviceISO(device)
+        var isoFrac: Double?
+        if maxISO.isFinite, maxISO > 0 {
+            if let diso {
+                isoFrac = diso / maxISO
+            } else if let iso = expo.iso {
+                isoFrac = iso / maxISO
+            }
+        }
+        guard let isoFrac, let ev else {
+            // No signal: the loop is blind — after `noSignalSec` stop and put the device's own back.
             clearSustain()
+            if let since = noSignalSince {
+                if now - since >= Self.noSignalSec { giveUp("gaveUp:noSignal", now: now) }
+            } else {
+                noSignalSince = now
+            }
             return
         }
-        let isoFrac = iso / maxISO
+        noSignalSince = nil
         // Dark rooms can drop tracking to `limited` — exactly when the limit must rise, so steps
         // run on any tracked, advancing frame (first set / resets still wait for normal).
-        // 5 % margins: a step smaller than that is not worth a lock (steps are ≥ ×1.25 / ≤ ×0.8).
-        if isoFrac >= Self.starvedISOFrac, ev <= Self.starvedEV, limit < ceilS * 0.95 {
+        if isoFrac >= Self.starvedISOFrac, ev <= Self.starvedEV, limit < ceilS * (1 - Self.edgeBand) {
             brightSince = nil
             guard let since = starvedSince else {
                 starvedSince = now
@@ -507,8 +580,12 @@ final class ExposureCap: ObservableObject {
             starvedEVMax = max(starvedEVMax, ev)
             guard now - since >= Self.upSustainSec - Self.tickSlack else { return }
             let factor = min(max(pow(2, Self.upGain * -starvedEVMax), Self.upMinFactor), Self.upMaxFactor)
-            apply(device, want: Self.time(limit * factor), kind: .up, now: now, iso: iso, ev: ev)
-        } else if isoFrac < Self.brightISOFrac, limit > floorS * 1.05, now - lastUpAt >= Self.reverseDwellSec {
+            var wantS = limit * factor
+            if wantS >= ceilS * (1 - Self.edgeBand) { wantS = ceilS }
+            apply(device, want: Self.time(wantS), kind: .up, now: now, frameT: frameT,
+                  step: (iso: expo.iso, diso: diso, ev: ev, bv: expo.bv))
+        } else if isoFrac < Self.brightISOFrac, limit > floorS * (1 + Self.edgeBand),
+                  now - lastUpAt >= Self.reverseDwellSec {
             starvedSince = nil
             guard let since = brightSince else {
                 brightSince = now
@@ -518,14 +595,18 @@ final class ExposureCap: ObservableObject {
             brightISOMax = max(brightISOMax, isoFrac)
             guard now - since >= Self.downSustainSec - Self.tickSlack else { return }
             let factor = min(max(brightISOMax / Self.downTargetISOFrac, Self.downMinFactor), Self.downMaxFactor)
-            apply(device, want: Self.time(limit * factor), kind: .down, now: now, iso: iso, ev: ev)
+            var wantS = limit * factor
+            if wantS <= floorS * (1 + Self.edgeBand) { wantS = floorS }
+            apply(device, want: Self.time(wantS), kind: .down, now: now, frameT: frameT,
+                  step: (iso: expo.iso, diso: diso, ev: ev, bv: expo.bv))
         } else {
             clearSustain()
         }
     }
 
-    /// The first limit: the floor, or (adaptive, dim room at start) the one where the ISO would
-    /// sit at `startISOFrac` of the max with the light the frame needed. `apply` clamps it.
+    /// The first limit: the floor, or (adaptive, dim room) the one where the ISO would sit at
+    /// `startISOFrac` of the max with the light the frame needed. Always a valid numeric CMTime
+    /// ≥ the floor's ms; `apply` clamps it to the device's range.
     private func startLimit(_ device: AVCaptureDevice, expo: Exposure, ev: Double?) -> CMTime {
         let floor = Self.time(Double(capMs) / 1000)
         let maxISO = Double(device.activeFormat.maxISO)
@@ -542,10 +623,12 @@ final class ExposureCap: ObservableObject {
 
     /// Locks and puts `want` on the device, clamped under the lock to [floor, ceiling] inside the
     /// format's range, then reads it back. Gives up on the failures listed in the class comment.
+    /// `step` = what decided an adaptive step (logged in `steps`).
     private func apply(
         _ device: AVCaptureDevice, want: CMTime, kind: SetKind, now: CFTimeInterval,
-        iso: Double? = nil, ev: Double? = nil
+        frameT: TimeInterval, step: (iso: Double?, diso: Double?, ev: Double?, bv: Double?)? = nil
     ) {
+        guard now >= nextLockAt else { return }
         let isSet = kind == .first || kind == .reset
         if isSet {
             recentSets.removeAll { now - $0 > Self.loopWindowSec }
@@ -559,6 +642,7 @@ final class ExposureCap: ObservableObject {
         } catch {
             stats.lockFailures += 1
             lockFailuresInRow += 1
+            nextLockAt = now + Self.lockRetrySec
             if ourValue == nil { stats.status = "lockFailed:\((error as NSError).code)" }
             if lockFailuresInRow >= Self.maxLockFailures {
                 giveUp(ourValue == nil ? stats.status : "gaveUp:lockFailed", now: now)
@@ -635,6 +719,7 @@ final class ExposureCap: ObservableObject {
         }
         device.activeMaxExposureDuration = safe
         lastSetAt = now
+        lastSetFrameT = frameT
         let readBack = device.activeMaxExposureDuration
         let changed = !Self.sameValue(readBack, before)
         let ok = Self.near(readBack, safe)
@@ -673,10 +758,19 @@ final class ExposureCap: ObservableObject {
                 stats.stepsDown += 1
             }
             if stats.steps.count < Self.maxStepLog, let at = Self.fin(now - t0) {
+                let logBV = stats.steps.count < Self.stepBVLogSteps
                 stats.steps.append(StepPoint(
                     t: at, lim: Self.ms(readBack),
-                    iso: iso.flatMap { Self.fin($0) }, ev: ev.flatMap { Self.fin($0) }
+                    iso: step?.iso.flatMap { Self.fin($0) },
+                    diso: step?.diso.flatMap { Self.fin($0) },
+                    ev: step?.ev.flatMap { Self.fin($0) },
+                    bv0: step?.bv.flatMap { Self.fin($0) },
+                    bv: logBV ? [] : nil
                 ))
+                if logBV {
+                    bvLogIndex = stats.steps.count - 1
+                    bvLogUntil = now + Self.stepBVLogSec
+                }
             }
             if !ok { giveUp("gaveUp:stepNotApplied", now: now) }
         }
@@ -693,11 +787,33 @@ final class ExposureCap: ObservableObject {
         brightSince = nil
     }
 
+    /// No frame / the same frame again (paused, interrupted): every window starts over.
+    private func pauseReset() {
+        clearSustain()
+        noSignalSince = nil
+    }
+
+    /// Records the give-up; the device's own limit goes back on the next tick (outside any lock)
+    /// via `restoreAfterGiveUp`.
     private func giveUp(_ status: String, now: CFTimeInterval) {
         gaveUp = true
         clearSustain()
         stats.status = status
         stats.gaveUpAt = Self.fin(now - t0)
+    }
+
+    /// After a give-up: put the device's own limit back while ours is on it (review R1: a short
+    /// limit left behind keeps a dark room dark for the rest of the scan). Lock busy = retried
+    /// every `lockRetrySec`, and teardown tries again anyway.
+    private func restoreAfterGiveUp(now: CFTimeInterval) {
+        guard let device, let original, let ours = ourValue, now >= nextLockAt else { return }
+        if Self.sameValue(original, ours) || Self.restore(device, original: original, ours: ours) {
+            self.original = nil
+            ourValue = nil
+            stats.restored = true
+        } else {
+            nextLockAt = now + Self.lockRetrySec
+        }
     }
 
     /// Puts `original` back if the device still holds `ours` (else ARKit already set its own
@@ -713,8 +829,10 @@ final class ExposureCap: ObservableObject {
         defer { device.unlockForConfiguration() }
         guard sameValue(device.activeMaxExposureDuration, ours) else { return true }
         let format = device.activeFormat
-        if let o = seconds(original), let lo = seconds(format.minExposureDuration),
-           let hi = seconds(format.maxExposureDuration), o >= lo, o <= hi {
+        let lo = format.minExposureDuration
+        let hi = format.maxExposureDuration
+        if seconds(original) != nil, seconds(lo) != nil, seconds(hi) != nil,
+           CMTimeCompare(original, lo) >= 0, CMTimeCompare(original, hi) <= 0 {
             device.activeMaxExposureDuration = original
         } else {
             // Documented reset: kCMTimeInvalid = the device's default for its configuration.
@@ -729,28 +847,29 @@ final class ExposureCap: ObservableObject {
     private static func clampedCap(_ capMs: Int, _ format: AVCaptureDevice.Format) -> CMTime? {
         let lo = format.minExposureDuration
         let hi = format.maxExposureDuration
-        guard let loS = seconds(lo), let hiS = seconds(hi), loS > 0, loS <= hiS else { return nil }
-        let wantS = Double(capMs) / 1000
-        if wantS <= loS { return lo }
-        if wantS >= hiS { return hi }
-        return CMTime(value: CMTimeValue(capMs) * 1000, timescale: 1_000_000)
+        guard seconds(lo) != nil, seconds(hi) != nil, CMTimeCompare(lo, hi) <= 0 else { return nil }
+        let want = CMTime(value: CMTimeValue(capMs) * 1000, timescale: 1_000_000)
+        if CMTimeCompare(want, lo) <= 0 { return lo }
+        if CMTimeCompare(want, hi) >= 0 { return hi }
+        return want
     }
 
     /// `t` clamped to the format's exposure range; nil = unusable range or non-numeric `t`.
     private static func inRange(_ t: CMTime, _ format: AVCaptureDevice.Format) -> CMTime? {
         let lo = format.minExposureDuration
         let hi = format.maxExposureDuration
-        guard let s = seconds(t), let loS = seconds(lo), let hiS = seconds(hi), loS <= hiS else { return nil }
-        if s <= loS { return lo }
-        if s >= hiS { return hi }
-        return t
+        guard seconds(t) != nil, seconds(lo) != nil, seconds(hi) != nil, CMTimeCompare(lo, hi) <= 0 else {
+            return nil
+        }
+        return clamp(t, lo: lo, hi: hi)
     }
 
-    /// `t` within lo…hi (lo ≤ hi, both numeric — callers check); non-numeric `t` = lo.
+    /// `t` within lo…hi (exact CMTime comparison; lo ≤ hi, both numeric — callers check);
+    /// non-numeric `t` = lo.
     private static func clamp(_ t: CMTime, lo: CMTime, hi: CMTime) -> CMTime {
-        guard let s = seconds(t), let loS = seconds(lo), let hiS = seconds(hi) else { return lo }
-        if s <= loS { return lo }
-        if s >= hiS { return hi }
+        guard seconds(t) != nil else { return lo }
+        if CMTimeCompare(t, lo) <= 0 { return lo }
+        if CMTimeCompare(t, hi) >= 0 { return hi }
         return t
     }
 
@@ -788,7 +907,14 @@ final class ExposureCap: ObservableObject {
         seconds(t).flatMap { fin($0 * 1000) }
     }
 
-    /// shots.json `expMaxMs`: the device's AE limit at capture (ms); nil outside the test build.
+    /// The device's current ISO (unrounded, activeFormat scale), finite and > 0, else nil.
+    private static func deviceISO(_ device: AVCaptureDevice) -> Double? {
+        let iso = Double(device.iso)
+        return iso.isFinite && iso > 0 ? fin(iso) : nil
+    }
+
+    /// shots.json `expMaxMs`: the device's AE limit when the frame is copied (ms); nil outside the
+    /// test build.
     static func limitMsForShot(_ device: AVCaptureDevice?) -> Float? {
         guard testBuild, let device, let v = ms(device.activeMaxExposureDuration) else { return nil }
         let f = Float(v)
@@ -833,8 +959,9 @@ final class ExposureCap: ObservableObject {
         case .adaptive4: s = "adp \(capMs)-" + String(format: "%.1f", ceilS * 1000)
         case .hard4, .hard6, .hard8: s = "hard \(capMs)"
         }
-        s += String(format: " lim %.1f · exp %.1f iso %.0f ev %.2f bv %.1f",
-                    limitMs ?? -1, expo.expMs ?? -1, expo.iso ?? -1, ev ?? -99, expo.bv ?? -99)
+        let diso = readDevice.flatMap { Self.deviceISO($0) }
+        s += String(format: " lim %.1f · exp %.1f iso %.0f/%.0f ev %.2f bv %.1f",
+                    limitMs ?? -1, expo.expMs ?? -1, expo.iso ?? -1, diso ?? -1, ev ?? -99, expo.bv ?? -99)
         s += " · up\(stats.stepsUp) dn\(stats.stepsDown) rs\(stats.resets)"
         s += " over \(stats.framesOverCap)/\(stats.framesSampled) \(stats.status)"
         debugLine = s

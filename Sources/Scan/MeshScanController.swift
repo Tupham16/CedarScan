@@ -152,6 +152,7 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
         wbDevice = ARWorldTrackingConfiguration.configurableCaptureDeviceForPrimaryCamera
         texShots.captureDevice = wbDevice
         texShots.torch = torch
+        texShots.exposureCap = exposureCap
         texShots.start()
         scheduleWhiteBalanceLock()
         exposureCap.start(device: wbDevice, arSession: arSession)
