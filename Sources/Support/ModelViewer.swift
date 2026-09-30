@@ -25,6 +25,13 @@ import simd
 ///    texture → mở thẳng texture, không có công tắc;
 ///  · không có gì → `ScanDetailView` không hiện nút, màn này không bao giờ mở.
 ///
+/// **Views + floors (2.76, owner 30/09, `PLAN-XEM-3D-TANG-MAU.md`, mockup 73 minus Floor plan):**
+/// bottom glass capsules `All · Floor 1 · Floor 2…` (≥ 2 floors, found ON THE PHONE by
+/// `MeshLayout` from the grey preview) and `Dollhouse | Top view` (`ViewerMode.offered`).
+/// Opens Dollhouse + All = the old default camera. Top view = perspective straight down, own
+/// pan / pinch / twist, no tilt, straightened along the main walls. Floors clip every material
+/// with a shader modifier (`FloorClip`). The Texture switch keeps view + floor.
+///
 /// ✗ đổi thành `NavigationStack` + nút Đóng trên `.toolbar`: bar-item host chính là chỗ vụ văng
 /// 06/08 sống (`UIKitBarItemHost` đọc `@EnvironmentObject` trước khi cầu environment nối). Nút
 /// phủ thường không có bar-item host nào, và màn này không cần gì từ environment.
@@ -52,6 +59,17 @@ struct ModelViewerScreen: View {
     @State private var texture: LoadedModel?
     @State private var textureFailed = false
 
+    /// Floors + wall direction from the GREY preview (`MeshLayout`). Also drives the textured
+    /// model (same ARKit frame), so the floor buttons do not change when Texture flips.
+    /// nil = no grey (pre-1.4 scan) or analysis failed ⇒ no floor buttons.
+    @State private var layout: MeshLayout?
+    /// Floor shown; nil = All. Kept across the Texture switch and the view switch.
+    @State private var floor: Int?
+    /// Last tap on the view switch. A tap on the mode already shown re-frames it (serial).
+    @State private var framing = FramingRequest(mode: .dollhouse, serial: 0)
+
+    private var floorCount: Int { layout?.floors.count ?? 0 }
+
     private var hasTexture: Bool { texturedRemote != nil && cloudScanId != nil }
     /// Công tắc chỉ có nghĩa khi có ĐỦ CẢ HAI thứ để gạt qua gạt lại.
     private var canToggle: Bool { greyURL != nil && hasTexture }
@@ -73,17 +91,14 @@ struct ModelViewerScreen: View {
                 .ignoresSafeArea()
 
             if let active {
-                ModelSceneView(model: active)
-                    .ignoresSafeArea()
-                VStack {
-                    Spacer()
-                    Text(String(localized: "Drag to rotate · pinch to zoom"))
-                    .font(.caption2)
-                    .foregroundStyle(.white.opacity(0.55))
-                    .padding(.bottom, 8)
-                    // Caption không bao giờ được nuốt cú kéo dành cho mô hình.
-                    .allowsHitTesting(false)
-                }
+                ModelSceneView(
+                    model: active,
+                    layout: layout ?? active.boundsLayout,
+                    floor: floor,
+                    framing: framing
+                )
+                .ignoresSafeArea()
+                bottomControls
             } else if activeFailed {
                 statusBlock(
                     icon: "cube.transparent",
@@ -182,6 +197,80 @@ struct ModelViewerScreen: View {
         )
     }
 
+    // MARK: - Bottom: floors + view switch (mockup 73, 2 modes after the owner's 30/09 call)
+
+    /// Glass capsules over the model, above the caption. Floors only with ≥ 2 floors, the view
+    /// switch only with ≥ 2 offered modes (`ViewerMode.offered`). The `Spacer` and the gaps
+    /// pass touches through to the model; the caption never eats a drag.
+    private var bottomControls: some View {
+        VStack(spacing: 10) {
+            Spacer(minLength: 0)
+            if floorCount >= 2 {
+                floorPicker
+            }
+            if ViewerMode.offered.count >= 2 {
+                modePicker
+            }
+            WrappedText(
+                framing.mode.caption,
+                style: .caption2,
+                alignment: .center,
+                color: UIColor.white.withAlphaComponent(0.55)
+            )
+            .allowsHitTesting(false)
+        }
+        .padding(.horizontal, 16)
+        .padding(.bottom, 8)
+        // Text in the capsules grows with Dynamic Type, but not past the model it sits on.
+        .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+        .environment(\.colorScheme, .dark)
+    }
+
+    private var modePicker: some View {
+        HStack(spacing: 2) {
+            ForEach(ViewerMode.offered, id: \.self) { mode in
+                ViewerSegment(title: mode.title, selected: framing.mode == mode, action: {
+                    framing = FramingRequest(mode: mode, serial: framing.serial + 1)
+                }) {
+                    ViewerModeIcon(mode: mode)
+                }
+            }
+        }
+        .padding(3)
+        .fogGlass(Capsule())
+    }
+
+    /// Many floors (a spurious level, a tall house) scroll instead of squeezing.
+    private var floorPicker: some View {
+        ViewThatFits(in: .horizontal) {
+            floorRow
+            ScrollView(.horizontal, showsIndicators: false) {
+                floorRow
+            }
+        }
+    }
+
+    private var floorRow: some View {
+        HStack(spacing: 2) {
+            // Own key, ✗ the Orders filter's "All": fr/es need the gender of "floor"
+            // (Tous / Todas vs Toutes / Todos). English shows "All" (`source` in translations.json).
+            ViewerSegment(title: String(localized: "All floors"), selected: floor == nil, action: {
+                floor = nil
+            }) {
+                EmptyView()
+            }
+            ForEach(0..<floorCount, id: \.self) { index in
+                ViewerSegment(title: String(localized: "Floor \(index + 1)"), selected: floor == index, action: {
+                    floor = index
+                }) {
+                    EmptyView()
+                }
+            }
+        }
+        .padding(3)
+        .fogGlass(Capsule())
+    }
+
     private var loadingBlock: some View {
         VStack(spacing: 12) {
             ProgressView()
@@ -242,9 +331,23 @@ struct ModelViewerScreen: View {
             greyFailed = true
             return
         }
+        // Off main too (non-isolated async, SE-0338). nil = no floor buttons, not straightened.
+        let found = await MeshLayout.analyse(decoded)
         let built = MeshPreviewView.makeScene(decoded)
+        // Copies: `greyMaterial` is shared with the after-scan viewer, which has no clipping.
+        let clip = FloorClip.prepare(built.scene.rootNode, copying: true)
+        // Same centre as `makeScene`, which shifts the mesh node by −centre.
+        let centre = (decoded.boundsMin + decoded.boundsMax) * 0.5
+        layout = found
         // `makeScene` dời mô hình về gốc toạ độ nên tâm quay đúng bằng zero.
-        grey = LoadedModel(scene: built.scene, camera: built.camera, center: SCNVector3Zero)
+        grey = LoadedModel(
+            scene: built.scene,
+            camera: built.camera,
+            center: SCNVector3Zero,
+            worldOffset: -centre,
+            clipMaterials: clip,
+            boundsLayout: MeshLayout(boundsMin: decoded.boundsMin, boundsMax: decoded.boundsMax)
+        )
     }
 
     /// Bật texture: đã có cảnh thì thôi; có file rồi thì dựng cảnh; chưa có thì bảo cache tải.
@@ -284,6 +387,185 @@ struct LoadedModel {
     let scene: SCNScene
     let camera: SCNNode
     let center: SCNVector3
+    /// Scene coordinates = ARKit world + this. Grey: −bbox centre (`makeScene` shifts the mesh
+    /// node). Textured: zero — the workstation OBJ keeps the ARKit frame (#LS-MTR8E4ZI5: same
+    /// min Y −5.709 and Z range as the raw OBJ) and `export_usdz.py` exports −Z forward, Y up,
+    /// metres. Floors and Top view are kept in ARKit world, so both models agree.
+    let worldOffset: SIMD3<Float>
+    /// Every material carrying the floor clip (`FloorClip`).
+    let clipMaterials: [SCNMaterial]
+    /// Footprint of this model alone: used when there is no grey `MeshLayout`.
+    let boundsLayout: MeshLayout
+    /// Opening camera: tapping Dollhouse goes back to it.
+    let openTransform: simd_float4x4
+    let openFieldOfView: CGFloat
+    let openZFar: Double
+
+    init(scene: SCNScene, camera: SCNNode, center: SCNVector3, worldOffset: SIMD3<Float>,
+         clipMaterials: [SCNMaterial], boundsLayout: MeshLayout) {
+        self.scene = scene
+        self.camera = camera
+        self.center = center
+        self.worldOffset = worldOffset
+        self.clipMaterials = clipMaterials
+        self.boundsLayout = boundsLayout
+        openTransform = camera.simdTransform
+        openFieldOfView = camera.camera?.fieldOfView ?? 55
+        openZFar = camera.camera?.zFar ?? 1000
+    }
+
+    /// Clip band in ARKit world Y → scene Y.
+    func setClip(_ band: (lo: Float, hi: Float)) {
+        for material in clipMaterials {
+            FloorClip.set(material, lo: band.lo + worldOffset.y, hi: band.hi + worldOffset.y)
+        }
+    }
+}
+
+/// The view switch. 🔴 The owner keeps or drops modes: membership + order = `offered`, ONE line.
+/// 30/09: mockup 73 had 3 modes; the owner dropped the flat Floor plan (orthographic) before
+/// any build ("bỏ chế độ floorplan đi") ⇒ Dollhouse + Top view (perspective, with depth).
+enum ViewerMode: Hashable {
+    case dollhouse
+    case topView
+
+    static let offered: [ViewerMode] = [.dollhouse, .topView]
+
+    var title: String {
+        switch self {
+        case .dollhouse: return String(localized: "Dollhouse")
+        case .topView: return String(localized: "Top view")
+        }
+    }
+
+    var caption: String {
+        switch self {
+        case .dollhouse: return String(localized: "Drag to rotate · pinch to zoom")
+        case .topView: return String(localized: "Drag to move · pinch to zoom · twist to turn")
+        }
+    }
+}
+
+/// A tap on the view switch. `serial` grows on every tap, so tapping the mode already shown
+/// re-frames it (Dollhouse = opening view, Top view = straightened fit).
+struct FramingRequest: Equatable {
+    let mode: ViewerMode
+    let serial: Int
+}
+
+/// Floor buttons clip the model by world height. SceneKit has no clipping planes, so every
+/// viewer material (grey + textured) carries this surface shader modifier; a floor tap only
+/// changes two uniforms (no shader rebuild). `_surface.position` is view space; the inverse
+/// view transform takes it to scene space. Device-only check: no Swift/Metal compiler here.
+/// ✗ put it on `MeshPreviewView.greyMaterial` itself (shared with the after-scan viewer).
+enum FloorClip {
+    private static let loKey = "cedarClipLo"
+    private static let hiKey = "cedarClipHi"
+    private static let source = """
+    #pragma arguments
+    float cedarClipLo;
+    float cedarClipHi;
+    #pragma body
+    float cedarY = (scn_frame.inverseViewTransform * float4(_surface.position, 1.0)).y;
+    if (cedarY < cedarClipLo || cedarY > cedarClipHi) {
+        discard_fragment();
+    }
+    """
+
+    /// Installs the clip (band open) on every material under `root`. `copying`: give each
+    /// geometry its own material copies first. Replaces any surface modifier (none today).
+    static func prepare(_ root: SCNNode, copying: Bool) -> [SCNMaterial] {
+        var out: [SCNMaterial] = []
+        root.enumerateHierarchy { node, _ in
+            guard let geometry = node.geometry else { return }
+            geometry.materials = geometry.materials.map { material in
+                let own = copying ? ((material.copy() as? SCNMaterial) ?? material) : material
+                var modifiers = own.shaderModifiers ?? [:]
+                modifiers[.surface] = source
+                own.shaderModifiers = modifiers
+                // Unset uniforms read 0 ⇒ band [0, 0] ⇒ everything discarded. Open it now.
+                set(own, lo: -MeshLayout.openEnd, hi: MeshLayout.openEnd)
+                out.append(own)
+                return own
+            }
+        }
+        return out
+    }
+
+    static func set(_ material: SCNMaterial, lo: Float, hi: Float) {
+        material.setValue(NSNumber(value: lo), forKey: loKey)
+        material.setValue(NSNumber(value: hi), forKey: hiKey)
+    }
+}
+
+/// One segment of the glass capsules (mockup 73: 36 pt high, white fill when selected).
+private struct ViewerSegment<Icon: View>: View {
+    let title: String
+    let selected: Bool
+    let action: () -> Void
+    let icon: Icon
+
+    init(title: String, selected: Bool, action: @escaping () -> Void, @ViewBuilder icon: () -> Icon) {
+        self.title = title
+        self.selected = selected
+        self.action = action
+        self.icon = icon()
+    }
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 7) {
+                icon
+                Text(title)
+                    .font(.subheadline.weight(.semibold))
+                    // Long languages shrink before they truncate.
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+            }
+            .foregroundStyle(selected ? Color(red: 17 / 255, green: 24 / 255, blue: 39 / 255) : Color.white.opacity(0.86))
+            .padding(.horizontal, 12)
+            .frame(minHeight: 36)
+            .background {
+                if selected {
+                    Capsule().fill(Color.white)
+                }
+            }
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(selected ? [.isSelected] : [])
+    }
+}
+
+/// Mockup 73 icons: cube (SF Symbol) · box seen from above (drawn: no SF Symbol matches).
+private struct ViewerModeIcon: View {
+    let mode: ViewerMode
+
+    var body: some View {
+        switch mode {
+        case .dollhouse:
+            Image(systemName: "cube")
+                .font(.system(size: 15, weight: .medium))
+                .accessibilityHidden(true)
+        case .topView:
+            // Mockup SVG on a 24-unit grid: square 7…17, corners joined to 3 / 21.
+            Path { path in
+                let s: CGFloat = 16.0 / 24.0
+                path.addRect(CGRect(x: 7 * s, y: 7 * s, width: 10 * s, height: 10 * s))
+                path.move(to: CGPoint(x: 3 * s, y: 3 * s))
+                path.addLine(to: CGPoint(x: 7 * s, y: 7 * s))
+                path.move(to: CGPoint(x: 21 * s, y: 3 * s))
+                path.addLine(to: CGPoint(x: 17 * s, y: 7 * s))
+                path.move(to: CGPoint(x: 3 * s, y: 21 * s))
+                path.addLine(to: CGPoint(x: 7 * s, y: 17 * s))
+                path.move(to: CGPoint(x: 21 * s, y: 21 * s))
+                path.addLine(to: CGPoint(x: 17 * s, y: 17 * s))
+            }
+            .stroke(style: StrokeStyle(lineWidth: 1.4, lineCap: .round, lineJoin: .round))
+            .frame(width: 16, height: 16)
+            .accessibilityHidden(true)
+        }
+    }
 }
 
 /// Đọc file `.usdz` + dựng cảnh cho mô hình CÓ TEXTURE.
@@ -342,6 +624,9 @@ enum TexturedSceneLoader {
             }
         }
 
+        // Floor clip on the same materials (fresh from this file, no copy needed).
+        let clip = FloorClip.prepare(scene.rootNode, copying: false)
+
         let ambient = SCNLight()
         ambient.type = .ambient
         ambient.color = UIColor(white: 1, alpha: 1)
@@ -396,7 +681,10 @@ enum TexturedSceneLoader {
         return LoadedModel(
             scene: scene,
             camera: cameraNode,
-            center: SCNVector3(center.x, center.y, center.z)
+            center: SCNVector3(center.x, center.y, center.z),
+            worldOffset: .zero,
+            clipMaterials: clip,
+            boundsLayout: MeshLayout(boundsMin: bounds.lo, boundsMax: bounds.hi)
         )
     }
 
@@ -431,20 +719,21 @@ enum TexturedSceneLoader {
     }
 }
 
-/// Vỏ `SCNView` dùng chung cho CẢ HAI chế độ. Mọi tương tác là bộ điều khiển camera có sẵn của
-/// SceneKit — không viết cử chỉ riêng để phải tranh chấp với SwiftUI.
+/// Vỏ `SCNView` dùng chung cho CẢ HAI chế độ (xám / texture) và cả hai kiểu xem.
+/// Dollhouse = bộ điều khiển camera có sẵn của SceneKit (orbit). Top view = cử chỉ RIÊNG
+/// (pan / pinch / twist) vì bộ có sẵn luôn cho nghiêng camera; lúc đó `allowsCameraControl`
+/// tắt và ba recognizer của `Coordinator` bật, ✗ cả hai cùng lúc.
 ///
 /// 🔴 Khác `MeshSceneView` (bản chỉ-xám) đúng một điểm và đó là lý do nó tồn tại: `updateUIView`
 /// ở đây **CÓ** đổi cảnh, vì gạt công tắc Texture là một lần đổi cảnh THẬT. Nhưng chỉ đổi khi cảnh
 /// KHÁC ĐI (`!==`) — gán lại `scene` ở mọi lượt cập nhật của SwiftUI là bắn camera về góc mặc
-/// định đúng lúc khách đang xoay dở.
+/// định đúng lúc khách đang xoay dở. Same rule for the camera: it moves only on a new scene, a
+/// view-switch tap (`FramingRequest.serial`) or a floor change, never on a plain SwiftUI update.
 private struct ModelSceneView: UIViewRepresentable {
     let model: LoadedModel
-
-    final class Coordinator {
-        var shown: SCNScene?
-        var center = SCNVector3Zero
-    }
+    let layout: MeshLayout
+    let floor: Int?
+    let framing: FramingRequest
 
     func makeCoordinator() -> Coordinator { Coordinator() }
 
@@ -460,6 +749,7 @@ private struct ModelSceneView: UIViewRepresentable {
         view.antialiasingMode = .multisampling2X
         view.backgroundColor = MeshPreviewView.backdropColor
         view.preferredFramesPerSecond = 60
+        context.coordinator.attach(to: view)
         apply(to: view, context.coordinator)
         return view
     }
@@ -469,36 +759,295 @@ private struct ModelSceneView: UIViewRepresentable {
     }
 
     private func apply(to view: SCNView, _ coordinator: Coordinator) {
-        guard coordinator.shown !== model.scene else { return }
+        coordinator.layout = layout
+        let floorChanged = !coordinator.applied || coordinator.floor != floor
+        coordinator.floor = floor
+        let sceneChanged = coordinator.shown !== model.scene
 
-        // MANG GÓC NHÌN SANG CẢNH MỚI. Gạt công tắc mà mô hình nhảy về góc mặc định thì khách
-        // mất chỗ đang xem — mà cả lý do tồn tại của công tắc là "vẫn cái nhà đó, bật/tắt lớp
-        // ảnh". Hai cảnh KHÔNG cùng tâm nên phải chuyển vị trí camera theo hiệu so với tâm, ✗
-        // chép thẳng transform.
-        if coordinator.shown != nil, let old = view.pointOfView {
-            model.camera.position = SCNVector3(
-                model.center.x + (old.position.x - coordinator.center.x),
-                model.center.y + (old.position.y - coordinator.center.y),
-                model.center.z + (old.position.z - coordinator.center.z)
-            )
-            model.camera.orientation = old.orientation
-            // 🔴 PHẢI MANG CẢ `fieldOfView`, và đây là kết luận ĐỌC RA TỪ MÁY THẬT chứ ✗ đoán.
-            // Chủ app test bản 2.0 (10/08): *"nếu chưa zoom in out thì gạt qua lại giữ nguyên
-            // góc, nhưng zoom in out thì nó quay về kích thước ban đầu"*. Góc XOAY giữ được mà
-            // độ PHÓNG thì không ⇒ `SCNCameraController` phóng to bằng cách đổi `fieldOfView`
-            // của đối tượng `SCNCamera`, ✗ bằng cách dời node lại gần (dời node thì đoạn chuyển
-            // vị trí ngay trên đã giữ hộ rồi). Mà mỗi cảnh mang một `SCNCamera` RIÊNG, nên đổi
-            // cảnh là về lại 55° gốc.
-            // ✗ chép luôn `zNear`/`zFar`: hai giá trị đó tính theo bán kính của TỪNG mô hình.
-            if let oldCamera = old.camera, let newCamera = model.camera.camera {
-                newCamera.fieldOfView = oldCamera.fieldOfView
+        if sceneChanged {
+            // MANG GÓC NHÌN SANG CẢNH MỚI. Gạt công tắc mà mô hình nhảy về góc mặc định thì khách
+            // mất chỗ đang xem — mà cả lý do tồn tại của công tắc là "vẫn cái nhà đó, bật/tắt lớp
+            // ảnh". Hai cảnh KHÔNG cùng tâm nên phải chuyển vị trí camera theo hiệu so với tâm, ✗
+            // chép thẳng transform. (Dollhouse only: Top view keeps its own state in ARKit world
+            // and is re-placed below.)
+            if coordinator.shown != nil, coordinator.mode == .dollhouse, let old = view.pointOfView {
+                model.camera.position = SCNVector3(
+                    model.center.x + (old.position.x - coordinator.center.x),
+                    model.center.y + (old.position.y - coordinator.center.y),
+                    model.center.z + (old.position.z - coordinator.center.z)
+                )
+                model.camera.orientation = old.orientation
+                // 🔴 PHẢI MANG CẢ `fieldOfView`, và đây là kết luận ĐỌC RA TỪ MÁY THẬT chứ ✗ đoán.
+                // Chủ app test bản 2.0 (10/08): *"nếu chưa zoom in out thì gạt qua lại giữ nguyên
+                // góc, nhưng zoom in out thì nó quay về kích thước ban đầu"*. Góc XOAY giữ được mà
+                // độ PHÓNG thì không ⇒ `SCNCameraController` phóng to bằng cách đổi `fieldOfView`
+                // của đối tượng `SCNCamera`, ✗ bằng cách dời node lại gần (dời node thì đoạn chuyển
+                // vị trí ngay trên đã giữ hộ rồi). Mà mỗi cảnh mang một `SCNCamera` RIÊNG, nên đổi
+                // cảnh là về lại 55° gốc.
+                // ✗ chép luôn `zNear`/`zFar`: hai giá trị đó tính theo bán kính của TỪNG mô hình.
+                if let oldCamera = old.camera, let newCamera = model.camera.camera {
+                    newCamera.fieldOfView = oldCamera.fieldOfView
+                }
+            }
+
+            view.scene = model.scene
+            view.pointOfView = model.camera
+            view.defaultCameraController.target = model.center
+            coordinator.shown = model.scene
+            coordinator.center = model.center
+            coordinator.model = model
+        }
+
+        if framing.serial != coordinator.serial {
+            // A view-switch tap, or the first apply of this view (serial starts at Int.min).
+            coordinator.serial = framing.serial
+            coordinator.mode = framing.mode
+            coordinator.frame(view)
+        } else if coordinator.mode == .topView, sceneChanged || floorChanged {
+            // Texture flipped or floor changed in Top view: same spot, same zoom, same turn; a
+            // floor change moves the camera with the floor (height kept above the new floor).
+            if floorChanged {
+                coordinator.top.baseY = layout.topBase(floor)
+            }
+            coordinator.placeTopCamera(view)
+        }
+
+        if sceneChanged || floorChanged {
+            model.setClip(layout.band(floor))
+            coordinator.kickRedraw(view)
+        }
+        coordinator.applied = true
+        coordinator.syncControls(view)
+    }
+
+    /// Top view camera, kept in ARKit WORLD (so it survives the Texture switch): looks straight
+    /// down from `height` above the plane `baseY`, `target` = world (x, z) under the screen
+    /// centre on that plane, `yaw` = turn about the vertical.
+    struct TopCamera {
+        var target = SIMD2<Float>(0, 0)
+        var baseY: Float = 0
+        var height: Float = 10
+        var yaw: Float = 0
+        var maxHeight: Float = 30
+        /// Footprint diagonal, for `zFar`.
+        var reach: Float = 10
+    }
+
+    @MainActor
+    final class Coordinator: NSObject, UIGestureRecognizerDelegate {
+        var shown: SCNScene?
+        var center = SCNVector3Zero
+        var model: LoadedModel?
+        var layout: MeshLayout?
+        var floor: Int?
+        var applied = false
+        var serial = Int.min
+        var mode: ViewerMode = .dollhouse
+        var top = TopCamera()
+        private weak var view: SCNView?
+        private var recognizers: [UIGestureRecognizer] = []
+        private var redrawSerial = 0
+
+        /// Same 55° HORIZONTAL field of view as the Dollhouse opening (`projectionDirection`
+        /// stays `.horizontal`, set by both scene builders).
+        private static let fovDegrees: Float = 55
+        private static var halfFov: Float { fovDegrees * .pi / 360 }
+        /// Closest the camera gets to the floor it looks at.
+        private static let minHeight: Float = 1.5
+
+        func attach(to view: SCNView) {
+            self.view = view
+            let pan = UIPanGestureRecognizer(target: self, action: #selector(handlePan(_:)))
+            let pinch = UIPinchGestureRecognizer(target: self, action: #selector(handlePinch(_:)))
+            let twist = UIRotationGestureRecognizer(target: self, action: #selector(handleTwist(_:)))
+            recognizers = [pan, pinch, twist]
+            for recognizer in recognizers {
+                recognizer.delegate = self
+                recognizer.isEnabled = false
+                view.addGestureRecognizer(recognizer)
             }
         }
 
-        view.scene = model.scene
-        view.pointOfView = model.camera
-        view.defaultCameraController.target = model.center
-        coordinator.shown = model.scene
-        coordinator.center = model.center
+        /// Dollhouse: SceneKit's controller only. Top view: ours only (theirs would tilt).
+        func syncControls(_ view: SCNView) {
+            let dollhouse = mode == .dollhouse
+            if view.allowsCameraControl != dollhouse {
+                view.allowsCameraControl = dollhouse
+            }
+            for recognizer in recognizers where recognizer.isEnabled == dollhouse {
+                recognizer.isEnabled = !dollhouse
+            }
+        }
+
+        /// SceneKit may not redraw for a uniform change alone (no node moved): render
+        /// continuously for a moment instead of hoping.
+        func kickRedraw(_ view: SCNView) {
+            redrawSerial += 1
+            let mine = redrawSerial
+            view.rendersContinuously = true
+            Task { @MainActor [weak self, weak view] in
+                try? await Task.sleep(nanoseconds: 500_000_000)
+                guard let self, let view, self.redrawSerial == mine else { return }
+                view.rendersContinuously = false
+            }
+        }
+
+        // MARK: Framing
+
+        func frame(_ view: SCNView) {
+            guard let model else { return }
+            view.defaultCameraController.stopInertia()
+            switch mode {
+            case .dollhouse:
+                // Back to the opening view (today's default camera).
+                model.camera.simdTransform = model.openTransform
+                model.camera.camera?.fieldOfView = model.openFieldOfView
+                model.camera.camera?.zFar = model.openZFar
+                view.pointOfView = model.camera
+                view.defaultCameraController.target = model.center
+            case .topView:
+                frameTop(view)
+            }
+            kickRedraw(view)
+        }
+
+        /// Straight down, straightened along the main walls, whole footprint in view with the
+        /// wall tops (mockup 73 B: fit × 1.12 + 2.8 m). Of the four straight headings, the one
+        /// nearest the current heading, so the house does not spin when the mode changes.
+        private func frameTop(_ view: SCNView) {
+            guard let layout else { return }
+            let front = view.pointOfView?.simdWorldFront ?? SIMD3<Float>(0, 0, -1)
+            let flat = SIMD2<Float>(front.x, front.z)
+            // Screen-up on the ground = (−sin yaw, −cos yaw) ⇒ yaw = atan2(−x, −z). Already
+            // looking down (a Top view re-tap): keep the current turn.
+            let heading = simd_length(flat) > 0.2 ? atan2(-front.x, -front.z) : top.yaw
+            let theta = layout.wallAngle
+            var yaw = Self.wrap(-theta)
+            var quarter = 0
+            var bestDiff = Float.greatestFiniteMagnitude
+            for q in 0..<4 {
+                let candidate = Self.wrap(-theta - Float(q) * .pi / 2)
+                let diff = abs(Self.wrap(candidate - heading))
+                if diff < bestDiff {
+                    bestDiff = diff
+                    yaw = candidate
+                    quarter = q
+                }
+            }
+            // Screen-right = the wall axis r turned by `quarter` × 90°: odd ⇒ width is `across`.
+            let alongSpan = layout.along.upperBound - layout.along.lowerBound
+            let acrossSpan = layout.across.upperBound - layout.across.lowerBound
+            let width = quarter % 2 == 0 ? alongSpan : acrossSpan
+            let depth = quarter % 2 == 0 ? acrossSpan : alongSpan
+            let r = SIMD2<Float>(cos(theta), sin(theta))
+            let f = SIMD2<Float>(-sin(theta), cos(theta))
+            let alongMid = (layout.along.lowerBound + layout.along.upperBound) / 2
+            let acrossMid = (layout.across.lowerBound + layout.across.upperBound) / 2
+            let centre = r * alongMid + f * acrossMid
+            let size = view.bounds.size
+            // Before the first layout the view is 0×0: a portrait phone's shape.
+            let aspect: Float = size.width > 1 && size.height > 1 ? Float(size.width / size.height) : 390.0 / 844.0
+            let halfWidth = max(max(width / 2, depth / 2 * aspect) * 1.06, 1)
+            let height = halfWidth / tan(Self.halfFov) * 1.12 + 2.8
+            top = TopCamera(
+                target: centre,
+                baseY: layout.topBase(floor),
+                height: height,
+                yaw: yaw,
+                maxHeight: max(height * 3, 10),
+                reach: (alongSpan * alongSpan + acrossSpan * acrossSpan).squareRoot()
+            )
+            placeTopCamera(view)
+        }
+
+        func placeTopCamera(_ view: SCNView) {
+            guard let model, let camera = model.camera.camera else { return }
+            guard top.target.x.isFinite, top.target.y.isFinite, top.baseY.isFinite,
+                  top.height.isFinite, top.yaw.isFinite
+            else { return }
+            let o = model.worldOffset
+            model.camera.simdPosition = SIMD3<Float>(
+                top.target.x + o.x,
+                top.baseY + top.height + o.y,
+                top.target.y + o.z
+            )
+            // Look down (−Z → −Y, screen-up → −Z), then turn about the vertical.
+            model.camera.simdOrientation = simd_quatf(angle: top.yaw, axis: SIMD3<Float>(0, 1, 0))
+                * simd_quatf(angle: -.pi / 2, axis: SIMD3<Float>(1, 0, 0))
+            camera.fieldOfView = CGFloat(Self.fovDegrees)
+            camera.zFar = max(model.openZFar, Double(top.maxHeight + top.reach + 20))
+            if view.pointOfView !== model.camera {
+                view.pointOfView = model.camera
+            }
+        }
+
+        // MARK: Top view gestures (pan / pinch / twist, together like Maps)
+
+        func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,
+                               shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer) -> Bool {
+            recognizers.contains(gestureRecognizer) && recognizers.contains(other)
+        }
+
+        /// Metres per screen point on the base plane (horizontal FOV spans the view width).
+        private func metresPerPoint(_ view: SCNView) -> Float {
+            2 * top.height * tan(Self.halfFov) / Float(max(view.bounds.width, 1))
+        }
+
+        /// World (x, z) directions of screen-right and screen-up.
+        private var screenRight: SIMD2<Float> { SIMD2<Float>(cos(top.yaw), -sin(top.yaw)) }
+        private var screenUp: SIMD2<Float> { SIMD2<Float>(-sin(top.yaw), -cos(top.yaw)) }
+
+        /// World (x, z) on the base plane under a point of the view.
+        private func groundPoint(_ point: CGPoint, in view: SCNView) -> SIMD2<Float> {
+            let k = metresPerPoint(view)
+            let dx = Float(point.x - view.bounds.midX)
+            let dy = Float(point.y - view.bounds.midY)
+            return top.target + screenRight * (dx * k) - screenUp * (dy * k)
+        }
+
+        @objc private func handlePan(_ g: UIPanGestureRecognizer) {
+            guard mode == .topView, let view, g.state == .began || g.state == .changed else { return }
+            let t = g.translation(in: view)
+            g.setTranslation(.zero, in: view)
+            let k = metresPerPoint(view)
+            // The ground follows the finger: the camera moves the other way.
+            top.target += screenRight * (-Float(t.x) * k) + screenUp * (Float(t.y) * k)
+            placeTopCamera(view)
+        }
+
+        @objc private func handlePinch(_ g: UIPinchGestureRecognizer) {
+            guard mode == .topView, let view, g.state == .began || g.state == .changed else { return }
+            let scale = Float(g.scale)
+            g.scale = 1
+            guard scale.isFinite, scale > 0.01 else { return }
+            // Zoom about the fingers: the ground point between them stays under them.
+            let anchor = groundPoint(g.location(in: view), in: view)
+            let newHeight = min(max(top.height / scale, Self.minHeight), top.maxHeight)
+            top.target = anchor + (top.target - anchor) * (newHeight / top.height)
+            top.height = newHeight
+            placeTopCamera(view)
+        }
+
+        @objc private func handleTwist(_ g: UIRotationGestureRecognizer) {
+            guard mode == .topView, let view, g.state == .began || g.state == .changed else { return }
+            // UIKit: positive = clockwise on screen. Turning the camera by +a about the fingers'
+            // ground point turns the house clockwise by a.
+            let a = Float(g.rotation)
+            g.rotation = 0
+            guard a.isFinite else { return }
+            let anchor = groundPoint(g.location(in: view), in: view)
+            let d = top.target - anchor
+            top.target = anchor + SIMD2<Float>(d.x * cos(a) + d.y * sin(a), -d.x * sin(a) + d.y * cos(a))
+            top.yaw = Self.wrap(top.yaw + a)
+            placeTopCamera(view)
+        }
+
+        /// Angle into (−π, π].
+        private static func wrap(_ angle: Float) -> Float {
+            var a = angle.truncatingRemainder(dividingBy: 2 * .pi)
+            if a > .pi { a -= 2 * .pi }
+            if a <= -.pi { a += 2 * .pi }
+            return a
+        }
     }
 }

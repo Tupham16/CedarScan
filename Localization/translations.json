@@ -5207,6 +5207,67 @@
     "es": "Los artículos que añadiste para %@ se cancelaron porque no se pagaron en 7 días.",
     "nl": "Je toegevoegde onderdelen voor %@ zijn geannuleerd omdat ze niet binnen 7 dagen betaald zijn."
    }
+  },
+  {
+   "key": "All floors",
+   "source": "All",
+   "translations": {
+    "vi": "Tất cả",
+    "fr": "Tous",
+    "de": "Alle",
+    "cs": "Vše",
+    "sk": "Všetky",
+    "es": "Todas",
+    "nl": "Alle"
+   }
+  },
+  {
+   "key": "Floor %lld",
+   "translations": {
+    "vi": "Tầng %lld",
+    "fr": "Étage %lld",
+    "de": "Etage %lld",
+    "cs": "Podlaží %lld",
+    "sk": "Podlažie %lld",
+    "es": "Planta %lld",
+    "nl": "Verdieping %lld"
+   }
+  },
+  {
+   "key": "Dollhouse",
+   "translations": {
+    "vi": "Dollhouse",
+    "fr": "Vue 3D",
+    "de": "Puppenhaus",
+    "cs": "3D pohled",
+    "sk": "3D pohľad",
+    "es": "Vista 3D",
+    "nl": "Poppenhuis"
+   }
+  },
+  {
+   "key": "Top view",
+   "translations": {
+    "vi": "Top view",
+    "fr": "Vue de dessus",
+    "de": "Draufsicht",
+    "cs": "Pohled shora",
+    "sk": "Pohľad zhora",
+    "es": "Vista cenital",
+    "nl": "Bovenaanzicht"
+   }
+  },
+  {
+   "key": "Drag to move · pinch to zoom · twist to turn",
+   "translations": {
+    "vi": "Kéo để di chuyển · chụm hai ngón để phóng to · xoay hai ngón để quay",
+    "fr": "Glissez pour déplacer · pincez pour zoomer · tournez pour pivoter",
+    "de": "Ziehen zum Verschieben · Aufziehen zum Zoomen · mit zwei Fingern drehen",
+    "cs": "Tažením posunete · dvěma prsty přiblížíte · otočením dvou prstů natočíte",
+    "sk": "Ťahaním posuniete · dvoma prstami priblížite · otočením dvoch prstov natočíte",
+    "es": "Arrastra para mover · pellizca para hacer zoom · gira para rotar",
+    "nl": "Sleep om te verplaatsen · knijp om te zoomen · draai om te roteren"
+   }
   }
  ],
  "infoplist": {
