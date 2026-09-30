@@ -83,6 +83,9 @@ struct CedarTabBar: View {
     /// Đã cân nhắc và loại: VStack làm bàn phím đẩy CẢ thanh tab lên, mà chữa bằng
     /// `.ignoresSafeArea(.keyboard)` ở VStack thì tắt luôn việc né bàn phím của NỘI DUNG — ô địa
     /// chỉ/ô tìm kiếm chui xuống dưới bàn phím. `.safeAreaInset` là công cụ đúng cho việc này.
+    ///
+    /// 🔴 Since 2.71 the TAB ROOTS reserve it too (`tabRootBarRoom`): measured on the iOS 26 SDK the
+    /// TabView's inset does not reach them either.
     static let reservedHeight: CGFloat = totalHeight
 
     var body: some View {
@@ -205,5 +208,22 @@ struct CedarTabBar: View {
                 .font(.system(size: 24, weight: .semibold))
                 .foregroundStyle(.white)
         }
+    }
+}
+
+extension View {
+    /// 🔴 Room for `CedarTabBar` at the end of a TAB ROOT's scroll view (Home, Orders, Learn,
+    /// Account). Owner 30/09: many properties on Home -> the last card stopped half under the bar,
+    /// its trash could not be tapped. Measured (simulator harness `claude/home-bottom-shots`,
+    /// iOS 26.2, 390 + 402pt): Home's List had bottom inset 34 = home indicator only, ✗ 34 + 94 —
+    /// the TabView's `.safeAreaInset` no longer reaches the tab roots (pushed screens: never, see
+    /// `reservedHeight`). With this: inset 128, last trash 46pt above the bar, tap opens the alert.
+    /// Safe-area padding: the scroll indicator stops above the bar too.
+    /// ✗ `contentMargins`: it flows down the environment, i.e. into inline `NavigationLink`
+    /// destinations (Account -> `LegalDocumentView`).
+    /// ⚠ If a later iOS honours the TabView inset again, this doubles the gap (a blank band at the
+    /// end, nothing hidden) — drop it then.
+    func tabRootBarRoom() -> some View {
+        safeAreaPadding(.bottom, CedarTabBar.reservedHeight)
     }
 }
