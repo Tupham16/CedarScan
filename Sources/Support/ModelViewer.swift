@@ -20,7 +20,8 @@ import simd
 ///
 /// **Bốn ca, cả bốn đều phải đúng:**
 ///  · có xám + có texture → mở ra XÁM (tức thì, không mạng), công tắc bật lên được;
-///  · có xám, chưa có texture (chưa đặt hàng / máy trạm chưa bake) → không có công tắc;
+///  · có xám, chưa có texture (chưa đặt hàng / máy trạm chưa bake) → không có công tắc (từ 2.77:
+///    trừ khi có màu dựng trên máy — xem ghi chú 2.77 bên dưới);
 ///  · không có xám (bản quét lưu TRƯỚC bản 1.4 — `mesh-preview.bin` không dựng lại được), có
 ///    texture → mở thẳng texture, không có công tắc;
 ///  · không có gì → `ScanDetailView` không hiện nút, màn này không bao giờ mở.

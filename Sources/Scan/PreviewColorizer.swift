@@ -101,8 +101,8 @@ enum PreviewColorizer {
         }
 
         if ProcessInfo.processInfo.thermalState == .critical { return finish("hot") }
+        // nil also for a preview over `maxVertices` (checked before any allocation).
         guard let mesh = loadMesh(previewURL) else { return finish("noPreview") }
-        guard mesh.vertexCount <= maxVertices else { return finish("tooBig") }
         guard let shotsData = try? Data(contentsOf: shotsDir.appendingPathComponent("shots.json")),
               let shots = try? JSONDecoder().decode(ShotsFile.self, from: shotsData).shots,
               !shots.isEmpty
@@ -264,7 +264,8 @@ enum PreviewColorizer {
 
     /// Reads the preview and keeps only what colouring needs: the ~5 MB file bytes die here.
     private static func loadMesh(_ url: URL) -> Mesh? {
-        guard let decoded = try? MeshPreviewFile.readSync(url) else { return nil }
+        guard let decoded = try? MeshPreviewFile.readSync(url), decoded.vertexCount <= maxVertices
+        else { return nil }
         let n = decoded.vertexCount
         var geo = [Float](repeating: 0, count: n * 6)
         decoded.raw.withUnsafeBytes { (buf: UnsafeRawBufferPointer) in
@@ -318,12 +319,22 @@ enum PreviewColorizer {
         while max(width, height) / factor > maxImageSide, factor < 8 {
             factor *= 2
         }
-        let options: [CFString: Any] = [
-            kCGImageSourceSubsampleFactor: factor,
-            kCGImageSourceShouldCacheImmediately: true,
-        ]
-        guard let image = CGImageSourceCreateImageAtIndex(source, 0, options as CFDictionary)
+        var options: [CFString: Any] = [kCGImageSourceShouldCacheImmediately: true]
+        if factor > 1 { options[kCGImageSourceSubsampleFactor] = factor }
+        guard var image = CGImageSourceCreateImageAtIndex(source, 0, options as CFDictionary)
         else { return nil }
+        if max(image.width, image.height) > maxImageSide {
+            // Decoder ignored the subsample: the documented thumbnail path (≤ 720 px) instead.
+            let thumbOptions: [CFString: Any] = [
+                kCGImageSourceCreateThumbnailFromImageAlways: true,
+                kCGImageSourceThumbnailMaxPixelSize: maxImageSide,
+                kCGImageSourceCreateThumbnailWithTransform: false,
+                kCGImageSourceShouldCacheImmediately: true,
+            ]
+            guard let thumb = CGImageSourceCreateThumbnailAtIndex(source, 0, thumbOptions as CFDictionary)
+            else { return nil }
+            image = thumb
+        }
         let w = image.width
         let h = image.height
         guard w > 3, h > 3, w <= maxImageSide, h <= maxImageSide else { return nil }

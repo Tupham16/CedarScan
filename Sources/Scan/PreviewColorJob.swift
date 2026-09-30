@@ -102,8 +102,8 @@ final class PreviewColorJob: @unchecked Sendable {
             // Array join, ✗ a `+` chain into `Any?` (CI type-check time).
             let addition: String = [
                 " previewColour = phone colouring of the in-app 3D preview (app 2.77+): status ",
-                "(done / hot / timeout / sparse / tooBig / cancelled / noShots / noPreview / ",
-                "failed / writeFailed), ms, shots, shotsUsed, vertices, direct / filled = ",
+                "(done / hot / timeout / sparse / cancelled / noShots / noPreview / failed / ",
+                "writeFailed / stillRunning), ms, shots, shotsUsed, vertices, direct / filled = ",
                 "fraction of preview vertices coloured from a shot / after the fill, thermal ",
                 "at the end.",
             ].joined()
