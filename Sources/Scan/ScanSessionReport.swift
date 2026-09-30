@@ -219,9 +219,11 @@ final class ScanSessionReport {
         let whiteBalance: WhiteBalance
         /// Auto torch (26/09): status, level, switch counts, lit seconds.
         let torch: AutoTorch.Stats
-        /// 🧪 TEST build only (ExposureCap, 2.70.1): the selected cap in ms (0 = off) and its
-        /// status/figures. nil = key absent (every normal build).
+        /// 🧪 TEST build only (ExposureCap, 2.70.1 / 2.70.2): the selected floor / fixed limit in
+        /// ms (0 = off), the mode (adaptive | hard | off) and its status/figures. nil = key absent
+        /// (every normal build).
         let exposureCapMs: Int?
+        let exposureCapMode: String?
         let exposureCap: ExposureCap.Stats?
     }
 
@@ -246,11 +248,15 @@ final class ScanSessionReport {
             + "BrightnessValue), d (near LiDAR depth m, -1 none), on (torch lit). "
             + "Not read by the workstation yet."
         if exposureCap != nil {
-            note += " TEST BUILD: exposureCapMs = auto-exposure limit selected for this scan "
-                + "(ms, 0 = off); exposureCap = how it went (status, device default/applied "
-                + "limit ms, set times, frames sampled / over / at the cap / at max ISO) and "
-                + "trace = 1 Hz t (s), raw EXIF bv, exp (ms), iso, ev (ARKit exposureOffset), "
-                + "lim (device auto-exposure limit ms)."
+            note += " TEST BUILD: exposureCapMode = adaptive (auto-exposure limit starts at "
+                + "exposureCapMs, is raised up to the device default only while ISO is at max "
+                + "and frames are underexposed, lowered again when ISO has headroom) | hard "
+                + "(fixed at exposureCapMs) | off; exposureCapMs = floor / fixed limit (ms, 0 = "
+                + "off); exposureCap = how it went (status, device default/applied limit ms, "
+                + "set times, frames sampled / over / at the limit / at max ISO, ceilingMs, "
+                + "stepsUp / stepsDown, steps = t (s), lim (ms after the step), iso, ev) and "
+                + "trace = 1 Hz t (s), raw EXIF bv, exp (ms), iso, ev (ARKit exposureOffset = "
+                + "auto-exposure target offset, EV), lim (device auto-exposure limit ms)."
         }
         let file = File(
             version: 1,
@@ -283,6 +289,7 @@ final class ScanSessionReport {
                 return t
             }(),
             exposureCapMs: exposureCap?.capMs,
+            exposureCapMode: exposureCap?.mode,
             exposureCap: exposureCap
         )
         let url = FileManager.default.temporaryDirectory

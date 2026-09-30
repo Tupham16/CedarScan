@@ -132,7 +132,7 @@ final class TextureCoverageGrid {
 ///    0.8 s of the one the old rule saved. Why: the owner's textures looked smeared next to
 ///    Scaniverse / 3D Scanner App, and the workstation measured the RAW shots as already
 ///    soft (motion blur while turning, q0.55) — bake-side fixes did not help.
-///  - Kho đầy (800 ảnh, ~210–270KB/ảnh jpg+depth since q0.8 — estimate, see jpegQuality):
+///  - Kho đầy (800 ảnh, ~160KB/ảnh jpg+depth at q0.55, see jpegQuality):
 ///    BỎ 1 ẢNH XEN KẼ TRÊN ĐĨA (kèm file depth của nó) rồi nhân đôi giãn cách — đúng cơ chế
 ///    trải-đều của kho khung màu, nhưng trả giá bằng đĩa (rẻ) thay vì RAM.
 ///  - Ảnh giữ NGUYÊN HƯỚNG CẢM BIẾN (landscape) — không xoay pixel, không gắn EXIF:
@@ -148,17 +148,15 @@ final class TextureShotRecorder {
     /// Chất lượng JPEG — hạ 0.62 → 0.55 làm đối trọng cho 2.25× pixel của mức 1440:
     /// (đời trần 480, 30/07) kho 480 ảnh ~50MB (960/q0.62) → ~90–100MB thay vì ~110MB,
     /// nằm trong mức "+50–60MB zip" chủ app duyệt lúc đó (nay trần 800, xem maxShots).
-    /// 0.55 → 0.8 (2.70, owner 29/09, accepted ~2× the photo part of the zip): the workstation
-    /// found q0.55 among the causes of soft raw shots (fabric weave / wood grain lost).
-    /// Measured at 0.55: jpg ~107KB (~139KB mean on a dim scan) + depth ~52KB. At 0.8 =
-    /// ESTIMATE (Apple's 0.55 table ≈ libjpeg q80 already): clean frames ~1.5–2× jpg ≈
-    /// 160–215KB → ~210–270KB/shot, full 800 store ≈ 170–215MB (was ~128MB); dim/noisy scans
-    /// (noise q0.55 zeroed now survives) up to ~2.5× ≈ 330–400KB/shot → ≤ ~320MB. A full
-    /// store always takes the fast-save path (≥ fastSaveMinShots, no GLB), so zip worst case
-    /// ≈ store + OBJ 40–60MB ≈ 380MB, under the 500MB objzip cap (order-webapp
-    /// app-storage.ts). The zip is a second copy on disk while saving. Re-measure KB/shot
-    /// (and the JPEG chroma subsampling) on the first device scan.
-    private static let jpegQuality: Double = 0.8
+    /// 0.55 → 0.8 (2.70) → back to 0.55 (2.70.2, owner 30/09): the workstation MEASURED q0.8
+    /// useless — jpg +75% (181 vs ~105KB) on the 2.70 scans, re-encoding a q0.8 shot at 0.55
+    /// changed no measured sharpness (< 1%) and deblur results were the same.
+    /// Measured at 0.55: jpg ~107KB (~139KB mean on a dim scan) + depth ~52KB ≈ 160KB/shot →
+    /// full 800 store ~128MB. Noisier frames cost more: 2.70.1's hard 4 ms cap (ISO at max on
+    /// 43% of frames) ran 246KB jpg at q0.8; the adaptive cap keeps dark rooms near 2.70's
+    /// noise. A full store always takes the fast-save path (≥ fastSaveMinShots, no GLB), under
+    /// the 500MB objzip cap (order-webapp app-storage.ts) with room to spare.
+    private static let jpegQuality: Double = 0.55
     /// Giãn cách TỐI THIỂU giữa hai ảnh (giây) — nhân đôi mỗi lần kho đầy.
     private static let startInterval: TimeInterval = 1.2
     /// Ngưỡng "đã sang góc nhìn mới": dịch ≥ 0.4m HOẶC xoay ≥ 25°. Đứng yên một chỗ thì
@@ -185,7 +183,8 @@ final class TextureShotRecorder {
     /// ~8% of faces got no photo (#LS-MSLINTGA7, 949 m², 268 shots). Measured ~160KB/shot
     /// (jpg ~107KB + depth ~52KB) → full store ~128MB; worst gap vs 480 ≈ 400 shots
     /// ≈ +64MB zip (800 full vs 400 just-thinned), only for scans past ~10 min.
-    /// Since q0.8 (2.70) ~210–400KB/shot (estimate, see jpegQuality) → full store ≤ ~320MB.
+    /// (2.70's q0.8 measured jpg 181KB, 246KB under 2.70.1's hard 4 ms cap, + depth; 2.70.2 is
+    /// back at 0.55, see jpegQuality.)
     /// Server objzip cap 500MB (order-webapp app-storage.ts). Paired with
     /// tex-worker-config.json "maxShots" (bake set-cover cap) on the workstation.
     private static let maxShots = 800
@@ -903,10 +902,12 @@ final class TextureShotRecorder {
         "win = seconds from that frame to this one.",
     ].joined()
 
-    /// 🧪 TEST build only (ExposureCap, 2.70.1) — appended to `note`; "" in every other build.
+    /// 🧪 TEST build only (ExposureCap, 2.70.1 / 2.70.2) — appended to `note`; "" in every other
+    /// build.
     private static let exposureCapNote: String = ExposureCap.testBuild
         ? " TEST BUILD: expMaxMs = the camera's auto-exposure upper limit in force at capture "
-            + "(ms); scan-report.json exposureCapMs = the cap selected for the scan (0 = off)."
+            + "(ms; moves during the scan when scan-report.json exposureCapMode = adaptive); "
+            + "exposureCapMs = the floor / fixed limit selected for the scan (0 = off)."
         : ""
 
     /// ioQueue. Fills `m2` from the final anchor poses and builds the report figures.

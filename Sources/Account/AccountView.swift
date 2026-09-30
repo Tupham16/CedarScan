@@ -17,7 +17,7 @@ struct AccountView: View {
     /// AltStore has no console.
     @AppStorage("scanDebugReadout") private var scanDebugReadout = false
     /// 🧪 TEST build only: exposure cap selector (ExposureCap reads the same key at scan start).
-    @AppStorage(ExposureCap.settingKey) private var exposureCapMs = ExposureCap.defaultMs
+    @AppStorage(ExposureCap.settingKey) private var exposureCapMode: ExposureCap.Mode = ExposureCap.defaultMode
     @State private var versionTaps = 0
     @State private var lastVersionTap = Date.distantPast
 
@@ -229,13 +229,14 @@ struct AccountView: View {
             }
     }
 
-    /// 🧪 TEST build only (ExposureCap, 2.70.1), behind the hidden debug flag. English, verbatim:
-    /// owner-only, no translation keys (a short key could also collide with Stripe's, trap #42).
+    /// 🧪 TEST build only (ExposureCap, 2.70.1 / 2.70.2), behind the hidden debug flag. English,
+    /// verbatim: owner-only, no translation keys (a short key could also collide with Stripe's,
+    /// trap #42).
     private var exposureCapSection: some View {
         Section {
-            Picker(selection: $exposureCapMs) {
-                ForEach(ExposureCap.choices, id: \.self) { ms in
-                    Text(verbatim: ms == 0 ? "Off" : "\(ms) ms").tag(ms)
+            Picker(selection: $exposureCapMode) {
+                ForEach(ExposureCap.Mode.allCases) { mode in
+                    Text(verbatim: mode.label).tag(mode)
                 }
             } label: {
                 Text(verbatim: "Exposure cap (test)")
