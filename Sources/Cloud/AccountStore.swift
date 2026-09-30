@@ -44,10 +44,16 @@ final class AccountStore: ObservableObject {
             // Làm mới thông tin nền; token hỏng/hết hạn thì tự đăng xuất
             Task { await refresh() }
         }
+        // THROWAWAY harness: fake sign-in (unsigned simulator build, no Keychain).
+        if ProcessInfo.processInfo.arguments.contains("-homeSignedIn") {
+            customer = CustomerDTO(id: "harness", email: "harness@example.com", name: "Harness")
+            emailVerified = true
+        }
     }
 
     func refresh() async {
         guard APIClient.shared.token != nil else { return }
+        if ProcessInfo.processInfo.arguments.contains("-homeSignedIn") { return }
         do {
             let me = try await APIClient.shared.me()
             setCustomer(me.customer)

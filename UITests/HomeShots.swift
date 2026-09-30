@@ -6,7 +6,8 @@ final class HomeShots: XCTestCase {
 
     func testShots() {
         continueAfterFailure = true
-        for count in [1, 3, 8, 20] {
+        // Round 3: the real fix (tabRootBarRoom) compiled in.
+        for count in [1, 3, 20] {
             let app = launch(count)
             report(app, "n\(count)-top")
             scrollToEnd(app)
@@ -14,42 +15,62 @@ final class HomeShots: XCTestCase {
             tryLastTrash(app, "n\(count)-end")
             app.terminate()
         }
-        // Push / pop and delete, 20 properties.
         let app = launch(20)
         scrollToEnd(app)
         openLastCard(app)
         report(app, "n20-pushed")
-        scrollToEnd(app)
-        report(app, "n20-pushed-end")
         app.navigationBars.buttons.element(boundBy: 0).tap()
         sleep(2)
         report(app, "n20-after-pop")
-        tryLastTrash(app, "n20-after-pop")
+        scrollToEnd(app)
+        report(app, "n20-after-pop-end")
+        tryLastTrash(app, "n20-after-pop-end")
         deleteOneVisible(app)
         report(app, "n20-after-delete")
         scrollToEnd(app)
         report(app, "n20-after-delete-end")
         tryLastTrash(app, "n20-after-delete-end")
-        // Other tab roots.
-        tab(app, "Orders")
-        report(app, "orders")
-        tab(app, "Learn")
-        scrollToEnd(app)
-        report(app, "learn-end")
-        tab(app, "Home")
-        report(app, "home-again")
-        app.terminate()
-        // Candidate fixes.
-        for fix in ["margins", "padding"] {
-            for count in [3, 20] {
-                let a = launch(count, ["-homeFix", fix])
-                report(a, "fix-\(fix)-n\(count)-top")
-                scrollToEnd(a)
-                report(a, "fix-\(fix)-n\(count)-end")
-                tryLastTrash(a, "fix-\(fix)-n\(count)-end")
-                a.terminate()
-            }
+        // Search with the keyboard up.
+        let field = app.searchFields.firstMatch
+        if field.waitForExistence(timeout: 3) {
+            field.tap()
+            field.typeText("Elm")
+            sleep(2)
+            report(app, "n20-search-elm")
+            scrollToEnd(app)
+            report(app, "n20-search-elm-end")
         }
+        app.terminate()
+        // Other tab roots, signed out.
+        let out = launch(1)
+        tab(out, "Learn")
+        scrollToEnd(out)
+        report(out, "learn-end")
+        tab(out, "Account")
+        report(out, "account-signedout")
+        scrollToEnd(out)
+        report(out, "account-signedout-end")
+        out.terminate()
+        // Signed in (fake): Account list end, a pushed legal page end, Orders.
+        let inApp = launch(1, ["-homeSignedIn"])
+        tab(inApp, "Orders")
+        report(inApp, "orders-signedin")
+        tab(inApp, "Account")
+        report(inApp, "account-signedin")
+        scrollToEnd(inApp)
+        report(inApp, "account-signedin-end")
+        let legal = inApp.cells.allElementsBoundByIndex.first { $0.label.contains("Privacy") && $0.isHittable }
+            ?? inApp.buttons.allElementsBoundByIndex.first { $0.label.contains("Privacy") && $0.isHittable }
+        if let legal {
+            legal.tap()
+            sleep(2)
+            report(inApp, "legal-top")
+            scrollToEnd(inApp)
+            report(inApp, "legal-end")
+        } else {
+            note("no Privacy link")
+        }
+        inApp.terminate()
     }
 
     private func launch(_ count: Int, _ extra: [String] = []) -> XCUIApplication {
@@ -89,6 +110,9 @@ final class HomeShots: XCTestCase {
         }
         for (i, t) in trashes(app).enumerated() {
             lines.append("trash[\(i)] \(t.frame) hittable=\(t.isHittable)")
+        }
+        for v in app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'CedarScan 2'")).allElementsBoundByIndex {
+            lines.append("version \(v.label) \(v.frame)")
         }
         let probe = app.staticTexts["homeProbe"]
         lines.append("probe: " + (probe.exists ? probe.label : "missing"))

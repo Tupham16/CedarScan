@@ -69,6 +69,7 @@ struct LearnView: View {
                 }
             }
             .fogScreen()
+            .tabRootBarRoom()
             .navigationTitle(String(localized: "Learn"))
             .navigationDestination(for: Topic.self) { topic in
                 switch topic {
