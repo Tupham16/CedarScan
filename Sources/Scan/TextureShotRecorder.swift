@@ -148,7 +148,8 @@ final class TextureShotRecorder {
     /// Chất lượng JPEG — hạ 0.62 → 0.55 làm đối trọng cho 2.25× pixel của mức 1440:
     /// (đời trần 480, 30/07) kho 480 ảnh ~50MB (960/q0.62) → ~90–100MB thay vì ~110MB,
     /// nằm trong mức "+50–60MB zip" chủ app duyệt lúc đó (nay trần 800, xem maxShots).
-    /// 0.55 → 0.8 (2.70) → back to 0.55 (2.70.2, owner 30/09): the workstation MEASURED q0.8
+    /// 0.55 → 0.8 (2.70–2.72) → back to 0.55 for customers in 2.73 (tested as 2.70.2, owner
+    /// 30/09; NOT under the exposure-cap kill switch): the workstation MEASURED q0.8
     /// useless — jpg +75% (181 vs ~105KB) on the 2.70 scans, re-encoding a q0.8 shot at 0.55
     /// changed no measured sharpness (< 1%) and deblur results were the same.
     /// Measured at 0.55: jpg ~107KB (~139KB mean on a dim scan) + depth ~52KB ≈ 160KB/shot →
@@ -183,7 +184,7 @@ final class TextureShotRecorder {
     /// ~8% of faces got no photo (#LS-MSLINTGA7, 949 m², 268 shots). Measured ~160KB/shot
     /// (jpg ~107KB + depth ~52KB) → full store ~128MB; worst gap vs 480 ≈ 400 shots
     /// ≈ +64MB zip (800 full vs 400 just-thinned), only for scans past ~10 min.
-    /// (2.70's q0.8 measured jpg 181KB, 246KB under 2.70.1's hard 4 ms cap, + depth; 2.70.2 is
+    /// (2.70's q0.8 measured jpg 181KB, 246KB under 2.70.1's hard 4 ms cap, + depth; 2.73 is
     /// back at 0.55, see jpegQuality.)
     /// Server objzip cap 500MB (order-webapp app-storage.ts). Paired with
     /// tex-worker-config.json "maxShots" (bake set-cover cap) on the workstation.
@@ -427,7 +428,7 @@ final class TextureShotRecorder {
         guard turnRate <= Self.maxTurnRateDegPerSec else { return }
         // Torch just switched: exposure is still moving (over/under-exposed frame).
         if let torch, torch.isSettling(at: frame.timestamp) { return }
-        // Same for a test-build exposure-limit step (ExposureCap, 2.70.2).
+        // Same for an exposure-limit step (ExposureCap adaptive loop).
         if let exposureCap, exposureCap.isSettling(at: frame.timestamp) { return }
 
         if let best = candidate?.rank {

@@ -245,8 +245,9 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
         // không có (recorder hỏng, shots.json ném lỗi nên finish() trả nil, buổi quét vài
         // giây) → máy trạm sẽ KHÔNG bake được, phải giữ màu-đỉnh cho đội vẽ có cái mà xem.
         let fastSave = (texshots?.shotCount ?? 0) >= Self.fastSaveMinShots
-        // Item 3 (26/09): scan-report.json (a few KB, temp file; ScanStore packs it into the
-        // zip). nil on any failure — never blocks the save.
+        // Item 3 (26/09): scan-report.json (temp file; ScanStore packs it into the zip; ~250 KB
+        // for a 20-min scan since the 1 Hz exposure-cap trace, ≤ ~1 MB at an hour). nil on any
+        // failure — never blocks the save.
         let reportURL = report?.write(
             hitCap: hitCap, vertexCount: vertexCount, fastSave: fastSave, shots: texshots?.stats,
             torch: torch.stats, exposureCap: exposureCap.stats

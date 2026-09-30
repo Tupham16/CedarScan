@@ -53,9 +53,12 @@ struct ScanQualityConfig: Codable {
 
     // Exposure cap (2.73, see ExposureCap): "adaptive" (default, also when the key is absent) or
     // "off" = SERVER KILL SWITCH, e.g. if customers report bands under tube / LED lights:
-    // `{"exposureCap": "off"}`. Read at every scan start, so a persisted "off" applies from the
-    // next scan; same delivery lag as lockWhiteBalance (arrives with `catalog()` = order form).
-    // Decoded case-insensitively; JSON false = off, true = adaptive; any other value = adaptive.
+    // `{"exposureCap": "off"}` (order-webapp scripts/set-scan-quality.ts). Read at every scan
+    // start, so a persisted "off" applies from the next scan. Delivery = `catalog()`: the order
+    // form, and since 2.73 also launch / sign-in / foreground while signed in (RootView,
+    // ≥ 30 min apart). NOT reached: a phone never signed in (scans work signed out) and a scan
+    // already running. Case-insensitive; "off" / "false" / "0" / "none" / "disabled" and JSON
+    // false = off; anything else (true, "adaptive", unknown) = adaptive.
     // 🔴 Frozen-default trap (see load()): the blob stores "adaptive" — a changed default needs a
     // rewrite line in load().
     var exposureCap: String
@@ -116,7 +119,7 @@ struct ScanQualityConfig: Codable {
         torchOffAboveBV = (offBV.isFinite && offBV > -10 && offBV < 12) ? offBV : d.torchOffAboveBV
         let shareK = (try? c.decodeIfPresent(Double.self, forKey: .torchShareK)) ?? d.torchShareK
         torchShareK = (shareK.isFinite && shareK >= 0 && shareK <= 20) ? shareK : d.torchShareK
-        // "off" / "adaptive" (any case, spaces trimmed) or a JSON bool; else the default.
+        // A string (any case, spaces trimmed) or a JSON bool; else the default.
         if let s = try? c.decodeIfPresent(String.self, forKey: .exposureCap) {
             exposureCap = Self.normalizedExposureCap(s) ?? d.exposureCap
         } else if let b = try? c.decodeIfPresent(Bool.self, forKey: .exposureCap) {
@@ -126,9 +129,10 @@ struct ScanQualityConfig: Codable {
         }
     }
 
+    /// A hand-edited row that clearly means "off" must not fail open to adaptive.
     private static func normalizedExposureCap(_ s: String) -> String? {
         switch s.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
-        case exposureCapOffValue: return exposureCapOffValue
+        case exposureCapOffValue, "false", "0", "none", "disabled": return exposureCapOffValue
         case exposureCapAdaptiveValue: return exposureCapAdaptiveValue
         default: return nil
         }

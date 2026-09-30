@@ -618,7 +618,10 @@ final class APIClient {
         let response: CatalogResponse = try await send("catalog", query: ["deviceId": DeviceID.current])
         // Server có thể tinh chỉnh ngưỡng Accuracy Suite — cache lại cho lần quét sau.
         // Server KHÔNG có override (null) → về mặc định, để xóa AppSetting là hồi phục được.
-        ScanQualityConfig.current = response.scanQuality ?? .defaults
+        // Written on MAIN (2.73): scan start reads `current` on main, and since 2.73 this also
+        // runs at launch / foreground (RootView), i.e. possibly while a scan is starting.
+        let quality = response.scanQuality ?? .defaults
+        await MainActor.run { ScanQualityConfig.current = quality }
         return response
     }
 

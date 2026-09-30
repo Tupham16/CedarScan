@@ -133,6 +133,11 @@ struct AccountView: View {
                             WrappedText(String(localized: "Deletes your account and the scans we hold in the cloud. Scans on this iPhone are not affected. This cannot be undone."),
                                         style: .footnote, color: .secondaryLabel)
                         }
+                        // Hidden debug mode only — customers never see it (ExposureCap). ABOVE the
+                        // version line: owner checks read "Account must END with CedarScan x.yy".
+                        if scanDebugReadout {
+                            exposureCapSection
+                        }
                         // Bản đang chạy. Trước đây số bản chỉ xem được ở AltStore / Cài đặt iOS,
                         // nên lúc thử bản nhánh không ai chắc máy đang chạy bản nào (20/09 đã mất
                         // hai lượt thử vì cài trúng bản main). `verbatim` = KHÔNG có khoá dịch:
@@ -140,10 +145,6 @@ struct AccountView: View {
                         Section {
                             versionLine
                                 .listRowBackground(Color.clear)
-                        }
-                        // Hidden debug mode only — customers never see it (ExposureCap).
-                        if scanDebugReadout {
-                            exposureCapSection
                         }
                     }
                     // `paymentMethods` comes with `GET me`; launch asks once, this covers a fresh

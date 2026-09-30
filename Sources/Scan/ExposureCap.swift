@@ -12,11 +12,14 @@ import QuartzCore
 /// Which mode a scan runs is decided ONCE at its start (`resolveMode`):
 ///  1. hidden debug mode on (7 taps on the version line in Account) AND a pick other than "Default"
 ///     in its "Exposure cap" picker → that pick (Off / Adaptive / Hard 4 / 6 / 8 ms; owner tests);
-///  2. else the SERVER KILL SWITCH: `scan-quality-config` `{"exposureCap": "off"}` → off
-///     (ScanQualityConfig.exposureCap; arrives with `catalog()` = the order form, persisted, so an
-///     "off" applies from the device's next scan after that);
+///  2. else the SERVER KILL SWITCH: `scan-quality-config` `{"exposureCap": "off"}` → off, fully
+///     inert (no loop, no trace; only a leftover limit of an earlier scan is put back). Arrives with
+///     `catalog()` (order form; launch / sign-in / foreground while signed in, ≥ 30 min apart),
+///     persisted, applies from the phone's next scan. A phone never signed in never gets it
+///     (ScanQualityConfig.exposureCap);
 ///  3. else adaptive (the default; also with no server row / no key).
-/// Off never sets anything on the device (it still traces and records `expMaxMs` = the baseline).
+/// Off never sets anything on the device (debug Off still traces and records `expMaxMs` = the A/B
+/// baseline). JPEG 0.55 (TextureShotRecorder, 2.73) is NOT under the switch: Off ≠ 2.72 exactly.
 ///
 /// MEASURED 2.70.2 ADAPTIVE (owner's phone, #LS-MUNOBU41H): 56% of shots at 4 ms, blur p50 3.4 px
 /// (2.70: 8.4), darkest-quarter photo luma 100 (uncapped 96) = dark rooms no darker, tracking
@@ -55,9 +58,9 @@ import QuartzCore
 ///  - restored at teardown (both exits, BEFORE arSession.pause — the device outlives the session)
 ///    to the device's own value, only if the device still holds OUR value; a failed restore is
 ///    retried 0.5 s later and then at the next scan's start (`stale`; stuck there = `staleAtStart`).
-///  - Kill switches: server `{"exposureCap": "off"}` for everyone; the debug picker per phone
-///    (resolution order at the top). Off never sets anything (it still traces, shows the debug
-///    readout and records `expMaxMs` = A/B baseline).
+///  - Kill switches: server `{"exposureCap": "off"}` for everyone (inert, no loop); the debug
+///    picker per phone (resolution order at the top). Off never sets anything (debug Off still
+///    traces, shows the debug readout and records `expMaxMs` = A/B baseline).
 ///
 /// ADAPTIVE (mode `adaptive4`, the default). Loop at 10 Hz on main (2.70.1: 2 Hz), inputs = the
 /// capture device's `iso` / `activeFormat.maxISO` (`isoFrac`: same scale, unrounded — review R1: EXIF
@@ -403,7 +406,9 @@ final class ExposureCap: ObservableObject {
         } else {
             stats.status = "noDevice"
         }
-        // Always, also Off: the trace of an Off scan is the A/B baseline.
+        // Server kill switch: fully inert — no Timer, no reads, no trace (also covers a problem
+        // in the loop itself). Debug Off keeps the loop: its trace is the A/B baseline.
+        guard resolved.source != "server" else { return }
         let timer = Timer(timeInterval: Self.tickSec, repeats: true) { [weak self] _ in
             self?.tick()
         }
@@ -850,10 +855,13 @@ final class ExposureCap: ObservableObject {
     }
 
     /// Puts `original` back if the device still holds `ours` (else ARKit already set its own
-    /// default — leave it). true = done or nothing to do; false = lock failed.
+    /// default — leave it). true = done or nothing to do; false = lock failed or AE not running
+    /// (try again later).
     @discardableResult
     private static func restore(_ device: AVCaptureDevice, original: CMTime, ours: CMTime) -> Bool {
         guard sameValue(device.activeMaxExposureDuration, ours) else { return true }
+        // Unlocked pre-check of the AE rule below: no lock churn while AE is not running.
+        guard runsAutoExposure(device) else { return false }
         do {
             try device.lockForConfiguration()
         } catch {
@@ -861,6 +869,10 @@ final class ExposureCap: ObservableObject {
         }
         defer { device.unlockForConfiguration() }
         guard sameValue(device.activeMaxExposureDuration, ours) else { return true }
+        // Same rule as `apply`: write the limit only while AE runs (review 2.73 R1 — a
+        // `notAutoExposure` give-up ends here). Not now = retried (give-up back-off / teardown /
+        // next scan's start via `stale`).
+        guard runsAutoExposure(device) else { return false }
         let format = device.activeFormat
         let lo = format.minExposureDuration
         let hi = format.maxExposureDuration
@@ -875,6 +887,12 @@ final class ExposureCap: ObservableObject {
     }
 
     // MARK: - Helpers
+
+    /// AE is running (ARKit runs continuous AE); only then does the limit mean anything.
+    private static func runsAutoExposure(_ device: AVCaptureDevice) -> Bool {
+        let mode = device.exposureMode
+        return mode == .continuousAutoExposure || mode == .autoExpose
+    }
 
     /// The mode's ms as a CMTime inside the format's exposure range; nil = unusable range.
     private static func clampedCap(_ capMs: Int, _ format: AVCaptureDevice.Format) -> CMTime? {
@@ -988,7 +1006,7 @@ final class ExposureCap: ObservableObject {
     private func publishDebug(_ expo: Exposure, ev: Double?, limitMs: Double?) {
         var s: String
         switch mode {
-        case .off: s = stats.source == "server" ? "cap off(srv)" : "cap off"
+        case .off: s = "cap off"
         case .adaptive4: s = "adp \(capMs)-" + String(format: "%.1f", ceilS * 1000)
         case .hard4, .hard6, .hard8: s = "hard \(capMs)"
         }

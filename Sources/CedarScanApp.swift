@@ -134,6 +134,7 @@ struct RootView: View {
         .task(id: account.isSignedIn) {
             // Launch, sign-in, sign-out: push token to the server / pending unregister.
             push.refresh()
+            refreshScanQualityConfig()
             await confirmPendingPayments()
             await syncUnpaidOrders()
             await purgeDeliveredScans()
@@ -146,6 +147,7 @@ struct RootView: View {
             guard phase == .active else { return }
             // Notifications allowed in Settings meanwhile, a register that failed offline…
             push.refresh()
+            refreshScanQualityConfig()
             Task {
                 await confirmPendingPayments()
                 await syncUnpaidOrders()
@@ -183,6 +185,26 @@ struct RootView: View {
         guard account.isSignedIn, store.hasAwaitingStamps else { return }
         guard let response = try? await APIClient.shared.listOrders() else { return }
         store.syncOrders(response.orders)
+    }
+
+    /// Remote scan settings (`ScanQualityConfig`, incl. the 2.73 exposure-cap KILL SWITCH) used to
+    /// arrive only with the order form's `catalog()` — a customer who scans before ever reopening
+    /// the form would never get a server "off". Launch / sign-in / foreground now fetch it too
+    /// while signed in (catalog needs a token; a phone never signed in keeps its defaults), at
+    /// most every 30 min, in its own Task (nothing else waits on it); `catalog()` stores the
+    /// config on main. GET only, no server change. Failure = retried at the next foreground.
+    private static var scanConfigFetchedAt = Date.distantPast
+
+    private func refreshScanQualityConfig() {
+        guard account.isSignedIn else { return }
+        let now = Date()
+        guard now.timeIntervalSince(Self.scanConfigFetchedAt) >= 30 * 60 else { return }
+        Self.scanConfigFetchedAt = now
+        Task {
+            if (try? await APIClient.shared.catalog()) == nil {
+                Self.scanConfigFetchedAt = .distantPast
+            }
+        }
     }
 
     /// A card payment completed in the app but not yet confirmed by the server (network dropped
