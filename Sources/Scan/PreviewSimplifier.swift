@@ -15,16 +15,17 @@ import CMeshOptimizer
 /// `MeshPreviewView.greyMaterial`).
 ///
 /// 🔴 `tools/preview-harness/mirror2.py` repeats these steps in the same order with the same library
-/// calls, so meshoptimizer gets the same INPUT bytes as in the app — that is how the numbers above
-/// were measured. Change a step here ⇒ change it there and re-measure (README there). The OUTPUT is
-/// not bit-identical: the iPhone build fuses multiply-adds (FMA) inside the library, the harness DLL
-/// does not; an FMA build moved the hole numbers by ≤ 0.03 points.
+/// calls — that is how the numbers above were measured. Change a step here ⇒ change it there and
+/// re-measure (README there). The weld and stage A get the same input bytes as in the app, but the
+/// results are not bit-identical: the iPhone build fuses multiply-adds (FMA) inside the library, the
+/// harness DLL does not, so stage B already starts from a slightly different mesh; an FMA build of
+/// the harness moved the hole numbers by ≤ 0.03 points.
 ///  1. WELD on the 0.1 mm grid of the delivery OBJ (`ColoredOBJExporter` writes 4 decimals with the
 ///     same `.rounded()`). ARKit anchors repeat their seam vertices; unwelded, every seam is two
 ///     touching borders that simplify separately and open into cracks.
 ///  2. STAGE A per 4 m cell, vertices shared by two cells locked, each cell cut to twice the
 ///     final share. One call on the whole house peaks at ~260 MB inside meshoptimizer (1.55M
-///     vertices); cells keep it at 15–24 MB, and stage B then works on ~0.2M vertices (~35 MB).
+///     vertices); cells keep it at 10–24 MB, and stage B then works on ~0.2M vertices (~35 MB).
 ///  3. STAGE B on the whole stage-A mesh, target moved until the vertex count lands in
 ///     [0.9, 1] × budget (≤ 3 passes; a pathological mesh may stay above it — soft budget).
 ///  4. Normals from the result's own faces (area-weighted). Tried and rejected offline: the source
@@ -46,9 +47,9 @@ enum PreviewSimplifier {
     /// two grid points from rounding to one Float (Float spacing stays under 0.1 mm up to 1024 m):
     /// equal positions would reach meshoptimizer as attribute seams, a path this caller never uses.
     private static let maxCoordinate: Float = 500
-    /// Stage A cell edge (metres). ARKit anchors are ~2 m chunks; a cell held ≤ 0.25M triangles on
-    /// the measured houses. A big surface lying exactly on a cell plane gets mostly locked and is
-    /// left to stage B: more RAM there, same result.
+    /// Stage A cell edge (metres). ARKit anchors are ~2 m chunks; a cell held up to ~0.25M
+    /// triangles on the measured houses. A big surface lying exactly on a cell plane gets mostly
+    /// locked and is left to stage B: more RAM there (capped by `maxStageVertices`), same result.
     private static let cellSize: Float = 4
     /// Vertices per triangle of the simplified result, measured 0.55–0.69 on five houses (plenty
     /// of open borders) — sizes the first stage-B target.
@@ -57,6 +58,10 @@ enum PreviewSimplifier {
     /// where detail goes (offline: 2× and 3× gave the same holes, 2× less RAM).
     private static let stageASlack: Double = 2
     private static let maxPasses = 3
+    /// RAM valve for stage B. Real houses leave 185–210k vertices after stage A; 600k ≈ 100MB
+    /// inside the library. Past it (e.g. a big floor lying exactly on a cell plane, all locked in
+    /// stage A: a synthetic 2M-vertex floor peaked at 312MB) → nil → clustering fallback.
+    private static let maxStageVertices = 600_000
     /// Input guard, far above the 2M `wholeHomePreset` cap: every index here is a UInt32.
     private static let maxInputVertices = 50_000_000
 
@@ -244,7 +249,7 @@ enum PreviewSimplifier {
         //    largest result inside the budget, else the smallest one above it.
         let stageVerts = stage.positions.count / 3
         let stageTris = stage.indices.count / 3
-        guard stageTris > 0 else { return nil }
+        guard stageTris > 0, stageVerts <= maxStageVertices else { return nil }
         var target = min(stageTris, firstTarget)
         var out = [UInt32](repeating: 0, count: stage.indices.count)
         var best: (positions: [Float], indices: [UInt32])?

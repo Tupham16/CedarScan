@@ -1,5 +1,6 @@
-# Rebuild the app's mesh-preview.bin (ColorMeshBuilder.buildPreview / clusterPreview) from model.obj
-# and write both meshes as binary PLY in Blender axes (z-up) for rendering.
+# Rebuild the 2.74 app's mesh-preview.bin (voxel clustering, ColorMeshBuilder.clusterPreview) from model.obj
+# and write both meshes as binary PLY in Blender axes (z-up) for rendering. SPACING = 0.05 is the 2.74 guess;
+# since 2.75 clustering is only the fallback (ColorMeshBuilder.clusterWithRetries) and guesses 0.03.
 # fastSave scans: model.obj == builder `pieces` verbatim (report vertexCount == OBJ v count).
 import sys, json, time
 import numpy as np

@@ -575,9 +575,10 @@ final class ColorMeshBuilder {
     /// (voxel 10–18cm), one of the two causes of the torn preview walls.
     private static let previewAssumedSpacing: Float = 0.03
     private static let previewMaxPasses = 4
-    /// Quadric result above this many vertices = treat as failed, use the clustering fallback
-    /// (which provably coarsens). Never seen on real scans; keeps the file near the 3–6MB the
-    /// owner accepted (150k vertices ≈ 6.3MB).
+    /// Quadric result above this many vertices (or twice as many triangles) = treat as failed, use
+    /// the clustering fallback (which provably coarsens). Never seen on real scans (ARKit meshes run
+    /// 1.5–1.8 triangles per kept vertex); keeps the file near the 3–6MB the owner accepted
+    /// (150k vertices ≈ 6.3–6.9MB, worst case with the triangle cap ~7.2MB).
     private static let previewQuadricCeiling = previewVertexBudget * 5 / 4
 
     /// Writes a small grey mesh (`MeshPreviewFile` format) to a temp file and returns its URL;
@@ -590,7 +591,7 @@ final class ColorMeshBuilder {
     /// code returns nil, the delivery PLY already exists. ⚠ It is only a temp file: nothing is
     /// STORED before `ScanStore.saveMeshScan`, so a crash or jetsam in here still loses the scan.
     /// Cost of the quadric path (`PreviewSimplifier`), measured 30/09 with the same C++ on a
-    /// desktop Ryzen 7700: the library alone 0.84s for a 1.55M-vertex house, ~1.0s at 1.8M
+    /// desktop Ryzen 7700: the library alone 0.84s for a 1.55M-vertex house, ~0.9s at 1.8M
     /// (clustering ~0.3s). Expect ~1.3–2.7s on an iPhone 12 Pro class phone, up to ~3.5s at
     /// 1.8–2M vertices — whole-house scans end in thermal `.serious`; not yet timed on a phone.
     /// RAM on top of `pieces` (alive either way): stage A peak 74 / 87 / 93MB at 1.55 / 1.72 /
@@ -629,7 +630,8 @@ final class ColorMeshBuilder {
             vertexLists: ordered.map(\.worldVertices),
             faceLists: ordered.map(\.faces),
             budget: previewVertexBudget
-        ), quadric.positions.count <= previewQuadricCeiling {
+        ), quadric.positions.count <= previewQuadricCeiling,
+           quadric.indices.count <= previewQuadricCeiling * 6 {
             result = (quadric.positions, quadric.normals, quadric.indices)
         } else {
             result = clusterWithRetries(pieces: pieces, keys: keys, totalVerts: totalVerts)

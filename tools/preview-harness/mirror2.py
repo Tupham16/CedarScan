@@ -17,6 +17,7 @@ CELL = 4.0               # cellSize
 FIRST_VT = 0.7           # firstVertexPerTriangle
 STAGE_A_SLACK = 2.0      # stageASlack
 MAX_PASSES = 3           # maxPasses
+MAX_STAGE_VERTS = 600_000  # maxStageVertices
 
 
 def simplify(pos, idx, target_idx, options, lock=None):
@@ -43,8 +44,11 @@ def compact(pos, idx):
 def build(V64, F, budget=BUDGET, stats=None):
     st = {} if stats is None else stats
     t0 = time.perf_counter()
-    # 1. quantise on the OBJ grid, invalid vertices -> one sentinel point, weld identical grid points
-    k = np.round(V64 * GRID)
+    # 1. quantise on the OBJ grid, invalid vertices -> one sentinel point, weld identical grid points.
+    # Swift `.rounded()` = half away from zero (np.round is half to even; ties only matter on raw floats)
+    x = V64 * GRID
+    xt = np.trunc(x)
+    k = xt + np.where(np.abs(x - xt) >= 0.5, np.sign(x), 0.0)
     valid = np.all(np.abs(V64) <= MAX_COORD, axis=1)
     k[~valid] = -2147483648
     k = np.ascontiguousarray(k.astype(np.int32))
@@ -113,6 +117,9 @@ def build(V64, F, budget=BUDGET, stats=None):
     # 5. stage B: whole mesh, target moved until the vertex count lands in [0.9, 1] x budget
     t2 = time.perf_counter()
     stage_tris = len(sidx) // 3
+    if stage_tris == 0 or len(spos) > MAX_STAGE_VERTS:
+        st["path"] = "stage-B valve -> nil"
+        return None
     target = min(stage_tris, first_target)
     best = None
     passes = []
@@ -121,6 +128,11 @@ def build(V64, F, budget=BUDGET, stats=None):
         lib.shim_reset_peak()
         out, err = simplify(spos, sidx, target * 3, 0)
         peakB = max(peakB, lib.shim_peak())
+        if len(out) == 0 or len(out) % 3:
+            # Swift: a failed later pass keeps the earlier result, a failed first pass returns nil
+            if best is not None:
+                break
+            return None
         cpos, cidx = compact(spos, out)
         v, t = len(cpos), len(cidx) // 3
         passes.append({"target": int(target), "verts": int(v), "tris": int(t)})
@@ -160,9 +172,16 @@ if __name__ == "__main__":
     kw = dict(a.split("=") for a in sys.argv[3:])
     d = np.load(f"{tag}-mesh.npz")
     st = {"tag": tag, "name": name}
-    cpos, cidx = build(d["V"], d["F"], budget=int(kw.get("budget", BUDGET)), stats=st)
+    budget = int(kw.get("budget", BUDGET))
+    built = build(d["V"], d["F"], budget=budget, stats=st)
+    if built is None:
+        sys.exit(f"{tag}: nil -> the app would use the clustering fallback")
+    cpos, cidx = built
     st.update({"out_verts": int(len(cpos)), "out_tris": int(len(cidx) // 3),
-               "file_MB": round((40 + len(cpos) * 24 + len(cidx) * 4) / 1e6, 2)})
+               "file_MB": round((40 + len(cpos) * 24 + len(cidx) * 4) / 1e6, 2),
+               # ColorMeshBuilder.previewQuadricCeiling (vertices, and 2x as many triangles): above it the app
+               # ships the clustering fallback
+               "over_ceiling_app_uses_fallback": bool(len(cpos) > budget * 5 // 4 or len(cidx) > budget * 5 // 4 * 6)})
     print(json.dumps(st), flush=True)
     write_ply(f"{tag}-{name}.ply", cpos, cidx.reshape(-1, 3))
     np.save(f"{tag}-{name}-normals.npy", app_normals(cpos, cidx).astype(np.float32))

@@ -5,7 +5,9 @@ meshoptimizer C++ the app ships (`Packages/MeshOptimizer`), called through ctype
 
 - `mirror2.py` = `Sources/Scan/PreviewSimplifier.swift` step by step. **Keep the two in step**: change one,
   change the other, re-measure.
-- `preview_repro.py` = the pre-2.75 clustering (`ColorMeshBuilder.clusterPreview`), today the fallback.
+- `preview_repro.py` = the clustering of 2.74 (`ColorMeshBuilder.clusterPreview` with `SPACING = 0.05`).
+  Since 2.75 it is only the fallback and guesses `0.03`: set `SPACING` to model that.
+- Needs Python 3 with numpy + Pillow, and Blender 4.x for the renders.
 
 ## Build meshopt.dll (Windows, no compiler installed)
 `pip install ziglang` into a venv on a SHORT path (the wheel breaks on long paths: `subst Z: <dir>` first), then from this folder:
@@ -18,16 +20,21 @@ python -m ziglang c++ -shared -O2 -DNDEBUG -target x86_64-windows-gnu "-DMESHOPT
 multiply-adds; the iPhone build does, so phone output differs in ~half the triangles. An FMA build
 (`-mfma`) moved the hole numbers by <= 0.03 points.
 
-## Run (in a data folder)
-Input: fast-save scan zips (`model.obj` == the app's anchor pieces in sorted-key order). Extract `TAG-model.obj`.
+## Run
+🔴 Run in a DATA folder OUTSIDE this repo (e.g. a gitignored `scratch_*` folder at the repo root) and call the
+scripts by path: the repo is public and the inputs are customer houses. `.gitignore` keeps everything here
+but the sources out of git anyway.
 
-1. `python load_cache.py TAG` -> `TAG-mesh.npz`
-2. `python preview_repro.py TAG` -> `TAG-raw.ply`, `TAG-preview.ply` (clustering), `TAG-bounds.npz` (camera framing)
-3. `python mirror2.py TAG NAME` -> `TAG-NAME.ply` + `.json` (vertices, passes, library RAM) + `-normals.npy`
-4. `blender --background --python render.py -- TAG raw preview NAME` -> app camera (55 deg, 30 deg elevation), culling on
-5. `python metric.py TAG preview NAME` -> extra see-through area vs the full mesh, top / mean of four 30 deg views
-6. Optional: `blender --background --python render_smooth.py -- TAG PX PY AZ DIST NAME...` smooth shading with
-   the normals the app writes (`ELEV` env = elevation).
+Input: fast-save scan zips (`model.obj` == the app's anchor pieces in sorted-key order). Extract `TAG-model.obj`, then
+with `H` = this folder:
+
+1. `python H/load_cache.py TAG` -> `TAG-mesh.npz`
+2. `python H/preview_repro.py TAG` -> `TAG-raw.ply`, `TAG-preview.ply` (clustering), `TAG-bounds.npz` (camera framing)
+3. `python H/mirror2.py TAG NAME` -> `TAG-NAME.ply` + `.json` (vertices, passes, library RAM) + `-normals.npy`
+4. `blender --background --python H/render.py -- TAG raw preview NAME` -> app camera (55 deg, 30 deg elevation), culling on
+5. `python H/metric.py TAG preview NAME` -> extra see-through area vs the full mesh, top / mean of four 30 deg views
+6. Optional close-ups: `render_zoom.py` (flat) / `render_smooth.py` (smooth, with the normals the app writes),
+   `blender --background --python H/render_smooth.py -- TAG PX PY AZ DIST NAME...` (`ELEV` env = elevation).
 
 ## Results (30/09, five owner houses)
 | house | input verts | clustering (2.74): verts; top/30deg | quadric (2.75): verts; MB; top/30deg |
@@ -40,4 +47,4 @@ Input: fast-save scan zips (`model.obj` == the app's anchor pieces in sorted-key
 
 The full culled mesh itself shows 4-8 % see-through from the top: real LiDAR holes, not the preview.
 Library RAM: stage A 10-24 MB (densest 4 m cell), stage B ~35 MB; one whole-mesh call = 261 MB (MUNH).
-Desktop Ryzen 7700: library 0.84 s (MUNH), whole harness ~1.2-1.5 s.
+Desktop Ryzen 7700: library 0.76-0.86 s on the three biggest houses, whole harness ~1.2-1.5 s.

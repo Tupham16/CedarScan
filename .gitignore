@@ -24,7 +24,9 @@ dsym-*/
 __pycache__/
 *.pyc
 
-# tools/preview-harness: the DLL is built locally from Packages/MeshOptimizer (README there).
-tools/preview-harness/*.dll
-tools/preview-harness/*.pdb
-tools/preview-harness/*.lib
+# tools/preview-harness: code only. The DLL is built locally (build line in its README), and scan data /
+# renders must never land here (customer houses): ignore everything but the sources.
+tools/preview-harness/*
+!tools/preview-harness/*.py
+!tools/preview-harness/*.cpp
+!tools/preview-harness/README.md
