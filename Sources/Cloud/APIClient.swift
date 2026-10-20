@@ -116,6 +116,8 @@ struct CatalogTemplate: Decodable, Identifiable, Hashable {
     let id: String
     let name: String
     let imageUrl: String?
+    /// Agency styles only (F9): the phone regions that list it (`BrandStyles.listed`).
+    let regions: [String]?
 }
 
 struct CatalogAddon: Decodable, Identifiable {
@@ -124,6 +126,33 @@ struct CatalogAddon: Decodable, Identifiable {
     let price: Int
     /// Chỉ addon có picker mẫu (color, siteplan) mới có. Server cũ / addon thường → nil.
     let templates: [CatalogTemplate]?
+    /// F9: the colour add-on's AU / NZ agency styles this account may see (server: those with a
+    /// sample image; all of them for a test account). nil from servers before F9.
+    let agencyTemplates: [CatalogTemplate]?
+}
+
+/// F9 "My brand" (server `lib/brand.ts`): the saved logo, whether every order gets it, and the
+/// default colour style (`agencyStyleId` wins over `styleId`). In `GET catalog`, `GET extras` and
+/// every `account/brand` answer.
+struct BrandSettings: Decodable, Equatable {
+    let logo: BrandLogo?
+    let addLogo: Bool
+    let styleId: String?
+    let agencyStyleId: String?
+
+    static let empty = BrandSettings(logo: nil, addLogo: false, styleId: nil, agencyStyleId: nil)
+}
+
+struct BrandLogo: Decodable, Equatable {
+    let url: String
+    let name: String
+    /// Sniffed by the server: image/png · image/jpeg · image/svg+xml · application/pdf.
+    let contentType: String
+    let bytes: Int
+}
+
+struct BrandResponse: Decodable {
+    let brand: BrandSettings
 }
 
 struct CatalogSurcharge: Decodable {
@@ -150,6 +179,8 @@ struct CatalogResponse: Decodable {
     let freeOrdersRemaining: Int?
     let defaults: OrderDefaults?
     let scanQuality: ScanQualityConfig? // ngưỡng Accuracy Suite — server tinh chỉnh từ xa
+    /// F9 My brand. nil from servers before F9 (the form then works as before).
+    let brand: BrandSettings?
 }
 
 struct DeliveryFileDTO: Decodable, Hashable {
@@ -340,6 +371,8 @@ struct ExtrasOfferItem: Decodable, Identifiable {
     let price: Int
     let included: Bool
     let templates: [CatalogTemplate]?
+    /// F9, as `CatalogAddon.agencyTemplates`.
+    let agencyTemplates: [CatalogTemplate]?
 }
 
 /// `GET orders/{id}/extras`: what may be added to this order, at what price. `code` says why not
@@ -353,6 +386,8 @@ struct ExtrasOffer: Decodable {
     let awaitingOrderId: String?
     let packages: [ExtrasOfferItem]
     let addons: [ExtrasOfferItem]
+    /// F9: the saved style, pre-selected when "Color" is switched on. nil from servers before F9.
+    let brand: BrandSettings?
 }
 
 /// `POST orders/{id}/extras` (200): the NEW order that holds the items. `status` `awaiting_payment`
@@ -708,9 +743,10 @@ final class APIClient {
         language: String,
         floorNaming: String,
         projectName: String,
-        coupon: String
+        coupon: String,
+        addLogo: Bool? = nil
     ) async throws -> OrderScanResponse {
-        try await send("scans/\(scanId)/order", method: "POST", json: [
+        var body: [String: Any] = [
             "packageIds": packageIds, // đa gói (server cũng nhận `packageId` đơn, nhưng app mới gửi mảng)
             "addons": addonIds,
             "templates": templates, // addonId → templateId (color / siteplan)
@@ -728,7 +764,10 @@ final class APIClient {
             // cancelled by itself after 7 days) instead of being worked on before payment.
             // 🔴 ALWAYS sent: the Cancel button, the placed screen and the stamp release all assume it.
             "payFirst": true,
-        ], timeout: 60)
+        ]
+        // F9: the form's logo switch, sent only when a logo is saved (absent = the saved setting).
+        if let addLogo { body["addLogo"] = addLogo }
+        return try await send("scans/\(scanId)/order", method: "POST", json: body, timeout: 60)
     }
 
     /// `include=cancelled`: orders cancelled unpaid are listed too (status `cancelled`, `scanIds` =
@@ -768,6 +807,39 @@ final class APIClient {
             "templates": templates,
             "expectedTotal": expectedTotal,
         ], timeout: 60)
+    }
+
+    // MARK: My brand (F9) — callers: `MyBrandView`
+
+    /// Any of `addLogo` (Bool), `styleId` / `agencyStyleId` (String, or NSNull() to clear).
+    /// 400 `code` `unknown_style` = that style is gone from the catalog.
+    func saveBrand(_ fields: [String: Any]) async throws -> BrandSettings {
+        let response: BrandResponse = try await send("account/brand", method: "PUT", json: fields)
+        return response.brand
+    }
+
+    /// The logo file itself (≤ 5 MB; the server sniffs PNG / JPEG / SVG / PDF). 413 `too_large`,
+    /// 400 `unsupported_type`. The first logo switches "Add my logo" on.
+    func uploadBrandLogo(_ data: Data, fileName: String, contentType: String) async throws -> BrandSettings {
+        var request = try makeRequest(path: "account/brand/logo", method: "POST", json: nil, query: ["name": fileName], timeout: 120)
+        request.setValue(contentType, forHTTPHeaderField: "Content-Type")
+        let (body, response) = try await URLSession.shared.upload(for: request, from: data)
+        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+        guard (200...299).contains(status) else {
+            let error = try? JSONDecoder().decode(ServerError.self, from: body)
+            throw APIError(
+                message: error?.error ?? String(localized: "Upload failed. Please try again."),
+                statusCode: status,
+                code: error?.code
+            )
+        }
+        return try JSONDecoder().decode(BrandResponse.self, from: body).brand
+    }
+
+    /// No logo, "Add my logo" off; the styles stay.
+    func deleteBrandLogo() async throws -> BrandSettings {
+        let response: BrandResponse = try await send("account/brand/logo", method: "DELETE")
+        return response.brand
     }
 
     // MARK: In-app payment — callers: `PaymentFlow` only

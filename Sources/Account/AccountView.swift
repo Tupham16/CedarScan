@@ -58,6 +58,15 @@ struct AccountView: View {
                                     .listRowBackground(Theme.card)
                             }
                         }
+                        // F9 (2.79): saved logo + default style. Its own Section: F6 / F8 add rows here too.
+                        Section {
+                            NavigationLink {
+                                MyBrandView()
+                            } label: {
+                                Label(String(localized: "My brand"), systemImage: "paintpalette")
+                            }
+                            .listRowBackground(Theme.card)
+                        }
                         Section {
                             Link(destination: URL(string: "https://cedar247.com")!) {
                                 Label("cedar247.com", systemImage: "globe")

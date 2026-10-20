@@ -1029,6 +1029,8 @@ struct OrderSheet: View {
     @State private var selectedTemplates: [String: String] = [:]
     /// File khách tự đính kèm (logo / file thêm) — đã upload xong, chờ gửi kèm đơn.
     @State private var orderFiles: [OrderFileItem] = []
+    /// F9: the saved logo on this order (row shown only when one is saved; starts at My brand's switch).
+    @State private var addLogo = false
     /// Trần số file đính kèm mỗi đơn — PHẢI khớp trần ở server (`scans/[id]/order/route.ts`).
     private static let maxOrderFiles = 10
     @State private var showFileImporter = false
@@ -1251,14 +1253,17 @@ struct OrderSheet: View {
             selectedAddons = Set((d?.addonIds ?? []).filter { validAddonIds.contains($0) })
             // Mẫu mặc định cho addon đã chọn sẵn + có picker: lấy mẫu lần trước nếu còn hợp lệ, không
             // thì mẫu đầu. Addon chưa chọn thì để trống — tự chọn mẫu đầu khi khách bật (xem toggle).
+            // F9: the style saved in My brand comes first ("used for every new order").
             var tpls: [String: String] = [:]
             for addon in result.addons {
-                guard let templates = addon.templates, !templates.isEmpty,
-                      selectedAddons.contains(addon.id) else { continue }
+                let templates = Self.styles(of: addon)
+                guard !templates.isEmpty, selectedAddons.contains(addon.id) else { continue }
                 let saved = d?.templates?[addon.id]
-                tpls[addon.id] = (saved != nil && templates.contains { $0.id == saved }) ? saved! : templates.first!.id
+                tpls[addon.id] = Self.brandStyle(for: addon, result.brand, in: templates)
+                    ?? ((saved != nil && templates.contains { $0.id == saved }) ? saved! : templates.first!.id)
             }
             selectedTemplates = tpls
+            addLogo = result.brand?.addLogo ?? false
             if let u = d?.unitSystem, u == "imperial" || u == "metric" || u == "both" { unitSystem = u }
             // Chỉ nhận ngôn ngữ lần trước nếu còn trong list (Picker cần selection khớp một tag, không
             // thì hiện rỗng). Giá trị cũ tự do (vd "Vietnamese") → giữ mặc định "English".
@@ -1277,7 +1282,9 @@ struct OrderSheet: View {
             set: { on in
                 if on {
                     selectedAddons.insert(addon.id)
-                    if selectedTemplates[addon.id] == nil, let firstTpl = addon.templates?.first?.id {
+                    let templates = Self.styles(of: addon)
+                    if selectedTemplates[addon.id] == nil,
+                       let firstTpl = Self.brandStyle(for: addon, catalog?.brand, in: templates) ?? templates.first?.id {
                         selectedTemplates[addon.id] = firstTpl
                     }
                 } else {
@@ -1286,6 +1293,27 @@ struct OrderSheet: View {
                 }
             }
         )
+    }
+
+    /// F9: the colour add-on also offers the AU / NZ agency styles this phone lists.
+    private static func styles(of addon: CatalogAddon) -> [CatalogTemplate] {
+        addon.id == BrandStyles.colorAddonId
+            ? BrandStyles.styles(templates: addon.templates, agency: addon.agencyTemplates)
+            : (addon.templates ?? [])
+    }
+
+    /// F9: the My brand style, for the colour add-on only, when this form offers it.
+    private static func brandStyle(for addon: CatalogAddon, _ brand: BrandSettings?, in templates: [CatalogTemplate]) -> String? {
+        addon.id == BrandStyles.colorAddonId ? BrandStyles.preferred(brand, in: templates) : nil
+    }
+
+    /// The style picker of a switched-on add-on that has styles (colour: + agency styles, F9).
+    @ViewBuilder
+    private func addonStylePicker(_ addon: CatalogAddon) -> some View {
+        let templates = Self.styles(of: addon)
+        if !templates.isEmpty {
+            templatePicker(addonId: addon.id, templates: templates)
+        }
     }
 
     /// Picker mẫu cho color/siteplan — the shared `TemplatePicker` (Orders v2 C moved its body there).
@@ -1474,8 +1502,8 @@ struct OrderSheet: View {
                         }
                     }
                     // Addon có picker mẫu (color/siteplan) + đang được chọn → hiện list mẫu cuộn ngang.
-                    if selectedAddons.contains(addon.id), let templates = addon.templates, !templates.isEmpty {
-                        templatePicker(addonId: addon.id, templates: templates)
+                    if selectedAddons.contains(addon.id) {
+                        addonStylePicker(addon)
                     }
                 }
             }
@@ -1541,6 +1569,7 @@ struct OrderSheet: View {
     private var attachmentsSection: some View {
         Section {
             Group {
+                brandLogoRow
                 ForEach(orderFiles) { file in
                     HStack {
                         Image(systemName: "doc.fill").foregroundStyle(.secondary)
@@ -1594,6 +1623,21 @@ struct OrderSheet: View {
             if orderFiles.count >= Self.maxOrderFiles {
                 Text(String(localized: "Maximum \(Self.maxOrderFiles) files per order."))
             }
+        }
+    }
+
+    /// F9: the logo saved in My brand, on this order or not. Only when one is saved.
+    @ViewBuilder
+    private var brandLogoRow: some View {
+        if let logo = catalog?.brand?.logo {
+            Toggle(isOn: $addLogo) {
+                HStack(spacing: 12) {
+                    BrandLogoThumb(logo: logo)
+                        .frame(width: 56, height: 34)
+                    Text(String(localized: "Add my logo"))
+                }
+            }
+            .disabled(isBusy)
         }
     }
 
@@ -1902,6 +1946,8 @@ struct OrderSheet: View {
         let languageSnapshot = language
         let floorNamingSnapshot = floorNaming
         let couponSnapshot = couponCode.trimmingCharacters(in: .whitespacesAndNewlines)
+        // F9: sent only when a logo is saved (the switch is on screen); absent = the saved setting.
+        let addLogoSnapshot: Bool? = catalog?.brand?.logo != nil ? addLogo : nil
         submitTask = Task { @MainActor in
             // 2.59: screen awake + background time for the WHOLE flow (uploads → order), released
             // on every exit. The uploads themselves survive lock / app switch (`BackgroundUploads`).
@@ -2050,7 +2096,8 @@ struct OrderSheet: View {
                     language: languageSnapshot,
                     floorNaming: floorNamingSnapshot,
                     projectName: projectName ?? "",
-                    coupon: couponSnapshot
+                    coupon: couponSnapshot,
+                    addLogo: addLogoSnapshot
                 )
                 placedOrder = result
                 // Đóng dấu số đơn cho ĐÚNG tập đã vào đơn: bản chính + các tầng khách còn tick.

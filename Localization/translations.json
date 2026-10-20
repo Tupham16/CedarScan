@@ -5184,6 +5184,234 @@
     "es": "Esta propiedad ya tiene el pedido %@ — añade este escaneo con \"Enviar escaneo adicional\". No tiene costo adicional.",
     "nl": "Deze woning heeft al bestelling %@ — voeg deze scan toe met \"Extra scan versturen\". Dat kost niets extra."
    }
+  },
+  {
+   "key": "My brand",
+   "translations": {
+    "vi": "Thương hiệu của tôi",
+    "fr": "Ma marque",
+    "de": "Meine Marke",
+    "cs": "Moje značka",
+    "sk": "Moja značka",
+    "es": "Mi marca",
+    "nl": "Mijn merk"
+   }
+  },
+  {
+   "key": "Your logo",
+   "translations": {
+    "vi": "Logo của bạn",
+    "fr": "Votre logo",
+    "de": "Ihr Logo",
+    "cs": "Vaše logo",
+    "sk": "Vaše logo",
+    "es": "Tu logotipo",
+    "nl": "Je logo"
+   }
+  },
+  {
+   "key": "Add your logo",
+   "translations": {
+    "vi": "Thêm logo của bạn",
+    "fr": "Ajouter votre logo",
+    "de": "Ihr Logo hinzufügen",
+    "cs": "Přidat vaše logo",
+    "sk": "Pridať vaše logo",
+    "es": "Añadir tu logotipo",
+    "nl": "Je logo toevoegen"
+   }
+  },
+  {
+   "key": "Change logo",
+   "translations": {
+    "vi": "Đổi logo",
+    "fr": "Changer de logo",
+    "de": "Logo ändern",
+    "cs": "Změnit logo",
+    "sk": "Zmeniť logo",
+    "es": "Cambiar logotipo",
+    "nl": "Logo wijzigen"
+   }
+  },
+  {
+   "key": "Add my logo to every plan",
+   "translations": {
+    "vi": "Gắn logo của tôi vào mọi bản vẽ",
+    "fr": "Ajouter mon logo à chaque plan",
+    "de": "Mein Logo auf jeden Grundriss setzen",
+    "cs": "Přidat moje logo na každý půdorys",
+    "sk": "Pridať moje logo na každý pôdorys",
+    "es": "Añadir mi logotipo a cada plano",
+    "nl": "Mijn logo op elke plattegrond zetten"
+   }
+  },
+  {
+   "key": "PNG, JPG, SVG or PDF, up to 5 MB.",
+   "translations": {
+    "vi": "PNG, JPG, SVG hoặc PDF, tối đa 5 MB.",
+    "fr": "PNG, JPG, SVG ou PDF, jusqu'à 5 Mo.",
+    "de": "PNG, JPG, SVG oder PDF, bis 5 MB.",
+    "cs": "PNG, JPG, SVG nebo PDF, nejvýše 5 MB.",
+    "sk": "PNG, JPG, SVG alebo PDF, najviac 5 MB.",
+    "es": "PNG, JPG, SVG o PDF, hasta 5 MB.",
+    "nl": "PNG, JPG, SVG of PDF, maximaal 5 MB."
+   }
+  },
+  {
+   "key": "You can still turn it off on each order.",
+   "translations": {
+    "vi": "Bạn vẫn tắt được ở từng đơn.",
+    "fr": "Vous pouvez quand même le désactiver pour chaque commande.",
+    "de": "Sie können es bei jeder Bestellung trotzdem ausschalten.",
+    "cs": "U každé objednávky ho můžete i tak vypnout.",
+    "sk": "Pri každej objednávke ho môžete aj tak vypnúť.",
+    "es": "Aun así puedes desactivarlo en cada pedido.",
+    "nl": "Je kunt het per bestelling nog steeds uitzetten."
+   }
+  },
+  {
+   "key": "Choose from Photos",
+   "translations": {
+    "vi": "Chọn từ Ảnh",
+    "fr": "Choisir dans Photos",
+    "de": "Aus Fotos auswählen",
+    "cs": "Vybrat z Fotek",
+    "sk": "Vybrať z Fotiek",
+    "es": "Elegir de Fotos",
+    "nl": "Kiezen uit Foto's"
+   }
+  },
+  {
+   "key": "Choose from Files",
+   "translations": {
+    "vi": "Chọn từ Tệp",
+    "fr": "Choisir dans Fichiers",
+    "de": "Aus Dateien auswählen",
+    "cs": "Vybrat ze Souborů",
+    "sk": "Vybrať zo Súborov",
+    "es": "Elegir de Archivos",
+    "nl": "Kiezen uit Bestanden"
+   }
+  },
+  {
+   "key": "Remove logo",
+   "translations": {
+    "vi": "Gỡ logo",
+    "fr": "Retirer le logo",
+    "de": "Logo entfernen",
+    "cs": "Odebrat logo",
+    "sk": "Odstrániť logo",
+    "es": "Quitar logotipo",
+    "nl": "Logo verwijderen"
+   }
+  },
+  {
+   "key": "Default style",
+   "translations": {
+    "vi": "Kiểu mặc định",
+    "fr": "Style par défaut",
+    "de": "Standardstil",
+    "cs": "Výchozí styl",
+    "sk": "Predvolený štýl",
+    "es": "Estilo predeterminado",
+    "nl": "Standaardstijl"
+   }
+  },
+  {
+   "key": "Agency style",
+   "translations": {
+    "vi": "Kiểu theo hãng môi giới",
+    "fr": "Style d'agence",
+    "de": "Agenturstil",
+    "cs": "Styl realitní kanceláře",
+    "sk": "Štýl realitnej kancelárie",
+    "es": "Estilo de agencia",
+    "nl": "Makelaarsstijl"
+   }
+  },
+  {
+   "key": "No agency style",
+   "translations": {
+    "vi": "Không theo hãng nào",
+    "fr": "Aucun style d'agence",
+    "de": "Kein Agenturstil",
+    "cs": "Bez stylu kanceláře",
+    "sk": "Bez štýlu kancelárie",
+    "es": "Sin estilo de agencia",
+    "nl": "Geen makelaarsstijl"
+   }
+  },
+  {
+   "key": "Used when you order a color floor plan. You can still change it on each order.",
+   "translations": {
+    "vi": "Dùng khi bạn đặt mặt bằng màu. Bạn vẫn đổi được ở từng đơn.",
+    "fr": "Utilisé quand vous commandez un plan d'étage en couleur. Vous pouvez quand même le changer pour chaque commande.",
+    "de": "Gilt, wenn Sie einen farbigen Grundriss bestellen. Sie können ihn bei jeder Bestellung trotzdem ändern.",
+    "cs": "Použije se, když objednáte barevný půdorys. U každé objednávky ho můžete i tak změnit.",
+    "sk": "Použije sa, keď objednáte farebný pôdorys. Pri každej objednávke ho môžete aj tak zmeniť.",
+    "es": "Se usa cuando pides un plano de planta en color. Aun así puedes cambiarlo en cada pedido.",
+    "nl": "Gebruikt wanneer je een kleurenplattegrond bestelt. Je kunt het per bestelling nog steeds wijzigen."
+   }
+  },
+  {
+   "key": "Follows the look of each agency's floor plans. Cedar247 is not affiliated with these agencies.",
+   "translations": {
+    "vi": "Theo phong cách mặt bằng của từng hãng. Cedar247 không liên kết với các hãng này.",
+    "fr": "Reprend l'apparence des plans d'étage de chaque agence. Cedar247 n'est pas affiliée à ces agences.",
+    "de": "Folgt dem Stil der Grundrisse der jeweiligen Agentur. Cedar247 ist mit diesen Agenturen nicht verbunden.",
+    "cs": "Odpovídá vzhledu půdorysů dané realitní kanceláře. Cedar247 není s těmito kancelářemi nijak spojena.",
+    "sk": "Zodpovedá vzhľadu pôdorysov danej realitnej kancelárie. Cedar247 nie je s týmito kanceláriami nijako spojená.",
+    "es": "Sigue el estilo de los planos de cada agencia. Cedar247 no está afiliada a estas agencias.",
+    "nl": "Volgt de stijl van de plattegronden van elk makelaarskantoor. Cedar247 is niet verbonden aan deze kantoren."
+   }
+  },
+  {
+   "key": "Add my logo",
+   "translations": {
+    "vi": "Gắn logo của tôi",
+    "fr": "Ajouter mon logo",
+    "de": "Mein Logo hinzufügen",
+    "cs": "Přidat moje logo",
+    "sk": "Pridať moje logo",
+    "es": "Añadir mi logotipo",
+    "nl": "Mijn logo toevoegen"
+   }
+  },
+  {
+   "key": "This file is larger than 5 MB. Please choose a smaller one.",
+   "translations": {
+    "vi": "File này lớn hơn 5 MB. Bạn chọn file nhỏ hơn nhé.",
+    "fr": "Ce fichier dépasse 5 Mo. Choisissez-en un plus petit.",
+    "de": "Diese Datei ist größer als 5 MB. Bitte wählen Sie eine kleinere.",
+    "cs": "Tento soubor je větší než 5 MB. Vyberte prosím menší.",
+    "sk": "Tento súbor je väčší ako 5 MB. Vyberte prosím menší.",
+    "es": "Este archivo supera los 5 MB. Elige uno más pequeño.",
+    "nl": "Dit bestand is groter dan 5 MB. Kies een kleiner bestand."
+   }
+  },
+  {
+   "key": "Please choose a PNG, JPG, SVG or PDF file.",
+   "translations": {
+    "vi": "Bạn chọn file PNG, JPG, SVG hoặc PDF nhé.",
+    "fr": "Choisissez un fichier PNG, JPG, SVG ou PDF.",
+    "de": "Bitte wählen Sie eine PNG-, JPG-, SVG- oder PDF-Datei.",
+    "cs": "Vyberte prosím soubor PNG, JPG, SVG nebo PDF.",
+    "sk": "Vyberte prosím súbor PNG, JPG, SVG alebo PDF.",
+    "es": "Elige un archivo PNG, JPG, SVG o PDF.",
+    "nl": "Kies een PNG-, JPG-, SVG- of PDF-bestand."
+   }
+  },
+  {
+   "key": "This style is no longer available. Please choose another.",
+   "translations": {
+    "vi": "Kiểu này không còn nữa. Bạn chọn kiểu khác nhé.",
+    "fr": "Ce style n'est plus offert. Choisissez-en un autre.",
+    "de": "Dieser Stil ist nicht mehr verfügbar. Bitte wählen Sie einen anderen.",
+    "cs": "Tento styl už není k dispozici. Vyberte prosím jiný.",
+    "sk": "Tento štýl už nie je k dispozícii. Vyberte prosím iný.",
+    "es": "Este estilo ya no está disponible. Elige otro.",
+    "nl": "Deze stijl is niet meer beschikbaar. Kies een andere."
+   }
   }
  ],
  "infoplist": {

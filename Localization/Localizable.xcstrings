@@ -1270,6 +1270,100 @@
         }
       }
     },
+    "Add my logo": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Přidat moje logo"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mein Logo hinzufügen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Añadir mi logotipo"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajouter mon logo"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mijn logo toevoegen"
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pridať moje logo"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gắn logo của tôi"
+          }
+        }
+      }
+    },
+    "Add my logo to every plan": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Přidat moje logo na každý půdorys"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mein Logo auf jeden Grundriss setzen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Añadir mi logotipo a cada plano"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajouter mon logo à chaque plan"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mijn logo op elke plattegrond zetten"
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pridať moje logo na každý pôdorys"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gắn logo của tôi vào mọi bản vẽ"
+          }
+        }
+      }
+    },
     "Add room photos for your tour": {
       "extractionState": "manual",
       "localizations": {
@@ -1407,6 +1501,53 @@
           "stringUnit": {
             "state": "translated",
             "value": "Thêm ảnh cho tour"
+          }
+        }
+      }
+    },
+    "Add your logo": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Přidat vaše logo"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ihr Logo hinzufügen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Añadir tu logotipo"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajouter votre logo"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Je logo toevoegen"
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pridať vaše logo"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thêm logo của bạn"
           }
         }
       }
@@ -1736,6 +1877,53 @@
           "stringUnit": {
             "state": "translated",
             "value": "Sau đó màn hình tự sáng cho tới khi lưu xong — cứ để yên máy, đừng chạm vào."
+          }
+        }
+      }
+    },
+    "Agency style": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Styl realitní kanceláře"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agenturstil"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Estilo de agencia"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Style d'agence"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Makelaarsstijl"
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Štýl realitnej kancelárie"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kiểu theo hãng môi giới"
           }
         }
       }
@@ -3297,6 +3485,53 @@
         }
       }
     },
+    "Change logo": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Změnit logo"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Logo ändern"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cambiar logotipo"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Changer de logo"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Logo wijzigen"
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zmeniť logo"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đổi logo"
+          }
+        }
+      }
+    },
     "Check the inbox (and spam folder) of %@. The code expires in 15 minutes.": {
       "extractionState": "manual",
       "localizations": {
@@ -3387,6 +3622,100 @@
           "stringUnit": {
             "state": "translated",
             "value": "Xem lại video để chắc không sót phòng nào."
+          }
+        }
+      }
+    },
+    "Choose from Files": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vybrat ze Souborů"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aus Dateien auswählen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elegir de Archivos"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choisir dans Fichiers"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kiezen uit Bestanden"
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vybrať zo Súborov"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chọn từ Tệp"
+          }
+        }
+      }
+    },
+    "Choose from Photos": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vybrat z Fotek"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aus Fotos auswählen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elegir de Fotos"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choisir dans Photos"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kiezen uit Foto's"
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vybrať z Fotiek"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chọn từ Ảnh"
           }
         }
       }
@@ -4374,6 +4703,53 @@
           "stringUnit": {
             "state": "translated",
             "value": "Phòng khác…"
+          }
+        }
+      }
+    },
+    "Default style": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Výchozí styl"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Standardstil"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Estilo predeterminado"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Style par défaut"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Standaardstijl"
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Predvolený štýl"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kiểu mặc định"
           }
         }
       }
@@ -6160,6 +6536,53 @@
           "stringUnit": {
             "state": "translated",
             "value": "Các tầng trong đơn này"
+          }
+        }
+      }
+    },
+    "Follows the look of each agency's floor plans. Cedar247 is not affiliated with these agencies.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Odpovídá vzhledu půdorysů dané realitní kanceláře. Cedar247 není s těmito kancelářemi nijak spojena."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Folgt dem Stil der Grundrisse der jeweiligen Agentur. Cedar247 ist mit diesen Agenturen nicht verbunden."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sigue el estilo de los planos de cada agencia. Cedar247 no está afiliada a estas agencias."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reprend l'apparence des plans d'étage de chaque agence. Cedar247 n'est pas affiliée à ces agences."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Volgt de stijl van de plattegronden van elk makelaarskantoor. Cedar247 is niet verbonden aan deze kantoren."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zodpovedá vzhľadu pôdorysov danej realitnej kancelárie. Cedar247 nie je s týmito kanceláriami nijako spojená."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Theo phong cách mặt bằng của từng hãng. Cedar247 không liên kết với các hãng này."
           }
         }
       }
@@ -8702,6 +9125,53 @@
         }
       }
     },
+    "My brand": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Moje značka"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Meine Marke"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mi marca"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ma marque"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mijn merk"
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Moja značka"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thương hiệu của tôi"
+          }
+        }
+      }
+    },
     "My house has several floors — how does that work?": {
       "extractionState": "manual",
       "localizations": {
@@ -9121,6 +9591,53 @@
           "stringUnit": {
             "state": "translated",
             "value": "Bản quét này chưa thu được mô hình 3D — đội vẽ không dựng được mặt bằng, hãy quét lại khu này."
+          }
+        }
+      }
+    },
+    "No agency style": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bez stylu kanceláře"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kein Agenturstil"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sin estilo de agencia"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucun style d'agence"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geen makelaarsstijl"
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bez štýlu kancelárie"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Không theo hãng nào"
           }
         }
       }
@@ -11146,6 +11663,53 @@
         }
       }
     },
+    "PNG, JPG, SVG or PDF, up to 5 MB.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PNG, JPG, SVG nebo PDF, nejvýše 5 MB."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PNG, JPG, SVG oder PDF, bis 5 MB."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PNG, JPG, SVG o PDF, hasta 5 MB."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PNG, JPG, SVG ou PDF, jusqu'à 5 Mo."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PNG, JPG, SVG of PDF, maximaal 5 MB."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PNG, JPG, SVG alebo PDF, najviac 5 MB."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PNG, JPG, SVG hoặc PDF, tối đa 5 MB."
+          }
+        }
+      }
+    },
     "Packages": {
       "extractionState": "manual",
       "localizations": {
@@ -11706,6 +12270,53 @@
           "stringUnit": {
             "state": "translated",
             "value": "Đang đặt hàng…"
+          }
+        }
+      }
+    },
+    "Please choose a PNG, JPG, SVG or PDF file.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vyberte prosím soubor PNG, JPG, SVG nebo PDF."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bitte wählen Sie eine PNG-, JPG-, SVG- oder PDF-Datei."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elige un archivo PNG, JPG, SVG o PDF."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choisissez un fichier PNG, JPG, SVG ou PDF."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kies een PNG-, JPG-, SVG- of PDF-bestand."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vyberte prosím súbor PNG, JPG, SVG alebo PDF."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bạn chọn file PNG, JPG, SVG hoặc PDF nhé."
           }
         }
       }
@@ -12505,6 +13116,53 @@
           "stringUnit": {
             "state": "translated",
             "value": "Đưa ra khỏi dự án"
+          }
+        }
+      }
+    },
+    "Remove logo": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Odebrat logo"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Logo entfernen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quitar logotipo"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retirer le logo"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Logo verwijderen"
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Odstrániť logo"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gỡ logo"
           }
         }
       }
@@ -16081,6 +16739,53 @@
         }
       }
     },
+    "This file is larger than 5 MB. Please choose a smaller one.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tento soubor je větší než 5 MB. Vyberte prosím menší."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diese Datei ist größer als 5 MB. Bitte wählen Sie eine kleinere."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este archivo supera los 5 MB. Elige uno más pequeño."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce fichier dépasse 5 Mo. Choisissez-en un plus petit."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dit bestand is groter dan 5 MB. Kies een kleiner bestand."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tento súbor je väčší ako 5 MB. Vyberte prosím menší."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "File này lớn hơn 5 MB. Bạn chọn file nhỏ hơn nhé."
+          }
+        }
+      }
+    },
     "This iPhone has no LiDAR sensor. CedarScan needs an iPhone Pro (12 Pro or newer).": {
       "extractionState": "manual",
       "localizations": {
@@ -16688,6 +17393,53 @@
           "stringUnit": {
             "state": "translated",
             "value": "Bản quét này đã nằm trong đơn %@ — xem ở tab Đơn hàng."
+          }
+        }
+      }
+    },
+    "This style is no longer available. Please choose another.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tento styl už není k dispozici. Vyberte prosím jiný."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dieser Stil ist nicht mehr verfügbar. Bitte wählen Sie einen anderen."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este estilo ya no está disponible. Elige otro."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce style n'est plus offert. Choisissez-en un autre."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deze stijl is niet meer beschikbaar. Kies een andere."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tento štýl už nie je k dispozícii. Vyberte prosím iný."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kiểu này không còn nữa. Bạn chọn kiểu khác nhé."
           }
         }
       }
@@ -17769,6 +18521,53 @@
           "stringUnit": {
             "state": "translated",
             "value": "Dùng vị trí hiện tại"
+          }
+        }
+      }
+    },
+    "Used when you order a color floor plan. You can still change it on each order.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Použije se, když objednáte barevný půdorys. U každé objednávky ho můžete i tak změnit."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gilt, wenn Sie einen farbigen Grundriss bestellen. Sie können ihn bei jeder Bestellung trotzdem ändern."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se usa cuando pides un plano de planta en color. Aun así puedes cambiarlo en cada pedido."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Utilisé quand vous commandez un plan d'étage en couleur. Vous pouvez quand même le changer pour chaque commande."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gebruikt wanneer je een kleurenplattegrond bestelt. Je kunt het per bestelling nog steeds wijzigen."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Použije sa, keď objednáte farebný pôdorys. Pri každej objednávke ho môžete aj tak zmeniť."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dùng khi bạn đặt mặt bằng màu. Bạn vẫn đổi được ở từng đơn."
           }
         }
       }
@@ -19606,6 +20405,53 @@
         }
       }
     },
+    "You can still turn it off on each order.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "U každé objednávky ho můžete i tak vypnout."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sie können es bei jeder Bestellung trotzdem ausschalten."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aun así puedes desactivarlo en cada pedido."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vous pouvez quand même le désactiver pour chaque commande."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Je kunt het per bestelling nog steeds uitzetten."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pri každej objednávke ho môžete aj tak vypnúť."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bạn vẫn tắt được ở từng đơn."
+          }
+        }
+      }
+    },
     "You have a new message about your order for %@.": {
       "extractionState": "manual",
       "localizations": {
@@ -19837,6 +20683,53 @@
           "stringUnit": {
             "state": "translated",
             "value": "Suất miễn phí vừa hết. Vui lòng xem lại giá rồi bấm Đặt hàng lại."
+          }
+        }
+      }
+    },
+    "Your logo": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vaše logo"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ihr Logo"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tu logotipo"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre logo"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Je logo"
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vaše logo"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Logo của bạn"
           }
         }
       }
