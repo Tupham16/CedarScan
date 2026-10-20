@@ -776,8 +776,8 @@ struct ScanDetailView: View {
     ///
     /// Warning look (Fog: `warn` box, radius 12, triangle icon), ✗ the old light grey: it used to be
     /// one of three descriptive lines; now it is the ONLY thing printed here, and only when
-    /// something is wrong. The FAQ "quality" answer calls it "a warning" (2.78; colour-free, the box
-    /// is amber in light mode and brown in dark).
+    /// something is wrong. The FAQ item "quality" ("no 3D model was captured") calls it "a warning"
+    /// (2.78; colour-free, the box is amber in light mode and brown in dark).
     @ViewBuilder
     private var missingModelNote: some View {
         if !hasMeshModel {

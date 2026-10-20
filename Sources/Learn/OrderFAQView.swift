@@ -216,10 +216,10 @@ struct OrderFAQContent: View {
             ),
             FAQItem(
                 id: "quality",
-                question: String(localized: "The app says my scan is low quality — does that matter?"),
-                // "a warning", ✗ a colour: the scan page draws it as a warn box (amber in light
-                // mode, brown in dark — `ScanDetailView.missingModelNote`); 2.78, was "an orange line".
-                answer: String(localized: "You can still order and we will be told in advance, but rescanning that floor usually gives you a more accurate drawing. If the scan screen shows a warning that no 3D model was captured, please do scan that area again — we cannot draw a floor plan from video alone.")
+                question: String(localized: "The app says no 3D model was captured — what now?"),
+                // 2.78: the low-quality score this item described (RoomPlan era) is gone; the
+                // one warning left is `ScanDetailView.missingModelNote` ("a warning", ✗ a colour).
+                answer: String(localized: "Please scan that area again — we cannot draw a floor plan from video alone. Already ordered? Send the new scan with \"Send extra scan\" — there is no extra charge.")
             ),
         ]
     )

@@ -11757,6 +11757,53 @@
         }
       }
     },
+    "Please scan that area again — we cannot draw a floor plan from video alone. Already ordered? Send the new scan with \"Send extra scan\" — there is no extra charge.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Naskenujte prosím tu část znovu — jen z videa půdorys nenakreslíme. Už máte objednáno? Pošlete nový sken tlačítkem \"Odeslat doplňující sken\" — nic navíc se neplatí."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bitte scannen Sie diesen Bereich neu — aus Video allein können wir keinen Grundriss zeichnen. Schon bestellt? Senden Sie den neuen Scan mit \"Zusatz-Scan senden\" — ohne Aufpreis."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vuelve a escanear esa zona, por favor — solo con el video no podemos dibujar un plano de planta. ¿Ya hiciste el pedido? Envía el nuevo escaneo con \"Enviar escaneo adicional\" — sin costo adicional."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Numérisez cette zone de nouveau — nous ne pouvons pas dessiner un plan d'étage à partir de la vidéo seulement. Vous avez déjà commandé? Envoyez la nouvelle numérisation avec \"Envoyer une numérisation supplémentaire\" — sans frais supplémentaires."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scan dat gebied opnieuw — van alleen video kunnen we geen plattegrond tekenen. Al besteld? Stuur de nieuwe scan met \"Extra scan versturen\" — zonder extra kosten."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Naskenujte prosím tú časť znova — len z videa pôdorys nakresliť nevieme. Už ste objednali? Pošlite nový sken tlačidlom \"Poslať ďalší sken\" — neplatíte nič navyše."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bạn quét lại khu đó giúp nhé — chỉ có video thì chúng tôi không dựng được mặt bằng. Đã đặt hàng rồi? Gửi bản quét mới bằng nút \"Gửi bổ sung bản quét\" — không mất thêm phí."
+          }
+        }
+      }
+    },
     "Point the camera at every wall, corner, door and window.": {
       "extractionState": "manual",
       "localizations": {
@@ -15705,49 +15752,49 @@
         }
       }
     },
-    "The app says my scan is low quality — does that matter?": {
+    "The app says no 3D model was captured — what now?": {
       "extractionState": "manual",
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Aplikace hlásí, že můj sken má nízkou kvalitu — vadí to?"
+            "value": "Aplikace hlásí, že nebyl zachycen žádný 3D model — co teď?"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Die App meldet niedrige Scan-Qualität — ist das schlimm?"
+            "value": "Die App meldet, dass kein 3D-Modell erfasst wurde — was nun?"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "La app dice que mi escaneo es de baja calidad — ¿importa?"
+            "value": "La app dice que no se capturó ningún modelo 3D — ¿qué hago?"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "L'app dit que ma numérisation est de faible qualité — est-ce grave?"
+            "value": "L'app indique qu'aucun modèle 3D n'a été capturé — que faire?"
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "De app zegt dat de scankwaliteit laag is — maakt dat uit?"
+            "value": "De app meldt dat er geen 3D-model is vastgelegd — wat nu?"
           }
         },
         "sk": {
           "stringUnit": {
             "state": "translated",
-            "value": "Aplikácia hlási, že kvalita môjho skenu je nízka — je to problém?"
+            "value": "Aplikácia hlási, že sa nezachytil žiadny 3D model — čo teraz?"
           }
         },
         "vi": {
           "stringUnit": {
             "state": "translated",
-            "value": "App báo bản quét của tôi chất lượng thấp?"
+            "value": "App báo chưa thu được mô hình 3D — làm sao?"
           }
         }
       }
@@ -19508,53 +19555,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Bạn cũng có thể thanh toán sau ở tab Đơn hàng."
-          }
-        }
-      }
-    },
-    "You can still order and we will be told in advance, but rescanning that floor usually gives you a more accurate drawing. If the scan screen shows a warning that no 3D model was captured, please do scan that area again — we cannot draw a floor plan from video alone.": {
-      "extractionState": "manual",
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Objednat můžete i tak a náš tým na to bude předem upozorněn, ale nové naskenování daného podlaží vám obvykle dá přesnější výkres. Pokud se na obrazovce skenu zobrazuje upozornění, že nebyl zachycen žádný 3D model, naskenujte prosím tu část znovu — jen z videa půdorys nenakreslíme."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sie können trotzdem bestellen, und wir werden vorab informiert — aber ein Neuscan dieser Etage liefert meist eine genauere Zeichnung. Zeigt der Scan-Bildschirm eine Warnung, dass kein 3D-Modell erfasst wurde, scannen Sie diesen Bereich bitte neu — aus Video allein können wir keinen Grundriss zeichnen."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Puedes pedir de todos modos y a nuestro equipo se le avisa de antemano, pero volver a escanear esa planta suele dar un plano más preciso. Si la pantalla del escaneo muestra un aviso de que no se capturó ningún modelo 3D, vuelve a escanear esa zona, por favor — solo con el video no podemos dibujar un plano de planta."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Vous pouvez quand même commander et notre équipe en sera avisée d'avance, mais reprendre la numérisation de cet étage donne habituellement un plan plus précis. Si l'écran de la numérisation affiche un avertissement indiquant qu'aucun modèle 3D n'a été capturé, numérisez cette zone de nouveau — nous ne pouvons pas dessiner un plan d'étage à partir de la vidéo seulement."
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Je kunt nog steeds bestellen en ons team wordt vooraf op de hoogte gebracht, maar die verdieping opnieuw scannen geeft meestal een nauwkeurigere tekening. Zie je op het scanscherm een waarschuwing dat er geen 3D-model is vastgelegd, scan dat gebied dan zeker opnieuw — van alleen video kunnen we geen plattegrond tekenen."
-          }
-        },
-        "sk": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Objednať môžete aj tak a my sa to dozvieme vopred, ale ak to podlažie naskenujete znova, výkres býva zvyčajne presnejší. Ak sa na obrazovke skenu zobrazuje upozornenie, že sa nezachytil žiadny 3D model, naskenujte prosím tú časť znova — len z videa pôdorys nakresliť nevieme."
-          }
-        },
-        "vi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Bạn vẫn đặt được và đội ngũ sẽ được báo trước, nhưng quét lại tầng đó thường cho bản vẽ chính xác hơn. Còn nếu màn bản quét hiện cảnh báo chưa thu được mô hình 3D thì bạn quét lại khu đó giúp nhé — chỉ có video thì chúng tôi không dựng được mặt bằng."
           }
         }
       }

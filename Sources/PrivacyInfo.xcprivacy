@@ -320,10 +320,12 @@
 				<string>C617.1</string>
 			</array>
 		</dict>
-		<!-- `ProcessInfo.processInfo.systemUptime` — chỗ gọi DUY NHẤT là ColorMeshBuilder (mốc
-		     chống CHÙM cảnh báo). CACurrentMediaTime (e.g. ScanSessionReport) is NOT a
-		     required-reason API, ✗ count it here. Đo QUÃNG thời gian giữa hai sự kiện trong
-		     app, không gửi đi đâu. 35F9.1 = đúng lý do đó. -->
+		<!-- `ProcessInfo.processInfo.systemUptime` — two callers: ColorMeshBuilder (alert
+		     de-bounce, stays on the phone) and PreviewColorizer (time budget of the phone
+		     colours; the elapsed ms goes into scan-report.json `previewColour.ms`).
+		     CACurrentMediaTime (e.g. ScanSessionReport) is NOT a required-reason API, ✗ count
+		     it here. Both measure time elapsed between events in the app; 35F9.1 allows
+		     exactly that elapsed time to leave the device. -->
 		<dict>
 			<key>NSPrivacyAccessedAPIType</key>
 			<string>NSPrivacyAccessedAPICategorySystemBootTime</string>

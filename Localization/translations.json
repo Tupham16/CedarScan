@@ -1861,15 +1861,15 @@
    }
   },
   {
-   "key": "The app says my scan is low quality — does that matter?",
+   "key": "The app says no 3D model was captured — what now?",
    "translations": {
-    "vi": "App báo bản quét của tôi chất lượng thấp?",
-    "fr": "L'app dit que ma numérisation est de faible qualité — est-ce grave?",
-    "de": "Die App meldet niedrige Scan-Qualität — ist das schlimm?",
-    "cs": "Aplikace hlásí, že můj sken má nízkou kvalitu — vadí to?",
-    "sk": "Aplikácia hlási, že kvalita môjho skenu je nízka — je to problém?",
-    "es": "La app dice que mi escaneo es de baja calidad — ¿importa?",
-    "nl": "De app zegt dat de scankwaliteit laag is — maakt dat uit?"
+    "vi": "App báo chưa thu được mô hình 3D — làm sao?",
+    "fr": "L'app indique qu'aucun modèle 3D n'a été capturé — que faire?",
+    "de": "Die App meldet, dass kein 3D-Modell erfasst wurde — was nun?",
+    "cs": "Aplikace hlásí, že nebyl zachycen žádný 3D model — co teď?",
+    "sk": "Aplikácia hlási, že sa nezachytil žiadny 3D model — čo teraz?",
+    "es": "La app dice que no se capturó ningún modelo 3D — ¿qué hago?",
+    "nl": "De app meldt dat er geen 3D-model is vastgelegd — wat nu?"
    }
   },
   {
@@ -5162,15 +5162,15 @@
    }
   },
   {
-   "key": "You can still order and we will be told in advance, but rescanning that floor usually gives you a more accurate drawing. If the scan screen shows a warning that no 3D model was captured, please do scan that area again — we cannot draw a floor plan from video alone.",
+   "key": "Please scan that area again — we cannot draw a floor plan from video alone. Already ordered? Send the new scan with \"Send extra scan\" — there is no extra charge.",
    "translations": {
-    "vi": "Bạn vẫn đặt được và đội ngũ sẽ được báo trước, nhưng quét lại tầng đó thường cho bản vẽ chính xác hơn. Còn nếu màn bản quét hiện cảnh báo chưa thu được mô hình 3D thì bạn quét lại khu đó giúp nhé — chỉ có video thì chúng tôi không dựng được mặt bằng.",
-    "fr": "Vous pouvez quand même commander et notre équipe en sera avisée d'avance, mais reprendre la numérisation de cet étage donne habituellement un plan plus précis. Si l'écran de la numérisation affiche un avertissement indiquant qu'aucun modèle 3D n'a été capturé, numérisez cette zone de nouveau — nous ne pouvons pas dessiner un plan d'étage à partir de la vidéo seulement.",
-    "de": "Sie können trotzdem bestellen, und wir werden vorab informiert — aber ein Neuscan dieser Etage liefert meist eine genauere Zeichnung. Zeigt der Scan-Bildschirm eine Warnung, dass kein 3D-Modell erfasst wurde, scannen Sie diesen Bereich bitte neu — aus Video allein können wir keinen Grundriss zeichnen.",
-    "cs": "Objednat můžete i tak a náš tým na to bude předem upozorněn, ale nové naskenování daného podlaží vám obvykle dá přesnější výkres. Pokud se na obrazovce skenu zobrazuje upozornění, že nebyl zachycen žádný 3D model, naskenujte prosím tu část znovu — jen z videa půdorys nenakreslíme.",
-    "sk": "Objednať môžete aj tak a my sa to dozvieme vopred, ale ak to podlažie naskenujete znova, výkres býva zvyčajne presnejší. Ak sa na obrazovke skenu zobrazuje upozornenie, že sa nezachytil žiadny 3D model, naskenujte prosím tú časť znova — len z videa pôdorys nakresliť nevieme.",
-    "es": "Puedes pedir de todos modos y a nuestro equipo se le avisa de antemano, pero volver a escanear esa planta suele dar un plano más preciso. Si la pantalla del escaneo muestra un aviso de que no se capturó ningún modelo 3D, vuelve a escanear esa zona, por favor — solo con el video no podemos dibujar un plano de planta.",
-    "nl": "Je kunt nog steeds bestellen en ons team wordt vooraf op de hoogte gebracht, maar die verdieping opnieuw scannen geeft meestal een nauwkeurigere tekening. Zie je op het scanscherm een waarschuwing dat er geen 3D-model is vastgelegd, scan dat gebied dan zeker opnieuw — van alleen video kunnen we geen plattegrond tekenen."
+    "vi": "Bạn quét lại khu đó giúp nhé — chỉ có video thì chúng tôi không dựng được mặt bằng. Đã đặt hàng rồi? Gửi bản quét mới bằng nút \"Gửi bổ sung bản quét\" — không mất thêm phí.",
+    "fr": "Numérisez cette zone de nouveau — nous ne pouvons pas dessiner un plan d'étage à partir de la vidéo seulement. Vous avez déjà commandé? Envoyez la nouvelle numérisation avec \"Envoyer une numérisation supplémentaire\" — sans frais supplémentaires.",
+    "de": "Bitte scannen Sie diesen Bereich neu — aus Video allein können wir keinen Grundriss zeichnen. Schon bestellt? Senden Sie den neuen Scan mit \"Zusatz-Scan senden\" — ohne Aufpreis.",
+    "cs": "Naskenujte prosím tu část znovu — jen z videa půdorys nenakreslíme. Už máte objednáno? Pošlete nový sken tlačítkem \"Odeslat doplňující sken\" — nic navíc se neplatí.",
+    "sk": "Naskenujte prosím tú časť znova — len z videa pôdorys nakresliť nevieme. Už ste objednali? Pošlite nový sken tlačidlom \"Poslať ďalší sken\" — neplatíte nič navyše.",
+    "es": "Vuelve a escanear esa zona, por favor — solo con el video no podemos dibujar un plano de planta. ¿Ya hiciste el pedido? Envía el nuevo escaneo con \"Enviar escaneo adicional\" — sin costo adicional.",
+    "nl": "Scan dat gebied opnieuw — van alleen video kunnen we geen plattegrond tekenen. Al besteld? Stuur de nieuwe scan met \"Extra scan versturen\" — zonder extra kosten."
    }
   }
  ],

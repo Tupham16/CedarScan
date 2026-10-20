@@ -797,7 +797,7 @@ final class APIClient {
     ///
     /// 🔴 `orderId` là **cuid của đơn**, ✗ số đơn `#LS-…`: cột `Order.number` không unique nên
     /// server cố ý không nhận số đơn. App chỉ lưu `cloudOrderNumber` trong `meta.json` ⇒ phải
-    /// ánh xạ qua `listOrders()` trước (xem `SupplementSheet.resolveOrderId`). Không tốn thêm
+    /// ánh xạ qua `listOrders()` trước (xem `SupplementSheet.send()`). Không tốn thêm
     /// gì: muốn gửi bổ sung thì đằng nào cũng phải online để tải 40–200MB lên.
     ///
     /// 🔴 Lỗi 409 mang `code`: `"order_closed"` ⇒ bảo khách liên hệ support (or, cancelled
