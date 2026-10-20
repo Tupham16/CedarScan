@@ -320,7 +320,7 @@ struct OrderDetailView: View {
     private func files(_ order: OrderDTO) -> some View {
         let download = order.status == "delivered" && httpsURL(order.deliveredUrl) != nil
         let rows = hasFileRows(order) || (order.hasTour == true && httpsURL(order.tourUrl) != nil)
-        let photos = order.hasTour == true && httpsURL(order.tourUrl) == nil && order.status != "refunded"
+        let photos = offersTourPhotos(order)
         if download || rows || photos {
             sectionHeader(String(localized: "Files"))
             VStack(alignment: .leading, spacing: 10) {
@@ -426,23 +426,30 @@ struct OrderDetailView: View {
     /// The pre-Fog `else if` branch of the tour block: tour ordered, no tour link yet.
     @ViewBuilder
     private func tourPhotos(_ order: OrderDTO) -> some View {
-        if order.hasTour == true, httpsURL(order.tourUrl) == nil {
-            if order.status != "refunded" {
-                Button {
-                    tourOrder = order
-                } label: {
-                    Label(
-                        (order.tourPhotoCount ?? 0) > 0
-                            ? String(localized: "Tour photos: \(order.tourPhotoCount ?? 0) — add more")
-                            : String(localized: "Add tour photos"),
-                        systemImage: "photo.on.rectangle.angled"
-                    )
-                    .font(.subheadline.weight(.semibold))
-                    .frame(maxWidth: .infinity, minHeight: 44)
-                }
-                .buttonStyle(FogTint(radius: 12))
+        if offersTourPhotos(order) {
+            Button {
+                tourOrder = order
+            } label: {
+                Label(
+                    (order.tourPhotoCount ?? 0) > 0
+                        ? String(localized: "Tour photos: \(order.tourPhotoCount ?? 0) — add more")
+                        : String(localized: "Add tour photos"),
+                    systemImage: "photo.on.rectangle.angled"
+                )
+                .font(.subheadline.weight(.semibold))
+                .frame(maxWidth: .infinity, minHeight: 44)
             }
+            .buttonStyle(FogTint(radius: 12))
         }
+    }
+
+    /// "Add tour photos": tour ordered, no tour link, not refunded — and never delivered (2.78).
+    /// During a revision the list sends no tour link (`tourUrl` only while delivered) though the
+    /// tour stays published, and the photo screen only said the photos are locked. Also read by
+    /// `files` (the section shows only with something in it).
+    private func offersTourPhotos(_ order: OrderDTO) -> Bool {
+        order.hasTour == true && httpsURL(order.tourUrl) == nil && order.status != "refunded"
+            && order.deliveredAt == nil
     }
 
     // MARK: What you ordered
@@ -635,7 +642,7 @@ struct OrderDetailView: View {
             // `stateNote` for the order.
             WrappedText(String(localized: "This order was cancelled, but a payment reached us afterwards. Our team will refund it."), style: .footnote)
                 .padding(EdgeInsets(top: 6, leading: 16, bottom: 14, trailing: 16))
-        } else if extraHasFiles(extra) || extra.deliveredAt != nil {
+        } else if extraHasFiles(extra) || canRequestRevision(extra) {
             VStack(alignment: .leading, spacing: 10) {
                 deliverables(extra)
                 ruledRows(extra)
@@ -644,7 +651,7 @@ struct OrderDetailView: View {
             .padding(.horizontal, 16)
             .padding(.top, 8)
             // A ruled row carries its own height; a button last needs an inset.
-            .padding(.bottom, hasFileRows(extra) && extra.deliveredAt == nil ? 2 : 14)
+            .padding(.bottom, hasFileRows(extra) && !canRequestRevision(extra) ? 2 : 14)
         } else {
             Color.clear.frame(height: 6)
         }
@@ -656,11 +663,12 @@ struct OrderDetailView: View {
 
     /// 🔴 The purchase's OWN revision (server `orders/{extraId}/revision`, fdeef49): the order's
     /// "Request a revision" moves the ORDER back to work (its downloads pause) and the team that
-    /// drew these items never hears. Gated like the order's: `deliveredAt`, ✗ `status` (a revision
-    /// under way reads "in production" again, and a second fix must stay possible).
+    /// drew these items never hears. Gated like the order's (`canRequestRevision`): `deliveredAt`,
+    /// ✗ `status == "delivered"` (a revision under way reads "in production" again, and a second fix
+    /// must stay possible); only a refund closes it.
     @ViewBuilder
     private func extraRevision(_ extra: OrderDTO) -> some View {
-        if extra.deliveredAt != nil {
+        if canRequestRevision(extra) {
             Button {
                 revisionOrder = extra
             } label: {
@@ -715,7 +723,7 @@ struct OrderDetailView: View {
     /// avoids an empty row (stray spacing); each button keeps its own condition.
     @ViewBuilder
     private func followUps(_ order: OrderDTO) -> some View {
-        if order.deliveredAt != nil || addScanRoute(for: order) != nil {
+        if canRequestRevision(order) || addScanRoute(for: order) != nil {
             HStack(spacing: 8) {
                 // 🔴 "YÊU CẦU SỬA" GÁC THEO `deliveredAt`, ✗ theo `status == "delivered"` —
                 // sửa 19/08, vòng soi đối kháng bắt.
@@ -730,7 +738,7 @@ struct OrderDetailView: View {
                 // xoá đi (`refundOrder`/`holdOrder`/`supplement-scan` đều không đụng trường đó) —
                 // đúng thứ cần gác. Server vẫn tự lo phần còn lại: `revision/route.ts` nhận cả khi
                 // thẻ đang ở "fix" (nay ghi được cả `feedback`, sửa cùng lượt).
-                if order.deliveredAt != nil {
+                if canRequestRevision(order) {
                     Button {
                         revisionOrder = order
                     } label: {
@@ -762,6 +770,14 @@ struct OrderDetailView: View {
             }
             .padding(.top, 12)
         }
+    }
+
+    /// "Request a revision" (the order's and an added purchase's): delivered at least once — the
+    /// `deliveredAt` gate above — and not refunded (2.78), the guard `supplementProject` uses. The
+    /// server takes it but leaves a refunded card where it is ("handle by hand"), while the sheet
+    /// promises an updated drawing.
+    private func canRequestRevision(_ order: OrderDTO) -> Bool {
+        order.deliveredAt != nil && order.status != "refunded"
     }
 
     // MARK: Cancel (Orders v2 B)

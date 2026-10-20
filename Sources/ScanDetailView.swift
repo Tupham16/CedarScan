@@ -82,7 +82,8 @@ struct ScanDetailView: View {
     /// KHÔNG phải cửa). Đừng chép lý do qua lại giữa hai màn.
     @ObservedObject var account: AccountStore
     @Environment(\.dismiss) private var dismiss
-    @StateObject private var uploader = ScanUploader()
+    // (`@StateObject uploader` removed in 2.78: the order button opens the form first, like the
+    // auto-open path. Only the sheets upload now — `OrderSheet.submit`, `SupplementSheet.send`.)
 
     // (`@State private var mode` GỠ 11/08 — nó là lựa chọn của `Picker` "Mô hình 3D | Mặt bằng 2D"
     // trong `legacyTab`, màn đã bóc cùng RoomPlan.)
@@ -124,6 +125,7 @@ struct ScanDetailView: View {
     /// khi có gì làm body chạy lại; nhưng từ 2026-07-20 "Đặt hàng ngay" đẩy khách THẲNG vào đây
     /// và việc đầu tiên họ làm là bấm đặt — `uploader.phase` bắn `.uploading(fraction:)` mỗi nhịp
     /// tiến độ, tức body dựng lại nhiều lần mỗi giây suốt lúc tải 40–200MB.
+    /// (That uploader is gone since 2.78; the rule stands for any other re-render.)
     @State private var player: AVPlayer?
     @State private var showOrderSheet = false
     /// Màn "Gửi bổ sung bản quét" — mở khi dự án của bản quét này ĐÃ có đơn.
@@ -452,7 +454,7 @@ struct ScanDetailView: View {
             titleVisibility: .visible
         ) {
             Button(String(localized: "Order anyway")) {
-                proceedUploadOrOrder()
+                showOrderSheet = true
             }
             Button(String(localized: "I'll rescan first"), role: .cancel) {}
         } message: {
@@ -552,10 +554,9 @@ struct ScanDetailView: View {
                 // (chủ app chốt "1 dự án chỉ có 1 đơn"). Bỏ sót màn này là khách vẫn mở được form
                 // giá từ đây và đặt ĐƠN THỨ HAI cho cùng căn nhà.
                 //
-                // ✗ đi qua `startUploadOrOrder()`: `SupplementSheet` TỰ lo việc tải lên (cùng
-                // khuôn `ensureUploaded`, idempotent theo `cloudScanId`). Cho nó tải là đường
-                // gửi bổ sung có ĐÚNG MỘT chỗ tải lên thay vì hai, và màn này khỏi phải nhân
-                // đôi máy trạng thái `uploader.phase`.
+                // ✗ đi qua `startOrder()`: `SupplementSheet` TỰ lo việc tải lên (cùng khuôn
+                // `ensureUploaded`, idempotent theo `cloudScanId`) — đường gửi bổ sung có ĐÚNG MỘT
+                // chỗ tải lên. (Since 2.78 this screen uploads nothing on either path.)
                 Button {
                     supplementNumberAtOpen = supplementNumber
                     showSupplementSheet = true
@@ -571,52 +572,20 @@ struct ScanDetailView: View {
                 }
                 .buttonStyle(FogPrimary())
             } else {
-                switch uploader.phase {
-                case .idle, .failed:
-                    if case .failed(let message) = uploader.phase {
-                        Text(message)
-                            .font(.caption)
-                            .foregroundStyle(.red)
-                    }
-                    Button {
-                        startUploadOrOrder()
-                    } label: {
-                        Label(
-                            current.cloudScanId == nil
-                                ? String(localized: "Order Floor Plan")
-                                : String(localized: "Order Floor Plan"),
-                            systemImage: "paperplane"
-                        )
+                // 🔴 FORM FIRST (owner "Form trước", 2.78 for this button too): the tap opens the
+                // order form and `OrderSheet.submit` uploads on Place order, after the price was
+                // seen. ✗ upload here first — 40–200 MB on 4G before any price (the old
+                // `uploader.phase` card: progress rows, then a second "Order" tap).
+                Button {
+                    startOrder()
+                } label: {
+                    Label(String(localized: "Order Floor Plan"), systemImage: "paperplane")
                         .font(.headline)
                         .padding(.horizontal, 12)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
-                    }
-                    .buttonStyle(FogPrimary())
-                case .preparing:
-                    progressRow(String(localized: "Preparing upload…"), nil)
-                // KHÔNG in tên file (model-colored.zip / colored-mesh.ply / scan-video.mp4):
-                // đó là chuyện nội bộ, khách không cần biết app gửi những gì. Giữ (n/tổng) +
-                // thanh tiến độ để khách biết còn phải chờ bao lâu — đó là thứ họ thật sự cần.
-                case .uploading(_, let index, let total, let fraction):
-                    progressRow(
-                        String(localized: "Sending your scan… (\(index)/\(total))"),
-                        fraction
-                    )
-                case .finishing:
-                    progressRow(String(localized: "Finishing…"), nil)
-                case .done:
-                    Button {
-                        showOrderSheet = true
-                    } label: {
-                        Label(String(localized: "Order Floor Plan"), systemImage: "paperplane")
-                            .font(.headline)
-                            .padding(.horizontal, 12)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 14)
-                    }
-                    .buttonStyle(FogPrimary())
                 }
+                .buttonStyle(FogPrimary())
             }
         }
         .padding(.horizontal)
@@ -652,26 +621,6 @@ struct ScanDetailView: View {
         .overlay(shape.strokeBorder(Theme.hairline, lineWidth: 1))
     }
 
-    private func progressRow(_ label: String, _ fraction: Double?) -> some View {
-        VStack(spacing: 4) {
-            HStack {
-                Text(label)
-                    .font(.caption)
-                Spacer()
-                if let fraction {
-                    Text("\(Int(fraction * 100))%")
-                        .font(.caption.monospacedDigit())
-                        .foregroundStyle(.secondary)
-                }
-            }
-            if let fraction {
-                ProgressView(value: fraction)
-            } else {
-                ProgressView()
-            }
-        }
-    }
-
     /// Mở thẳng FORM đặt hàng khi khách vào màn này bằng nút "Đặt hàng ngay" ở màn preview.
     ///
     /// 🔴 GỌI TỪ `.task`, ✗ từ bất cứ chỗ nào set cờ CÙNG NHỊP với cú push. Trình bày một sheet
@@ -679,13 +628,13 @@ struct ScanDetailView: View {
     /// và ĐO bar item trước khi cầu environment nối tới host của thanh). `.task` chạy sau khi
     /// màn đã appear, tức ngoài cửa sổ đó.
     ///
-    /// 🔴 KHÔNG TẢI FILE LÊN Ở ĐÂY, và đó là cả điểm của mục này. Đường của NÚT bấm
-    /// (`proceedUploadOrOrder`) tải 40–200MB TRƯỚC rồi mới hiện form; ở đây thì ngược lại —
-    /// `OrderSheet.submit()` tự lo việc tải lên qua `ensureUploaded` khi khách thật sự bấm
-    /// "Đặt hàng", đúng thứ màn Dự án đã làm từ lâu. Khách thấy GIÁ trước khi tốn dữ liệu.
-    /// ⚠ HỆ QUẢ, ✗ phải lỗi: ở đường này thanh % tải lên của `serviceCard` không chạy nữa —
-    /// lúc bấm "Đặt hàng" trong form chỉ có vòng xoay + "Đang tải <tên>…" (`OrderSheet` dùng
-    /// một `ScanUploader` cục bộ mà nó không quan sát `phase`). Muốn có % ở đó là việc RIÊNG.
+    /// 🔴 KHÔNG TẢI FILE LÊN Ở ĐÂY, và đó là cả điểm của mục này: `OrderSheet.submit()` tự lo
+    /// việc tải lên qua `ensureUploaded` khi khách thật sự bấm "Đặt hàng", đúng thứ màn Dự án đã
+    /// làm từ lâu. Khách thấy GIÁ trước khi tốn dữ liệu. Since 2.78 the button (`startOrder`) does
+    /// the same — before, it uploaded 40–200 MB first and showed the form after.
+    /// ⚠ HỆ QUẢ, ✗ phải lỗi: không còn thanh % tải lên nào ở màn này — lúc bấm "Đặt hàng" trong
+    /// form chỉ có vòng xoay + "Đang tải <tên>…" (`OrderSheet` dùng một `ScanUploader` cục bộ mà
+    /// nó không quan sát `phase`). Muốn có % ở đó là việc RIÊNG.
     ///
     /// 🔴 GÁC HẸP HƠN NÚT BẤM, VÀ ĐÓ LÀ CỐ Ý — bẫy #18: guard "có CHẶN khách không" ≠ guard "có
     /// TỰ ĐI TIẾP HỘ khách không". Nút chỉ gác `isSignedIn` (gác thêm `needsVerification` ở nút
@@ -695,7 +644,7 @@ struct ScanDetailView: View {
     /// thể xảy ra là "bắt bấm thêm một lần", ✗ chặn ai. Tự mở form cho tài khoản chưa xác minh
     /// chỉ dẫn tới 403 SAU KHI đã tải xong file (bẫy #19).
     ///
-    /// ⚠ CỐ Ý KHÔNG chạy nhánh cảnh báo chất lượng thấp của `startUploadOrOrder()`. Chủ app xin
+    /// ⚠ CỐ Ý KHÔNG chạy nhánh cảnh báo chất lượng thấp của `startOrder()`. Chủ app xin
     /// "vào luôn bước đặt hàng"; bật một `confirmationDialog` ngay khi màn vừa hiện là đổi một
     /// nút thừa lấy một hộp thoại thừa. Cảnh báo KHÔNG mất: dòng "Chất lượng quét: x/100 · nên
     /// quét lại" vẫn nằm ngay đầu `serviceCard`, và khách đóng form rồi bấm nút thì hộp thoại
@@ -720,25 +669,13 @@ struct ScanDetailView: View {
         showOrderSheet = true
     }
 
-    private func startUploadOrOrder() {
+    /// The order button: low-quality warning first (unchanged), then the form — uploaded or not.
+    private func startOrder() {
         if current.qualityRescan == true && current.cloudOrderNumber == nil {
             showLowQualityConfirm = true
             return
         }
-        proceedUploadOrOrder()
-    }
-
-    private func proceedUploadOrOrder() {
-        if current.cloudScanId != nil {
-            showOrderSheet = true
-            return
-        }
-        Task {
-            if let cloudId = await uploader.upload(record: current, folder: folder) {
-                store.setCloudScanId(current, cloudScanId: cloudId)
-                showOrderSheet = true
-            }
-        }
+        showOrderSheet = true
     }
 
     /// Fog: A/B/C/D = ok / accent / warn / danger.
@@ -857,6 +794,9 @@ struct ScanDetailView: View {
         }
         guard account.isSignedIn else { return }
         guard let response = try? await APIClient.shared.listOrders() else { return }
+        // A fresh list, so the stamps follow it here too (2.78): a scan whose Place order answer
+        // was lost reads "ordered" on its own page, ✗ "Order Floor Plan" again (`syncOrders`).
+        store.syncOrders(response.orders)
         let match = response.orders
             .compactMap { $0.texturedScans }
             .flatMap { $0 }
@@ -883,7 +823,8 @@ struct ScanDetailView: View {
     ///
     /// Warning look (Fog: `warn` box, radius 12, triangle icon), ✗ the old light grey: it used to be
     /// one of three descriptive lines; now it is the ONLY thing printed here, and only when
-    /// something is wrong. (The FAQ still calls it "an orange line" — reword in step 7.)
+    /// something is wrong. The FAQ "quality" answer calls it "a warning" (2.78; colour-free, the box
+    /// is amber in light mode and brown in dark).
     @ViewBuilder
     private var missingModelNote: some View {
         if !hasMeshModel {
@@ -1125,7 +1066,8 @@ struct OrderSheet: View {
     @State private var uploadingFile = false
     @State private var fileUploadError: String?
     @State private var extraFloors: Set<UUID> = []
-    @State private var unitSystem = "metric"
+    /// From the phone's region until the customer has a saved choice (`loadCatalog` sets that one).
+    @State private var unitSystem = OrderSheet.regionUnitSystem()
     @State private var language = "English"
     @State private var floorNaming = ""
     @State private var notes = ""
@@ -1153,7 +1095,21 @@ struct OrderSheet: View {
     @ObservedObject private var flow = PaymentFlow.shared
     /// The server said this order is paid (a browser payment: `PaymentFlow` never hears of it).
     @State private var serverPaid = false
+    /// The placed screen shows an order found after a 409 (`adoptExistingOrder`), ✗ one this tap
+    /// made: its card sheet does not open by itself — its price may not be the one this form showed
+    /// (rule 3 of `AddToOrderSheet`). Pay Now is there to tap.
+    @State private var recoveredOrder = false
     @Environment(\.scenePhase) private var scenePhase
+
+    /// Units of a first order (no saved default): the server writes them on the drafting card
+    /// ("Unit system: …"), and a US customer's first plan came out in metric. A saved default wins.
+    nonisolated private static func regionUnitSystem() -> String {
+        let region = Locale.current.region?.identifier
+        if region == "US" || Locale.current.measurementSystem == .us { return "imperial" }
+        // PROVISIONAL — the owner may switch Canada to "metric": this one line.
+        if region == "CA" { return "both" }
+        return "metric"
+    }
 
     /// Ngôn ngữ bản vẽ — list cố định (chủ app chốt 2026-07-21). Giá trị gửi lên server = chính chuỗi
     /// này (đội vẽ đọc để biết viết bản vẽ bằng ngôn ngữ/biến thể nào).
@@ -1923,7 +1879,7 @@ struct OrderSheet: View {
                 orderId: order.orderId,
                 payURL: payURL,
                 payInApp: order.payInApp == true,
-                opensOnAppear: true,
+                opensOnAppear: !recoveredOrder,
                 // Paid = placed: its scans read "Ordered" at once (Home, property page).
                 onPaid: { store.noteOrderStatus(orderNumber: order.orderNumber, status: "received") },
                 // Cancelled / being cancelled seconds after it was placed (only another device
@@ -2132,12 +2088,88 @@ struct OrderSheet: View {
                 // is not placed — they read "Awaiting payment" until it is paid or cancelled.
                 store.noteOrderStatus(orderNumber: result.orderNumber, status: result.status)
             } catch {
-                errorMessage = error.localizedDescription
+                // 2.78: a 409 naming an order = this scan is in one already — mostly the answer to
+                // an earlier tap, lost on a weak connection. ✗ just print it: nothing gets stamped
+                // and the house offers a second PAID order. Still inside `placingOrder` (#26).
+                if let api = error as? APIError, api.statusCode == 409, let number = api.orderNumber {
+                    await adoptExistingOrder(api, number: number, primaryCloudId: primaryCloudId)
+                } else {
+                    errorMessage = error.localizedDescription
+                }
             }
             placingOrder = false
             isBusy = false
             busyLabel = nil
         }
+    }
+
+    /// Place order answered 409 "already ordered" with the order named (server `scans/{id}/order`).
+    /// Stamps only what the server confirms — the scans its list puts in that order, or without the
+    /// list the primary scan the 409 is about — ✗ the floors ticked here (that order may hold other
+    /// ones; trap #28). Then that order's placed screen, or one line.
+    private func adoptExistingOrder(_ api: APIError, number: String, primaryCloudId: String) async {
+        if let list = try? await APIClient.shared.listOrders() {
+            // Stamps, awaiting states and releases, as for every fresh list (the stamps of that
+            // order included: `ScanStore.adoptListedStamps`).
+            store.syncOrders(list.orders)
+            let match = list.orders.first { order in
+                if let id = api.orderId { return order.orderId == id }
+                return order.orderNumber == number
+            }
+            if let match {
+                showAdoptedOrder(match)
+                return
+            }
+        }
+        // No list (the same weak connection), or the order not in it: the 409 alone. Cancelled =
+        // its scans were released, so there is nothing to stamp and Place order works again.
+        guard api.orderStatus != "cancelled" else {
+            errorMessage = String(localized: "Something went wrong. Please try again.")
+            return
+        }
+        store.adoptStamps(orderNumber: number, scanIds: [primaryCloudId])
+        if let status = api.orderStatus {
+            store.noteOrderStatus(orderNumber: number, status: status)
+        }
+        errorMessage = String(localized: "This scan is already in order \(number) — see the Orders tab.")
+    }
+
+    /// The listed order: its placed screen while it is new (awaiting payment / received), else one
+    /// line — "Order placed!" would be false for one in production, delivered or refunded.
+    private func showAdoptedOrder(_ order: OrderDTO) {
+        if order.isCancelled {
+            // Released meanwhile (`syncOrders` above cleared its stamps): Place order works again.
+            errorMessage = String(localized: "Something went wrong. Please try again.")
+            return
+        }
+        guard order.status == "awaiting_payment" || order.status == "received" else {
+            errorMessage = String(localized: "This scan is already in order \(order.orderNumber) — see the Orders tab.")
+            return
+        }
+        let placed = Self.placedState(of: order)
+        // Paid with something to pay: "Paid", ✗ "We will email you a payment link" (no link left).
+        serverPaid = order.paid == true && placed.free != true
+        recoveredOrder = true
+        placedOrder = placed
+    }
+
+    /// What the placed screen reads, from the order list. No coupon lines (the list does not say);
+    /// `free` as in the Place order reply: paid with nothing to pay (first-orders promo, 100% coupon).
+    private static func placedState(of order: OrderDTO) -> OrderScanResponse {
+        OrderScanResponse(
+            orderId: order.orderId,
+            orderNumber: order.orderNumber,
+            status: order.status,
+            total: order.total,
+            currency: order.currency,
+            paymentUrl: order.paymentUrl,
+            discount: nil,
+            couponApplied: nil,
+            free: order.paid == true && (order.total ?? 0) <= 0,
+            hasTour: order.hasTour,
+            payInApp: order.payInApp,
+            payBy: order.payBy
+        )
     }
 }
 

@@ -648,7 +648,9 @@ struct ProjectView: View {
                 .foregroundStyle(.secondary)
             Text(String(localized: "No scans in this property yet"))
                 .font(.headline)
-            Text(String(localized: "Scan the whole home in one continuous pass — multiple floors are fine. If it's very large, split it into several scans (Part 1, Part 2…). Or long-press an existing scan in the main list to move it here."))
+            // 2.78: "Or long-press an existing scan in the main list…" dropped — the main list
+            // shows properties now, a loose scan only in old data.
+            Text(String(localized: "Scan the whole home in one continuous pass — multiple floors are fine. If it's very large, split it into several scans (Part 1, Part 2…)."))
             .font(.subheadline)
             .foregroundStyle(.secondary)
             .multilineTextAlignment(.center)

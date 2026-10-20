@@ -474,6 +474,13 @@ struct APIError: LocalizedError {
     /// quyết "đơn đã giao" rơi về nhánh lỗi thô. Với `var` thì các call site cũ
     /// `APIError(message:statusCode:)` vẫn compile nguyên.
     var code: String? = nil
+    /// The order a 409 "This scan has already been ordered." names (`scans/{id}/order`):
+    /// `OrderSheet.adoptExistingOrder` stamps from it instead of showing the raw error. `var` with a
+    /// default for the reason given at `code`.
+    var orderId: String? = nil
+    var orderNumber: String? = nil
+    /// That order's customer status (`awaiting_payment`, `received`…), ✗ the HTTP `statusCode`.
+    var orderStatus: String? = nil
     var errorDescription: String? { message }
 }
 
@@ -489,6 +496,25 @@ final class APIClient {
         let error: String
         /// Optional: chỉ vài endpoint gửi kèm. Thiếu nó KHÔNG được làm hỏng việc đọc `error`.
         let code: String?
+        /// Only the Place order 409 sends these (see `APIError.orderId`).
+        let orderId: String?
+        let orderNumber: String?
+        let status: String?
+
+        private enum CodingKeys: String, CodingKey {
+            case error, code, orderId, orderNumber, status
+        }
+
+        /// Every field but `error` read with `try?`: one of another type in some error body must
+        /// not lose the message.
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            error = try c.decode(String.self, forKey: .error)
+            code = try? c.decodeIfPresent(String.self, forKey: .code)
+            orderId = try? c.decodeIfPresent(String.self, forKey: .orderId)
+            orderNumber = try? c.decodeIfPresent(String.self, forKey: .orderNumber)
+            status = try? c.decodeIfPresent(String.self, forKey: .status)
+        }
     }
 
     private func makeRequest(
@@ -534,7 +560,10 @@ final class APIClient {
             throw APIError(
                 message: body?.error ?? String(localized: "Something went wrong. Please try again."),
                 statusCode: status,
-                code: body?.code
+                code: body?.code,
+                orderId: body?.orderId,
+                orderNumber: body?.orderNumber,
+                orderStatus: body?.status
             )
         }
         return try JSONDecoder().decode(T.self, from: data)
@@ -664,6 +693,9 @@ final class APIClient {
         ])
     }
 
+    /// 60 s, ✗ the default 30: the route runs a DB transaction, R2 HEADs and a WordPress call (up to
+    /// ~15 s) before it answers, and a timeout there is an order placed with its answer lost. A 409
+    /// naming the order (a retry after a lost answer) → `OrderSheet.adoptExistingOrder`.
     func orderScan(
         scanId: String,
         extraScanIds: [String],
@@ -696,7 +728,7 @@ final class APIClient {
             // cancelled by itself after 7 days) instead of being worked on before payment.
             // 🔴 ALWAYS sent: the Cancel button, the placed screen and the stamp release all assume it.
             "payFirst": true,
-        ])
+        ], timeout: 60)
     }
 
     /// `include=cancelled`: orders cancelled unpaid are listed too (status `cancelled`, `scanIds` =

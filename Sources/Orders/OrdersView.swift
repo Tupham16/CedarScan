@@ -27,6 +27,9 @@ struct OrdersView: View {
     @State private var loadSeq = 0
     @State private var appliedSeq = 0
     @State private var failedSeq = 0
+    /// When this account's list last came back (`load()`): the return-to-app refresh reads it.
+    /// nil = not yet for this account.
+    @State private var loadedAt: Date?
     @State private var errorMessage: String?
     @State private var filter: OrderFilter = .all
     @Environment(\.dynamicTypeSize) private var typeSize
@@ -40,7 +43,9 @@ struct OrdersView: View {
             Group {
                 if !account.isSignedIn {
                     signedOutState
-                } else if ownOrders.isEmpty && !isLoading {
+                } else if ownOrders.isEmpty && (!isLoading || loadedAt != nil) {
+                    // Once loaded, a reload keeps this screen (a pull here, the return-to-app
+                    // refresh): ✗ swap to the list's "Loading…" row under the customer's finger.
                     emptyState
                 } else {
                     ordersList
@@ -97,6 +102,7 @@ struct OrdersView: View {
                 loadSeq += 1
                 appliedSeq = loadSeq
                 isLoading = false
+                loadedAt = nil
                 loadedCustomerId = currentId
             }
             if account.isSignedIn { await load() }
@@ -107,7 +113,7 @@ struct OrdersView: View {
             leaveGoneOrder(ids)
         }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .active { refreshUnpaid() }
+            if phase == .active { refreshOnActive() }
         }
         .onChange(of: push.openOrder) { _, request in
             if request != nil { Task { await openPushedOrder(reload: true) } }
@@ -138,6 +144,26 @@ struct OrdersView: View {
         // Already open (by id: a reloaded house name must not pop and re-push it, cancelling a Pay Now).
         guard path.first?.orderId != order.orderId else { return }
         path = [OrderRoute(orderId: order.orderId, title: title(of: order), customerId: account.customer?.id)]
+    }
+
+    /// Back in the app (2.78): an unpaid order listed → `refreshUnpaid` as before; otherwise the list
+    /// is read again once older than `staleAfter`. A customer who opens the app from its icon after
+    /// the "plan ready" email saw "Processing" and no files until a pull.
+    private func refreshOnActive() {
+        guard account.isSignedIn else { return }
+        if hasUnpaid {
+            refreshUnpaid()
+        } else if isStale {
+            Task { await load() }
+        }
+    }
+
+    /// Wall clock; `abs` so a clock set back cannot stop the refresh (as `RootView`'s config fetch).
+    private static let staleAfter: TimeInterval = 60
+
+    private var isStale: Bool {
+        guard let loadedAt else { return true }
+        return abs(Date().timeIntervalSince(loadedAt)) > Self.staleAfter
     }
 
     /// Orders v2 B: a customer who paid on the browser pay page comes back to a list (or an open
@@ -213,6 +239,7 @@ struct OrdersView: View {
         switch answer {
         case .success(let fresh):
             orders = fresh
+            loadedAt = Date()
             // Push notifications: an account that has orders is asked once, on this tab only.
             if !fresh.isEmpty, PaymentFlow.visibleTab == .orders {
                 PushNotifications.shared.askIfUndetermined()
@@ -255,7 +282,22 @@ struct OrdersView: View {
         .background(Theme.bg.ignoresSafeArea())
     }
 
+    /// In a ScrollView so it can be pulled to refresh: `.refreshable` in `body` only reaches scroll
+    /// views, and a plain VStack left this screen with no reload but Retry. Centred as before
+    /// (`minHeight` = the visible height); bounces even when it fits — the pull is the gesture.
     private var emptyState: some View {
+        GeometryReader { proxy in
+            ScrollView {
+                emptyContent
+                    .padding(32)
+                    .frame(maxWidth: .infinity, minHeight: proxy.size.height)
+            }
+            .scrollBounceBehavior(.always)
+        }
+        .background(Theme.bg.ignoresSafeArea())
+    }
+
+    private var emptyContent: some View {
         VStack(spacing: 12) {
             if let errorMessage {
                 Image(systemName: "wifi.exclamationmark")
@@ -286,9 +328,6 @@ struct OrdersView: View {
                 .multilineTextAlignment(.center)
             }
         }
-        .padding(32)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Theme.bg.ignoresSafeArea())
     }
 
     /// Đơn khớp ô TÌM KIẾM (chưa áp bộ lọc trạng thái).
@@ -593,7 +632,10 @@ struct RevisionSheet: View {
             .interactiveDismissDisabled(isBusy || uploadingFile)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
+                    // Locked like the swipe above (and the other sheets' Cancel): a tap here while
+                    // sending closed the sheet with the request still in flight.
                     Button(sent ? String(localized: "Close") : String(localized: "Cancel")) { dismiss() }
+                        .disabled(isBusy || uploadingFile)
                 }
                 if !sent {
                     ToolbarItem(placement: .topBarTrailing) {

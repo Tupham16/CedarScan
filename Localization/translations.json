@@ -1981,18 +1981,6 @@
    }
   },
   {
-   "key": "You can still order and we will be told in advance, but rescanning that floor usually gives you a more accurate drawing. If the scan screen shows an orange line saying no 3D model was captured, please do scan that area again — we cannot draw a floor plan from video alone.",
-   "translations": {
-    "vi": "Bạn vẫn đặt được và đội ngũ sẽ được báo trước, nhưng quét lại tầng đó thường cho bản vẽ chính xác hơn. Còn nếu màn bản quét hiện dòng cam báo chưa thu được mô hình 3D thì bạn quét lại khu đó giúp nhé — chỉ có video thì chúng tôi không dựng được mặt bằng.",
-    "fr": "Vous pouvez quand même commander et notre équipe en sera avisée d'avance, mais reprendre la numérisation de cet étage donne habituellement un plan plus précis. Si l'écran de la numérisation affiche une ligne orange indiquant qu'aucun modèle 3D n'a été capturé, numérisez cette zone de nouveau — nous ne pouvons pas dessiner un plan d'étage à partir de la vidéo seulement.",
-    "de": "Sie können trotzdem bestellen, und wir werden vorab informiert — aber ein Neuscan dieser Etage liefert meist eine genauere Zeichnung. Zeigt der Scan-Bildschirm einen orangefarbenen Hinweis, dass kein 3D-Modell erfasst wurde, scannen Sie diesen Bereich bitte neu — aus Video allein können wir keinen Grundriss zeichnen.",
-    "cs": "Objednat můžete i tak a náš tým na to bude předem upozorněn, ale nové naskenování daného podlaží vám obvykle dá přesnější výkres. Pokud se na obrazovce skenu zobrazuje oranžový řádek, že nebyl zachycen žádný 3D model, naskenujte prosím tu část znovu — jen z videa půdorys nenakreslíme.",
-    "sk": "Objednať môžete aj tak a my sa to dozvieme vopred, ale ak to podlažie naskenujete znova, výkres býva zvyčajne presnejší. Ak sa na obrazovke skenu zobrazuje oranžový riadok, že sa nezachytil žiadny 3D model, naskenujte prosím tú časť znova — len z videa pôdorys nakresliť nevieme.",
-    "es": "Puedes pedir de todos modos y a nuestro equipo se le avisa de antemano, pero volver a escanear esa planta suele dar un plano más preciso. Si la pantalla del escaneo muestra una franja naranja que dice que no se capturó ningún modelo 3D, vuelve a escanear esa zona, por favor — solo con el video no podemos dibujar un plano de planta.",
-    "nl": "Je kunt nog steeds bestellen en ons team wordt vooraf op de hoogte gebracht, maar die verdieping opnieuw scannen geeft meestal een nauwkeurigere tekening. Zie je op het scanscherm een oranje melding dat er geen 3D-model is vastgelegd, scan dat gebied dan zeker opnieuw — van alleen video kunnen we geen plattegrond tekenen."
-   }
-  },
-  {
    "key": "Payment and delivery",
    "translations": {
     "vi": "Thanh toán và nhận hàng",
@@ -2734,18 +2722,6 @@
     "sk": "V tejto nehnuteľnosti zatiaľ nie sú žiadne skeny",
     "es": "Aún no hay escaneos en esta propiedad",
     "nl": "Nog geen scans in deze woning"
-   }
-  },
-  {
-   "key": "Scan the whole home in one continuous pass — multiple floors are fine. If it's very large, split it into several scans (Part 1, Part 2…). Or long-press an existing scan in the main list to move it here.",
-   "translations": {
-    "vi": "Quét liền một mạch cả căn nhà là tốt nhất (kể cả nhiều tầng). Nhà quá lớn thì chia thành nhiều bản quét (Part 1, Part 2…). Hoặc nhấn giữ bản quét có sẵn ở danh sách chính để chuyển vào đây.",
-    "fr": "Numérisez toute la maison en un seul passage continu — plusieurs étages, aucun problème. Si elle est très grande, divisez-la en plusieurs numérisations (Part 1, Part 2…). Ou appuyez longuement sur une numérisation existante dans la liste principale pour la déplacer ici.",
-    "de": "Scannen Sie das ganze Haus in einem Durchgang — auch über mehrere Etagen. Bei einem sehr großen Haus teilen Sie es in mehrere Scans auf (Part 1, Part 2 …). Oder halten Sie einen vorhandenen Scan in der Hauptliste gedrückt, um ihn hierher zu verschieben.",
-    "cs": "Naskenujte celý dům jedním souvislým průchodem — klidně i více podlaží. Pokud je moc velký, rozdělte ho do několika skenů (Part 1, Part 2…). Nebo podržte prst na existujícím skenu v hlavním seznamu a přesuňte ho sem.",
-    "sk": "Naskenujte celý dom jedným súvislým prechodom — viac podlaží nie je problém. Ak je veľmi veľký, rozdeľte ho na viac skenov (Časť 1, Časť 2…). Alebo dlho podržte existujúci sken v hlavnom zozname a presuňte ho sem.",
-    "es": "Escanea toda la vivienda en un solo recorrido continuo — varias plantas no son problema. Si es muy grande, divídela en varios escaneos (Parte 1, Parte 2…). O mantén pulsado un escaneo existente en la lista principal para moverlo aquí.",
-    "nl": "Scan de hele woning in één doorlopende ronde — meerdere verdiepingen zijn prima. Is de woning erg groot, verdeel die dan over meerdere scans (Deel 1, Deel 2…). Of houd een bestaande scan in de hoofdlijst lang ingedrukt om die hierheen te verplaatsen."
    }
   },
   {
@@ -5303,6 +5279,42 @@
     "sk": "Zahodiť sken",
     "es": "Descartar escaneo",
     "nl": "Scan weggooien"
+   }
+  },
+  {
+   "key": "This scan is already in order %@ — see the Orders tab.",
+   "translations": {
+    "vi": "Bản quét này đã nằm trong đơn %@ — xem ở tab Đơn hàng.",
+    "fr": "Cette numérisation fait déjà partie de la commande %@ — voyez l'onglet Commandes.",
+    "de": "Dieser Scan ist bereits Teil der Bestellung %@ — siehe Tab \"Bestellungen\".",
+    "cs": "Tento sken už je součástí objednávky %@ — viz záložka Objednávky.",
+    "sk": "Tento sken je už súčasťou objednávky %@ — pozrite kartu Objednávky.",
+    "es": "Este escaneo ya forma parte del pedido %@ — mira la pestaña Pedidos.",
+    "nl": "Deze scan hoort al bij bestelling %@ — zie het tabblad Bestellingen."
+   }
+  },
+  {
+   "key": "Scan the whole home in one continuous pass — multiple floors are fine. If it's very large, split it into several scans (Part 1, Part 2…).",
+   "translations": {
+    "vi": "Quét liền một mạch cả căn nhà là tốt nhất (kể cả nhiều tầng). Nhà quá lớn thì chia thành nhiều bản quét (Part 1, Part 2…).",
+    "fr": "Numérisez toute la maison en un seul passage continu — plusieurs étages, aucun problème. Si elle est très grande, divisez-la en plusieurs numérisations (Part 1, Part 2…).",
+    "de": "Scannen Sie das ganze Haus in einem Durchgang — auch über mehrere Etagen. Bei einem sehr großen Haus teilen Sie es in mehrere Scans auf (Part 1, Part 2 …).",
+    "cs": "Naskenujte celý dům jedním souvislým průchodem — klidně i více podlaží. Pokud je moc velký, rozdělte ho do několika skenů (Part 1, Part 2…).",
+    "sk": "Naskenujte celý dom jedným súvislým prechodom — viac podlaží nie je problém. Ak je veľmi veľký, rozdeľte ho na viac skenov (Časť 1, Časť 2…).",
+    "es": "Escanea toda la vivienda en un solo recorrido continuo — varias plantas no son problema. Si es muy grande, divídela en varios escaneos (Parte 1, Parte 2…).",
+    "nl": "Scan de hele woning in één doorlopende ronde — meerdere verdiepingen zijn prima. Is de woning erg groot, verdeel die dan over meerdere scans (Deel 1, Deel 2…)."
+   }
+  },
+  {
+   "key": "You can still order and we will be told in advance, but rescanning that floor usually gives you a more accurate drawing. If the scan screen shows a warning that no 3D model was captured, please do scan that area again — we cannot draw a floor plan from video alone.",
+   "translations": {
+    "vi": "Bạn vẫn đặt được và đội ngũ sẽ được báo trước, nhưng quét lại tầng đó thường cho bản vẽ chính xác hơn. Còn nếu màn bản quét hiện cảnh báo chưa thu được mô hình 3D thì bạn quét lại khu đó giúp nhé — chỉ có video thì chúng tôi không dựng được mặt bằng.",
+    "fr": "Vous pouvez quand même commander et notre équipe en sera avisée d'avance, mais reprendre la numérisation de cet étage donne habituellement un plan plus précis. Si l'écran de la numérisation affiche un avertissement indiquant qu'aucun modèle 3D n'a été capturé, numérisez cette zone de nouveau — nous ne pouvons pas dessiner un plan d'étage à partir de la vidéo seulement.",
+    "de": "Sie können trotzdem bestellen, und wir werden vorab informiert — aber ein Neuscan dieser Etage liefert meist eine genauere Zeichnung. Zeigt der Scan-Bildschirm eine Warnung, dass kein 3D-Modell erfasst wurde, scannen Sie diesen Bereich bitte neu — aus Video allein können wir keinen Grundriss zeichnen.",
+    "cs": "Objednat můžete i tak a náš tým na to bude předem upozorněn, ale nové naskenování daného podlaží vám obvykle dá přesnější výkres. Pokud se na obrazovce skenu zobrazuje upozornění, že nebyl zachycen žádný 3D model, naskenujte prosím tu část znovu — jen z videa půdorys nenakreslíme.",
+    "sk": "Objednať môžete aj tak a my sa to dozvieme vopred, ale ak to podlažie naskenujete znova, výkres býva zvyčajne presnejší. Ak sa na obrazovke skenu zobrazuje upozornenie, že sa nezachytil žiadny 3D model, naskenujte prosím tú časť znova — len z videa pôdorys nakresliť nevieme.",
+    "es": "Puedes pedir de todos modos y a nuestro equipo se le avisa de antemano, pero volver a escanear esa planta suele dar un plano más preciso. Si la pantalla del escaneo muestra un aviso de que no se capturó ningún modelo 3D, vuelve a escanear esa zona, por favor — solo con el video no podemos dibujar un plano de planta.",
+    "nl": "Je kunt nog steeds bestellen en ons team wordt vooraf op de hoogte gebracht, maar die verdieping opnieuw scannen geeft meestal een nauwkeurigere tekening. Zie je op het scanscherm een waarschuwing dat er geen 3D-model is vastgelegd, scan dat gebied dan zeker opnieuw — van alleen video kunnen we geen plattegrond tekenen."
    }
   }
  ],

@@ -612,7 +612,8 @@ final class ScanStore: ObservableObject {
     }
 
     /// Stamps a scan as being in that order (Place order / supplement). Cleared only when an unpaid
-    /// order is cancelled or expires (`releaseStamps`, Orders v2 B).
+    /// order is cancelled or expires (`releaseStamps`, Orders v2 B). A stamp this device never wrote
+    /// comes from the server's own word instead (`adoptStamps`).
     func setOrderNumber(_ record: ScanRecord, orderNumber: String) {
         update(record) { $0.cloudOrderNumber = orderNumber }
     }
@@ -719,9 +720,12 @@ final class ScanStore: ObservableObject {
     }
 
     /// An order list from the server (any account): awaiting numbers follow each listed order, and
-    /// every CANCELLED order releases its scans here.
+    /// every CANCELLED order releases its scans here; scans a live order holds but this device never
+    /// stamped get its number (`adoptListedStamps`).
     /// 🔴 Positive signals only. ✗ infer a cancel from an order's ABSENCE: the list is the signed-in
     /// account's, and this device may hold another account's scans (PLAN-DON-HANG-V2.md §4a).
+    /// ⚠ For a list fetched just now only — an old one may stamp a scan back into an order cancelled
+    /// since (`releaseCancelledStamps` is the old-list variant).
     func syncOrders(_ orders: [OrderDTO]) {
         var numbers = awaitingOrderNumbers
         for order in orders {
@@ -734,7 +738,39 @@ final class ScanStore: ObservableObject {
             }
         }
         setAwaiting(numbers)
+        // Releases first: a scan released by one order and now in another gets the new number.
         releaseCancelledStamps(orders)
+        adoptListedStamps(orders)
+    }
+
+    /// Self-heal (2.78): the Place order answer was lost on a weak connection (the server made the
+    /// order, nothing was stamped here), or the scan was ordered from another device. Unstamped, its
+    /// house offers a second PAID order instead of "Send extra scan" (`orderNumber(ofProject:)`).
+    /// ✗ an order this run is cancelling or saw cancelled: a list fetched before that cancel would
+    /// stamp its released scans back.
+    private func adoptListedStamps(_ orders: [OrderDTO]) {
+        for order in orders where !order.isCancelled {
+            guard !cancellingOrderIds.contains(order.orderId),
+                  !cancelledOrderIds.contains(order.orderId) else { continue }
+            // `allScanIds`: for a live order its `scanId` fallback (old server) is in it too.
+            adoptStamps(orderNumber: order.orderNumber, scanIds: order.allScanIds)
+        }
+    }
+
+    /// Stamps `orderNumber` on the scans whose `cloudScanId` the SERVER says are in that order (an
+    /// order list, or the Place order 409 naming the order — `OrderSheet.adoptExistingOrder`).
+    /// Unstamped scans only: ✗ overwrite another number (a newer order's, or a dead one the next
+    /// sync releases — then the following one stamps it).
+    func adoptStamps(orderNumber: String, scanIds: [String]) {
+        guard !scanIds.isEmpty else { return }
+        let listed = Set(scanIds)
+        let targets = records.filter { record in
+            guard record.cloudOrderNumber == nil, let cloudId = record.cloudScanId else { return false }
+            return listed.contains(cloudId)
+        }
+        for record in targets {
+            update(record) { $0.cloudOrderNumber = orderNumber }
+        }
     }
 
     /// Only the releases of `syncOrders` — for a list that may be OLD (fetched before a long

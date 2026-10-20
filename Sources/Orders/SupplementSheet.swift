@@ -39,6 +39,10 @@ struct SupplementSheet: View {
 
     @State private var phase: Phase = .ready
     @State private var task: Task<Void, Never>?
+    /// TRUE only while `supplementScan` is in flight (`attach`) — the one step a close cannot undo
+    /// (trap #26). Finding the order and the uploads (minutes on 4G) can be left: Close cancels
+    /// them before anything is attached or stamped, and a later Send resumes the uploads.
+    @State private var attaching = false
     /// Đơn đã giao: GIỮ để mở `RevisionSheet` khi khách bấm nút — 🔴 KHÔNG bind thẳng vào
     /// `.sheet(item:)`, gán nó là sheet tự bật NGAY lúc server trả lỗi, tức khách chưa kịp đọc
     /// câu giải thích "đơn đã giao" đã bị ném vào một form khác.
@@ -64,13 +68,15 @@ struct SupplementSheet: View {
                 .toolbar {
                     ToolbarItem(placement: .topBarLeading) {
                         Button(String(localized: "Close")) { dismiss() }
-                            .disabled(isWorking)
+                            .disabled(attaching)
                     }
                 }
                 // 🔴 Cùng giáo lý với `OrderSheet`/`RevisionSheet` (bẫy #26): vuốt đóng giữa lúc
                 // request đang bay là HALF-STATE — server đã nối bản quét vào đơn còn app chưa
                 // đóng dấu số đơn, tức khách thấy "chưa đặt" và bấm đặt lần nữa.
-                .interactiveDismissDisabled(isWorking)
+                // 2.78: locked only around that request (`attaching`), ✗ the whole `.working` phase —
+                // the customer could not leave a long upload.
+                .interactiveDismissDisabled(attaching)
                 .sheet(item: $revisionTarget) { order in
                     RevisionSheet(order: order) {
                         // Yêu cầu sửa đã gửi → đóng luôn cả màn bổ sung. 🔴 HOÃN MỘT NHỊP: tháo
@@ -81,7 +87,9 @@ struct SupplementSheet: View {
                 }
         }
         .onDisappear {
-            task?.cancel()
+            // ✗ cancel an attach in flight (closed some other way): let it land and stamp, as
+            // `OrderSheet` does with `placingOrder`.
+            if !attaching { task?.cancel() }
             if let fetchedOrders { store.releaseCancelledStamps(fetchedOrders) }
         }
     }
@@ -94,11 +102,6 @@ struct SupplementSheet: View {
             return String(localized: "These will be added to order \(orderNumber) for this property, which is placed once it is paid. No extra charge.")
         }
         return String(localized: "These will be added to order \(orderNumber) — the one you already placed for this property. No extra charge.")
-    }
-
-    private var isWorking: Bool {
-        if case .working = phase { return true }
-        return false
     }
 
     @ViewBuilder
@@ -317,13 +320,14 @@ struct SupplementSheet: View {
             if Task.isCancelled { phase = .ready; return }
 
             // 🔴 ĐIỂM KHÔNG QUAY ĐẦU (bẫy #26): từ đây `interactiveDismissDisabled` đã khoá vuốt
-            // đóng, và ✗ kiểm `Task.isCancelled` sau cú gọi này — huỷ SAU khi server đã nối bản
-            // quét là HALF-STATE (server có, app không đóng dấu → khách gửi lại mãi).
+            // đóng (`attach` sets `attaching`), và ✗ kiểm `Task.isCancelled` sau cú gọi này — huỷ
+            // SAU khi server đã nối bản quét là HALF-STATE (server có, app không đóng dấu → khách
+            // gửi lại mãi).
             // Fresh background time for the call (the customer may switch app right now).
             UploadKeepAlive.shared.renew()
             phase = .working(String(localized: "Sending to \(orderNumber)…"))
             do {
-                let result = try await APIClient.shared.supplementScan(
+                let result = try await attach(
                     orderId: order.orderId,
                     scanId: primary,
                     extraScanIds: Array(cloudIds.dropFirst())
@@ -354,6 +358,19 @@ struct SupplementSheet: View {
                 phase = .failed(error.localizedDescription)
             }
         }
+    }
+
+    /// The attach request with Close and swipe locked around it — only it (`attaching`). The lock
+    /// goes once the answer is in hand; nothing between this and the caller's `stamp` checks
+    /// cancellation, so a close at that instant still stamps.
+    private func attach(orderId: String, scanId: String, extraScanIds: [String]) async throws -> SupplementScanResponse {
+        attaching = true
+        defer { attaching = false }
+        return try await APIClient.shared.supplementScan(
+            orderId: orderId,
+            scanId: scanId,
+            extraScanIds: extraScanIds
+        )
     }
 
     /// Câu dặn thêm cho đơn ĐÃ GIAO. `nil` = đơn thường, dùng câu mặc định.
