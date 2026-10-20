@@ -16,11 +16,6 @@ on:
         description: "Xcode app on the xcode-27 image, e.g. Xcode_27.1.app (empty = the image default)"
         type: string
         default: ""
-  # TEMPORARY (S4, 20/10/2026): GitHub dispatches only workflows that exist on main, so this runs
-  # the probe once from the branch. The next commit removes it.
-  push:
-    branches: [claude/279-ops-25eb03]
-    paths: [.github/workflows/probe-xcode27.yml]
 
 permissions:
   contents: read
