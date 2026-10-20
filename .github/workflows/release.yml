@@ -48,6 +48,13 @@ on:
 permissions:
   contents: read
 
+# One signing run at a time (2.79): the last step revokes the certificate THIS run created, found by
+# comparing with a snapshot; a second run signing meanwhile would lose its own. apple-certs.yml shares
+# the group.
+concurrency:
+  group: apple-signing
+  cancel-in-progress: false
+
 jobs:
   release:
     runs-on: macos-15
@@ -161,6 +168,21 @@ jobs:
           mkdir -p "$HOME/private_keys"
           printf '%s' "$ASC_KEY_P8_BASE64" | base64 --decode > "$HOME/private_keys/AuthKey_${ASC_KEY_ID}.p8"
           chmod 600 "$HOME/private_keys/AuthKey_${ASC_KEY_ID}.p8"
+
+      # Automatic signing creates a new "Apple Development: Created via API" certificate on every
+      # throw-away runner; the account's cap then blocked dry run #13 (20/10/2026). Snapshot the
+      # CI-made ones here, revoke the new one in the last step (tools/asc_certs.py). A failure here
+      # only skips that cleanup, never the release.
+      - name: Chứng chỉ CI trước khi ký
+        continue-on-error: true
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          python3 -m venv "$RUNNER_TEMP/asc"
+          "$RUNNER_TEMP/asc/bin/pip" install --quiet "pyjwt==2.9.0" "cryptography==43.0.3"
+          export ASC_KEY_PATH="$HOME/private_keys/AuthKey_${ASC_KEY_ID}.p8"
+          "$RUNNER_TEMP/asc/bin/python" tools/asc_certs.py snapshot "$RUNNER_TEMP/certs-before.json"
 
       # 🔴 `CURRENT_PROJECT_VERSION=${{ github.run_number }}` LÀ BẮT BUỘC, KHÔNG PHẢI TRANG TRÍ.
       # project.yml để số build = "1"; App Store Connect TỪ CHỐI bản nộp có số build trùng bản
@@ -358,3 +380,19 @@ jobs:
             exit 1
           fi
           echo "Da day len App Store Connect. Apple xu ly ban nop mat 5-30 phut truoc khi no hien ra o TestFlight."
+
+      # Runs even when an earlier step failed: the archive may have created its certificate already.
+      # Only CI-made development certificates absent from the snapshot are revoked; the distribution
+      # signing of the exported IPA does not use them, so the build stays valid.
+      - name: Thu hồi chứng chỉ CI của lượt này
+        if: ${{ always() }}
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          if [ ! -f "$RUNNER_TEMP/certs-before.json" ]; then
+            echo "::warning::No certificate snapshot: nothing revoked. Check with the Apple certificates workflow (list)."
+            exit 0
+          fi
+          export ASC_KEY_PATH="$HOME/private_keys/AuthKey_${ASC_KEY_ID}.p8"
+          "$RUNNER_TEMP/asc/bin/python" tools/asc_certs.py revoke-new "$RUNNER_TEMP/certs-before.json"

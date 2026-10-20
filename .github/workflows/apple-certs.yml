@@ -1,0 +1,49 @@
+name: Apple certificates (CI-made)
+
+# Manual only. Lists, or revokes, the "Apple Development: Created via API" certificates that
+# release.yml runs leave on the account (tools/asc_certs.py says why). Never touches AltStore's,
+# the owner's own or any distribution certificate. Default = list (changes nothing).
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "list = chỉ liệt kê; revoke-all = thu hồi MỌI chứng chỉ Apple Development tên 'Created via API'"
+        type: choice
+        options: [list, revoke-all]
+        default: list
+
+permissions:
+  contents: read
+
+# Same group as release.yml: a revoke must never run while a release run is signing.
+concurrency:
+  group: apple-signing
+  cancel-in-progress: false
+
+jobs:
+  certs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Python + PyJWT
+        run: |
+          python3 -m venv "$RUNNER_TEMP/asc"
+          "$RUNNER_TEMP/asc/bin/pip" install --quiet "pyjwt==2.9.0" "cryptography==43.0.3"
+
+      - name: Certificates
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8_BASE64: ${{ secrets.ASC_KEY_P8_BASE64 }}
+          MODE: ${{ inputs.mode }}
+        run: |
+          umask 077
+          printf '%s' "$ASC_KEY_P8_BASE64" | base64 --decode > "$RUNNER_TEMP/AuthKey.p8"
+          export ASC_KEY_PATH="$RUNNER_TEMP/AuthKey.p8"
+          if [ "$MODE" = "revoke-all" ]; then
+            "$RUNNER_TEMP/asc/bin/python" tools/asc_certs.py revoke-all --yes
+          else
+            "$RUNNER_TEMP/asc/bin/python" tools/asc_certs.py list
+          fi
