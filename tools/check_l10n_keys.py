@@ -39,7 +39,10 @@
 #   receiver whose type is unknown (`banner.show("...")`); in a SwiftUI view, a ternary whose other
 #   branch is `Type.member` / `f()` of a localizable type (`Text(c ? "A" : Copy.title)`); our own
 #   func reusing a SwiftUI view / modifier name (an `.alert(_:note:)` extension: only the SwiftUI
-#   rule, the first argument, applies); a closure with statements inside a switch-case value.
+#   rule, the first argument, applies); a closure with statements inside a switch-case value;
+#   APIs inherited through a conformance written with the module name
+#   (`extension CedarScan.Settings.Row: P`), an attribute (`@MainActor P`), a condition
+#   (`where T: Q`, `Array<Int>`) outside its own extension, or a specialized superclass.
 # Validated 20/10/2026 against the compiler's own extraction (SWIFT_EMIT_LOC_STRINGS, Xcode 26.3).
 import json, os, re, sys, unicodedata
 
@@ -328,11 +331,11 @@ CLOSURE_PARAMS = re.compile(r"\s*(?:\[[^\]]*\]\s*)?(\([^()]*\)|[A-Za-z_][\w]*(?:
 
 
 class Block:
-    __slots__ = ("open", "close", "head", "type_name", "type_qual", "supers", "flow", "inline")
+    __slots__ = ("open", "close", "head", "type_name", "type_qual", "supers", "flow", "inline", "cond")
 
     def __init__(self, open_, inline):
         self.open, self.close, self.inline = open_, None, inline
-        self.head, self.type_name, self.type_qual, self.supers, self.flow = "", None, None, [], False
+        self.head, self.type_name, self.type_qual, self.supers, self.flow, self.cond = "", None, None, [], False, False
 
     def set_head(self, head):
         self.head = head
@@ -341,14 +344,18 @@ class Block:
         self.type_name = self.type_qual.split(".")[-1] if mt else None
         if mt:                                                 # `: View, Bannering` (inherited API)
             ms = re.match(r"\s*(?:<[^>{]*>)?\s*:\s*([^{]*?)\s*(\bwhere\b.*)?$", head[mt.end(1):], re.S)
-            conditional = ms and ms.group(2) and re.search(r"\bextension\s", head)
+            # `extension X: P where ...` and `extension Array<Int>: P` hold for some X only
+            conditional = ms and re.search(r"\bextension\s", head) and \
+                (ms.group(2) or re.match(r"\s*<", head[mt.end(1):]))
             self.supers = [strip_generics(x.strip()).split(".")[-1]   # `Base<Int>` -> Base, `A & B`
                            for x in re.split(r"[,&]", ms.group(1)) if x.strip()] \
-                if ms and not conditional else []                     # `extension X: P where ...`: not always
+                if ms else []
+            self.cond = bool(conditional)
         self.flow = bool(FLOW_HEAD.search(head)) and not self.type_name
 
 
 def strip_generics(t):
+    t = t.replace("->", "  ")
     while True:
         u = re.sub(r"<[^<>]*>", "", t)
         if u == t:
@@ -726,8 +733,8 @@ class Callees:
         for fi in files.values():
             for b in fi.blocks:
                 if b.type_name:
-                    self.supers.setdefault(b.type_name, set()).update(b.supers)
-                    self.qsupers.setdefault(qual_key(fi, b), set()).update(b.supers)
+                    self.supers.setdefault(b.type_name, set()).update(() if b.cond else b.supers)
+                    self.qsupers.setdefault(qual_key(fi, b), set()).update(() if b.cond else b.supers)
                 if b.type_name and re.search(r"\b(?:struct|class|enum|actor)\s", b.head) \
                         and not re.search(r"\b(?:extension|protocol)\s", b.head):
                     declared.add(b.type_name)
@@ -810,7 +817,7 @@ class Callees:
                 if sel:
                     break
             if not sel:                      # inherited: protocol extensions, superclasses (transitive)
-                todo = [s for b in blocks for s in self.qsupers.get(qual_key(fi, b), ())]  # incl. `extension X: P`
+                todo = [s for b in blocks for s in self.qsupers.get(qual_key(fi, b), ())] + [s for b in blocks for s in b.supers]  # incl. `extension X: P`
                 supers = set()
                 while todo:
                     t = todo.pop()
