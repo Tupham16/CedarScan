@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import UIKit
 
 @MainActor
 final class ScanStore: ObservableObject {
@@ -89,6 +90,7 @@ final class ScanStore: ObservableObject {
         excludeScansFromBackup()
         loadProjects()
         reload()
+        backfillOrderBindings()
     }
 
     /// Q1 (2.79, owner 20/10): `Documents/Scans` stays out of the iCloud / computer backup — a
@@ -730,11 +732,36 @@ final class ScanStore: ObservableObject {
     /// still wins in `orderNumber(ofProject:)`; the binding is cleared like any binding
     /// (`releaseBinding`: the order cancelled unpaid or refunded).
     private func bindProperty(of record: ScanRecord, to orderNumber: String) {
-        guard let projectId = records.first(where: { $0.id == record.id })?.projectId ?? record.projectId,
+        // The live record's property (nil when it is loose now), ✗ a snapshot's.
+        let live = records.first { $0.id == record.id }
+        guard let projectId = live.map({ $0.projectId }) ?? record.projectId,
               let index = projects.firstIndex(where: { $0.id == projectId }),
               projects[index].orderNumber == nil else { return }
         projects[index].orderNumber = orderNumber
         persistProjects()
+    }
+
+    /// Q1 (2.79), once per install: houses ordered BEFORE 2.79 have their order only in their
+    /// scans' meta.json, which the backup no longer carries — bound now as a 2.79 stamp would
+    /// (newest stamp, `orderNumber(ofProject:)`). Only once the files are readable (before the
+    /// first unlock `records` reads back empty) and projects.json can be written. ⚠ A refunded
+    /// order's house gets bound too (the app keeps no refund state): harmless while its stamped
+    /// scans are here (they win anyway); a restored phone then offers "Send extra scan" into it
+    /// (refused `order_closed`) — accepted, rare.
+    private static let bindingBackfillKey = "projects.bindingBackfill.v1"
+
+    private func backfillOrderBindings() {
+        guard !UserDefaults.standard.bool(forKey: Self.bindingBackfillKey),
+              UIApplication.shared.isProtectedDataAvailable, !projectsWriteBlocked else { return }
+        var changed = false
+        for index in projects.indices where projects[index].orderNumber == nil {
+            if let number = orderNumber(ofProject: projects[index].id) {
+                projects[index].orderNumber = number
+                changed = true
+            }
+        }
+        if changed { persistProjects() }
+        UserDefaults.standard.set(true, forKey: Self.bindingBackfillKey)
     }
 
     /// Số đơn mà DỰ ÁN này đã đặt — `nil` = chưa có đơn nào ⇒ đường ĐẶT HÀNG bình thường.
@@ -878,15 +905,17 @@ final class ScanStore: ObservableObject {
                   !cancelledOrderIds.contains(order.orderId),
                   !seenCancelledOrderIds.contains(order.orderId) else { continue }
             // `allScanIds`: for a live order its `scanId` fallback (old server) is in it too.
-            adoptStamps(orderNumber: order.orderNumber, scanIds: order.allScanIds)
+            adoptStamps(orderNumber: order.orderNumber, scanIds: order.allScanIds, status: order.status)
         }
     }
 
     /// Stamps `orderNumber` on the scans whose `cloudScanId` the SERVER says are in that order (an
     /// order list, or the Place order 409 naming the order — `OrderSheet.adoptExistingOrder`).
     /// Unstamped scans only: ✗ overwrite another number (a newer order's, or a dead one the next
-    /// sync releases — then the following one stamps it).
-    func adoptStamps(orderNumber: String, scanIds: [String]) {
+    /// sync releases — then the following one stamps it). `status`: the order's customer status
+    /// (nil = unknown) — a refunded one stamps but ✗ binds the property (2.78: refunded = unbound,
+    /// `releaseCancelledStamps`; 2.79 `bindProperty`). No default: both callers say what they know.
+    func adoptStamps(orderNumber: String, scanIds: [String], status: String?) {
         guard !scanIds.isEmpty else { return }
         let listed = Set(scanIds)
         let targets = records.filter { record in
@@ -895,7 +924,7 @@ final class ScanStore: ObservableObject {
         }
         for record in targets {
             update(record) { $0.cloudOrderNumber = orderNumber }
-            bindProperty(of: record, to: orderNumber)
+            if status != "refunded" { bindProperty(of: record, to: orderNumber) }
         }
     }
 

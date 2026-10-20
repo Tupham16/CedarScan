@@ -1341,10 +1341,10 @@ struct OrderSheet: View {
     private func openAccountGate() {
         gateAccountId = account.customer?.id
         showAccountGate = true
-        // The code from sign-up is usually long expired (15 min) by the time an order needs it:
-        // a fresh one, so "We sent a 6-digit code to …" is true. Too soon after the last one
-        // (server cooldown 60 s) = refused, nothing to show — that code still works.
-        Task { _ = try? await APIClient.shared.resendCode() }
+        // ✗ an automatic `resendCode()` here (tried in review 2): the server REPLACES the code, so
+        // a still-valid one from sign-up stops working, and VerifyEmailView's cooldown never starts.
+        // An expired code gets "The code has expired. Please request a new one." (translated, N13)
+        // next to its "Resend code" button.
     }
 
     /// The gate closed. Verified, still the account it opened for, the form as it was tapped ⇒
@@ -2341,7 +2341,7 @@ struct OrderSheet: View {
             errorMessage = String(localized: "Something went wrong. Please try again.")
             return
         }
-        store.adoptStamps(orderNumber: number, scanIds: [primaryCloudId])
+        store.adoptStamps(orderNumber: number, scanIds: [primaryCloudId], status: api.orderStatus)
         if let status = api.orderStatus {
             store.noteOrderStatus(orderNumber: number, status: status)
         }
