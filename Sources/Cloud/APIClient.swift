@@ -21,6 +21,56 @@ struct MeResponse: Decodable {
     let paymentMethods: Bool?
     /// F9: Account → "My brand" row (the server has the brand routes). Absent = no row.
     let myBrand: Bool?
+    /// F10: the team this account is on. nil = none, or a server without teams.
+    let team: TeamSummaryDTO?
+}
+
+/// F10 (team accounts, app half F10b): read-only here; the team is managed on app.cedar247.com.
+/// `GET me` → `team` and `GET team` → `team` (the latter without `role`).
+struct TeamSummaryDTO: Decodable, Equatable {
+    let id: String
+    let name: String
+    /// "admin" | "member" (`GET me` only).
+    let role: String?
+    /// The card that pays the team's orders; nil = none.
+    let card: TeamCardDTO?
+
+    var isAdmin: Bool { role == "admin" }
+}
+
+struct TeamCardDTO: Decodable, Equatable {
+    /// Stripe's brand id: "visa", "mastercard", "amex"…
+    let brand: String?
+    let last4: String?
+
+    /// "Visa •••• 4242", as the web shows it (Stripe's brand id, first letter upper-cased). No
+    /// "Card" fallback word: a key that short collides with Stripe's own (trap #42).
+    var label: String {
+        let raw = brand ?? ""
+        let name = raw.prefix(1).uppercased() + raw.dropFirst()
+        return (name.isEmpty ? "" : name + " ") + "•••• " + (last4 ?? "")
+    }
+}
+
+/// `GET team`: `team` nil = on no team. `invites` only for admins.
+struct TeamResponse: Decodable {
+    let team: TeamSummaryDTO?
+    let members: [TeamMemberDTO]?
+    let invites: [TeamInviteDTO]?
+}
+
+struct TeamMemberDTO: Decodable, Identifiable {
+    let memberId: String
+    let name: String
+    let role: String?
+    let isYou: Bool?
+
+    var id: String { memberId }
+}
+
+struct TeamInviteDTO: Decodable, Identifiable {
+    let id: String
+    let email: String
 }
 
 struct OKResponse: Decodable {
@@ -75,6 +125,10 @@ struct OrderScanResponse: Decodable {
     /// F1 (2.79): same as `OrderDTO.dueAt`, for the "Order placed!" screen. nil = no line (not
     /// paid yet, or a server that does not send it here).
     let dueAt: String?
+    /// F10: "team_card" = the team's card paid it at once (`free` is then true too: nothing to pay).
+    let paidWith: String?
+
+    var paidWithTeamCard: Bool { paidWith == "team_card" }
 }
 
 /// Kết quả "gửi bổ sung bản quét" (`POST orders/{id}/supplement-scan`).
@@ -298,8 +352,15 @@ struct OrderDTO: Decodable, Identifiable {
     /// `orders/route.ts`). Staff can move it, and it can be in the past. Read via `readyBy`.
     /// Optional: older servers.
     let dueAt: String?
+    /// F10 (team accounts): the teammate who placed it (their account's name). nil = you, a personal
+    /// order, or a teammate whose account is gone. Optional: older servers.
+    let placedBy: String?
+    /// "team_card" once the team's card paid it. Optional: older servers.
+    let paidWith: String?
 
     var id: String { orderId }
+
+    var paidWithTeamCard: Bool { paidWith == "team_card" }
 
     /// F1: when the order should be ready, or nil. A deadline already past is hidden (owner
     /// 20/10: the customer is not shown a late order; the status badge stays).
@@ -426,6 +487,10 @@ struct AddExtrasResponse: Decodable {
     let paymentUrl: String?
     let payInApp: Bool?
     let payBy: String?
+    /// F10: "team_card" = the team's card paid it at once (`free` true too, as on Place order).
+    let paidWith: String?
+
+    var paidWithTeamCard: Bool { paidWith == "team_card" }
 }
 
 /// `POST orders/{id}/cancel` (200). `scanIds` = the scans released back to the customer: the app
@@ -683,6 +748,11 @@ final class APIClient {
             return String(localized: "Please verify your email before placing an order.")
         case "One of the selected scans is already part of another order.":
             return String(localized: "One of the selected scans is already part of another order.")
+        // F10 (team accounts): 409s of Place order / Send extra scan, sent without a `code`.
+        case "Your team membership just changed. Please try again.":
+            return String(localized: "Your team membership just changed. Please try again.")
+        case "A teammate's scan can't be added to your personal order.":
+            return String(localized: "A teammate's scan can't be added to your personal order.")
         default:
             break
         }
@@ -724,6 +794,11 @@ final class APIClient {
 
     func me() async throws -> MeResponse {
         try await send("me")
+    }
+
+    /// F10b: the Team screen (read-only).
+    func team() async throws -> TeamResponse {
+        try await send("team")
     }
 
     struct OkResponse: Decodable {

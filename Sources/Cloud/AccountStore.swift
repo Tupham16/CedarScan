@@ -31,6 +31,9 @@ final class AccountStore: ObservableObject {
     /// F9: the server has My brand (`GET me` → `myBrand`) — the Account row shows only then, so a
     /// 2.79 build on a server without it shows no broken screen. Same lifetime as the flag above.
     @Published private(set) var myBrandAvailable = false
+    /// F10b: the team this account is on (`GET me` → `team`): the Account "Team" row, the order
+    /// form's team-card line, who may cancel a teammate's order. Same lifetime as the flags above.
+    @Published private(set) var team: TeamSummaryDTO?
     var needsVerification: Bool { customer != nil && !emailVerified }
 
     init() {
@@ -87,6 +90,7 @@ final class AccountStore: ObservableObject {
             }
             paymentMethodsAvailable = me.paymentMethods == true
             myBrandAvailable = me.myBrand == true
+            team = me.team
         } catch let error as APIError where error.statusCode == 401 {
             signOut()
         } catch {
@@ -144,6 +148,7 @@ final class AccountStore: ObservableObject {
         emailVerified = false
         paymentMethodsAvailable = false
         myBrandAvailable = false
+        team = nil
         // Link remembers the customer on this phone; the next account must not inherit it.
         PaymentSheet.resetCustomer()
         // Which team messages were shown / left open, per order.
