@@ -604,8 +604,10 @@ struct OrdersView: View {
     private static func appLanguageLocale() -> Locale {
         let current = Locale.current
         guard current.language.languageCode?.identifier != AppLanguage.code else { return current }
+        // Only the language: the region sits in `languageComponents` too ("it_IT" → "en_IT").
         var parts = Locale.Components(locale: current)
-        parts.languageComponents = Locale.Language.Components(languageCode: Locale.LanguageCode(AppLanguage.code))
+        parts.languageComponents.languageCode = Locale.LanguageCode(AppLanguage.code)
+        parts.languageComponents.script = nil
         return Locale(components: parts)
     }
 }
