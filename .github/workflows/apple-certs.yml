@@ -36,7 +36,7 @@ jobs:
       - name: Python + PyJWT
         run: |
           python3 -m venv "$RUNNER_TEMP/asc"
-          "$RUNNER_TEMP/asc/bin/pip" install --quiet "pyjwt==2.9.0" "cryptography==43.0.3"
+          "$RUNNER_TEMP/asc/bin/pip" install --quiet "pyjwt==2.9.0" "cryptography==43.0.3" "cffi==2.0.0" "pycparser==2.23"
 
       - name: Certificates
         env:
