@@ -179,7 +179,8 @@ struct RootView: View {
     /// Orders v2 B: an unpaid order can be cancelled from elsewhere or expire after 7 days while
     /// the Orders tab is never opened — its scans would stay "Awaiting payment", reserved by a dead
     /// order (Send extra scan → refused). Asked only while a scan HERE is stamped with an order
-    /// known to be unpaid, so no request at all for everybody else. Positive signals only
+    /// known to be unpaid, or (2.78) a property here is bound to one after its last ordered scan
+    /// was deleted, so no request at all for everybody else. Positive signals only
     /// (`ScanStore.syncOrders`); a failure changes nothing.
     private func syncUnpaidOrders() async {
         guard account.isSignedIn, store.hasAwaitingStamps else { return }

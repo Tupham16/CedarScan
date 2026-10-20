@@ -47,7 +47,8 @@ struct ScanProject: Identifiable, Codable, Hashable {
     /// 2.78: also written when the property's last ordered scan is deleted or moved out
     /// (`ScanStore.keepOrderBinding`, same reason).
     /// Read ONLY through `ScanStore.orderNumber(ofProject:)` / `project(withOrderNumber:)`; cleared
-    /// with the stamps when that order is cancelled unpaid. nil = every other property (and every
+    /// with the stamps when that order is cancelled unpaid, and (2.78) when a list shows it
+    /// refunded — the binding only, stamps stay. nil = every other property (and every
     /// projects.json written before this field: optional, decodes as nil).
     var orderNumber: String? = nil
 }
