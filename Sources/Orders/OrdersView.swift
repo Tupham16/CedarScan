@@ -613,7 +613,7 @@ struct RevisionSheet: View {
                         )
                         .lineLimit(4...8)
                         // N10 (2.79): the server keeps 2,000 UTF-16 units of it (`revision/route.ts`)
-                        // and reads a body over 16 KB as empty: stops there, as the order note.
+                        // and cuts the rest silently: stops there, as the order note.
                         .onChange(of: message) { _, text in
                             let cut = TextLimit.cut(text, 2000)
                             if cut != text { message = cut }

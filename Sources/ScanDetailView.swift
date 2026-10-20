@@ -1180,9 +1180,10 @@ struct OrderSheet: View {
     }
 
     /// N10 (2.79): the server keeps `notes` to 2,000 and `floorNaming` / `projectName` to 120 /
-    /// `coupon` to 50 UTF-16 units (`str(…, n)`, `scans/[id]/order/route.ts`), and reads a body
-    /// over 16 KB as `{}` = a default 2D order with the floors, add-ons and notes dropped. The form
-    /// stops at those limits (notes, floor naming) and `submit` sends nothing longer.
+    /// `coupon` to 50 UTF-16 units (`str(…, n)`, `scans/[id]/order/route.ts`) and cuts the rest
+    /// silently; a whole body over its cap was once read as `{}` = a default 2D order (now 413,
+    /// `APIClient.maxOrderBodyBytes`). The form stops at those limits (notes, floor naming) and
+    /// `submit` sends nothing longer.
     private static let maxNotes = 2000
     private static let maxFloorNaming = 120
     private static let maxProjectName = 120
@@ -1678,7 +1679,7 @@ struct OrderSheet: View {
             )
             .lineLimit(3...6)
             // N10: stops at the server's limit, no counter (a pasted wall of text is cut here,
-            // ✗ silently by the server or, past 16 KB, read as an empty form).
+            // ✗ silently by the server, ✗ refused whole at Place order).
             .onChange(of: notes) { _, text in
                 let cut = Self.cut(text, Self.maxNotes)
                 if cut != text { notes = cut }

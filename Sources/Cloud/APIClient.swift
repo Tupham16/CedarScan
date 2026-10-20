@@ -863,13 +863,13 @@ final class APIClient {
         ]
     }
 
-    /// N10 (2.79): the live server reads a body over 16 KB as an EMPTY form = a default 2D order
-    /// without the floors, add-ons, notes or files (and `submit` would stamp every ticked floor
-    /// with it). The fields are capped (`OrderSheet`), yet a full note + 10 long file names can
-    /// still pass 16 KB: refused in the app, nothing sent. Same `JSONSerialization` call as
-    /// `makeRequest` = the exact bytes. The 2.79 server (S3, `claude/s3-audit`) refuses with 413
-    /// `too_large` itself and allows 64 KB — once that is live, this limit can go up.
-    static let maxOrderBodyBytes = 16 * 1024
+    /// N10 (2.79): the order route's cap = the server's `MAX_TEXT_JSON_BYTES` (S3, live 20/10
+    /// `c9fc3cb`: over it 413 `too_large`; before that server a body over 16 KB was read as an
+    /// EMPTY form = a default 2D order). Checked in `OrderSheet.submit` BEFORE the uploads, so a
+    /// too-long body is refused before 40–200 MB go up; the fields are capped anyway (a full
+    /// note + 10 long file names measured 17.5 KB). Same `JSONSerialization` call as
+    /// `makeRequest` = the exact bytes. Change it with the server, ✗ alone.
+    static let maxOrderBodyBytes = 64 * 1024
 
     static func isTooLarge(_ body: [String: Any]) -> Bool {
         guard let encoded = try? JSONSerialization.data(withJSONObject: body) else { return false }
