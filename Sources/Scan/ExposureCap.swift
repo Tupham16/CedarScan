@@ -11,7 +11,8 @@ import QuartzCore
 /// (2.70.1 hard, 2.70.2 adaptive).
 /// Which mode a scan runs is decided ONCE at its start (`resolveMode`):
 ///  1. hidden debug mode on (7 taps on the version line in Account) AND a pick other than "Default"
-///     in its "Exposure cap" picker → that pick (Off / Adaptive / Hard 4 / 6 / 8 ms; owner tests);
+///     in its "Exposure cap" picker → that pick (Off / Adaptive / Hard 4 / 6 / 8 ms; owner tests).
+///     AltStore builds only: App Store builds (APPSTORE, release.yml) skip this step;
 ///  2. else the SERVER KILL SWITCH: `scan-quality-config` `{"exposureCap": "off"}` → off, fully
 ///     inert (no loop, no trace; only a leftover limit of an earlier scan is put back). Arrives with
 ///     `catalog()` (order form; launch / sign-in / foreground while signed in, ≥ 30 min apart),
@@ -181,13 +182,17 @@ final class ExposureCap: ObservableObject {
     /// The mode of a scan starting now + where it came from (scan-report `exposureCap.source`):
     /// the debug pick only while the debug mode is ON (a customer never has it; turning debug off
     /// puts the owner's phone back on the customer path), else the server switch, else adaptive.
+    /// App Store builds (APPSTORE) never read the debug keys, even when an earlier TestFlight /
+    /// AltStore build left them set.
     static func resolveMode() -> (mode: Mode, source: String) {
+        #if !APPSTORE
         let defaults = UserDefaults.standard
         if defaults.bool(forKey: debugFlagKey),
            let raw = defaults.string(forKey: debugChoiceKey),
            let mode = DebugChoice(rawValue: raw)?.mode {
             return (mode, "debug")
         }
+        #endif
         if ScanQualityConfig.current.exposureCapOff { return (.off, "server") }
         return (.adaptive4, "default")
     }
@@ -380,7 +385,9 @@ final class ExposureCap: ObservableObject {
         t0 = CACurrentMediaTime()
         arSession = session
         readDevice = primary
+        #if !APPSTORE
         debug = UserDefaults.standard.bool(forKey: Self.debugFlagKey)
+        #endif
         if let s = Self.stale {
             if Self.restore(s.device, original: s.original, ours: s.ours) {
                 Self.stale = nil

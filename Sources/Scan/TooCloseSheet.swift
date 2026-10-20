@@ -103,7 +103,11 @@ final class TooCloseSheetUIView: UIView {
     private var strongSince: CFTimeInterval = -1
 
     // Hidden debug readout (Account › 7 taps on the version line).
+    #if APPSTORE
+    private let debugOn = false
+    #else
     private let debugOn = UserDefaults.standard.bool(forKey: "scanDebugReadout")
+    #endif
     private let debugLabel = UILabel()
     private var lastDebugWall: CFTimeInterval = 0
     private var dbgMin: Float = 0, dbgLow: Float = 0, dbgUnknown: Float = 0, dbgNear: Float = 0

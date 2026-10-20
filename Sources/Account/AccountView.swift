@@ -14,8 +14,14 @@ struct AccountView: View {
     /// Auto flashlight while scanning (AutoTorch reads the same key; default on).
     @AppStorage("scanAutoTorch") private var scanAutoTorch = true
     /// Hidden debug readout on the scan screen (7 taps on the version line) — owner testing via
-    /// AltStore has no console.
+    /// AltStore has no console. NOT in App Store builds (release.yml compiles with APPSTORE,
+    /// guideline 2.5.19): there it is always off and no tap turns it on, whatever an earlier
+    /// TestFlight / AltStore build left in UserDefaults (every reader of the key is guarded).
+    #if APPSTORE
+    private let scanDebugReadout = false
+    #else
     @AppStorage("scanDebugReadout") private var scanDebugReadout = false
+    #endif
     /// Debug-only exposure cap picker (ExposureCap.resolveMode reads the same key at scan start,
     /// and only while `scanDebugReadout` is on).
     @AppStorage(ExposureCap.debugChoiceKey) private var exposureCapChoice: ExposureCap.DebugChoice = .auto
@@ -221,6 +227,7 @@ struct AccountView: View {
             .foregroundStyle(.secondary)
             .frame(maxWidth: .infinity, alignment: .center)
             .contentShape(Rectangle())
+            #if !APPSTORE
             .onTapGesture {
                 // 7 taps in a row (≤ 1.5 s apart), not 7 over a whole visit.
                 let now = Date()
@@ -232,6 +239,7 @@ struct AccountView: View {
                     scanDebugReadout.toggle()
                 }
             }
+            #endif
     }
 
     /// Exposure cap picker (ExposureCap, 2.73), behind the hidden debug flag — the owner's own

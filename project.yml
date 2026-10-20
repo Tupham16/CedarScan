@@ -8,12 +8,13 @@ settings:
     SWIFT_VERSION: "5.0"
 # First third-party dependency (in-app card payments, Stripe PaymentSheet).
 # URL = Stripe's official SPM mirror (~46 MB). ✗ github.com/stripe/stripe-ios: that repo is ~2.8 GB
-# and SPM clones it whole on every CI run. Pinned to the COMMIT of tag 26.11.0 (a tag can be moved,
-# a commit cannot). To upgrade: gh api "repos/stripe/stripe-ios-spm/tags?per_page=5".
+# and SPM clones it whole on every CI run. Pinned to the COMMIT of tag 26.15.0 (2.78; a tag can be
+# moved, a commit cannot). To upgrade: gh api "repos/stripe/stripe-ios-spm/tags?per_page=5", then
+# traps #41–#43 of the handoff (IPA file list, translations.json key collisions, privacy manifests).
 packages:
   Stripe:
     url: https://github.com/stripe/stripe-ios-spm
-    revision: 18508f5216629b2c100e8fc3a7f686e7d71aa498
+    revision: c926cb192609abbd07345fde8902e51f557557fe
   # meshoptimizer 1.3 (MIT), VENDORED as a local package: upstream has no Package.swift. Only the grey
   # 3D preview uses it (Sources/Scan/PreviewSimplifier.swift). Version + update steps: its README.md.
   MeshOptimizer:

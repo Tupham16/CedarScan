@@ -265,7 +265,9 @@ final class AutoTorch: ObservableObject {
         let userOn = UserDefaults.standard.object(forKey: "scanAutoTorch") == nil
             ? true
             : UserDefaults.standard.bool(forKey: "scanAutoTorch")
+        #if !APPSTORE
         debug = UserDefaults.standard.bool(forKey: "scanDebugReadout")
+        #endif
         guard userOn else { stats.status = "disabledByUser"; return }
         guard cfg.autoTorch else { stats.status = "disabledByConfig"; return }
         // ARKit's primary camera; fallback = the back wide camera (same hardware torch).
