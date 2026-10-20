@@ -5882,53 +5882,6 @@
         }
       }
     },
-    "Finishing…": {
-      "extractionState": "manual",
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Dokončování…"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Wird abgeschlossen …"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Finalizando…"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Finalisation…"
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Afronden…"
-          }
-        },
-        "sk": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Dokončuje sa…"
-          }
-        },
-        "vi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Đang hoàn tất…"
-          }
-        }
-      }
-    },
     "Flashlight on": {
       "extractionState": "manual",
       "localizations": {
@@ -7100,53 +7053,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Tôi muốn huỷ đơn hoặc hoàn tiền"
-          }
-        }
-      }
-    },
-    "I'll rescan first": {
-      "extractionState": "manual",
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Nejdřív to naskenuji znovu"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ich scanne erst neu"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Primero vuelvo a escanear"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Numériser de nouveau d'abord"
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ik scan eerst opnieuw"
-          }
-        },
-        "sk": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Najprv to naskenujem znova"
-          }
-        },
-        "vi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Để tôi quét lại"
           }
         }
       }
@@ -10676,100 +10582,6 @@
         }
       }
     },
-    "Order already delivered": {
-      "extractionState": "manual",
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Objednávka už byla doručena"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Bestellung bereits geliefert"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Pedido ya entregado"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Commande déjà livrée"
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Bestelling al geleverd"
-          }
-        },
-        "sk": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Objednávka už bola doručená"
-          }
-        },
-        "vi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Đơn đã giao"
-          }
-        }
-      }
-    },
-    "Order anyway": {
-      "extractionState": "manual",
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Přesto objednat"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Trotzdem bestellen"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Pedir de todos modos"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Commander quand même"
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Toch bestellen"
-          }
-        },
-        "sk": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Aj tak objednať"
-          }
-        },
-        "vi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Vẫn đặt hàng"
-          }
-        }
-      }
-    },
     "Order later": {
       "extractionState": "manual",
       "localizations": {
@@ -12133,53 +11945,6 @@
         }
       }
     },
-    "Preparing upload…": {
-      "extractionState": "manual",
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Příprava nahrávání…"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Upload wird vorbereitet …"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Preparando la subida…"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Préparation du téléversement…"
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Upload voorbereiden…"
-          }
-        },
-        "sk": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Pripravuje sa nahrávanie…"
-          }
-        },
-        "vi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Đang chuẩn bị…"
-          }
-        }
-      }
-    },
     "Preview image coming soon": {
       "extractionState": "manual",
       "localizations": {
@@ -12881,53 +12646,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Yêu cầu sửa"
-          }
-        }
-      }
-    },
-    "Rescanning the flagged floors usually gives a more accurate floor plan: %@. You can still order — our team will be notified.": {
-      "extractionState": "manual",
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Nové naskenování označených podlaží obvykle přinese přesnější půdorys: %@. Objednat můžete i tak — náš tým dostane upozornění."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ein Neuscan der markierten Etagen ergibt meist einen genaueren Grundriss: %@. Sie können trotzdem bestellen — unser Team wird informiert."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Volver a escanear las plantas marcadas suele dar un plano de planta más preciso: %@. Aun así puedes pedir — avisaremos a nuestro equipo."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Reprendre la numérisation des étages signalés donne habituellement un plan d'étage plus précis : %@. Vous pouvez quand même commander — notre équipe en sera avisée."
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "De gemarkeerde verdiepingen opnieuw scannen geeft meestal een nauwkeurigere plattegrond: %@. Je kunt nog steeds bestellen — ons team wordt op de hoogte gebracht."
-          }
-        },
-        "sk": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Opätovné naskenovanie označených podlaží zvyčajne dá presnejší pôdorys: %@. Aj tak môžete objednať — náš tím bude upozornený."
-          }
-        },
-        "vi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Quét lại các tầng bị đánh dấu thường cho bản vẽ chính xác hơn: %@. Bạn vẫn có thể đặt — đội xử lý sẽ được báo trước."
           }
         }
       }
@@ -13825,100 +13543,6 @@
         }
       }
     },
-    "Scan quality is low": {
-      "extractionState": "manual",
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Nízká kvalita skenu"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Scan-Qualität ist niedrig"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "La calidad del escaneo es baja"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Qualité de numérisation faible"
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "De scankwaliteit is laag"
-          }
-        },
-        "sk": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Kvalita skenu je nízka"
-          }
-        },
-        "vi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Chất lượng bản quét thấp"
-          }
-        }
-      }
-    },
-    "Scan quality: %lld/100 (%@)": {
-      "extractionState": "manual",
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Kvalita skenu: %lld/100 (%@)"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Scan-Qualität: %lld/100 (%@)"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Calidad del escaneo: %lld/100 (%@)"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Qualité de la numérisation : %lld/100 (%@)"
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Scankwaliteit: %lld/100 (%@)"
-          }
-        },
-        "sk": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Kvalita skenu: %lld/100 (%@)"
-          }
-        },
-        "vi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Chất lượng quét: %lld/100 (%@)"
-          }
-        }
-      }
-    },
     "Scan saved": {
       "extractionState": "manual",
       "localizations": {
@@ -14718,53 +14342,6 @@
         }
       }
     },
-    "Sending your scan… (%lld/%lld)": {
-      "extractionState": "manual",
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Odesílání skenu… (%lld/%lld)"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ihr Scan wird gesendet … (%lld/%lld)"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Enviando tu escaneo… (%lld/%lld)"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Envoi de votre numérisation… (%lld/%lld)"
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Je scan wordt verstuurd… (%lld/%lld)"
-          }
-        },
-        "sk": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Odosiela sa váš sken… (%lld/%lld)"
-          }
-        },
-        "vi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Đang gửi bản quét… (%lld/%lld)"
-          }
-        }
-      }
-    },
     "Sent — %lld scan(s) added to %@": {
       "extractionState": "manual",
       "localizations": {
@@ -15278,53 +14855,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Đi chậm lại"
-          }
-        }
-      }
-    },
-    "Some scans have low quality": {
-      "extractionState": "manual",
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Některé skeny mají nízkou kvalitu"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Einige Scans haben niedrige Qualität"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Algunos escaneos tienen baja calidad"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Certaines numérisations sont de faible qualité"
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sommige scans zijn van lage kwaliteit"
-          }
-        },
-        "sk": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Niektoré skeny majú nízku kvalitu"
-          }
-        },
-        "vi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Có bản quét chất lượng thấp"
           }
         }
       }
@@ -17064,53 +16594,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Bản quét này đã nằm trong đơn %@ — xem ở tab Đơn hàng."
-          }
-        }
-      }
-    },
-    "This scan scored %lld/100. Rescanning usually gives a more accurate floor plan. You can still order — our team will be notified about the quality.": {
-      "extractionState": "manual",
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tento sken získal %lld/100 bodů. Opětovné skenování obvykle přinese přesnější půdorys. Objednat můžete i tak — náš tým bude o kvalitě informován."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Dieser Scan hat %lld/100 Punkte erreicht. Ein Neuscan liefert meist einen genaueren Grundriss. Sie können trotzdem bestellen — unser Team wird über die Qualität informiert."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Este escaneo obtuvo una puntuación de %lld/100. Volver a escanear suele dar un plano de planta más preciso. Aún puedes pedir — nuestro equipo recibirá un aviso sobre la calidad."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Cette numérisation a obtenu un score de %lld/100. Numériser de nouveau donne généralement un plan d'étage plus précis. Vous pouvez quand même commander — notre équipe sera informée de la qualité."
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Deze scan scoorde %lld/100. Opnieuw scannen geeft meestal een nauwkeurigere plattegrond. Je kunt nog steeds bestellen — ons team krijgt bericht over de kwaliteit."
-          }
-        },
-        "sk": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tento sken dosiahol skóre %lld/100. Opätovné skenovanie zvyčajne prinesie presnejší pôdorys. Aj tak môžete objednať — náš tím bude o kvalite informovaný."
-          }
-        },
-        "vi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Bản quét này được %lld/100 điểm. Quét lại thường cho bản vẽ chính xác hơn. Bạn vẫn có thể đặt — đội xử lý sẽ được báo trước về chất lượng."
           }
         }
       }
@@ -20636,53 +20119,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "email của bạn"
-          }
-        }
-      }
-    },
-    "· rescan recommended": {
-      "extractionState": "manual",
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "· doporučujeme skenovat znovu"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "· Neuscan empfohlen"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "· se recomienda volver a escanear"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "· nouvelle numérisation recommandée"
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "· opnieuw scannen aanbevolen"
-          }
-        },
-        "sk": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "· odporúčame znova naskenovať"
-          }
-        },
-        "vi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "· nên quét lại"
           }
         }
       }

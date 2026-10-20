@@ -93,13 +93,6 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
         colorMesh?.recordedAnchorCounts ?? [:]
     }
 
-    /// Vùng đã có ẢNH TEXTURE LƯU (item 2 PLAN-PHU-DU-DO-DUNG) — MeshOverlayRenderer đọc
-    /// để lưới trắng nói đúng "bản giao chỗ này sẽ có ảnh". nil trước khi start (overlay
-    /// coi như phủ đủ — không phạt oan).
-    var textureCoverage: TextureCoverageGrid? {
-        texShots?.coverage
-    }
-
     /// Gọi từ onAppear của MeshScanFlowView — makeUIView của ARCameraViewRepresentable đã
     /// chạy trước đó, nên gán arSession.delegate tại đây chắc chắn KHÔNG bị ARSCNView đè.
     func startSession() {
@@ -115,9 +108,6 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
             config.frameSemantics.insert(.sceneDepth)
         }
         // Giữ isLightEstimationEnabled mặc định (true) — cảnh báo thiếu sáng cần nó.
-        // Perf measurement (observation only — see ScanPerfProfiler). Started BEFORE
-        // arSession.run so the fragile first seconds of VIO init are captured.
-        ScanPerfProfiler.start(session: arSession)
         report = ScanSessionReport()
         arSession.run(config)
 
@@ -201,7 +191,6 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
         isStopped = true
         // scan-report.json `save` (2.78): stage durations — nobody had timed a save on a phone.
         let saveStart = ScanSessionReport.clock()
-        ScanPerfProfiler.noteEvent("stop-and-save")
         report?.markStopped()
         teardownCommon()
         // teardownCommon vừa bật lại auto-lock, nhưng export còn chạy hàng chục giây tới
@@ -312,7 +301,6 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
     func cancel() {
         guard !isStopped else { return }
         isStopped = true
-        ScanPerfProfiler.noteEvent("cancel")
         report = nil
         teardownCommon()
         recorder?.cancel()
@@ -327,9 +315,7 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
     }
 
     private func teardownCommon() {
-        // Both exits (Stop & Save, Cancel) funnel through here exactly once
-        // (isStopped guard) — the scan phase is over, flush the perf report.
-        ScanPerfProfiler.stop(reason: "scan-ended")
+        // Both exits (Stop & Save, Cancel) funnel through here exactly once (isStopped guard).
         qualityMonitor.stop()
         capPollTimer?.invalidate()
         capPollTimer = nil
@@ -454,7 +440,6 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
     // phá mesh (hai "căn nhà ma" chồng nhau) — nên chỉ gom tiếp khi tracking đã về normal.
 
     func sessionWasInterrupted(_ session: ARSession) {
-        ScanPerfProfiler.noteEvent("session-interrupted")
         guard !isStopped else { return }
         report?.noteInterrupted()
         isInterrupted = true
@@ -469,7 +454,6 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
     }
 
     func sessionInterruptionEnded(_ session: ARSession) {
-        ScanPerfProfiler.noteEvent("session-interruption-ended")
         guard !isStopped else { return }
         report?.noteInterruptionEnded()
         isInterrupted = false
@@ -499,8 +483,7 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
 
     func session(_ session: ARSession, cameraDidChangeTrackingState camera: ARCamera) {
         // Before the guards: transitions DURING an interruption are exactly the
-        // drift-window data the measurement campaign is after.
-        ScanPerfProfiler.noteTracking(camera.trackingState)
+        // drift-window data scan-report.json is after.
         report?.noteTracking(camera.trackingState)
         guard !isStopped, !isInterrupted else { return }
         if case .normal = camera.trackingState {
@@ -520,7 +503,6 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
     }
 
     func session(_ session: ARSession, didFailWithError error: Error) {
-        ScanPerfProfiler.noteEvent("session-error code=\((error as? ARError)?.code.rawValue ?? -1)")
         guard !isStopped else { return }
         report?.noteError(error)
         // Quyền camera bị từ chối là một trạng thái RIÊNG, không phải "mất định vị": nó không tự

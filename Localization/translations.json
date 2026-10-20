@@ -433,78 +433,6 @@
    }
   },
   {
-   "key": "Scan quality is low",
-   "translations": {
-    "vi": "Chất lượng bản quét thấp",
-    "fr": "Qualité de numérisation faible",
-    "de": "Scan-Qualität ist niedrig",
-    "cs": "Nízká kvalita skenu",
-    "sk": "Kvalita skenu je nízka",
-    "es": "La calidad del escaneo es baja",
-    "nl": "De scankwaliteit is laag"
-   }
-  },
-  {
-   "key": "Order anyway",
-   "translations": {
-    "vi": "Vẫn đặt hàng",
-    "fr": "Commander quand même",
-    "de": "Trotzdem bestellen",
-    "cs": "Přesto objednat",
-    "sk": "Aj tak objednať",
-    "es": "Pedir de todos modos",
-    "nl": "Toch bestellen"
-   }
-  },
-  {
-   "key": "I'll rescan first",
-   "translations": {
-    "vi": "Để tôi quét lại",
-    "fr": "Numériser de nouveau d'abord",
-    "de": "Ich scanne erst neu",
-    "cs": "Nejdřív to naskenuji znovu",
-    "sk": "Najprv to naskenujem znova",
-    "es": "Primero vuelvo a escanear",
-    "nl": "Ik scan eerst opnieuw"
-   }
-  },
-  {
-   "key": "This scan scored %lld/100. Rescanning usually gives a more accurate floor plan. You can still order — our team will be notified about the quality.",
-   "translations": {
-    "vi": "Bản quét này được %lld/100 điểm. Quét lại thường cho bản vẽ chính xác hơn. Bạn vẫn có thể đặt — đội xử lý sẽ được báo trước về chất lượng.",
-    "fr": "Cette numérisation a obtenu un score de %lld/100. Numériser de nouveau donne généralement un plan d'étage plus précis. Vous pouvez quand même commander — notre équipe sera informée de la qualité.",
-    "de": "Dieser Scan hat %lld/100 Punkte erreicht. Ein Neuscan liefert meist einen genaueren Grundriss. Sie können trotzdem bestellen — unser Team wird über die Qualität informiert.",
-    "cs": "Tento sken získal %lld/100 bodů. Opětovné skenování obvykle přinese přesnější půdorys. Objednat můžete i tak — náš tým bude o kvalitě informován.",
-    "sk": "Tento sken dosiahol skóre %lld/100. Opätovné skenovanie zvyčajne prinesie presnejší pôdorys. Aj tak môžete objednať — náš tím bude o kvalite informovaný.",
-    "es": "Este escaneo obtuvo una puntuación de %lld/100. Volver a escanear suele dar un plano de planta más preciso. Aún puedes pedir — nuestro equipo recibirá un aviso sobre la calidad.",
-    "nl": "Deze scan scoorde %lld/100. Opnieuw scannen geeft meestal een nauwkeurigere plattegrond. Je kunt nog steeds bestellen — ons team krijgt bericht over de kwaliteit."
-   }
-  },
-  {
-   "key": "Scan quality: %lld/100 (%@)",
-   "translations": {
-    "vi": "Chất lượng quét: %lld/100 (%@)",
-    "fr": "Qualité de la numérisation : %lld/100 (%@)",
-    "de": "Scan-Qualität: %lld/100 (%@)",
-    "cs": "Kvalita skenu: %lld/100 (%@)",
-    "sk": "Kvalita skenu: %lld/100 (%@)",
-    "es": "Calidad del escaneo: %lld/100 (%@)",
-    "nl": "Scankwaliteit: %lld/100 (%@)"
-   }
-  },
-  {
-   "key": "· rescan recommended",
-   "translations": {
-    "vi": "· nên quét lại",
-    "fr": "· nouvelle numérisation recommandée",
-    "de": "· Neuscan empfohlen",
-    "cs": "· doporučujeme skenovat znovu",
-    "sk": "· odporúčame znova naskenovať",
-    "es": "· se recomienda volver a escanear",
-    "nl": "· opnieuw scannen aanbevolen"
-   }
-  },
-  {
    "key": "Floor plan ordered",
    "translations": {
     "vi": "Đã đặt làm mặt bằng",
@@ -598,42 +526,6 @@
     "sk": "Objednať pôdorys",
     "es": "Pedir plano de planta",
     "nl": "Plattegrond bestellen"
-   }
-  },
-  {
-   "key": "Preparing upload…",
-   "translations": {
-    "vi": "Đang chuẩn bị…",
-    "fr": "Préparation du téléversement…",
-    "de": "Upload wird vorbereitet …",
-    "cs": "Příprava nahrávání…",
-    "sk": "Pripravuje sa nahrávanie…",
-    "es": "Preparando la subida…",
-    "nl": "Upload voorbereiden…"
-   }
-  },
-  {
-   "key": "Sending your scan… (%lld/%lld)",
-   "translations": {
-    "vi": "Đang gửi bản quét… (%lld/%lld)",
-    "fr": "Envoi de votre numérisation… (%lld/%lld)",
-    "de": "Ihr Scan wird gesendet … (%lld/%lld)",
-    "cs": "Odesílání skenu… (%lld/%lld)",
-    "sk": "Odosiela sa váš sken… (%lld/%lld)",
-    "es": "Enviando tu escaneo… (%lld/%lld)",
-    "nl": "Je scan wordt verstuurd… (%lld/%lld)"
-   }
-  },
-  {
-   "key": "Finishing…",
-   "translations": {
-    "vi": "Đang hoàn tất…",
-    "fr": "Finalisation…",
-    "de": "Wird abgeschlossen …",
-    "cs": "Dokončování…",
-    "sk": "Dokončuje sa…",
-    "es": "Finalizando…",
-    "nl": "Afronden…"
    }
   },
   {
@@ -2593,18 +2485,6 @@
    }
   },
   {
-   "key": "Order already delivered",
-   "translations": {
-    "vi": "Đơn đã giao",
-    "fr": "Commande déjà livrée",
-    "de": "Bestellung bereits geliefert",
-    "cs": "Objednávka už byla doručena",
-    "sk": "Objednávka už bola doručená",
-    "es": "Pedido ya entregado",
-    "nl": "Bestelling al geleverd"
-   }
-  },
-  {
    "key": "Try again",
    "translations": {
     "vi": "Thử lại",
@@ -2770,30 +2650,6 @@
     "sk": "Objednať pôdorys (skeny: %lld)",
     "es": "Pedir plano de planta (%lld escaneos)",
     "nl": "Plattegrond bestellen (%lld scans)"
-   }
-  },
-  {
-   "key": "Some scans have low quality",
-   "translations": {
-    "vi": "Có bản quét chất lượng thấp",
-    "fr": "Certaines numérisations sont de faible qualité",
-    "de": "Einige Scans haben niedrige Qualität",
-    "cs": "Některé skeny mají nízkou kvalitu",
-    "sk": "Niektoré skeny majú nízku kvalitu",
-    "es": "Algunos escaneos tienen baja calidad",
-    "nl": "Sommige scans zijn van lage kwaliteit"
-   }
-  },
-  {
-   "key": "Rescanning the flagged floors usually gives a more accurate floor plan: %@. You can still order — our team will be notified.",
-   "translations": {
-    "vi": "Quét lại các tầng bị đánh dấu thường cho bản vẽ chính xác hơn: %@. Bạn vẫn có thể đặt — đội xử lý sẽ được báo trước.",
-    "fr": "Reprendre la numérisation des étages signalés donne habituellement un plan d'étage plus précis : %@. Vous pouvez quand même commander — notre équipe en sera avisée.",
-    "de": "Ein Neuscan der markierten Etagen ergibt meist einen genaueren Grundriss: %@. Sie können trotzdem bestellen — unser Team wird informiert.",
-    "cs": "Nové naskenování označených podlaží obvykle přinese přesnější půdorys: %@. Objednat můžete i tak — náš tým dostane upozornění.",
-    "sk": "Opätovné naskenovanie označených podlaží zvyčajne dá presnejší pôdorys: %@. Aj tak môžete objednať — náš tím bude upozornený.",
-    "es": "Volver a escanear las plantas marcadas suele dar un plano de planta más preciso: %@. Aun así puedes pedir — avisaremos a nuestro equipo.",
-    "nl": "De gemarkeerde verdiepingen opnieuw scannen geeft meestal een nauwkeurigere plattegrond: %@. Je kunt nog steeds bestellen — ons team wordt op de hoogte gebracht."
    }
   },
   {

@@ -53,10 +53,10 @@ No Mac needed — GitHub Actions builds an unsigned IPA on every push to `main`
 with AltStore. The Xcode project is generated on CI by
 [XcodeGen](https://github.com/yonaskolb/XcodeGen) from `project.yml`.
 
-To build locally on a Mac instead:
+To build locally on a Mac instead, use XcodeGen 2.46.0 — the version CI pins, installed from the
+GitHub release zip (see `.github/workflows/build.yml`); a newer one can generate a different project:
 
 ```sh
-brew install xcodegen
 xcodegen generate
 open CedarScan.xcodeproj
 ```

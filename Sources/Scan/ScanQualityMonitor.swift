@@ -66,7 +66,8 @@ final class ScanQualityMonitor: NSObject, ObservableObject {
     // nóng — chính xác thì: giả thuyết "đói main thread" ĐÃ ĐO VÀ BỊ BÁC (cpuMain 3–6%,
     // mainGapMax median 18–19ms, hot và cool như nhau), còn các giả thuyết khác (nhịp depth
     // LiDAR, phơi sáng, GPU throttle) thì CHƯA AI KIỂM — ✗ đọc thành "đã loại trừ hết".
-    // `ScanPerfProfiler` VẪN ghi nhiệt vào log nên dữ liệu không mất. Chủ app báo trôi lại thì
+    // Every scan's thermal timeline is in `scan-report.json` (`ScanSessionReport`; the old
+    // on-phone perf profiler was removed in 2.78), so the data is kept. Chủ app báo trôi lại thì
     // ĐÓ là câu trả lời tốt nhất đang có, và cách xử lý là NÓI CHUYỆN VỚI ÔNG. Đọc lại nhiệt
     // sau này là đúng MỘT dòng: `ProcessInfo.processInfo.thermalState`.
 
@@ -131,8 +132,6 @@ final class ScanQualityMonitor: NSObject, ObservableObject {
     // MARK: - Vòng lặp chính (12 Hz, chỉ đọc — không giữ ARFrame)
 
     @objc private func tick() {
-        let perfT0 = ScanPerfProfiler.tickBegin()
-        defer { ScanPerfProfiler.tickEnd(.quality, perfT0) }
         guard let frame = arSession?.currentFrame else { return }
         let t = frame.timestamp
         let camera = frame.camera

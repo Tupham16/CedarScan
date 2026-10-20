@@ -26,11 +26,12 @@ struct SupplementSheet: View {
     /// Số đơn của dự án, lấy từ `ScanStore.orderNumber(ofProject:)` — nguồn DUY NHẤT.
     let orderNumber: String
 
+    // No "order already delivered → Request a revision" phase since 2.78: from 19/08 the server
+    // takes extra scans on delivered orders (`.sent` + `deliveredNote`) and no longer sends
+    // `order_delivered`; such an answer would land in `.failed` like any other error.
     private enum Phase: Equatable {
         case ready
         case working(String)
-        /// Đơn đã giao → đây là "Yêu cầu sửa", ✗ luồng này (chủ app chốt).
-        case delivered(String)
         case failed(String)
         /// Orders v2 B: the order was cancelled unpaid — nothing to retry, only Close.
         case orderCancelled(String)
@@ -43,12 +44,6 @@ struct SupplementSheet: View {
     /// (trap #26). Finding the order and the uploads (minutes on 4G) can be left: Close cancels
     /// them before anything is attached or stamped, and a later Send resumes the uploads.
     @State private var attaching = false
-    /// Đơn đã giao: GIỮ để mở `RevisionSheet` khi khách bấm nút — 🔴 KHÔNG bind thẳng vào
-    /// `.sheet(item:)`, gán nó là sheet tự bật NGAY lúc server trả lỗi, tức khách chưa kịp đọc
-    /// câu giải thích "đơn đã giao" đã bị ném vào một form khác.
-    @State private var deliveredOrder: OrderDTO?
-    /// Chỉ gán khi khách BẤM nút → đây mới là thứ present sheet.
-    @State private var revisionTarget: OrderDTO?
     /// Câu dặn thêm cho ca đơn ĐÃ GIAO — `nil` với đơn thường. Chụp từ phản hồi của server
     /// (`wasDelivered`/`movedToFix`), ✗ tự đoán trạng thái đơn ở phía app: app chỉ biết trạng
     /// thái qua `listOrders()`, tức cần mạng và có thể cũ.
@@ -77,14 +72,6 @@ struct SupplementSheet: View {
                 // 2.78: locked only around that request (`attaching`), ✗ the whole `.working` phase —
                 // the customer could not leave a long upload.
                 .interactiveDismissDisabled(attaching)
-                .sheet(item: $revisionTarget) { order in
-                    RevisionSheet(order: order) {
-                        // Yêu cầu sửa đã gửi → đóng luôn cả màn bổ sung. 🔴 HOÃN MỘT NHỊP: tháo
-                        // sheet CHA ngay trong callback của sheet CON là đúng họ lỗi trình bày
-                        // lồng nhau mà repo đã trả giá ở luồng "Quét thêm".
-                        Task { @MainActor in dismiss() }
-                    }
-                }
         }
         .onDisappear {
             // ✗ cancel an attach in flight (closed some other way): let it land and stamp, as
@@ -171,33 +158,6 @@ struct SupplementSheet: View {
                 WrappedText(deliveredNote ?? String(localized: "Our team has been notified so the new area goes into your drawing."),
                             style: .footnote, color: .secondaryLabel)
             }
-        case .delivered(let message):
-            // Chủ app chốt: *"đã giao thì chỉ là yêu cầu sửa"*. SERVER là nơi phán quyết (app chỉ
-            // biết trạng thái đơn qua `listOrders()`, tức cần mạng và có thể cũ) — nên nhánh này
-            // chỉ chạy khi server ĐÃ nói không.
-            Section {
-                Text(message).font(.subheadline)
-                    .listRowBackground(Theme.card)
-            } header: {
-                Text(String(localized: "Order already delivered"))
-            }
-            // Own section: the button stands alone on the screen background, as in `.ready`.
-            Section {
-                Button {
-                    openRevision()
-                } label: {
-                    Label(String(localized: "Request a revision"), systemImage: "arrow.uturn.backward")
-                        .font(.headline)
-                        .multilineTextAlignment(.center)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                }
-                // Stands alone on the screen background, as "Place order" (trap #47b).
-                .buttonStyle(FogPrimary())
-                .listRowInsets(EdgeInsets())
-                .listRowBackground(Color.clear)
-            }
         case .failed(let message):
             Section {
                 Group {
@@ -252,7 +212,6 @@ struct SupplementSheet: View {
                 phase = .failed(error.localizedDescription)
                 return
             }
-            deliveredOrder = nil
 
             // Tải lên bản quét CHƯA có trên server. Khuôn `OrderSheet.ensureUploaded` — 🔴 hỏi
             // STORE chứ đừng tin bản ghi truyền vào: `cloudScanId` là guard DUY NHẤT chống tải
@@ -341,9 +300,6 @@ struct SupplementSheet: View {
                 deliveredNote = Self.deliveredNote(for: result)
                 // Đếm theo thứ SERVER xác nhận đã nằm trong đơn, ✗ theo số bản quét app gửi đi.
                 phase = .sent(result.scanIds?.count ?? records.count)
-            } catch let error as APIError where error.code == "order_delivered" {
-                deliveredOrder = order
-                phase = .delivered(error.message)
             } catch let error as APIError where error.code == "order_closed" {
                 // Orders v2 B: cancelled while the scans were uploading (by the customer elsewhere,
                 // or the 7-day expiry)? Then it is the Close message, and the stamps go on close.
@@ -414,12 +370,5 @@ struct SupplementSheet: View {
             if let stamped, !stamped.contains(cloudId) { continue }
             store.setOrderNumber(live, orderNumber: result.orderNumber)
         }
-    }
-
-    /// `deliveredOrder` đã được gán ở nhánh `.delivered`; bấm nút mới present. Gán lại được nhiều
-    /// lần (khách đóng `RevisionSheet` rồi bấm lại) vì `sheet(item:)` bắn theo `id` mỗi lần
-    /// chuyển từ nil sang giá trị.
-    private func openRevision() {
-        revisionTarget = deliveredOrder
     }
 }

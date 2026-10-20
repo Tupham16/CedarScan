@@ -381,8 +381,6 @@ final class MeshOverlayRenderer: NSObject {
     }
 
     @objc private func tick() {
-        let perfT0 = ScanPerfProfiler.tickBegin()
-        defer { ScanPerfProfiler.tickEnd(.overlay, perfT0) }
         guard let frame = arSession?.currentFrame else { return }
         lastFrameTimestamp = frame.timestamp
         updateTint(frame)

@@ -144,7 +144,6 @@ struct ScanDetailView: View {
     @State private var didAutoOpenOrder = false
     /// Cổng đăng nhập/xác minh mở tại chỗ — xem `AccountGateSheet`.
     @State private var showAccountGate = false
-    @State private var showLowQualityConfirm = false
     @State private var coloredZipExists = false
     @State private var coloredGLBExists = false
     /// Có `mesh-preview.bin` trong thư mục bản quét không (lưới xám xem trong app).
@@ -447,19 +446,6 @@ struct ScanDetailView: View {
         .sheet(isPresented: $showAccountGate) {
             AccountGateSheet()
         }
-        // Chặn mềm: chất lượng thấp → khuyên quét lại nhưng vẫn cho gửi (đội vẽ được báo trước)
-        .confirmationDialog(
-            String(localized: "Scan quality is low"),
-            isPresented: $showLowQualityConfirm,
-            titleVisibility: .visible
-        ) {
-            Button(String(localized: "Order anyway")) {
-                showOrderSheet = true
-            }
-            Button(String(localized: "I'll rescan first"), role: .cancel) {}
-        } message: {
-            Text(String(localized: "This scan scored \(current.qualityScore ?? 0)/100. Rescanning usually gives a more accurate floor plan. You can still order — our team will be notified about the quality."))
-        }
     }
 
     // MARK: - Dịch vụ Cedar247
@@ -516,21 +502,6 @@ struct ScanDetailView: View {
     @ViewBuilder
     private var serviceCard: some View {
         VStack(spacing: 8) {
-            if let score = current.qualityScore, let grade = current.qualityGrade {
-                HStack(spacing: 8) {
-                    Image(systemName: current.qualityRescan == true
-                        ? "exclamationmark.triangle.fill" : "checkmark.seal.fill")
-                        .foregroundStyle(gradeColor(grade))
-                    Text(String(localized: "Scan quality: \(score)/100 (\(grade))"))
-                        .font(.caption.weight(.semibold))
-                    if current.qualityRescan == true {
-                        Text(String(localized: "· rescan recommended"))
-                            .font(.caption)
-                            .foregroundStyle(Theme.Badge.warn.fg)
-                    }
-                    Spacer()
-                }
-            }
             if let orderNumber = current.cloudOrderNumber {
                 orderedCard(orderNumber)
             } else if !account.isSignedIn {
@@ -643,12 +614,6 @@ struct ScanDetailView: View {
     /// cả, khách thấy đúng thẻ đăng nhập của `serviceCard` rồi tự bấm — hướng sai duy nhất có
     /// thể xảy ra là "bắt bấm thêm một lần", ✗ chặn ai. Tự mở form cho tài khoản chưa xác minh
     /// chỉ dẫn tới 403 SAU KHI đã tải xong file (bẫy #19).
-    ///
-    /// ⚠ CỐ Ý KHÔNG chạy nhánh cảnh báo chất lượng thấp của `startOrder()`. Chủ app xin
-    /// "vào luôn bước đặt hàng"; bật một `confirmationDialog` ngay khi màn vừa hiện là đổi một
-    /// nút thừa lấy một hộp thoại thừa. Cảnh báo KHÔNG mất: dòng "Chất lượng quét: x/100 · nên
-    /// quét lại" vẫn nằm ngay đầu `serviceCard`, và khách đóng form rồi bấm nút thì hộp thoại
-    /// chạy như cũ. Ông kêu thì đây là chỗ đổi, một dòng.
     private func autoOpenOrderIfNeeded() {
         guard autoOpenOrder, !didAutoOpenOrder else { return }
         // Đặt cờ TRƯỚC mọi guard còn lại: đây là lời mời MỘT LẦN cho cú "Đặt hàng ngay" vừa bấm.
@@ -669,23 +634,11 @@ struct ScanDetailView: View {
         showOrderSheet = true
     }
 
-    /// The order button: low-quality warning first (unchanged), then the form — uploaded or not.
+    /// The order button: opens the form, uploaded or not (`OrderSheet.submit` uploads).
+    /// 2.78: the "scan quality is low" warning that stood in front of it is gone — no scan has
+    /// carried a quality score since the RoomPlan flow went (20/07).
     private func startOrder() {
-        if current.qualityRescan == true && current.cloudOrderNumber == nil {
-            showLowQualityConfirm = true
-            return
-        }
         showOrderSheet = true
-    }
-
-    /// Fog: A/B/C/D = ok / accent / warn / danger.
-    private func gradeColor(_ grade: String) -> Color {
-        switch grade {
-        case "A": return Theme.Badge.ok.fg
-        case "B": return Theme.accentText
-        case "C": return Theme.Badge.warn.fg
-        default: return Theme.Badge.danger.fg
-        }
     }
 
     // MARK: - Bản quét RoomPlan CŨ (chỉ còn xem lại)

@@ -179,8 +179,6 @@ final class TooCloseSheetUIView: UIView {
     // MARK: - Tick
 
     @objc private func tick(_ link: CADisplayLink) {
-        let perfT0 = ScanPerfProfiler.tickBegin()
-        defer { ScanPerfProfiler.tickEnd(.tooClose, perfT0) }
         let now = CACurrentMediaTime()
         let wallDt = lastTickWall > 0 ? min(0.2, now - lastTickWall) : 0
         lastTickWall = now

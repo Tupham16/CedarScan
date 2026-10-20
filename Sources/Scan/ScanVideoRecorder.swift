@@ -101,8 +101,6 @@ final class ScanVideoRecorder {
     }
 
     @objc private func tick() {
-        let perfT0 = ScanPerfProfiler.tickBegin()
-        defer { ScanPerfProfiler.tickEnd(.video, perfT0) }
         guard !isFinishing,
               let frame = arSession?.currentFrame,
               frame.timestamp != lastTimestamp,

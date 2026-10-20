@@ -181,6 +181,8 @@ struct MeshScanFlowView: View {
                 showMesh: showScanMesh && savedRecord == nil && !isSaving,
                 recordedCounts: { [weak controller] in controller?.recordedAnchorCounts ?? [:] }
                 // photoCoverage CỐ Ý không truyền (default nil) — đọc chú thích 🔴 ở trên.
+                // Reconnecting also needs a MeshScanController accessor for the recorder's
+                // `coverage` (`texShots` is private; the unused one was removed in 2.78).
             )
             .ignoresSafeArea()
 
@@ -562,8 +564,8 @@ struct MeshScanFlowView: View {
         )
     }
 
-    /// Màn chờ sau khi bấm Lưu. Khuôn lấy từ `ScanDetailView.progressRow` (thanh + % của
-    /// đoạn upload) — chủ app đã quen nhìn nó và tự lấy nó ra làm chuẩn khi đặt yêu cầu.
+    /// Màn chờ sau khi bấm Lưu: a bar + percent, the look the owner asked for (it copied the
+    /// upload progress row the scan screen had until 2.78, when ordering stopped uploading first).
     ///
     /// Bố cục: tiêu đề CỐ ĐỊNH (giữ nguyên câu của bản 1.4) → thanh % → dòng "đang làm gì +
     /// bao nhiêu %" → một câu đặt kỳ vọng. Bốn dòng, hơn bản cũ đúng MỘT dòng.
@@ -582,9 +584,7 @@ struct MeshScanFlowView: View {
                     }
                     Text(saveProgress.stage.label)
                     Spacer(minLength: 8)
-                    // `.font(.footnote.monospacedDigit())` chứ ✗ `.monospacedDigit()` trần:
-                    // khuôn của `ScanDetailView.progressRow` (đã qua CI), và bản View của
-                    // modifier đó mới có từ iOS 16 — dạng Font thì iOS 15 đã có.
+                    // Monospaced digits (Font form) so the percent does not jitter as it counts.
                     Text("\(Int(saveProgress.fraction * 100))%")
                         .font(.footnote.monospacedDigit())
                 }

@@ -375,8 +375,6 @@ final class TextureShotRecorder {
     }
 
     @objc private func tick() {
-        let perfT0 = ScanPerfProfiler.tickBegin()
-        defer { ScanPerfProfiler.tickEnd(.texShot, perfT0) }
         guard !isFinishing else { return }
         // Choice-window deadline on the HOST clock, before every frame gate: an interruption
         // (frozen frame) or a tracking loss must not keep the held copy — and its shot — waiting.

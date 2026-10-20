@@ -12,9 +12,10 @@ struct ScanRecord: Identifiable, Codable, Hashable {
     var cloudOrderNumber: String? // đã đặt xử lý (số đơn, vd "#LS-ABC123")
     var projectId: UUID? // thuộc dự án/căn nhà nào (nil = chưa vào dự án)
     var meshQuality: String? // cấu hình quét mesh (MeshQuality.rawValue); không màn nào hiện
-    var qualityScore: Int? // điểm chất lượng quét 0-100 (báo cáo đầy đủ trong quality.json)
-    var qualityGrade: String? // A/B/C/D
-    var qualityRescan: Bool? // true = nên quét lại
+    // The RoomPlan-era scan-quality fields (score 0-100, grade A-D, rescan flag) were removed in
+    // 2.78: nothing had written them since 20/07. Old meta.json files that still carry them
+    // decode fine (synthesized Codable ignores unknown keys); the next `writeMeta` drops them.
+    // A scan folder's old `quality.json` is a separate file and still goes up (`ScanUploader`).
 }
 
 // 🔴 `captureType` + `isVideoOnly` + `isMeshOnly` ĐÃ XOÁ 11/08 (bản 2.5) — chủ app chốt:

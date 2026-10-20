@@ -30,10 +30,8 @@ import SwiftUI
 ///    ✅ **LỔ HỔNG ĐÃ VÁ 19/08** — trước đó đơn ĐÃ GIAO không có đường nào gửi bản quét mới
 ///    (server trả `order_delivered`, mà `RevisionSheet` chỉ nhận `[.image, .pdf]` nên gói mesh
 ///    40–200MB không đi qua được). Nay `supplement-scan` NHẬN đơn đã giao và kéo thẻ `done → fix`.
-///    🔴🔴 **RÀNG BUỘC GIAO HÀNG: ✗ ĐƯA IPA 2.28 CHO CHỦ APP TRƯỚC KHI THAY ĐỔI SERVER ĐÃ LÊN
-///    PROD.** Hai mục FAQ bên dưới ("đã giao rồi vẫn gửi được") nói đúng với server MỚI; server cũ
-///    vẫn trả `order_delivered` ⇒ app vẫn xử đúng (mở `RevisionSheet`) nhưng VĂN BẢN NÓI SAI.
-///    Trạng thái deploy ghi ở `C:\\Block\\order-webapp\\HANDOFF.md` §1;
+///    That server change went live 20/08 (the 2.28 delivery constraint is met); the app's
+///    fallback for an old server (`order_delivered` ⇒ `RevisionSheet`) was removed in 2.78;
 ///  · suất miễn phí tính theo CẢ tài khoản LẪN thiết bị — `LegalDoc`, mục định danh thiết bị;
 ///  · tên các trạng thái đơn — `OrdersView.StatusBadge` (Orders v2 B thêm "Awaiting payment" +
 ///    "Cancelled"; "chưa trả = chưa đặt", nút "Cancel order" + tự huỷ sau 7 ngày — server

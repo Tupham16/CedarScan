@@ -156,10 +156,10 @@ targets:
         #   đã thay nó bằng đường TRONG APP từ 11/08 — xem `ScanDetailView.showShareButton`.
         #   Đường XUẤT của khách nay là cú TẢI LÊN lúc đặt hàng / gửi bổ sung, ✗ còn là file khách
         #   tự cầm đi ⇒ quyết định gỡ hai khoá Files càng đúng, KHÔNG phải xét lại.
-        # · Đi CÙNG LƯỢT với `ScanPerfProfiler.enabled = false`: gỡ hai khoá là lấy mất đường
-        #   đọc log, để bộ đo chạy tiếp thì chỉ ghi file không ai lấy được.
-        # · Cần đo lại lần sau: khai lại CẢ HAI khoá + bật cờ profiler, giao bản đo cho riêng
-        #   chủ app, ĐO XONG GỠ LẠI. ✗ để lẫn vào bản giao khách.
+        # · The perf profiler those keys served (off since 2.2) was removed in 2.78; per-scan
+        #   diagnostics now ride in the scan zip as `scan-report.json` (`ScanSessionReport`).
+        #   A measurement build that needs BOTH keys again = owner-only, keys removed after.
+        #   ✗ ship them in a customer build.
         UILaunchScreen: {}
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait

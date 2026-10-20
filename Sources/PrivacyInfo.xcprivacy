@@ -321,8 +321,8 @@
 			</array>
 		</dict>
 		<!-- `ProcessInfo.processInfo.systemUptime` — chỗ gọi DUY NHẤT là ColorMeshBuilder (mốc
-		     chống CHÙM cảnh báo). ScanPerfProfiler dùng CACurrentMediaTime — API đó KHÔNG thuộc
-		     nhóm phải khai lý do, ✗ tính nó vào đây. Đo QUÃNG thời gian giữa hai sự kiện trong
+		     chống CHÙM cảnh báo). CACurrentMediaTime (e.g. ScanSessionReport) is NOT a
+		     required-reason API, ✗ count it here. Đo QUÃNG thời gian giữa hai sự kiện trong
 		     app, không gửi đi đâu. 35F9.1 = đúng lý do đó. -->
 		<dict>
 			<key>NSPrivacyAccessedAPIType</key>

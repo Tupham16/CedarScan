@@ -210,8 +210,6 @@ final class ColorMeshBuilder {
     }
 
     @objc private func tick() {
-        let perfT0 = ScanPerfProfiler.tickBegin()
-        defer { ScanPerfProfiler.tickEnd(.colorMesh, perfT0) }
         guard let frame = arSession?.currentFrame else { return }
         ingestMesh(from: frame)
         maybeCaptureColorFrame(from: frame)
@@ -435,11 +433,6 @@ final class ColorMeshBuilder {
 
     private func clampByte(_ v: Float) -> UInt8 {
         UInt8(max(0, min(255, v)))
-    }
-
-    /// Bản chụp các đỉnh world-space cho cross-check tường (gọi trên main, TRƯỚC exportColoredPLY).
-    func snapshotWorldVertices() -> [[SIMD3<Float>]] {
-        pieces.values.map(\.worldVertices)
     }
 
     /// Anchor nào ĐÃ nằm trong dữ liệu xuất, kèm SỐ ĐỈNH đã ghi — MeshOverlayView so với

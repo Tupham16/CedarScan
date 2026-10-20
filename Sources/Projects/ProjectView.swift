@@ -124,7 +124,6 @@ struct ProjectView: View {
     @State private var supplementTarget: SupplementTarget?
     /// Cổng đăng nhập/xác minh mở tại chỗ — xem `AccountGateSheet`.
     @State private var showAccountGate = false
-    @State private var showLowQualityConfirm = false
     @State private var recordToRename: ScanRecord?
     @State private var renameText = ""
     @State private var showRenameProject = false
@@ -175,9 +174,8 @@ struct ProjectView: View {
     ///  4. `body` → `.onChange(of: project == nil)` — ĐỐI SỐ, ✗ closure ⇒ tính mỗi lượt dựng body
     /// (✗ ghi số dòng ở đây: danh sách này đã lạc hậu một lần vì chính chú thích thêm vào phía
     /// trên đẩy số dòng đi. Tên thì không trôi.)
-    /// ⚠ Chưa kiểm: nội dung `.alert` (`scans.count`) và `.confirmationDialog` (`lowQualityNames`)
-    /// — CÓ VẺ lười, nhưng chưa ai chứng minh. Nay vô hại vì `store` không còn là env; ai đưa
-    /// `@EnvironmentObject` trở lại thì phải kiểm hai chỗ đó TRƯỚC.
+    /// ⚠ Not checked: the `.alert` content (`scans.count`) LOOKS lazy, nobody proved it. Harmless
+    /// while `store` is not env; whoever brings `@EnvironmentObject` back must check it FIRST.
     /// ⚠ `ScanDetailView` có SÁU cửa cùng loại, cũng đã vá cùng lượt. Chi tiết:
     /// SESSION-HANDOFF §CRASH ĐANG MỞ.
     private var project: ScanProject? { store.project(with: projectId) }
@@ -546,31 +544,19 @@ struct ProjectView: View {
             // lúc khách vừa nói THÔI thì form đặt hàng lại tự bật ra, rồi kết thúc bằng lỗi server
             // vì chưa xác minh. Gác hẹp là để cú rút lui đó được tôn trọng.
             guard account.isSignedIn, !account.needsVerification else { return }
-            startOrderFlow()
+            presentSendSheet()
         }) {
             AccountGateSheet()
-        }
-    }
-
-    /// Mở luồng đặt hàng SAU khi đã qua cổng tài khoản.
-    ///
-    /// Dùng chung cho nút bấm và cho `onDismiss` của cổng: hai lối vào phải cư xử y hệt. Tách ra
-    /// để không lối nào lỡ quên bước cảnh báo chất lượng thấp.
-    private func startOrderFlow() {
-        // Chặn mềm: có bản quét chất lượng thấp → khuyên quét lại, vẫn cho gửi
-        if orderableScans.contains(where: { $0.qualityRescan == true }) {
-            showLowQualityConfirm = true
-        } else {
-            presentSendSheet()
         }
     }
 
     /// LỐI VÀO DUY NHẤT của form đặt hàng **và** của màn gửi bổ sung.
     ///
     /// Mọi chỗ muốn mở sheet phải gọi hàm này, ĐỪNG gán `orderTarget`/`supplementTarget` thẳng ở
-    /// nơi khác: đóng gói việc chốt danh tính vào một chỗ. Có đúng hai lối vào (nút đáy và nút
-    /// "Vẫn đặt hàng" của cảnh báo chất lượng thấp), và lối thứ hai đã một lần bị bỏ quên khi sửa
-    /// lối thứ nhất.
+    /// nơi khác: đóng gói việc chốt danh tính vào một chỗ. Two entry points: the bottom button and
+    /// the account gate's `onDismiss` — both call this, so they behave the same. (2.78: the
+    /// low-quality warning that stood in front of it is gone — no scan has carried a quality
+    /// score since the RoomPlan flow went, 20/07.)
     ///
     /// 🔴 **RẼ NHÁNH THEO STORE, ✗ theo nút nào vừa bấm.** Cùng một điều kiện
     /// (`projectOrderNumber != nil`) quyết định CẢ nhãn nút LẪN việc mở sheet nào — nên nhãn
@@ -757,9 +743,8 @@ struct ProjectView: View {
 
             if !orderableScans.isEmpty {
                 Button {
-                    // 🔴 CỔNG CHẶN TÀI KHOẢN — ĐỨNG TRƯỚC cả cảnh báo chất lượng. Chưa đăng nhập
-                    // thì hỏi chuyện "có muốn quét lại không" là vô nghĩa: khách còn chưa có tài
-                    // khoản để đặt.
+                    // 🔴 CỔNG CHẶN TÀI KHOẢN — runs before the sheet: without an account the
+                    // customer has nothing to order with.
                     //
                     // Cổng này TỪNG KHÔNG TỒN TẠI và đó là ngõ cụt tệ nhất của luồng đặt hàng.
                     // `OrderSheet` KHÔNG tự kiểm tra đăng nhập (nó chỉ khai `store`), nên nút này
@@ -788,7 +773,7 @@ struct ProjectView: View {
                         showAccountGate = true
                         return
                     }
-                    startOrderFlow()
+                    presentSendSheet()
                 } label: {
                     // 🔴 Dự án ĐÃ có đơn ⇒ nhãn phải là "Gửi bổ sung", ✗ "Đặt làm mặt bằng".
                     // Bỏ sót chỗ này là khách vẫn đặt được ĐƠN THỨ HAI cho cùng căn nhà và quy
@@ -805,27 +790,11 @@ struct ProjectView: View {
                     .padding(.vertical, 14)
                 }
                 .buttonStyle(FogTint())
-                .confirmationDialog(
-                    String(localized: "Some scans have low quality"),
-                    isPresented: $showLowQualityConfirm,
-                    titleVisibility: .visible
-                ) {
-                    Button(String(localized: "Order anyway")) {
-                        presentSendSheet()
-                    }
-                    Button(String(localized: "I'll rescan first"), role: .cancel) {}
-                } message: {
-                    Text(String(localized: "Rescanning the flagged floors usually gives a more accurate floor plan: \(lowQualityNames). You can still order — our team will be notified."))
-                }
             }
         }
         .padding(.horizontal)
         .padding(.bottom, 8)
         .background(.ultraThinMaterial)
-    }
-
-    private var lowQualityNames: String {
-        orderableScans.filter { $0.qualityRescan == true }.map(\.name).joined(separator: ", ")
     }
 }
 

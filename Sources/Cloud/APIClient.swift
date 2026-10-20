@@ -465,13 +465,13 @@ struct PaymentConfirmResponse: Decodable {
 struct APIError: LocalizedError {
     let message: String
     let statusCode: Int
-    /// Mã lỗi MÁY ĐỌC ĐƯỢC do server gửi kèm (khoá `code` trong body). Hiện chỉ đường "gửi bổ
-    /// sung bản quét" dùng: `"order_delivered"` ⇒ app phải mở `RevisionSheet` thay vì báo lỗi
-    /// (chủ app chốt "đã giao thì chỉ là yêu cầu sửa"), `"order_closed"` ⇒ bảo khách liên hệ.
+    /// Mã lỗi MÁY ĐỌC ĐƯỢC do server gửi kèm (khoá `code` trong body), e.g. `order_closed`
+    /// (extra-scan send: tell the customer to contact support), `already_paid`, `extra_awaiting`.
+    /// Read this, ✗ match the English message.
     ///
     /// 🔴 PHẢI là `var` có giá trị mặc định, ✗ `let`: `let code: String? = nil` thì Swift LOẠI
-    /// nó khỏi memberwise init (thành hằng nil vĩnh viễn) — im lặng, CI vẫn xanh, và mọi phán
-    /// quyết "đơn đã giao" rơi về nhánh lỗi thô. Với `var` thì các call site cũ
+    /// nó khỏi memberwise init (thành hằng nil vĩnh viễn) — im lặng, CI vẫn xanh, và mọi mã lỗi
+    /// rơi về nhánh lỗi thô. Với `var` thì các call site cũ
     /// `APIError(message:statusCode:)` vẫn compile nguyên.
     var code: String? = nil
     /// The order a 409 "This scan has already been ordered." names (`scans/{id}/order`):
@@ -800,8 +800,10 @@ final class APIClient {
     /// ánh xạ qua `listOrders()` trước (xem `SupplementSheet.resolveOrderId`). Không tốn thêm
     /// gì: muốn gửi bổ sung thì đằng nào cũng phải online để tải 40–200MB lên.
     ///
-    /// 🔴 Lỗi 409 mang `code`: `"order_delivered"` ⇒ mở `RevisionSheet`; `"order_closed"` ⇒
-    /// bảo khách liên hệ support. Đọc `APIError.code`, ✗ so khớp câu chữ tiếng Anh.
+    /// 🔴 Lỗi 409 mang `code`: `"order_closed"` ⇒ bảo khách liên hệ support (or, cancelled
+    /// unpaid, the Close message). Đọc `APIError.code`, ✗ so khớp câu chữ tiếng Anh. Delivered
+    /// orders are accepted since 19/08 (`wasDelivered`/`movedToFix`); the server no longer sends
+    /// `order_delivered`, and the app's `RevisionSheet` branch for it went in 2.78.
     func supplementScan(
         orderId: String,
         scanId: String,

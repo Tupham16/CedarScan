@@ -27,11 +27,6 @@ enum GLBExporter {
         return s <= 0.04045 ? s / 12.92 : powf((s + 0.055) / 1.055, 2.4)
     }
 
-    /// Đọc PLY màu → ghi file .glb tại `glbURL`.
-    static func makeGLB(fromPLY plyURL: URL, to glbURL: URL) throws {
-        try makeGLB(mesh: ColoredMeshPLY.parse(plyURL), to: glbURL)
-    }
-
     /// Ghi .glb từ mesh ĐÃ parse — cho nơi gọi có sẵn mesh (ColoredOBJExporter gói zip)
     /// khỏi parse PLY hai lần trên mesh cả triệu đỉnh.
     static func makeGLB(mesh: ColoredMeshPLY.Mesh, to glbURL: URL) throws {

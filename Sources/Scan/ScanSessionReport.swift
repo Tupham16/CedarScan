@@ -5,8 +5,8 @@ import UIKit
 /// `scan-report.json` — small per-scan diagnostics, packed into model-colored.zip through
 /// `extraFiles` (same road as camera-track.json; ScanUploader.fileKinds untouched).
 /// Why (owner 26/09): he installs Release via AltStore and cannot read console logs, so drift
-/// and holes were guessed. `ScanPerfProfiler` is off for good (no way to get its files off the
-/// phone) — this rides with the scan instead.
+/// and holes were guessed. The old on-phone perf profiler (off since 2.2: no way to get its files
+/// off the phone; removed in 2.78) is replaced by this, which rides with the scan.
 ///
 /// Rules:
 ///  - MAIN THREAD ONLY (ARSession delegate = main queue, Timers on main, notifications hopped
