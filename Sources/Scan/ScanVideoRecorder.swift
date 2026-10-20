@@ -45,9 +45,13 @@ final class ScanVideoRecorder {
     private static let maxGapSec: TimeInterval = 1
     /// A writer that could not start or failed: no new one before this many seconds.
     private static let retryDelaySec: CFTimeInterval = 2
-    /// `finish()` waits this long for segment writers still finishing (normally milliseconds);
-    /// past it they count as failed and their movie fragments are used.
-    private static let closingWaitSec: Double = 20
+    /// `finish()` waits this long for segment writers still finishing (normally well under a
+    /// second); past it they count as LOST — a file its writer may still be writing is never
+    /// read or delivered. Stop & Save must not hang on a finish that never lands.
+    private static let closingWaitSec: Double = 60
+    /// One frame at ~8 fps: each segment ends one frame after its last one, so a part's last
+    /// frame (and a one-frame part) keeps a duration in the joined video.
+    private static let lastFrameSec: Double = 0.125
 
     let outputURL: URL
 
@@ -62,6 +66,8 @@ final class ScanVideoRecorder {
     private(set) var finishStatus = "notFinished"
     private(set) var writerStatus: Int?
     private(set) var writerError: String?
+    /// Error of the last writer that would not start (reported only when none ever started).
+    private var startError: String?
     /// 2.79 `save` keys: videoSegments, videoRecovered, videoLost, videoJoin, videoKbps.
     private(set) var segmentFields: [String: any Sendable] = [:]
 
@@ -106,7 +112,11 @@ final class ScanVideoRecorder {
     private final class Part: @unchecked Sendable {
         let url: URL
         let track: [TrackSample]
+        /// Held until the finish lands (also after a timeout: freeing a writer mid-finish could
+        /// cancel it and delete its file).
         var closingWriter: AVAssetWriter?
+        /// `finish()` stopped waiting for it: lost, whatever lands later.
+        var timedOut = false
         /// Writer status once closed (`.unknown` = still finishing).
         var result: AVAssetWriter.Status = .unknown
         var error: String?
@@ -131,9 +141,12 @@ final class ScanVideoRecorder {
     private var current: Segment?
     /// Closed (or finishing) segments that hold frames, in recording order.
     private var parts: [Part] = []
-    /// Writers created (names the files) / writers that started.
+    /// Writers created (names the files) / writers that started / writers that would not start.
     private var opened = 0
     private var started = 0
+    private var startFailures = 0
+    /// A new segment was refused at `maxSegments`: the rest of the scan has no video.
+    private var capped = false
     /// finishWriting calls in flight — `finish()` waits for them.
     private let closing = DispatchGroup()
     /// No new writer before this (CACurrentMediaTime).
@@ -195,7 +208,11 @@ final class ScanVideoRecorder {
 
     /// A new writer for the next segment; nil = cannot start now (retried `retryDelaySec` later).
     private func openSegment() -> Segment? {
-        guard parts.count < Self.maxSegments, CACurrentMediaTime() >= retryAt else { return nil }
+        guard parts.count < Self.maxSegments else {
+            capped = true
+            return nil
+        }
+        guard CACurrentMediaTime() >= retryAt else { return nil }
         let url = outputURL.deletingPathExtension()
             .appendingPathExtension("part\(opened)").appendingPathExtension("mp4")
         opened += 1
@@ -228,8 +245,8 @@ final class ScanVideoRecorder {
         guard writer.canAdd(input) else { return nil }
         writer.add(input)
         guard writer.startWriting() else {
-            writerStatus = writer.status.rawValue
-            writerError = writer.error.map(Self.errorCodes)
+            startFailures += 1
+            startError = writer.error.map(Self.errorCodes) ?? "status:\(writer.status.rawValue)"
             try? FileManager.default.removeItem(at: url)
             return nil
         }
@@ -251,7 +268,10 @@ final class ScanVideoRecorder {
         // A writer that failed while recording keeps its file (fragments) and makes way; frames
         // that stopped coming for a while start a new segment (no frozen stretch in the video).
         if let open = current {
-            let gap = open.lastAppended.map { frame.timestamp - $0 > Self.maxGapSec } ?? false
+            // Near the cap a gap is recorded as before 2.79 (a held frame), so the cap can only
+            // be reached by real cuts.
+            let gap = parts.count < Self.maxSegments - 1
+                && (open.lastAppended.map { frame.timestamp - $0 > Self.maxGapSec } ?? false)
             if open.writer.status == .failed || gap {
                 closeSegment()
             }
@@ -374,6 +394,11 @@ final class ScanVideoRecorder {
             if writer.status == .failed { retryAt = CACurrentMediaTime() + Self.retryDelaySec }
             return
         }
+        if let first = segment.firstTimestamp, let last = segment.lastAppended {
+            writer.endSession(atSourceTime: CMTime(
+                seconds: last - first + Self.lastFrameSec, preferredTimescale: 600
+            ))
+        }
         segment.input.markAsFinished()
         part.closingWriter = writer
         // A few frames to flush + the file index: keep the process alive for that if the app is
@@ -393,7 +418,7 @@ final class ScanVideoRecorder {
         let group = closing
         writer.finishWriting {
             DispatchQueue.main.async {
-                if let finished = part.closingWriter {
+                if !part.timedOut, let finished = part.closingWriter {
                     Self.note(finished, in: part)
                 }
                 part.closingWriter = nil
@@ -472,8 +497,12 @@ final class ScanVideoRecorder {
         closeSegment()
         await waitForClosingSegments()
 
+        if startFailures > 0 { segmentFields["videoStartFailures"] = startFailures }
+        if capped { segmentFields["videoCapped"] = true }
         guard started > 0 else {
-            finishStatus = "notStarted"
+            // No frame on screen ever asked for a writer (2.78: "noFrames"), or none would start.
+            finishStatus = opened == 0 ? "noFrames" : "notStarted"
+            writerError = startError
             return nil
         }
         guard !parts.isEmpty else {
@@ -488,6 +517,12 @@ final class ScanVideoRecorder {
             if part.result != .completed {
                 writerStatus = part.result.rawValue
                 writerError = part.error ?? writerError
+            }
+            // A timed-out part's writer may still be writing its file: lost, file left alone
+            // (its late finish lands in tmp, swept with it).
+            guard !part.timedOut else {
+                lost += 1
+                continue
             }
             guard let found = await Self.readable(part) else {
                 lost += 1
@@ -584,10 +619,10 @@ final class ScanVideoRecorder {
                 if once.claim() { continuation.resume() }
             }
         }
-        for part in parts where part.closingWriter != nil {
-            part.closingWriter = nil
+        for part in parts where part.result == .unknown && part.closingWriter != nil {
+            part.timedOut = true
             part.result = .failed
-            part.error = part.error ?? "finishTimeout"
+            part.error = "finishTimeout"
         }
     }
 

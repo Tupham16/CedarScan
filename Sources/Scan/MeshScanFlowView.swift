@@ -821,7 +821,9 @@ private final class SaveBackgroundTime {
                 }
             }
         }
-        if #available(iOS 26.0, *) {
+        if !ScanQualityConfig.current.continuedSave {
+            probe.set("bgTask", "disabledByConfig")
+        } else if #available(iOS 26.0, *) {
             submitContinued()
         } else {
             probe.set("bgTask", "unsupported")

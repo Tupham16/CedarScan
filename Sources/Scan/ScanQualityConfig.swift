@@ -72,6 +72,12 @@ struct ScanQualityConfig: Codable {
     // rewrite line in load().
     var videoBitrateKbps: Double
 
+    // iOS 26 continued-processing task for the save (F3, 2.79: Lock Screen progress, the save
+    // keeps running in the background — `SaveBackgroundTime`). Kill switch
+    // `{"continuedSave": false}` = the 2.78 behaviour (~30 s of background time, then paused):
+    // the lever if a phone ever reports trouble with it (same delivery as above).
+    var continuedSave: Bool
+
     /// The server switched the exposure cap off for everyone (debug picker aside).
     var exposureCapOff: Bool { exposureCap == Self.exposureCapOffValue }
 
@@ -99,7 +105,8 @@ struct ScanQualityConfig: Codable {
         torchOffAboveBV: -1.0,
         torchShareK: 1.0,
         exposureCap: exposureCapAdaptiveValue,
-        videoBitrateKbps: 700
+        videoBitrateKbps: 700,
+        continuedSave: true
     )
 
     // Decode "khoan dung": server chỉ cần gửi field muốn đổi, thiếu field nào dùng mặc định.
@@ -139,6 +146,7 @@ struct ScanQualityConfig: Codable {
         }
         let kbps = (try? c.decodeIfPresent(Double.self, forKey: .videoBitrateKbps)) ?? d.videoBitrateKbps
         videoBitrateKbps = (kbps.isFinite && kbps >= 150 && kbps <= 4000) ? kbps : d.videoBitrateKbps
+        continuedSave = (try? c.decodeIfPresent(Bool.self, forKey: .continuedSave)) ?? d.continuedSave
     }
 
     /// A hand-edited row that clearly means "off" must not fail open to adaptive.
@@ -159,7 +167,7 @@ struct ScanQualityConfig: Codable {
         lockWhiteBalance: Bool, whiteBalanceLockDelaySec: Double,
         autoTorch: Bool, torchLevel: Double,
         torchOnBelowBV: Double, torchOffAboveBV: Double, torchShareK: Double,
-        exposureCap: String, videoBitrateKbps: Double
+        exposureCap: String, videoBitrateKbps: Double, continuedSave: Bool
     ) {
         self.enabled = enabled
         self.maxSpeedSoft = maxSpeedSoft
@@ -178,6 +186,7 @@ struct ScanQualityConfig: Codable {
         self.torchShareK = torchShareK
         self.exposureCap = exposureCap
         self.videoBitrateKbps = videoBitrateKbps
+        self.continuedSave = continuedSave
     }
 
     // MARK: - Bản đang dùng (cache UserDefaults, server ghi đè qua /catalog)

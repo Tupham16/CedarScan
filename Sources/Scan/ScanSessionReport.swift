@@ -388,17 +388,22 @@ final class ScanSessionReport {
     private static let save279Note: String = [
         " save (app 2.79+): memMB = peak app memory (phys_footprint, MB) per save stage (stop = ",
         "closing video + shots, ply = mesh file, preview, objRead / objWrite = reading the mesh + ",
-        "writing the OBJ; sampled at 5 Hz until packing), memAtMB = the same when the stage began ",
-        "(stop = when Save was tapped on the naming screen, camera still on), memPeakMB = overall peak, ",
-        "memAvailMB = memory iOS said was still available at that moment (memAtMB.stop + this ~ ",
-        "the limit). video = partial: the video exists but part of the recording was lost. ",
-        "videoSegments = video files recorded (a new one each time the app came back to the ",
-        "screen), videoJoin = none / ok / failed:<domain:code> (failed = the longest segment was ",
-        "kept), videoRecovered = segments whose writer failed but whose movie fragments were ",
-        "readable, videoLost = segments dropped, videoKbps = bitrate used. bgTask = iOS 26 ",
-        "continued-processing task for the save, as at packing: running (iOS launched it) / started ",
-        "(accepted, not launched yet) / unsupported (iOS < 26) / notPermitted / submitFailed:<code> / ",
-        "expired (the system or the customer stopped it; the save went on).",
+        "writing the OBJ, again on a zip retry, pack = start of packing incl. the phone-colour ",
+        "wait; sampled at 5 Hz), memAtMB = the same when the stage began (stop = when Save was ",
+        "tapped on the naming screen, camera still on), memPeakMB = peak of those samples, ",
+        "memLifetimePeakMB = the app's exact high-water mark since launch (scan included), ",
+        "memAvailMB = memory iOS said was still available at Save (memAtMB.stop + this ~ the ",
+        "limit). video = partial: the video exists but part of the recording was lost. ",
+        "videoSegments = video files recorded (a new one after the app left the screen, an ARKit ",
+        "interruption, a failed writer or a >1 s gap in frames), videoJoin = none / ok / ",
+        "failed:<domain:code> (then retried:ok = joined without the recovered segments, else the ",
+        "longest segment was kept), videoRecovered = segments whose writer failed but whose movie ",
+        "fragments were readable, videoLost = segments dropped, videoCapped = recording stopped ",
+        "at the segment cap, videoStartFailures = writers that would not start, videoKbps = ",
+        "bitrate used. bgTask = iOS 26 continued-processing task for the save, as at packing: ",
+        "running (iOS launched it) / started (accepted, not launched yet) / unsupported (iOS < 26) ",
+        "/ disabledByConfig / notPermitted / submitFailed:<code> / expired (the system or the ",
+        "customer stopped it; the save went on).",
     ].joined()
 
     // MARK: - Helpers
@@ -475,7 +480,8 @@ final class SaveProbe: @unchecked Sendable {
     private static var activeProbe: SaveProbe?
 
     private let lock = NSLock()
-    private let queue = DispatchQueue(label: "cedar.save-memory", qos: .utility)
+    /// Same QoS as the save's work: a `.utility` timer fell behind the colour bake's cores.
+    private let queue = DispatchQueue(label: "cedar.save-memory", qos: .userInitiated)
     private var timer: DispatchSourceTimer?
     private var stage: String
     private var atMB: [String: Int] = [:]
@@ -528,12 +534,14 @@ final class SaveProbe: @unchecked Sendable {
 
     /// The `save` keys so far (Int / String / [String: Int]: JSON as they are).
     func fields() -> [String: any Sendable] {
-        let now = Self.footprintMB()
+        let reading = Self.footprint()
         lock.lock()
         defer { lock.unlock() }
         var out: [String: any Sendable] = [
-            "memMB": peakMB, "memAtMB": atMB, "memPeakMB": max(peak, now ?? 0),
+            "memMB": peakMB, "memAtMB": atMB, "memPeakMB": max(peak, reading?.now ?? 0),
         ]
+        // Samples can miss a short spike; the kernel's own high-water mark cannot.
+        if let lifetime = reading?.lifetimePeak, lifetime > 0 { out["memLifetimePeakMB"] = lifetime }
         if availMB > 0 { out["memAvailMB"] = availMB }
         for (key, value) in extra {
             out[key] = value
@@ -581,6 +589,12 @@ final class SaveProbe: @unchecked Sendable {
 
     /// The app's footprint in MB (`TASK_VM_INFO.phys_footprint`); nil when the call fails.
     static func footprintMB() -> Int? {
+        footprint()?.now
+    }
+
+    /// `phys_footprint` now and the kernel's lifetime peak of it (`ledger_phys_footprint_peak`,
+    /// TASK_VM_INFO rev 3+; 0 if this kernel did not fill it), MB.
+    private static func footprint() -> (now: Int, lifetimePeak: Int)? {
         var info = task_vm_info_data_t()
         var count = mach_msg_type_number_t(
             MemoryLayout<task_vm_info_data_t>.size / MemoryLayout<integer_t>.size
@@ -591,6 +605,7 @@ final class SaveProbe: @unchecked Sendable {
             }
         }
         guard result == KERN_SUCCESS else { return nil }
-        return Int(info.phys_footprint / 1_048_576)
+        let peak = max(info.ledger_phys_footprint_peak, 0)
+        return (Int(info.phys_footprint / 1_048_576), Int(peak / 1_048_576))
     }
 }
