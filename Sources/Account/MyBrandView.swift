@@ -62,6 +62,11 @@ struct MyBrandView: View {
 
     private var styles: [CatalogTemplate] { colorAddon?.templates ?? [] }
     private var agencyStyles: [CatalogTemplate] { BrandStyles.listed(colorAddon?.agencyTemplates) }
+    /// The saved agency style, when this phone lists it. One saved on an AU / NZ phone and opened
+    /// elsewhere counts as none here — as in the order form, which then uses the default style.
+    private var activeAgencyStyleId: String? {
+        agencyStyles.contains { $0.id == brand.agencyStyleId } ? brand.agencyStyleId : nil
+    }
 
     var body: some View {
         Group {
@@ -183,7 +188,7 @@ struct MyBrandView: View {
                     .disabled(saving || uploading)
                 if !agencyStyles.isEmpty {
                     NavigationLink {
-                        AgencyStyleView(styles: agencyStyles, selected: brand.agencyStyleId) { id in
+                        AgencyStyleView(styles: agencyStyles, selected: activeAgencyStyleId) { id in
                             save(["agencyStyleId": id.map { $0 as Any } ?? NSNull()],
                                  optimistic: brand.with(agencyStyleId: .some(id)))
                         }
@@ -214,9 +219,11 @@ struct MyBrandView: View {
     /// Picking an ordinary style ends the agency style.
     private var styleBinding: Binding<String?> {
         Binding(
-            get: { agencyStyles.contains { $0.id == brand.agencyStyleId } ? nil : brand.styleId },
+            get: { activeAgencyStyleId == nil ? brand.styleId : nil },
             set: { id in
-                guard let id, id != brand.styleId || brand.agencyStyleId != nil else { return }
+                // Tapping the style shown as picked changes nothing (an agency style saved on
+                // another phone, not listed here, stays saved).
+                guard let id, id != brand.styleId || activeAgencyStyleId != nil else { return }
                 save(["styleId": id, "agencyStyleId": NSNull()],
                      optimistic: brand.with(styleId: .some(id), agencyStyleId: .some(nil)))
             }
@@ -265,6 +272,11 @@ struct MyBrandView: View {
                 if fields["agencyStyleId"] != nil { back = back.with(agencyStyleId: .some(before.agencyStyleId)) }
                 brand = back
                 errorText = message(for: error)
+                // The style left the catalog: the list on screen is old, read it again.
+                if (error as? APIError)?.code == "unknown_style",
+                   let fresh = try? await APIClient.shared.brandCatalog() {
+                    catalog = fresh
+                }
             }
             saving = false
         }

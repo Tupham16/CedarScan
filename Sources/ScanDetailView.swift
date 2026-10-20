@@ -1092,8 +1092,15 @@ struct OrderSheet: View {
         let floorNaming: String
         let notes: String
         let coupon: String
-        /// F9: the logo switch (only while a saved logo shows it).
-        let addLogo: Bool
+        /// F9: the logo choice as sent (`logoChoice`).
+        let addLogo: Bool?
+    }
+
+    /// F9: the logo choice this form sends — nil with a server without My brand (the key stays
+    /// out), else the switch when a logo is saved and false when none is: what the form shows goes
+    /// on the order (a logo saved on another phone meanwhile waits for the next form).
+    private var logoChoice: Bool? {
+        catalog?.brand == nil ? nil : (catalog?.brand?.logo != nil && addLogo)
     }
 
     private var formState: FormState {
@@ -1108,7 +1115,7 @@ struct OrderSheet: View {
             floorNaming: floorNaming,
             notes: notes,
             coupon: couponCode,
-            addLogo: addLogo
+            addLogo: logoChoice
         )
     }
     /// The placed screen shows an order found in the list (`showAdoptedOrder`: before placing, or
@@ -2116,10 +2123,7 @@ struct OrderSheet: View {
         let floorNamingSnapshot = Self.cut(floorNaming, Self.maxFloorNaming)
         let projectNameSnapshot = Self.cut(projectName ?? "", Self.maxProjectName)
         let couponSnapshot = Self.cut(couponCode.trimmingCharacters(in: .whitespacesAndNewlines), Self.maxCoupon)
-        // F9: what this form shows goes on the order — the switch when a logo is saved, else no
-        // logo (one saved on another phone meanwhile waits for the next form). nil = a server
-        // without My brand: the key stays out.
-        let addLogoSnapshot: Bool? = catalog?.brand == nil ? nil : (catalog?.brand?.logo != nil && addLogo)
+        let addLogoSnapshot = logoChoice
         // N10 (2.79): the body measured NOW, ✗ after 40–200 MB of uploads (`orderScan` refuses it
         // again as a backstop). The scans' server ids are not known yet: 36 characters each (cuids
         // are 25), so the guess is never smaller than the real body.
