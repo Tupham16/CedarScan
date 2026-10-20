@@ -749,15 +749,20 @@ final class ScanStore: ObservableObject {
     /// scans' meta.json, which the backup no longer carries — bound now as a 2.79 stamp would
     /// (newest stamp, `orderNumber(ofProject:)`). Only once the files are readable (before the
     /// first unlock `records` reads back empty) and projects.json can be written; the flag only
-    /// once the write succeeded (full disk = tried again next launch). ✗ a property whose scans
-    /// carry two orders (data from before "1 house, 1 order"): bound to the newest, "Add a scan"
-    /// would lose its way to the other one (`project(withOrderNumber:)`). ⚠ A refunded order's
-    /// house gets bound too (the app keeps no refund state): harmless while its stamped scans are
-    /// here (they win anyway); a restored phone then offers "Send extra scan" into it, refused
-    /// `order_closed` after the upload (the sheet's close releases the binding) — accepted, rare.
+    /// once the write succeeded — a failed write (full disk) puts the bindings back as they were
+    /// (a leftover in memory would stop L6's `keepOrderBinding` from writing its own this run)
+    /// and the next launch tries again. ✗ a property whose scans carry two orders (data from
+    /// before "1 house, 1 order", mostly the owner's): bound to the newest, "Add a scan" for that
+    /// order would get lost once its scans are deleted here (`project(withOrderNumber:)` falls
+    /// back to the property, whose older stamp then disagrees); skipped, such a house offers
+    /// "Order" again on a restored phone — accepted, rare. ⚠ A refunded order's house gets bound
+    /// too (the app keeps no refund state): harmless while its stamped scans are here (they win
+    /// anyway); a restored phone then offers "Send extra scan" into it, refused `order_closed`
+    /// after the upload (the sheet's close releases the binding) — accepted, rare.
     private func backfillOrderBindings() {
         guard !UserDefaults.standard.bool(forKey: Self.bindingBackfillKey),
               UIApplication.shared.isProtectedDataAvailable, !projectsWriteBlocked else { return }
+        let before = projects
         var changed = false
         for index in projects.indices where projects[index].orderNumber == nil {
             let id = projects[index].id
@@ -766,7 +771,10 @@ final class ScanStore: ObservableObject {
             projects[index].orderNumber = number
             changed = true
         }
-        guard !changed || persistProjects() else { return }
+        guard !changed || persistProjects() else {
+            projects = before
+            return
+        }
         UserDefaults.standard.set(true, forKey: Self.bindingBackfillKey)
     }
 
