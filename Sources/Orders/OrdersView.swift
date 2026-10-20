@@ -686,11 +686,12 @@ struct RevisionSheet: View {
                     Button {
                         files.removeAll { $0.id == file.id }
                     } label: {
-                        // N17: a named 44pt target (was the bare ~17pt icon), row height kept.
+                        // N17: a named 44pt target (was the bare ~17pt icon), row height kept;
+                        // less to the left, ✗ over the end of a long file name.
                         Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
-                            .padding(14)
+                            .padding(EdgeInsets(top: 14, leading: 10, bottom: 14, trailing: 14))
                             .contentShape(Rectangle())
-                            .padding(-14)
+                            .padding(EdgeInsets(top: -14, leading: -10, bottom: -14, trailing: -14))
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel(String(localized: "Remove attachment"))

@@ -160,5 +160,7 @@ private struct SuggestionChip: View {
                 .background(background, in: Capsule())
         }
         .buttonStyle(.plain)
+        // N17: the picked name was shown by colour only.
+        .accessibilityAddTraits(isSelected ? AccessibilityTraits.isSelected : AccessibilityTraits())
     }
 }

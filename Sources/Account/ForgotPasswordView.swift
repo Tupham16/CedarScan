@@ -18,7 +18,8 @@ struct ForgotPasswordView: View {
                     Section {
                         TextField("Email", text: $email)
                             .keyboardType(.emailAddress)
-                            // C9 (2.79): the account the new password below is saved under.
+                            // C9 (2.79): the account field for Password AutoFill (step 1 shows only
+                            // the code + new password, so pairing them is up to iOS).
                             .textContentType(.username)
                             .textInputAutocapitalization(.never)
                             .autocorrectionDisabled()

@@ -30,10 +30,12 @@ final class PushNotifications: ObservableObject {
     @Published var tapped: OrderRequest?
 
     /// F2 (2.79): a tapped scan reminder (`ScanReminder`, a LOCAL notification) — the scan's
-    /// local id. Same life as `tapped`: `RootView` consumes it and asks `HomeView` to open it.
+    /// local id, and its property (opened instead when the scan is gone). Same life as `tapped`:
+    /// `RootView` consumes it and asks `HomeView` to open it.
     struct ScanRequest: Equatable {
         let seq: Int
         let recordId: UUID
+        let projectId: UUID?
     }
     @Published var tappedScan: ScanRequest?
     /// Handed from `RootView` to `OrdersView` once the tab switch is allowed. Only `OrdersView` clears.
@@ -136,9 +138,9 @@ final class PushNotifications: ObservableObject {
         tapped = OrderRequest(seq: seq, orderId: orderId)
     }
 
-    func didTapScan(recordId: UUID) {
+    func didTapScan(recordId: UUID, projectId: UUID?) {
         seq += 1
-        tappedScan = ScanRequest(seq: seq, recordId: recordId)
+        tappedScan = ScanRequest(seq: seq, recordId: recordId, projectId: projectId)
     }
 
     // MARK: Sign-out

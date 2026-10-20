@@ -142,6 +142,53 @@
         }
       }
     },
+    "%lld of %lld": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld z %lld"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld von %lld"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld de %lld"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld sur %lld"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld van %lld"
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld z %lld"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld trên %lld"
+          }
+        }
+      }
+    },
     "%lld scan(s)": {
       "extractionState": "manual",
       "localizations": {
@@ -7592,7 +7639,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Código no válido o caducado."
+            "value": "Código no válido o expirado."
           }
         },
         "fr": {
@@ -16616,7 +16663,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "El código caducó. Solicita uno nuevo."
+            "value": "El código expiró. Solicita uno nuevo."
           }
         },
         "fr": {

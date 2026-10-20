@@ -5265,7 +5265,7 @@
     "de": "Der Code ist abgelaufen. Bitte fordern Sie einen neuen an.",
     "cs": "Platnost kódu vypršela. Požádejte prosím o nový.",
     "sk": "Platnosť kódu vypršala. Požiadajte, prosím, o nový.",
-    "es": "El código caducó. Solicita uno nuevo.",
+    "es": "El código expiró. Solicita uno nuevo.",
     "nl": "De code is verlopen. Vraag een nieuwe aan."
    }
   },
@@ -5277,7 +5277,7 @@
     "de": "Ungültiger oder abgelaufener Code.",
     "cs": "Kód je neplatný nebo vypršel.",
     "sk": "Kód je neplatný alebo vypršal.",
-    "es": "Código no válido o caducado.",
+    "es": "Código no válido o expirado.",
     "nl": "Ongeldige of verlopen code."
    }
   },
@@ -5459,6 +5459,18 @@
     "sk": "Táto požiadavka je príliš veľká. Skráťte, prosím, text a skúste to znova.",
     "es": "Esta solicitud es demasiado grande. Acorta tu texto e inténtalo de nuevo.",
     "nl": "Dit verzoek is te groot. Maak je tekst korter en probeer het opnieuw."
+   }
+  },
+  {
+   "key": "%lld of %lld",
+   "translations": {
+    "vi": "%lld trên %lld",
+    "fr": "%lld sur %lld",
+    "de": "%lld von %lld",
+    "cs": "%lld z %lld",
+    "sk": "%lld z %lld",
+    "es": "%lld de %lld",
+    "nl": "%lld van %lld"
    }
   }
  ],

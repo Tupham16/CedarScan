@@ -1073,6 +1073,39 @@ struct OrderSheet: View {
     /// it opened for: verified, the same account, ⇒ Place order goes on by itself (`resumeAfterGate`).
     @State private var showAccountGate = false
     @State private var gateAccountId: String?
+    /// The form as it stood at the last Place order tap. The re-submit after the code screen runs
+    /// only while the form still says exactly this: the controls stay editable during the upload
+    /// and the button then shows a spinner, not the price (trap #22).
+    @State private var tappedForm: FormState?
+
+    /// Everything a Place order tap sends from this form (`submit` snapshots the same fields).
+    private struct FormState: Equatable {
+        let packages: Set<String>
+        let addons: Set<String>
+        let templates: [String: String]
+        let files: [String]
+        let floors: Set<UUID>
+        let unitSystem: String
+        let language: String
+        let floorNaming: String
+        let notes: String
+        let coupon: String
+    }
+
+    private var formState: FormState {
+        FormState(
+            packages: selectedPackages,
+            addons: selectedAddons,
+            templates: selectedTemplates,
+            files: orderFiles.map { $0.id },
+            floors: extraFloors,
+            unitSystem: unitSystem,
+            language: language,
+            floorNaming: floorNaming,
+            notes: notes,
+            coupon: couponCode
+        )
+    }
     /// The placed screen shows an order found in the list (`showAdoptedOrder`: before placing, or
     /// after a 409), ✗ one this tap made: its card sheet does not open by itself — its price may
     /// not be the one this form showed (rule 3 of `AddToOrderSheet`). Pay Now is there to tap.
@@ -1118,27 +1151,23 @@ struct OrderSheet: View {
         }
     }
 
-    /// N16 (2.79): an option as the customer reads it — its name in the app language, from the
-    /// system's own list (nothing to translate), capitalised as a menu item. The TAG stays the
-    /// English value: the server stores it and the drafting team reads it. English app: the value
-    /// itself, as before. No name from the system: the value.
+    /// N16 (2.79): an option as the customer reads it — the language's name in the app language,
+    /// from the system's own list (nothing to translate), capitalised as a menu item; the English
+    /// variants keep their short tag ("Anglais (UK)"): the full region names ran past the closed
+    /// picker row, where "…(Vereinigtes…" no longer told UK from US/CA. The TAG stays the English
+    /// value: the server stores it, the drafting team reads it. English app: the value itself, as
+    /// before. No name from the system: the value.
     private static func languageLabel(_ value: String) -> String {
         let app = AppLanguage.code
         guard app != "en" else { return value }
         let locale = Locale(identifier: app)
+        let english = locale.localizedString(forLanguageCode: "en")
         let name: String?
         switch value {
-        case "English": name = locale.localizedString(forLanguageCode: "en")
-        case "English (UK)": name = locale.localizedString(forIdentifier: "en_GB")
-        case "English (AU)": name = locale.localizedString(forIdentifier: "en_AU")
-        case "English (US/CA)":
-            if let en = locale.localizedString(forLanguageCode: "en"),
-               let us = locale.localizedString(forRegionCode: "US"),
-               let ca = locale.localizedString(forRegionCode: "CA") {
-                name = "\(en) (\(us) / \(ca))"
-            } else {
-                name = nil
-            }
+        case "English": name = english
+        case "English (UK)": name = english.map { "\($0) (UK)" }
+        case "English (AU)": name = english.map { "\($0) (AU)" }
+        case "English (US/CA)": name = english.map { "\($0) (US/CA)" }
         case "French": name = locale.localizedString(forLanguageCode: "fr")
         case "German": name = locale.localizedString(forLanguageCode: "de")
         case "Czech": name = locale.localizedString(forLanguageCode: "cs")
@@ -1314,15 +1343,17 @@ struct OrderSheet: View {
         showAccountGate = true
     }
 
-    /// The gate closed. Verified, still the account it opened for ⇒ Place order again by itself —
-    /// the customer already tapped it, and the uploads are done (`cloudScanId`), so this goes
-    /// straight to the order. Narrower than the button on purpose (trap #18): a swipe-down,
-    /// Cancel, a sign-out or another account ⇒ nothing; the form and its button stay.
+    /// The gate closed. Verified, still the account it opened for, the form as it was tapped ⇒
+    /// Place order again by itself — the customer already tapped it (uploads done = straight to
+    /// the order). Narrower than the button on purpose (trap #18): a swipe-down, Cancel, a
+    /// sign-out, another account, or anything changed in the form since the tap ⇒ nothing; the
+    /// form and its button (with the current price) stay.
     private func resumeAfterGate() {
         let opener = gateAccountId
         gateAccountId = nil
         guard let opener, account.customer?.id == opener, !account.needsVerification,
-              placedOrder == nil, !isBusy else { return }
+              placedOrder == nil, !isBusy, !uploadingFile, !selectedPackages.isEmpty,
+              tappedForm == formState else { return }
         submit()
     }
 
@@ -1479,6 +1510,8 @@ struct OrderSheet: View {
                 HStack {
                     Image(systemName: "checkmark.circle.fill")
                         .foregroundStyle(Theme.Badge.ok.fg)
+                        // N17: the section title says it is in the order.
+                        .accessibilityHidden(true)
                     Text(record.name)
                     Spacer()
                     if let area = record.areaSqm, area > 0 {
@@ -1663,11 +1696,12 @@ struct OrderSheet: View {
                             orderFiles.removeAll { $0.id == file.id }
                         } label: {
                             // N17: a named 44pt target (was the bare ~17pt icon), row height kept
-                            // (negative padding: the hit shape uses the row's own space).
+                            // (negative padding: the hit shape uses the row's own space). Less to
+                            // the left: ✗ over the end of a long file name (a tap there removes).
                             Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
-                                .padding(14)
+                                .padding(EdgeInsets(top: 14, leading: 10, bottom: 14, trailing: 14))
                                 .contentShape(Rectangle())
-                                .padding(-14)
+                                .padding(EdgeInsets(top: -14, leading: -10, bottom: -14, trailing: -14))
                         }
                         .buttonStyle(.plain)
                         .accessibilityLabel(String(localized: "Remove attachment"))
@@ -1808,6 +1842,9 @@ struct OrderSheet: View {
                         .multilineTextAlignment(.leading)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
+                // N14 review: ✗ open while Place order runs — the verify-email gate could then not
+                // present over it (one sheet at a time) when the order's answer says "verify first".
+                .disabled(isBusy)
                 .sheet(isPresented: $showTermsSheet) {
                     NavigationStack { LegalDocumentView(doc: .terms) }
                 }
@@ -2004,6 +2041,7 @@ struct OrderSheet: View {
     private func submit() {
         isBusy = true
         errorMessage = nil
+        tappedForm = formState
         let extras = otherScans.filter { extraFloors.contains($0.id) }
         // 🔴 CHỤP MỌI THỨ QUYẾT ĐỊNH GIÁ NGAY TẠI ĐÂY, đừng đọc `@State` lại sau các `await`.
         //
@@ -2231,9 +2269,13 @@ struct OrderSheet: View {
                     // route's only 403; it sends no `code`). The code screen opens at once — on
                     // the server's own "not verified", ✗ on a 403 alone (an edge proxy can send
                     // one): the uploads are done, verifying then places the order (`resumeAfterGate`).
-                    if let api = error as? APIError, api.statusCode == 403,
-                       await account.serverEmailVerified() == false {
-                        verifyFirst = true
+                    if let api = error as? APIError, api.statusCode == 403 {
+                        // The route refuses before it reads the body: no order exists, Cancel
+                        // need not wait for the check below (#26 is about a request in flight).
+                        placingOrder = false
+                        if await account.serverEmailVerified() == false {
+                            verifyFirst = true
+                        }
                     }
                 }
             }

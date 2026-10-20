@@ -78,16 +78,24 @@ final class BackgroundUploads: NSObject {
 
     /// Every transfer of the session, including ones from before a relaunch, is cancelled and
     /// none is recreated: `createdInBackground` / `replacing` are emptied FIRST, else
-    /// `didBecomeActive` or a swap's completion would start them again (trap #50). Waiting flows
-    /// end with the transfer's cancel error. The journal stays (account deletion calls this
-    /// before its request: a refused deletion keeps the resume).
-    func cancelTransfers() {
+    /// `didBecomeActive` or a swap's completion would start them again (trap #50); every waiting
+    /// flow ends now with `CancellationError` (not retried by `ScanUploader`) and `launched` is
+    /// emptied, so no wait can adopt an old task back. The journal stays (account deletion calls
+    /// this before its request: a refused deletion keeps the resume). The returned task ends once
+    /// `cancel()` reached every transfer — the deletion waits for it.
+    @discardableResult
+    func cancelTransfers() -> Task<Void, Never> {
         lock.lock()
         createdInBackground.removeAll()
         replacing.removeAll()
+        launched.removeAll()
+        let waiting = waiters.values.flatMap { Array($0.values) }
+        waiters.removeAll()
         lock.unlock()
-        session.getAllTasks { tasks in
-            for task in tasks { task.cancel() }
+        Self.resume(waiting, CancellationError())
+        let session: URLSession = self.session
+        return Task {
+            for task in await session.allTasks { task.cancel() }
         }
     }
 

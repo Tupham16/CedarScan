@@ -358,9 +358,9 @@ private struct RoomPhotosRow: View {
                                 .strokeBorder(Theme.accentText.opacity(0.4), style: StrokeStyle(lineWidth: 1, dash: [4]))
                         )
                     }
-                    // N17: VoiceOver read "Add, 1/3".
+                    // N17: VoiceOver read "Add, 1/3" ("one third" as a fraction).
                     .accessibilityLabel(String(localized: "Add tour photos"))
-                    .accessibilityValue(Text(verbatim: "\(photos.count)/\(maxPerRoom)"))
+                    .accessibilityValue(String(localized: "\(photos.count) of \(maxPerRoom)"))
                     .onChange(of: picked) { _, items in
                         guard !items.isEmpty else { return }
                         onUpload(items)

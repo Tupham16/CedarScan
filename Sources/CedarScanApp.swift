@@ -137,6 +137,8 @@ struct RootView: View {
         .task(id: account.isSignedIn) {
             // Launch, sign-in, sign-out: push token to the server / pending unregister.
             push.refresh()
+            // F2: reminders iOS dropped while notifications were not allowed come back.
+            ScanReminder.refreshAll(store: store)
             refreshScanQualityConfig()
             await confirmPendingPayments()
             await syncUnpaidOrders()
@@ -150,6 +152,8 @@ struct RootView: View {
             guard phase == .active else { return }
             // Notifications allowed in Settings meanwhile, a register that failed offline…
             push.refresh()
+            // …the same for the scan reminders (and shown ones whose scan was sent meanwhile go).
+            ScanReminder.refreshAll(store: store)
             refreshScanQualityConfig()
             Task {
                 await confirmPendingPayments()
@@ -170,16 +174,18 @@ struct RootView: View {
         }
     }
 
-    /// F2 (2.79): a tapped scan reminder → Home, that scan's page. Same rules as
-    /// `openTappedOrder`: one tick later, only over a plain screen (✗ under the scan cover, a sheet,
-    /// an alert — then nothing moves), and only for a scan still on this device. An ordinary tab
-    /// switch like `requestOpenProject`; `HomeView.openScan` defers its push itself.
+    /// F2 (2.79): a tapped scan reminder → Home, that scan's page (its property when the scan is
+    /// gone). Same rules as `openTappedOrder`: one tick later, only over a plain screen (✗ under
+    /// the scan cover, a sheet, an alert — then nothing moves), and only for something still on
+    /// this device. An ordinary tab switch like `requestOpenProject`; `HomeView.openScan` defers
+    /// its push itself.
     private func openTappedScan(_ request: PushNotifications.ScanRequest) {
         Task { @MainActor in
             guard push.tappedScan == request else { return }
             push.tappedScan = nil
-            guard !PushNotifications.somethingOnTop,
-                  store.records.contains(where: { $0.id == request.recordId }) else { return }
+            guard !PushNotifications.somethingOnTop else { return }
+            let scanHere = store.records.contains { $0.id == request.recordId }
+            guard scanHere || store.project(with: request.projectId) != nil else { return }
             openScanRequest = request
             if tab != .home { tab = .home }
         }

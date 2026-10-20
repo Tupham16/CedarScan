@@ -43,6 +43,11 @@ final class AccountStore: ObservableObject {
            !UserDefaults.standard.bool(forKey: Self.installedKey) {
             if UserDefaults.standard.data(forKey: Self.customerKey) == nil {
                 Keychain.delete(Self.tokenKey)
+            } else if let token = Keychain.read(Self.tokenKey) {
+                // The session kept across the update: a token saved before 2.31 still has the
+                // access class that moves with backups — rewritten once with today's
+                // this-device-only class (`Keychain.save` = delete, then add).
+                Keychain.save(token, for: Self.tokenKey)
             }
             UserDefaults.standard.set(true, forKey: Self.installedKey)
         }

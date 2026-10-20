@@ -484,6 +484,12 @@ struct APIError: LocalizedError {
     var errorDescription: String? { message }
 }
 
+/// N13 (2.79): a 2xx answer the app could not decode — shown as the generic message. Its own type,
+/// ✗ `APIError`: see `APIClient.send`.
+struct UnreadableResponse: LocalizedError {
+    var errorDescription: String? { String(localized: "Something went wrong. Please try again.") }
+}
+
 // MARK: - Client
 
 final class APIClient {
@@ -571,13 +577,10 @@ final class APIClient {
             return try JSONDecoder().decode(T.self, from: data)
         } catch is DecodingError {
             // N13: Foundation's "The data couldn't be read because it isn't in the correct format."
-            // means nothing to a customer. Same HTTP status (2xx: no caller reads it as a refusal)
-            // and no `code` a caller acts on.
-            throw APIError(
-                message: String(localized: "Something went wrong. Please try again."),
-                statusCode: status,
-                code: "unreadable_response"
-            )
+            // means nothing to a customer. ✗ an `APIError`: callers read `is APIError` as "the
+            // server refused" (`OrderDetailView.cancelOrder`: a lost cancel answer vs a refusal) —
+            // a 2xx it could not read is neither, as the `DecodingError` it replaces.
+            throw UnreadableResponse()
         }
     }
 
@@ -808,7 +811,7 @@ final class APIClient {
         projectName: String,
         coupon: String
     ) async throws -> OrderScanResponse {
-        try await send("scans/\(scanId)/order", method: "POST", json: [
+        let body: [String: Any] = [
             "packageIds": packageIds, // đa gói (server cũng nhận `packageId` đơn, nhưng app mới gửi mảng)
             "addons": addonIds,
             "templates": templates, // addonId → templateId (color / siteplan)
@@ -826,7 +829,20 @@ final class APIClient {
             // cancelled by itself after 7 days) instead of being worked on before payment.
             // 🔴 ALWAYS sent: the Cancel button, the placed screen and the stamp release all assume it.
             "payFirst": true,
-        ], timeout: 60)
+        ]
+        // N10 (2.79): the live server reads a body over 16 KB as an EMPTY form = a default 2D order
+        // without the floors, add-ons, notes or files (and `submit` would stamp every ticked floor
+        // with it). The fields are capped (`OrderSheet`), yet a full note + 10 long file names can
+        // still pass 16 KB: refused here, nothing sent. The 2.79 server (S3) refuses with 413
+        // `too_large` itself and allows 64 KB — this guard may follow once that is live everywhere.
+        if let encoded = try? JSONSerialization.data(withJSONObject: body), encoded.count > 16 * 1024 {
+            throw APIError(
+                message: String(localized: "This request is too large. Please shorten your text and try again."),
+                statusCode: 413,
+                code: "too_large"
+            )
+        }
+        return try await send("scans/\(scanId)/order", method: "POST", json: body, timeout: 60)
     }
 
     /// `include=cancelled`: orders cancelled unpaid are listed too (status `cancelled`, `scanIds` =

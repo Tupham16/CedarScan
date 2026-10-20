@@ -435,18 +435,23 @@ struct HomeView: View {
     }
 
     /// F2 (2.79): a tapped scan reminder → that scan's page, the way a loose scan row opens it
-    /// (`path` = [record], Back = Home). Same two beats and the same guards as `openProject`
-    /// (root first, then push; ✗ while a scan is in progress); a scan deleted meanwhile = nothing.
+    /// (`path` = [record], Back = Home); the scan gone ⇒ its property, as a property card opens it.
+    /// Same two beats and the same guards as `openProject` (root first, then push; ✗ while a
+    /// scan is in progress); neither on this device = nothing.
     private func openScan(_ request: PushNotifications.ScanRequest?) {
         guard let request else { return }
         Task { @MainActor in
-            guard !isMeshScanning, !ScanCoverModel.shared.blocksInput,
-                  store.records.contains(where: { $0.id == request.recordId }) else { return }
+            guard !isMeshScanning, !ScanCoverModel.shared.blocksInput else { return }
+            let scanHere = store.records.contains { $0.id == request.recordId }
+            guard scanHere || store.project(with: request.projectId) != nil else { return }
             path = NavigationPath()
             Task { @MainActor in
-                guard !isMeshScanning, !ScanCoverModel.shared.blocksInput,
-                      let record = store.records.first(where: { $0.id == request.recordId }) else { return }
-                path.append(record)
+                guard !isMeshScanning, !ScanCoverModel.shared.blocksInput else { return }
+                if let record = store.records.first(where: { $0.id == request.recordId }) {
+                    path.append(record)
+                } else if let project = store.project(with: request.projectId) {
+                    path.append(project)
+                }
             }
         }
     }

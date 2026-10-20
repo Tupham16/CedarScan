@@ -375,11 +375,12 @@ struct DeleteAccountView: View {
         isBusy = true
         errorMessage = nil
         // N8 (2.79): scan files still uploading in the background (an order cancelled mid-upload
-        // keeps transferring) stop BEFORE the request — one finishing after the server removed
-        // this account's files would land on our storage again. Refused (wrong password): the
-        // journal stays, a later order resumes; done: `signOut` clears it.
-        BackgroundUploads.shared.cancelTransfers()
+        // keeps transferring) stop BEFORE the request (awaited) — one finishing after the server
+        // removed this account's files would land on our storage again. Refused (wrong password):
+        // the journal stays, a later order resumes; done: `signOut` clears it.
+        let stopping = BackgroundUploads.shared.cancelTransfers()
         Task {
+            await stopping.value
             do {
                 _ = try await APIClient.shared.deleteAccount(password: password)
                 // Its unpaid orders were cancelled and their list is gone for good: ✗ leave

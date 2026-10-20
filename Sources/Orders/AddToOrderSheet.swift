@@ -392,6 +392,8 @@ struct AddToOrderSheet: View {
             if check {
                 Image(systemName: "checkmark.circle.fill")
                     .foregroundStyle(Theme.inactive)
+                    // N17: "Included" says it (combined row below).
+                    .accessibilityHidden(true)
             }
             Text(name)
                 .foregroundStyle(Color.secondary)
