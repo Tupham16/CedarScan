@@ -58,6 +58,18 @@ struct AccountView: View {
                                     .listRowBackground(Theme.card)
                             }
                         }
+                        // F6 (2.79, mockup 86): other addresses that also get the download links.
+                        // Its own Section: F8 / F9 add theirs right after (integration keeps all).
+                        Section {
+                            NavigationLink {
+                                // Pushed in the Account tab: room for `CedarTabBar` (as `LegalLinks`).
+                                DeliveryEmailsView()
+                                    .safeAreaPadding(.bottom, CedarTabBar.reservedHeight)
+                            } label: {
+                                Label(String(localized: "Delivery emails"), systemImage: "envelope")
+                            }
+                            .listRowBackground(Theme.card)
+                        }
                         Section {
                             Link(destination: URL(string: "https://cedar247.com")!) {
                                 Label("cedar247.com", systemImage: "globe")

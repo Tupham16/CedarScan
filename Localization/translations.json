@@ -5184,6 +5184,162 @@
     "es": "Esta propiedad ya tiene el pedido %@ — añade este escaneo con \"Enviar escaneo adicional\". No tiene costo adicional.",
     "nl": "Deze woning heeft al bestelling %@ — voeg deze scan toe met \"Extra scan versturen\". Dat kost niets extra."
    }
+  },
+  {
+   "key": "Delivery emails",
+   "translations": {
+    "vi": "Email nhận file",
+    "fr": "Courriels de livraison",
+    "de": "Liefer-E-Mails",
+    "cs": "E-maily pro doručení",
+    "sk": "E-maily na doručenie",
+    "es": "Correos de entrega",
+    "nl": "Bezorg-e-mails"
+   }
+  },
+  {
+   "key": "Also send finished files to",
+   "translations": {
+    "vi": "Gửi thêm file hoàn thiện tới",
+    "fr": "Envoyer aussi les fichiers terminés à",
+    "de": "Fertige Dateien auch senden an",
+    "cs": "Hotové soubory posílat také na",
+    "sk": "Hotové súbory posielať aj na",
+    "es": "Enviar también los archivos terminados a",
+    "nl": "Afgeronde bestanden ook sturen naar"
+   }
+  },
+  {
+   "key": "Add email",
+   "translations": {
+    "vi": "Thêm email",
+    "fr": "Ajouter un courriel",
+    "de": "E-Mail hinzufügen",
+    "cs": "Přidat e-mail",
+    "sk": "Pridať e-mail",
+    "es": "Añadir correo",
+    "nl": "E-mail toevoegen"
+   }
+  },
+  {
+   "key": "%lld of %lld",
+   "translations": {
+    "vi": "%lld/%lld",
+    "fr": "%lld sur %lld",
+    "de": "%lld von %lld",
+    "cs": "%lld z %lld",
+    "sk": "%lld z %lld",
+    "es": "%lld de %lld",
+    "nl": "%lld van %lld"
+   }
+  },
+  {
+   "key": "Email address",
+   "translations": {
+    "vi": "Địa chỉ email",
+    "fr": "Adresse courriel",
+    "de": "E-Mail-Adresse",
+    "cs": "E-mailová adresa",
+    "sk": "E-mailová adresa",
+    "es": "Correo electrónico",
+    "nl": "E-mailadres"
+   }
+  },
+  {
+   "key": "When your floor plans are ready, we also email the download links to these addresses, for every order. They don't see prices.",
+   "translations": {
+    "vi": "Khi bản vẽ mặt bằng xong, chúng tôi gửi thêm link tải tới các địa chỉ này, cho mọi đơn. Người nhận không thấy giá.",
+    "fr": "Quand vos plans sont prêts, nous envoyons aussi les liens de téléchargement à ces adresses, pour chaque commande. Elles ne voient pas les prix.",
+    "de": "Sobald Ihre Grundrisse fertig sind, senden wir die Download-Links bei jeder Bestellung auch an diese Adressen. Preise sehen die Empfänger nicht.",
+    "cs": "Až budou vaše půdorysy hotové, pošleme odkazy ke stažení i na tyto adresy, u každé objednávky. Ceny příjemci neuvidí.",
+    "sk": "Keď budú vaše pôdorysy hotové, pošleme odkazy na stiahnutie aj na tieto adresy, pri každej objednávke. Ceny príjemcovia neuvidia.",
+    "es": "Cuando tus planos estén listos, también enviaremos los enlaces de descarga a estas direcciones, en cada pedido. No verán los precios.",
+    "nl": "Zodra je plattegronden klaar zijn, sturen we de downloadlinks ook naar deze adressen, bij elke bestelling. Prijzen zien ze niet."
+   }
+  },
+  {
+   "key": "Please enter a valid email address.",
+   "translations": {
+    "vi": "Vui lòng nhập địa chỉ email hợp lệ.",
+    "fr": "Veuillez saisir une adresse courriel valide.",
+    "de": "Bitte geben Sie eine gültige E-Mail-Adresse ein.",
+    "cs": "Zadejte prosím platnou e-mailovou adresu.",
+    "sk": "Zadajte, prosím, platnú e-mailovú adresu.",
+    "es": "Escribe un correo electrónico válido.",
+    "nl": "Voer een geldig e-mailadres in."
+   }
+  },
+  {
+   "key": "This email is already on the list.",
+   "translations": {
+    "vi": "Email này đã có trong danh sách.",
+    "fr": "Ce courriel est déjà dans la liste.",
+    "de": "Diese E-Mail-Adresse steht schon auf der Liste.",
+    "cs": "Tento e-mail už v seznamu je.",
+    "sk": "Tento e-mail už v zozname je.",
+    "es": "Este correo ya está en la lista.",
+    "nl": "Dit e-mailadres staat al in de lijst."
+   }
+  },
+  {
+   "key": "This is your account email. You already get these emails.",
+   "translations": {
+    "vi": "Đây là email tài khoản. Email này đã nhận file rồi.",
+    "fr": "C'est le courriel de votre compte. Vous recevez déjà ces courriels.",
+    "de": "Das ist die E-Mail-Adresse Ihres Kontos. Diese E-Mails erhalten Sie bereits.",
+    "cs": "To je e-mail vašeho účtu. Tyto e-maily už dostáváte.",
+    "sk": "To je e-mail vášho účtu. Tieto e-maily už dostávate.",
+    "es": "Es el correo de tu cuenta. Ya recibes estos correos.",
+    "nl": "Dit is het e-mailadres van je account. Deze e-mails krijg je al."
+   }
+  },
+  {
+   "key": "You can add up to %lld email addresses.",
+   "translations": {
+    "vi": "Chỉ thêm được tối đa %lld email.",
+    "fr": "Vous pouvez ajouter jusqu'à %lld adresses courriel.",
+    "de": "Sie können bis zu %lld E-Mail-Adressen hinzufügen.",
+    "cs": "Můžete přidat nejvýše %lld e-mailových adres.",
+    "sk": "Môžete pridať najviac %lld e-mailových adries.",
+    "es": "Puedes añadir hasta %lld correos.",
+    "nl": "Je kunt tot %lld e-mailadressen toevoegen."
+   }
+  },
+  {
+   "key": "Remove this email?",
+   "translations": {
+    "vi": "Xóa email này?",
+    "fr": "Retirer ce courriel ?",
+    "de": "Diese E-Mail-Adresse entfernen?",
+    "cs": "Odebrat tento e-mail?",
+    "sk": "Odstrániť tento e-mail?",
+    "es": "¿Quitar este correo?",
+    "nl": "Dit e-mailadres verwijderen?"
+   }
+  },
+  {
+   "key": "Remove email",
+   "translations": {
+    "vi": "Xóa email",
+    "fr": "Retirer le courriel",
+    "de": "E-Mail entfernen",
+    "cs": "Odebrat e-mail",
+    "sk": "Odstrániť e-mail",
+    "es": "Quitar correo",
+    "nl": "E-mail verwijderen"
+   }
+  },
+  {
+   "key": "Couldn't load your delivery emails.",
+   "translations": {
+    "vi": "Không tải được danh sách email nhận file.",
+    "fr": "Impossible de charger vos courriels de livraison.",
+    "de": "Ihre Liefer-E-Mails konnten nicht geladen werden.",
+    "cs": "E-maily pro doručení se nepodařilo načíst.",
+    "sk": "E-maily na doručenie sa nepodarilo načítať.",
+    "es": "No se pudieron cargar tus correos de entrega.",
+    "nl": "Je bezorg-e-mails konden niet worden geladen."
+   }
   }
  ],
  "infoplist": {

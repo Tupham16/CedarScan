@@ -616,6 +616,25 @@ final class APIClient {
         try await send("auth/resend-code", method: "POST", json: [:])
     }
 
+    // MARK: Delivery emails — callers: `DeliveryEmailsView` only
+
+    /// F6 (2.79): other addresses that also get the download links of every delivered order
+    /// (server `lib/delivery-copies.ts`). `max` absent = 5.
+    struct DeliveryEmailsResponse: Decodable {
+        let emails: [String]
+        let max: Int?
+    }
+
+    func deliveryEmails() async throws -> DeliveryEmailsResponse {
+        try await send("account/delivery-emails")
+    }
+
+    /// Replaces the whole list; the answer is the list as stored (lowercased, deduped). Refused =
+    /// 400 with `code` invalid_email / own_email / too_many, nothing stored.
+    func setDeliveryEmails(_ emails: [String]) async throws -> DeliveryEmailsResponse {
+        try await send("account/delivery-emails", method: "PUT", json: ["emails": emails])
+    }
+
     // MARK: Push notifications — callers: `PushNotifications` only
 
     /// This phone gets the signed-in account's pushes (moves the token from any other account).
