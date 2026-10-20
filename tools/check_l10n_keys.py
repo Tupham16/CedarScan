@@ -37,7 +37,9 @@
 #   translated; the house rule is String(localized:) at the call site); dictionary values
 #   `[K: LocalizedStringKey]`; array mutations (`keys.append("...")`, `+=`, `keys[0] = "..."`); a
 #   receiver whose type is unknown (`banner.show("...")`); in a SwiftUI view, a ternary whose other
-#   branch is `Type.member` / `f()` of a localizable type (`Text(c ? "A" : Copy.title)`).
+#   branch is `Type.member` / `f()` of a localizable type (`Text(c ? "A" : Copy.title)`); our own
+#   func reusing a SwiftUI view / modifier name (an `.alert(_:note:)` extension: only the SwiftUI
+#   rule, the first argument, applies); a closure with statements inside a switch-case value.
 # Validated 20/10/2026 against the compiler's own extraction (SWIFT_EMIT_LOC_STRINGS, Xcode 26.3).
 import json, os, re, sys, unicodedata
 
@@ -318,9 +320,9 @@ def read_literal(src, i, lits, masked, nocomment):
 
 TYPE_HEAD = re.compile(r"\b(?:struct|class|enum|extension|actor|protocol)\s+"
                        r"(?!func\b|var\b|let\b|subscript\b|init\b|override\b|final\b)([A-Za-z_][\w.]*)[^{};]*$")
-FLOW_HEAD = re.compile(r"(?<!#)\b(if|else|for|while|switch|do|catch|repeat|guard|defer)\b[^{}]*$")
+FLOW_HEAD = re.compile(r"(?<!#)\b(if|else|for|while|switch|do|catch|repeat|guard|defer)\b(?!\s*:)[^{}]*$")
 # A statement keyword at the start of a statement: the text is code, not a single expression.
-STATEMENTS = re.compile(r"(?:^|[;\n{])[ \t]*(?:let|var|return|func|get|set|guard|defer|for|while|repeat|do|throw)\b")
+STATEMENTS = re.compile(r"(?:^|[;\n{])[ \t]*(?:let|var|return|func|get|set|guard|defer|for|while|repeat|do|throw)\b(?!\s*:)")
 CLOSURE_PARAMS = re.compile(r"\s*(?:\[[^\]]*\]\s*)?(\([^()]*\)|[A-Za-z_][\w]*(?:\s*,\s*[A-Za-z_]\w*)*)"
                             r"\s*(?:->\s*[\w.<>?!\[\] ]+?\s*)?\bin\b")
 
@@ -763,7 +765,7 @@ class Callees:
                          {m.group(2): param_kind(m.group(3))})
         sdk = set(VIEW_CALLS) | set(MODIFIERS) | {"String", "AttributedString", "LocalizedStringKey",
                                                   "LocalizedStringResource", "NSLocalizedString"}
-        self.localizable = {n for n, es in self.entries.items() if n not in sdk
+        self.localizable = {n for n, es in self.entries.items() if (n not in sdk or n in declared)
                             and any(k != "other" for e in es for k in e[2].values())}
 
     def add(self, name, owner, rel, labels, priv=False):
@@ -783,8 +785,6 @@ class Callees:
                 sel = [e[2] for e in es if e[0] in supers]
             if not sel and form == "bare":   # top level: a private func only in its own file
                 sel = [e[2] for e in es if e[0] is None and (not e[3] or e[1] == fi.rel)]
-            if not sel:
-                sel = [e[2] for e in es]     # by name only; disagreeing labels are dropped below
         elif form == "type":
             sel = [e[2] for e in es if e[0] == base]
         elif form == "member" and name in self.member_ok and name not in SDK_METHOD_NAMES:
@@ -888,7 +888,9 @@ def localizable_literals(fi, callees, types):
         else:
             o = balanced_start(masked, m.start())
             before = masked[max(0, o - 80):o].rstrip() if o > 0 else ""
-            if o >= 0 and not (before and (before[-1].isalnum() or before[-1] in "_)]?!>")):
+            call = before and (before[-1].isalnum() or before[-1] in "_)]>" or masked[o - 1] in "?!") and not \
+                re.search(r"(?<![\w.])(?:return|in|throw|try|await|else|case|where|is|as|some|any|if|guard|while|switch|do|repeat)$", before)
+            if o >= 0 and not call:
                 take(o + 1, m.start(), "cast", True)   # `(c ? "A" : "B") as ...`, not `f(...) as ...`
     # declared / parameter default: `x: LocalizedStringKey = "..."`, `xs: [LocalizedStringResource] = [...]`
     for m in re.finditer(r":\s*(\[\s*)?" + LOC_TYPES + r"\s*(\])?\??\s*=(?!=)\s*", masked):
@@ -922,7 +924,7 @@ def localizable_literals(fi, callees, types):
             form, base = "bare", None
             if m.group(1):
                 left = masked[max(0, m.start() - 200):m.start()].rstrip()
-                if not left or not (left[-1].isalnum() or left[-1] in "_)]}\"?!") or re.search(
+                if not left or not (left[-1].isalnum() or left[-1] in "_)]}\"" or masked[m.start() - 1] in "?!") or re.search(
                         r"(?<![\w.])(?:return|in|throw|try|await|else|case|where|is|as|some|any|if|guard"
                         r"|while|switch|do|repeat)$", left):
                     continue               # implicit member: its type is the context's
@@ -1025,11 +1027,12 @@ def label_end(masked, p, b):
 def case_values(fi, sw):
     """(start, end) of each case's value inside a `switch` block (labels start a statement, so
     `counts[kind, default: 0]` is not one)."""
-    masked, labels = fi.masked, []
+    masked, labels, top = fi.masked, [], top_text(fi, sw)
     for r in re.finditer(r"\bdefault\s*:|\bcase\b", masked[sw.open + 1:sw.close]):
         s = sw.open + 1 + r.start()
-        if fi.innermost(s) is not sw or not re.search(r"(?:^|[\n;{])[ \t]*(?:@\w+[ \t]+)*$", masked[sw.open:s]):
-            continue
+        seg = top[:s - sw.open - 1]
+        if fi.innermost(s) is not sw or sum(map(seg.count, "([")) != sum(map(seg.count, ")]")):
+            continue                      # inside ( or [: `counts[kind, default: 0]`, `f(\n default: x)`
         e = label_end(masked, sw.open + 1 + r.end(), sw.close) if r.group(0) == "case" else sw.open + 1 + r.end()
         if e is not None:
             labels.append((s, e))
@@ -1126,9 +1129,12 @@ def scope_of(fi, d):
         return b, None, None
     b = fi.innermost(d)
     if b is not None and not b.type_name and re.search(r"\bswitch\b", b.head):
-        for lo, hi in case_values(fi, b):
+        vals = case_values(fi, b)
+        for i, (lo, hi) in enumerate(vals):
             if lo <= d < hi:
                 return b, lo, hi
+            if d < lo and (i == 0 or d >= vals[i - 1][1]):
+                return b, d, hi           # a pattern binding in this case's label: this case only
     return b, None, None
 
 
