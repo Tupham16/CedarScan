@@ -11,6 +11,8 @@ struct AuthView: View {
     /// F8: a friend's invite code — sent only when creating an account (the only moment one can be
     /// entered; server `auth/register`).
     @State private var inviteCode = ""
+    /// The last error was about the invite code: its helper line gives way to the error.
+    @State private var inviteError = false
     @State private var isBusy = false
     @State private var errorMessage: String?
     @State private var showForgotPassword = false
@@ -52,21 +54,21 @@ struct AuthView: View {
                         TextField(String(localized: "Invite code"), text: $inviteCode)
                             .textInputAutocapitalization(.characters)
                             .autocorrectionDisabled()
-                            .font(.body.monospaced())
+                            // Monospaced once a code is typed (the placeholder matches the fields above).
+                            .font(inviteCode.isEmpty ? Font.body : Font.body.monospaced())
                             .fogField($focused, .invite)
-                        Text(String(localized: "Invite code (optional) — it can only be added now."))
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                            .padding(.horizontal, 4)
+                        if !inviteError {
+                            WrappedText(String(localized: "Invite code (optional) — it can only be added now."),
+                                        style: .footnote, color: .secondaryLabel)
+                                .padding(.horizontal, 4)
+                        }
                     }
                 }
             }
 
             if let errorMessage {
-                Text(errorMessage)
-                    .font(.footnote)
-                    .foregroundStyle(.red)
-                    .multilineTextAlignment(.center)
+                // WrappedText: the invite errors run to 4–5 lines in German (trap #44).
+                WrappedText(errorMessage, style: .footnote, alignment: .center, color: .systemRed)
             }
 
             Button {
@@ -121,7 +123,7 @@ struct AuthView: View {
         case "invite_invalid":
             return String(localized: "This invite code isn't valid. Check it, or leave the field empty.")
         case "invite_not_eligible":
-            return String(localized: "This invite code can't be used here: invite codes are only for new customers on an iPhone that hasn't used free orders yet. Leave the field empty to create your account.")
+            return String(localized: "This invite code can't be used for this account or on this iPhone. Leave the field empty to create your account.")
         case "invite_closed":
             return String(localized: "Invite codes can't be used at the moment. Leave the field empty to create your account.")
         default:
@@ -132,6 +134,7 @@ struct AuthView: View {
     private func submit() {
         isBusy = true
         errorMessage = nil
+        inviteError = false
         Task {
             do {
                 if isRegistering {
@@ -142,6 +145,7 @@ struct AuthView: View {
                 }
             } catch {
                 errorMessage = Self.message(for: error)
+                inviteError = ((error as? APIError)?.code ?? "").hasPrefix("invite_")
             }
             isBusy = false
         }

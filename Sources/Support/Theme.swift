@@ -225,18 +225,22 @@ struct WrappedText: View {
     let color: UIColor
     /// Legal texts: the customer can select and copy a passage.
     let selectable: Bool
+    /// A bold / semibold line (a title, a capsule). nil = the text style's own weight (every caller
+    /// before 2.79: unchanged).
+    let weight: UIFont.Weight?
 
     init(_ text: String, style: UIFont.TextStyle = .body, alignment: NSTextAlignment = .natural,
-         color: UIColor = .label, selectable: Bool = false) {
+         color: UIColor = .label, selectable: Bool = false, weight: UIFont.Weight? = nil) {
         self.text = text
         self.style = style
         self.alignment = alignment
         self.color = color
         self.selectable = selectable
+        self.weight = weight
     }
 
     var body: some View {
-        WrappedTextView(text: text, style: style, alignment: alignment, color: color, selectable: selectable)
+        WrappedTextView(text: text, style: style, alignment: alignment, color: color, selectable: selectable, weight: weight)
             .accessibilityRepresentation { Text(text) }
     }
 }
@@ -248,6 +252,7 @@ struct WrappedTextView: UIViewRepresentable {
     var alignment: NSTextAlignment = .natural
     var color: UIColor = .label
     var selectable = false
+    var weight: UIFont.Weight? = nil
 
     func makeUIView(context: Context) -> UITextView {
         let view = Self.makeTextView()
@@ -259,11 +264,11 @@ struct WrappedTextView: UIViewRepresentable {
     }
 
     func updateUIView(_ view: UITextView, context: Context) {
-        Self.configure(view, text: text, font: Self.font(style, context.environment), alignment: alignment, color: color)
+        Self.configure(view, text: text, font: Self.font(style, context.environment, weight: weight), alignment: alignment, color: color)
     }
 
     func sizeThatFits(_ proposal: ProposedViewSize, uiView view: UITextView, context: Context) -> CGSize? {
-        Self.configure(view, text: text, font: Self.font(style, context.environment), alignment: alignment, color: color)
+        Self.configure(view, text: text, font: Self.font(style, context.environment, weight: weight), alignment: alignment, color: color)
         return Self.fittingSize(view, width: proposal.width, scale: context.environment.displayScale)
     }
 
@@ -288,12 +293,16 @@ struct WrappedTextView: UIViewRepresentable {
         return view
     }
 
-    static func font(_ style: UIFont.TextStyle, _ environment: EnvironmentValues) -> UIFont {
+    static func font(_ style: UIFont.TextStyle, _ environment: EnvironmentValues, weight: UIFont.Weight? = nil) -> UIFont {
         var traits = UITraitCollection(preferredContentSizeCategory: UIContentSizeCategory(environment.dynamicTypeSize))
         if environment.legibilityWeight == .bold {
             traits = traits.modifyingTraits { $0.legibilityWeight = .bold }
         }
-        return UIFont.preferredFont(forTextStyle: style, compatibleWith: traits)
+        let base = UIFont.preferredFont(forTextStyle: style, compatibleWith: traits)
+        guard let weight else { return base }
+        // Same family and Dynamic Type size, the asked weight.
+        let descriptor = base.fontDescriptor.addingAttributes([.traits: [UIFontDescriptor.TraitKey.weight: weight.rawValue]])
+        return UIFont(descriptor: descriptor, size: base.pointSize)
     }
 
     static func configure(_ view: UITextView, text: String, font: UIFont, alignment: NSTextAlignment = .natural,

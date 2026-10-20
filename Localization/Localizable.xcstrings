@@ -95,49 +95,49 @@
         }
       }
     },
-    "%lld free 2D floor plans ready — one is used on each of your next orders.": {
+    "%lld free 2D floor plans ready — one is used on each order with the 2D package.": {
       "extractionState": "manual",
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Připravené 2D půdorysy zdarma: %lld — u každé z vašich dalších objednávek se použije jeden."
+            "value": "Připravené 2D půdorysy zdarma: %lld — u každé objednávky s balíčkem 2D se použije jeden."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld kostenlose 2D-Grundrisse bereit — je einer wird für Ihre nächsten Bestellungen verwendet."
+            "value": "%lld Gratis-2D-Grundrisse bereit — je einer wird für jede Bestellung mit dem 2D-Paket verwendet."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld planos de planta 2D gratis listos — se usa uno en cada uno de tus próximos pedidos."
+            "value": "%lld planos de planta 2D gratis listos — se usa uno en cada pedido con el paquete 2D."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld plans 2D gratuits disponibles — un est utilisé pour chacune de vos prochaines commandes."
+            "value": "%lld plans 2D gratuits disponibles — un est utilisé pour chaque commande comprenant le forfait 2D."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld gratis 2D-plattegronden klaar — er wordt er één gebruikt per volgende bestelling."
+            "value": "%lld gratis 2D-plattegronden klaar — er wordt er één gebruikt per bestelling met het 2D-pakket."
           }
         },
         "sk": {
           "stringUnit": {
             "state": "translated",
-            "value": "Pripravené 2D pôdorysy zadarmo: %lld — pri každej z vašich ďalších objednávok sa použije jeden."
+            "value": "Pripravené 2D pôdorysy zadarmo: %lld — pri každej objednávke s balíkom 2D sa použije jeden."
           }
         },
         "vi": {
           "stringUnit": {
             "state": "translated",
-            "value": "Có sẵn %lld bản vẽ mặt bằng 2D miễn phí — mỗi đơn tiếp theo tự dùng một bản."
+            "value": "Có sẵn %lld bản vẽ mặt bằng 2D miễn phí — mỗi đơn có gói 2D tự dùng một bản."
           }
         }
       }
@@ -471,49 +471,49 @@
         }
       }
     },
-    "1 free 2D floor plan ready — it is used on your next order.": {
+    "1 free 2D floor plan ready — it is used on your next order with the 2D package.": {
       "extractionState": "manual",
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Máte připravený jeden 2D půdorys zdarma — použije se u vaší příští objednávky."
+            "value": "Máte připravený jeden 2D půdorys zdarma — použije se u vaší příští objednávky s balíčkem 2D."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "1 kostenloser 2D-Grundriss bereit — er wird für Ihre nächste Bestellung verwendet."
+            "value": "1 Gratis-2D-Grundriss bereit — er wird für Ihre nächste Bestellung mit dem 2D-Paket verwendet."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "1 plano de planta 2D gratis listo — se usa en tu próximo pedido."
+            "value": "1 plano de planta 2D gratis listo — se usa en tu próximo pedido con el paquete 2D."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "1 plan 2D gratuit disponible — il sera utilisé pour votre prochaine commande."
+            "value": "1 plan 2D gratuit disponible — il sera utilisé pour votre prochaine commande comprenant le forfait 2D."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "1 gratis 2D-plattegrond klaar — die wordt gebruikt voor je volgende bestelling."
+            "value": "1 gratis 2D-plattegrond klaar — die wordt gebruikt voor je volgende bestelling met het 2D-pakket."
           }
         },
         "sk": {
           "stringUnit": {
             "state": "translated",
-            "value": "Máte pripravený jeden 2D pôdorys zadarmo — použije sa pri vašej ďalšej objednávke."
+            "value": "Máte pripravený jeden 2D pôdorys zadarmo — použije sa pri vašej ďalšej objednávke s balíkom 2D."
           }
         },
         "vi": {
           "stringUnit": {
             "state": "translated",
-            "value": "Có sẵn 1 bản vẽ mặt bằng 2D miễn phí — tự dùng cho đơn tiếp theo của bạn."
+            "value": "Có sẵn 1 bản vẽ mặt bằng 2D miễn phí — tự dùng cho đơn tiếp theo có gói 2D."
           }
         }
       }
@@ -3720,6 +3720,53 @@
         }
       }
     },
+    "Copies the invite code": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zkopíruje kód pozvánky"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kopiert den Einladungscode"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copia el código de invitación"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copie le code d'invitation"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kopieert de uitnodigingscode"
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Skopíruje kód pozvánky"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chép mã mời"
+          }
+        }
+      }
+    },
     "Could not get your location. Type the address instead.": {
       "extractionState": "manual",
       "localizations": {
@@ -6488,7 +6535,7 @@
         "vi": {
           "stringUnit": {
             "state": "translated",
-            "value": "Bạn đã tham gia"
+            "value": "Bạn bè đã tham gia"
           }
         }
       }
@@ -6505,7 +6552,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Holen Sie sich einen kostenlosen Grundriss"
+            "value": "Holen Sie sich einen Gratis-Grundriss"
           }
         },
         "es": {
@@ -7316,7 +7363,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "J'utilise CedarScan pour obtenir des plans à partir d'une numérisation rapide avec un iPhone. Téléchargez-la sur l'App Store et inscrivez-vous avec mon code d'invitation %@."
+            "value": "J'utilise CedarScan pour obtenir des plans d'étage à partir d'une numérisation rapide avec un iPhone. Télécharge-la sur l'App Store et inscris-toi avec mon code d'invitation %@."
           }
         },
         "nl": {
@@ -7363,7 +7410,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "J'utilise CedarScan pour obtenir des plans à partir d'une numérisation rapide avec un iPhone. Téléchargez-la sur l'App Store et inscrivez-vous avec mon code d'invitation %@ : les nouveaux clients ont leurs %lld premières commandes gratuites."
+            "value": "J'utilise CedarScan pour obtenir des plans d'étage à partir d'une numérisation rapide avec un iPhone. Télécharge-la sur l'App Store et inscris-toi avec mon code d'invitation %@ : les nouveaux clients ont leurs %lld premières commandes gratuites."
           }
         },
         "nl": {
@@ -10719,6 +10766,53 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ghi chú"
+          }
+        }
+      }
+    },
+    "Nothing to pay now: your free 2D floor plan covers this order. Our team starts right after you place it.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Teď nic neplatíte: tuto objednávku pokryje váš 2D půdorys zdarma. Náš tým začne pracovat hned po jejím odeslání."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jetzt nichts zu zahlen: Ihr Gratis-2D-Grundriss deckt diese Bestellung ab. Unser Team beginnt direkt nach dem Aufgeben der Bestellung."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nada que pagar por ahora: tu plano de planta 2D gratis cubre este pedido. Nuestro equipo empieza justo después de que lo realices."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rien à payer pour l'instant : votre plan 2D gratuit couvre cette commande. Notre équipe commence dès que vous la passez."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nu niets te betalen: je gratis 2D-plattegrond dekt deze bestelling. Ons team gaat direct na het plaatsen aan de slag."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Teraz nič neplatíte: túto objednávku pokryje váš 2D pôdorys zadarmo. Náš tím začne hneď po odoslaní objednávky."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Không cần thanh toán lúc này: bản vẽ 2D miễn phí đã bao trọn đơn này, đội ngũ bắt đầu ngay sau khi đặt."
           }
         }
       }
@@ -16880,49 +16974,49 @@
         }
       }
     },
-    "This invite code can't be used here: invite codes are only for new customers on an iPhone that hasn't used free orders yet. Leave the field empty to create your account.": {
+    "This invite code can't be used for this account or on this iPhone. Leave the field empty to create your account.": {
       "extractionState": "manual",
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tento kód pozvánky zde nelze použít: kódy pozvánek jsou jen pro nové zákazníky na iPhonu, který ještě nevyužil objednávky zdarma. Pro vytvoření účtu nechte pole prázdné."
+            "value": "Tento kód pozvánky nelze použít pro tento účet nebo na tomto iPhonu. Pro vytvoření účtu nechte pole prázdné."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Dieser Einladungscode kann hier nicht verwendet werden: Einladungscodes gelten nur für Neukunden auf einem iPhone, das noch keine Gratis-Bestellungen genutzt hat. Lassen Sie das Feld leer, um Ihr Konto zu erstellen."
+            "value": "Dieser Einladungscode kann für dieses Konto oder auf diesem iPhone nicht verwendet werden. Lassen Sie das Feld leer, um Ihr Konto zu erstellen."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Este código de invitación no se puede usar aquí: los códigos de invitación son solo para clientes nuevos en un iPhone que aún no haya usado pedidos gratis. Deja el campo vacío para crear tu cuenta."
+            "value": "Este código de invitación no se puede usar para esta cuenta o en este iPhone. Deja el campo vacío para crear tu cuenta."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ce code d'invitation ne peut pas être utilisé ici : les codes d'invitation sont réservés aux nouveaux clients, sur un iPhone qui n'a pas encore bénéficié de commandes gratuites. Laissez le champ vide pour créer votre compte."
+            "value": "Ce code d'invitation ne peut pas être utilisé pour ce compte ou sur cet iPhone. Laissez le champ vide pour créer votre compte."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Deze uitnodigingscode kan hier niet worden gebruikt: uitnodigingscodes zijn alleen voor nieuwe klanten op een iPhone die nog geen gratis bestellingen heeft gebruikt. Laat het veld leeg om je account aan te maken."
+            "value": "Deze uitnodigingscode kan niet worden gebruikt voor dit account of op deze iPhone. Laat het veld leeg om je account aan te maken."
           }
         },
         "sk": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tento kód pozvánky tu nemožno použiť: kódy pozvánok sú len pre nových zákazníkov na iPhone, ktorý ešte nevyužil objednávky zadarmo. Na vytvorenie účtu nechajte pole prázdne."
+            "value": "Tento kód pozvánky nemožno použiť pre tento účet alebo na tomto iPhone. Na vytvorenie účtu nechajte pole prázdne."
           }
         },
         "vi": {
           "stringUnit": {
             "state": "translated",
-            "value": "Không dùng được mã mời này: mã mời chỉ dành cho khách mới, trên iPhone chưa từng dùng đơn miễn phí. Để trống ô này để tạo tài khoản."
+            "value": "Không dùng được mã mời này cho tài khoản này hoặc trên iPhone này. Để trống ô này để tạo tài khoản."
           }
         }
       }
@@ -19900,7 +19994,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Wenn ein Freund, den Sie einladen, seine erste Bestellung geliefert bekommt, erhalten Sie einen kostenlosen 2D-Grundriss."
+            "value": "Wenn ein Freund, den Sie einladen, seine erste Bestellung geliefert bekommt, erhalten Sie einen Gratis-2D-Grundriss."
           }
         },
         "es": {
@@ -20511,7 +20605,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sie haben einen kostenlosen %@, weil Sie einen Freund eingeladen haben: Wählen Sie ihn aus, um ihn zu nutzen."
+            "value": "Sie haben %@ gratis, weil Sie einen Freund eingeladen haben: Wählen Sie das Paket aus, um es zu nutzen."
           }
         },
         "es": {
@@ -20605,7 +20699,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ihr 2D-Grundriss ist kostenlos — ein Dankeschön dafür, dass Sie einen Freund eingeladen haben."
+            "value": "Ihr 2D-Grundriss ist gratis — ein Dankeschön dafür, dass Sie einen Freund eingeladen haben."
           }
         },
         "es": {
@@ -20617,7 +20711,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Votre plan 2D est gratuit — un merci pour avoir invité un ami."
+            "value": "Votre plan 2D est gratuit — pour vous remercier d'avoir invité un ami."
           }
         },
         "nl": {
@@ -20781,49 +20875,49 @@
         }
       }
     },
-    "Your free 2D order from inviting a friend was just used. Please review the price and tap Place order again.": {
+    "Your free 2D floor plan from inviting a friend was just used on another order. Please review the price and tap Place order again.": {
       "extractionState": "manual",
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Vaše objednávka 2D zdarma za pozvání přítele byla právě použita. Zkontrolujte prosím cenu a klepněte znovu na Odeslat objednávku."
+            "value": "Váš 2D půdorys zdarma za pozvání přítele byl právě použit u jiné objednávky. Zkontrolujte prosím cenu a klepněte znovu na Odeslat objednávku."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ihre kostenlose 2D-Bestellung aus einer Einladung wurde gerade verwendet. Bitte prüfen Sie den Preis und tippen Sie erneut auf \"Bestellung aufgeben\"."
+            "value": "Ihr Gratis-2D-Grundriss aus einer Einladung wurde gerade für eine andere Bestellung verwendet. Bitte prüfen Sie den Preis und tippen Sie erneut auf \"Bestellung aufgeben\"."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tu pedido 2D gratis por invitar a un amigo se acaba de usar. Revisa el precio y toca Realizar pedido de nuevo."
+            "value": "Tu plano de planta 2D gratis por invitar a un amigo se acaba de usar en otro pedido. Revisa el precio y toca Realizar pedido de nuevo."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Votre commande 2D gratuite obtenue grâce à une invitation vient d'être utilisée. Vérifiez le prix, puis touchez de nouveau Passer la commande."
+            "value": "Votre plan 2D gratuit obtenu grâce à une invitation vient d'être utilisé pour une autre commande. Vérifiez le prix, puis touchez de nouveau Passer la commande."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Je gratis 2D-bestelling van een uitnodiging is net gebruikt. Controleer de prijs en tik opnieuw op Bestelling plaatsen."
+            "value": "Je gratis 2D-plattegrond van een uitnodiging is net voor een andere bestelling gebruikt. Controleer de prijs en tik opnieuw op Bestelling plaatsen."
           }
         },
         "sk": {
           "stringUnit": {
             "state": "translated",
-            "value": "Vaša objednávka 2D zadarmo za pozvanie priateľa bola práve použitá. Skontrolujte, prosím, cenu a znova ťuknite na Odoslať objednávku."
+            "value": "Váš 2D pôdorys zadarmo za pozvanie priateľa bol práve použitý pri inej objednávke. Skontrolujte, prosím, cenu a znova ťuknite na Odoslať objednávku."
           }
         },
         "vi": {
           "stringUnit": {
             "state": "translated",
-            "value": "Bản vẽ 2D miễn phí nhờ mời bạn bè vừa được dùng. Vui lòng xem lại giá rồi bấm Đặt hàng lại."
+            "value": "Bản vẽ 2D miễn phí nhờ mời bạn bè vừa được dùng cho một đơn khác. Vui lòng xem lại giá rồi bấm Đặt hàng lại."
           }
         }
       }
@@ -20887,7 +20981,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ihr Freund gibt den Code beim Erstellen seines Kontos ein. Kostenlose Grundrisse haben keinen Geldwert."
+            "value": "Ihr Freund gibt den Code beim Erstellen seines Kontos ein. Gratis-Grundrisse haben keinen Geldwert."
           }
         },
         "es": {
@@ -20922,49 +21016,49 @@
         }
       }
     },
-    "Your friend gets %lld free orders, like every new customer. When their first order is delivered, you get a free 2D floor plan.": {
+    "Your friend gets the usual %lld free orders for new customers. When their first order is delivered, you get a free 2D floor plan.": {
       "extractionState": "manual",
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Váš přítel dostane první objednávky zdarma (celkem %lld) jako každý nový zákazník. Jakmile bude doručena první z nich, dostanete 2D půdorys zdarma."
+            "value": "Váš přítel dostane obvyklé objednávky zdarma pro nové zákazníky (celkem %lld). Jakmile bude doručena první z nich, dostanete 2D půdorys zdarma."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ihr Freund erhält %lld Gratis-Bestellungen, wie jeder Neukunde. Sobald die erste davon geliefert ist, erhalten Sie einen kostenlosen 2D-Grundriss."
+            "value": "Ihr Freund erhält die üblichen %lld Gratis-Bestellungen für Neukunden. Sobald die erste davon geliefert ist, erhalten Sie einen Gratis-2D-Grundriss."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tu amigo recibe %lld pedidos gratis, como todo cliente nuevo. Cuando se entregue su primer pedido, recibes un plano de planta 2D gratis."
+            "value": "Tu amigo recibe los %lld pedidos gratis habituales para clientes nuevos. Cuando se entregue su primer pedido, recibes un plano de planta 2D gratis."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Votre ami reçoit %lld commandes gratuites, comme tout nouveau client. Une fois sa première commande livrée, vous recevez un plan 2D gratuit."
+            "value": "Votre ami reçoit les %lld commandes gratuites habituellement offertes aux nouveaux clients. Une fois sa première commande livrée, vous recevez un plan 2D gratuit."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Je vriend krijgt %lld gratis bestellingen, net als elke nieuwe klant. Zodra de eerste daarvan is geleverd, krijg jij een gratis 2D-plattegrond."
+            "value": "Je vriend krijgt de gebruikelijke %lld gratis bestellingen voor nieuwe klanten. Zodra de eerste daarvan is geleverd, krijg jij een gratis 2D-plattegrond."
           }
         },
         "sk": {
           "stringUnit": {
             "state": "translated",
-            "value": "Váš priateľ dostane prvé objednávky zadarmo (počet: %lld) ako každý nový zákazník. Keď doručíme prvú z nich, dostanete 2D pôdorys zadarmo."
+            "value": "Váš priateľ dostane obvyklé objednávky zadarmo pre nových zákazníkov (počet: %lld). Keď doručíme prvú z nich, dostanete 2D pôdorys zadarmo."
           }
         },
         "vi": {
           "stringUnit": {
             "state": "translated",
-            "value": "Bạn của bạn được %lld đơn miễn phí như mọi khách mới. Khi đơn đầu tiên của họ được giao, bạn nhận một bản vẽ mặt bằng 2D miễn phí."
+            "value": "Bạn của bạn được %lld đơn miễn phí dành cho khách mới như thường lệ. Khi đơn đầu tiên của họ được giao, bạn nhận một bản vẽ mặt bằng 2D miễn phí."
           }
         }
       }

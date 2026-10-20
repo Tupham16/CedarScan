@@ -65,7 +65,9 @@ struct AccountView: View {
                             Section {
                                 NavigationLink {
                                     // Pushed in the Account tab: room for `CedarTabBar`, as `LegalLinks`.
-                                    InviteFriendView()
+                                    // ✗ @EnvironmentObject in a pushed screen (the 11/08 SIGTRAP): what it
+                                    // needs from `account` goes in by hand.
+                                    InviteFriendView(onClosed: { [account] in account.referralWentAway() })
                                         .safeAreaPadding(.bottom, CedarTabBar.reservedHeight)
                                 } label: {
                                     Label(String(localized: "Invite a friend"), systemImage: "gift")

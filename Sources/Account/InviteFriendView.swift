@@ -14,9 +14,14 @@ import UIKit
 /// · Share = the system share sheet with ONE string (text + App Store link): an app that keeps only
 ///   the URL item of a text + URL pair would drop the code.
 /// · `enabled: false` (server switch `referral-config`) = the programme is closed to new sign-ups:
-///   the Account row goes away (`AccountStore.referralWentAway`) and this screen says so.
+///   the screen says so, and `onClosed` (the Account tab hides the row) runs when it is left.
+/// · 🔴 A PUSHED screen: ✗ `@EnvironmentObject` (the 11/08 SIGTRAP — `UIKitBarItemHost` can run a
+///   pushed body before its environment is connected); what it needs comes in by hand.
+/// · Wrapped lines a customer reads whole use `WrappedText` (trap #44: iOS 26 cuts the last line).
 struct InviteFriendView: View {
-    @EnvironmentObject private var account: AccountStore
+    /// The programme turned out closed: the Account tab drops the row (called when this screen goes).
+    let onClosed: @MainActor () -> Void
+
     @State private var info: ReferralResponse?
     @State private var closed = false
     @State private var failed = false
@@ -56,7 +61,11 @@ struct InviteFriendView: View {
         .navigationTitle(String(localized: "Invite a friend"))
         .navigationBarTitleDisplayMode(.inline)
         .task { await load() }
-        .onDisappear { copiedReset?.cancel() }
+        .onDisappear {
+            copiedReset?.cancel()
+            copied = false
+            if closed { onClosed() }
+        }
     }
 
     private func load() async {
@@ -66,10 +75,14 @@ struct InviteFriendView: View {
             if response.enabled == false {
                 closed = true
                 info = nil
-                account.referralWentAway()
                 return
             }
             closed = false
+            // Open but no code (should not happen): the retry state, ✗ an endless spinner.
+            guard let code = response.code, !code.isEmpty else {
+                if info == nil { failed = true }
+                return
+            }
             info = response
         } catch {
             // Keep what is on screen (a refresh that failed); nothing yet = the retry state.
@@ -78,10 +91,7 @@ struct InviteFriendView: View {
     }
 
     private func message(_ text: String) -> some View {
-        Text(text)
-            .font(.subheadline)
-            .foregroundStyle(.secondary)
-            .multilineTextAlignment(.center)
+        WrappedText(text, style: .subheadline, alignment: .center, color: .secondaryLabel)
             .frame(maxWidth: .infinity, minHeight: 200)
     }
 
@@ -95,11 +105,9 @@ struct InviteFriendView: View {
                 .frame(width: 64, height: 64)
                 .background(Circle().fill(Theme.accentTint))
                 .accessibilityHidden(true)
-            Text(String(localized: "Get a free floor plan"))
-                .font(.title2.weight(.bold))
-                .multilineTextAlignment(.center)
+            WrappedText(String(localized: "Get a free floor plan"), style: .title2, alignment: .center, weight: .bold)
+                .accessibilityAddTraits(.isHeader)
                 .padding(.top, 14)
-            // WrappedText: iOS 26 can cut the last line of a centred paragraph (trap #44).
             WrappedText(heroText(freeFirstOrders: info.freeFirstOrders ?? 0), style: .subheadline,
                         alignment: .center, color: .secondaryLabel)
                 .padding(.top, 8)
@@ -128,13 +136,12 @@ struct InviteFriendView: View {
                 HStack(alignment: .top, spacing: 9) {
                     Text(verbatim: "🎁")
                         .accessibilityHidden(true)
-                    Text(available == 1
-                         ? String(localized: "1 free 2D floor plan ready — it is used on your next order.")
-                         : String(localized: "\(available) free 2D floor plans ready — one is used on each of your next orders."))
-                        .font(.subheadline.weight(.semibold))
+                    WrappedText(available == 1
+                                ? String(localized: "1 free 2D floor plan ready — it is used on your next order with the 2D package.")
+                                : String(localized: "\(available) free 2D floor plans ready — one is used on each order with the 2D package."),
+                                style: .subheadline, color: UIColor(Theme.Badge.ok.fg), weight: .semibold)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .foregroundStyle(Theme.Badge.ok.fg)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 12)
                 .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Theme.Badge.ok.bg))
@@ -150,7 +157,7 @@ struct InviteFriendView: View {
 
     private func heroText(freeFirstOrders: Int) -> String {
         freeFirstOrders > 0
-            ? String(localized: "Your friend gets \(freeFirstOrders) free orders, like every new customer. When their first order is delivered, you get a free 2D floor plan.")
+            ? String(localized: "Your friend gets the usual \(freeFirstOrders) free orders for new customers. When their first order is delivered, you get a free 2D floor plan.")
             : String(localized: "When a friend you invite gets their first order delivered, you get a free 2D floor plan.")
     }
 
@@ -172,7 +179,7 @@ struct InviteFriendView: View {
         } label: {
             HStack(spacing: 12) {
                 Text(verbatim: code)
-                    .font(.system(size: 26, weight: .bold, design: .monospaced))
+                    .font(.system(.title, design: .monospaced, weight: .bold))
                     .tracking(2)
                     .lineLimit(1)
                     .minimumScaleFactor(0.6)
@@ -188,9 +195,9 @@ struct InviteFriendView: View {
             .contentShape(shape)
         }
         .buttonStyle(.plain)
-        // VoiceOver: "Invite code, JOHN-7Q2" + the hint; the caption under it is hidden (same words).
-        .accessibilityLabel(Text(String(localized: "Invite code")) + Text(verbatim: ", \(code)"))
-        .accessibilityHint(String(localized: "Tap the code to copy it"))
+        // VoiceOver: "Invite code, J O H N 7 Q 2" + what the button does.
+        .accessibilityLabel(Text(String(localized: "Invite code")) + Text(verbatim: ", ") + Text(verbatim: code).speechSpellsOutCharacters())
+        .accessibilityHint(String(localized: "Copies the invite code"))
     }
 
     private func copy(_ code: String) {
@@ -225,10 +232,7 @@ struct InviteFriendView: View {
             Text(verbatim: "\(value)")
                 .font(.title2.weight(.bold))
                 .monospacedDigit()
-            Text(label)
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
+            WrappedText(label, style: .footnote, alignment: .center, color: .secondaryLabel)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 14)
