@@ -901,7 +901,8 @@ final class APIClient {
             // 🔴 ALWAYS sent: the Cancel button, the placed screen and the stamp release all assume it.
             "payFirst": true,
         ]
-        // F9: the form's logo switch (2.79). Absent = the saved setting decides (server `lib/brand.ts`).
+        // F9: the form's logo choice (2.79; OrderSheet always sends it). Absent = the saved setting
+        // decides (server `lib/brand.ts`) — what apps before 2.79 get.
         if let addLogo { body["addLogo"] = addLogo }
         return body
     }

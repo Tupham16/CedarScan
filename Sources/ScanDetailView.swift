@@ -1093,14 +1093,15 @@ struct OrderSheet: View {
         let notes: String
         let coupon: String
         /// F9: the logo choice as sent (`logoChoice`).
-        let addLogo: Bool?
+        let addLogo: Bool
     }
 
-    /// F9: the logo choice this form sends — nil with a server without My brand (the key stays
-    /// out), else the switch when a logo is saved and false when none is: what the form shows goes
-    /// on the order (a logo saved on another phone meanwhile waits for the next form).
-    private var logoChoice: Bool? {
-        catalog?.brand == nil ? nil : (catalog?.brand?.logo != nil && addLogo)
+    /// F9: the logo choice this form sends, ALWAYS: the switch when a saved logo shows it, else
+    /// false — what the form shows goes on the order (no row = no logo, also when the server could
+    /// not read My brand, or a logo was saved on another phone meanwhile). A server without My
+    /// brand ignores the key.
+    private var logoChoice: Bool {
+        catalog?.brand?.logo != nil && addLogo
     }
 
     private var formState: FormState {

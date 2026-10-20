@@ -272,11 +272,14 @@ struct MyBrandView: View {
                 if fields["agencyStyleId"] != nil { back = back.with(agencyStyleId: .some(before.agencyStyleId)) }
                 brand = back
                 errorText = message(for: error)
-                // The style left the catalog: the list on screen is old, read it again.
+                saving = false
+                // The style left the catalog: the list on screen is old, read it again (the
+                // controls are free meanwhile).
                 if (error as? APIError)?.code == "unknown_style",
                    let fresh = try? await APIClient.shared.brandCatalog() {
                     catalog = fresh
                 }
+                return
             }
             saving = false
         }
