@@ -61,10 +61,6 @@ struct DeliveryEmailsView: View {
         .navigationBarTitleDisplayMode(.inline)
         // Also re-runs when the Account tab comes back: a quiet refresh (see `load`).
         .task { await load() }
-        .onChange(of: problem) { _, text in
-            // VoiceOver hears the red line (as MeshScanFlowView's coach announcements).
-            if let text { UIAccessibility.post(notification: .announcement, argument: text) }
-        }
         .alert(
             String(localized: "Remove this email?"),
             isPresented: Binding(get: { removal != nil }, set: { if !$0 { removal = nil } }),
@@ -122,11 +118,11 @@ struct DeliveryEmailsView: View {
         }
     }
 
-    /// The plus icon is the same size and place open or closed (the text does not jump).
+    /// The plus icon is the same size and place open or closed (the text does not jump). Closed, it
+    /// takes the button's colour, so it greys with "Add email" at 5 of 5 (a fixed colour would not).
     private var plusIcon: some View {
         Image(systemName: "plus.circle")
             .font(.title3)
-            .foregroundStyle(Theme.accentText)
             .accessibilityHidden(true)
     }
 
@@ -135,6 +131,7 @@ struct DeliveryEmailsView: View {
         if adding {
             HStack(spacing: 12) {
                 plusIcon
+                    .foregroundStyle(Theme.accentText)
                 TextField(String(localized: "Email address"), text: $draft)
                     .keyboardType(.emailAddress)
                     .textContentType(.emailAddress)
@@ -210,11 +207,11 @@ struct DeliveryEmailsView: View {
             return
         }
         if !Self.looksValid(email) {
-            problem = String(localized: "Please enter a valid email address.")
+            show(String(localized: "Please enter a valid email address."))
         } else if email == accountEmail.lowercased() {
-            problem = String(localized: "This is your account email. You already get these emails.")
+            show(String(localized: "This is your account email. You already get these emails."))
         } else if emails.contains(email) {
-            problem = String(localized: "This email is already on the list.")
+            show(String(localized: "This email is already on the list."))
         } else if await save(emails + [email]) {
             draft = ""
             // Reset first: a focus left `true` on the removed field would make the next
@@ -243,15 +240,22 @@ struct DeliveryEmailsView: View {
             return true
         } catch let error as APIError {
             switch error.code {
-            case "invalid_email": problem = String(localized: "Please enter a valid email address.")
-            case "own_email": problem = String(localized: "This is your account email. You already get these emails.")
-            case "too_many": problem = String(localized: "You can add up to \(limit) email addresses.")
-            default: problem = String(localized: "Something went wrong. Please try again.")
+            case "invalid_email": show(String(localized: "Please enter a valid email address."))
+            case "own_email": show(String(localized: "This is your account email. You already get these emails."))
+            case "too_many": show(String(localized: "You can add up to \(limit) email addresses."))
+            default: show(String(localized: "Something went wrong. Please try again."))
             }
         } catch {
-            problem = String(localized: "Something went wrong. Please try again.")
+            show(String(localized: "Something went wrong. Please try again."))
         }
         return false
+    }
+
+    /// The red line, also read out by VoiceOver — every time, a repeated refusal included (as
+    /// MeshScanFlowView's coach announcements).
+    private func show(_ text: String) {
+        problem = text
+        UIAccessibility.post(notification: .announcement, argument: text)
     }
 
     /// The server's rule (`delivery-copies.ts` EMAIL), on the lowercased address: HTML5's valid email
