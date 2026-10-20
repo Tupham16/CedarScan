@@ -1317,6 +1317,53 @@
         }
       }
     },
+    "Add email": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Přidat e-mail"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "E-Mail hinzufügen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Añadir correo"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajouter un courriel"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "E-mail toevoegen"
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pridať e-mail"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thêm email"
+          }
+        }
+      }
+    },
     "Add my logo": {
       "extractionState": "manual",
       "localizations": {
@@ -2212,6 +2259,53 @@
           "stringUnit": {
             "state": "translated",
             "value": "Đã quét — chạm để dùng lại"
+          }
+        }
+      }
+    },
+    "Also send finished files to": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hotové soubory posílat také na"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fertige Dateien auch senden an"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enviar también los archivos terminados a"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Envoyer aussi les fichiers terminés à"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Afgeronde bestanden ook sturen naar"
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hotové súbory posielať aj na"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gửi thêm file hoàn thiện tới"
           }
         }
       }
@@ -4378,6 +4472,53 @@
         }
       }
     },
+    "Couldn't load your delivery emails.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "E-maily pro doručení se nepodařilo načíst."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ihre Liefer-E-Mails konnten nicht geladen werden."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudieron cargar tus correos de entrega."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de charger vos courriels de livraison."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Je bezorg-e-mails konden niet worden geladen."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "E-maily na doručenie sa nepodarilo načítať."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Không tải được danh sách email nhận file."
+          }
+        }
+      }
+    },
     "Couldn't open the 3D model for this scan.": {
       "extractionState": "manual",
       "localizations": {
@@ -5318,6 +5459,53 @@
         }
       }
     },
+    "Delivery emails": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "E-maily pro doručení"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Liefer-E-Mails"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Correos de entrega"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Courriels de livraison"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bezorg-e-mails"
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "E-maily na doručenie"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Email nhận file"
+          }
+        }
+      }
+    },
     "Discard scan": {
       "extractionState": "manual",
       "localizations": {
@@ -5878,6 +6066,53 @@
           "stringUnit": {
             "state": "translated",
             "value": "Email"
+          }
+        }
+      }
+    },
+    "Email address": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "E-mailová adresa"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "E-Mail-Adresse"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Correo electrónico"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Adresse courriel"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "E-mailadres"
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "E-mailová adresa"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Địa chỉ email"
           }
         }
       }
@@ -13872,6 +14107,53 @@
         }
       }
     },
+    "Remove email": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Odebrat e-mail"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "E-Mail entfernen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quitar correo"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retirer le courriel"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "E-mail verwijderen"
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Odstrániť e-mail"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Xóa email"
+          }
+        }
+      }
+    },
     "Remove from property": {
       "extractionState": "manual",
       "localizations": {
@@ -13962,6 +14244,53 @@
           "stringUnit": {
             "state": "translated",
             "value": "Gỡ logo"
+          }
+        }
+      }
+    },
+    "Remove this email?": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Odebrat tento e-mail?"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diese E-Mail-Adresse entfernen?"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Quitar este correo?"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retirer ce courriel?"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dit e-mailadres verwijderen?"
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Odstrániť tento e-mail?"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Xóa email này?"
           }
         }
       }
@@ -17632,6 +17961,53 @@
         }
       }
     },
+    "This email is already on the list.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tento e-mail už v seznamu je."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diese E-Mail-Adresse steht schon auf der Liste."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este correo ya está en la lista."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce courriel est déjà dans la liste."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dit e-mailadres staat al in de lijst."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tento e-mail už v zozname je."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Email này đã có trong danh sách."
+          }
+        }
+      }
+    },
     "This file is larger than 5 MB. Please choose a smaller one.": {
       "extractionState": "manual",
       "localizations": {
@@ -17722,6 +18098,53 @@
           "stringUnit": {
             "state": "translated",
             "value": "iPhone này không có cảm biến LiDAR. CedarScan cần iPhone bản Pro (12 Pro trở lên)."
+          }
+        }
+      }
+    },
+    "This is your account email. You already get these emails.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "To je e-mail vašeho účtu. Tyto e-maily už dostáváte."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Das ist die E-Mail-Adresse Ihres Kontos. Diese E-Mails erhalten Sie bereits."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Es el correo de tu cuenta. Ya recibes estos correos."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "C'est le courriel de votre compte. Vous recevez déjà ces courriels."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dit is het e-mailadres van je account. Deze e-mails krijg je al."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "To je e-mail vášho účtu. Tieto e-maily už dostávate."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đây là email tài khoản. Email này đã nhận file rồi."
           }
         }
       }
@@ -21016,6 +21439,53 @@
         }
       }
     },
+    "When your floor plans are ready, we also email the download links to these addresses, for every order. They don't see prices.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Až budou vaše půdorysy hotové, pošleme odkazy ke stažení i na tyto adresy, u každé objednávky. Ceny příjemci neuvidí."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sobald Ihre Grundrisse fertig sind, senden wir die Download-Links bei jeder Bestellung auch an diese Adressen. Preise sehen die Empfänger nicht."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cuando tus planos estén listos, también enviaremos los enlaces de descarga a estas direcciones, en cada pedido. No verán los precios."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quand vos plans sont prêts, nous envoyons aussi les liens de téléchargement à ces adresses, pour chaque commande. Les destinataires ne voient pas les prix."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zodra je plattegronden klaar zijn, sturen we de downloadlinks ook naar deze adressen, bij elke bestelling. Prijzen zien ze niet."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keď budú vaše pôdorysy hotové, pošleme odkazy na stiahnutie aj na tieto adresy, pri každej objednávke. Ceny príjemcovia neuvidia."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Khi bản vẽ mặt bằng xong, chúng tôi gửi thêm link tải tới các địa chỉ này, cho mọi đơn. Người nhận không thấy giá."
+          }
+        }
+      }
+    },
     "Where do I download my drawing?": {
       "extractionState": "manual",
       "localizations": {
@@ -21435,6 +21905,53 @@
           "stringUnit": {
             "state": "translated",
             "value": "Bạn đã thêm vào đơn này các mục đang chờ thanh toán. Hãy thanh toán hoặc hủy chúng trong đơn trước."
+          }
+        }
+      }
+    },
+    "You can add up to %lld email addresses.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Můžete přidat nejvýše %lld e-mailových adres."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sie können bis zu %lld E-Mail-Adressen hinzufügen."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Puedes añadir hasta %lld correos."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vous pouvez ajouter jusqu'à %lld adresses courriel."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Je kunt tot %lld e-mailadressen toevoegen."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Môžete pridať najviac %lld e-mailových adries."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chỉ thêm được tối đa %lld email."
           }
         }
       }
