@@ -434,6 +434,23 @@ struct HomeView: View {
         path.append(ScanOrderIntent(record: record))
     }
 
+    /// F2 (2.79): a tapped scan reminder → that scan's page, the way a loose scan row opens it
+    /// (`path` = [record], Back = Home). Same two beats and the same guards as `openProject`
+    /// (root first, then push; ✗ while a scan is in progress); a scan deleted meanwhile = nothing.
+    private func openScan(_ request: PushNotifications.ScanRequest?) {
+        guard let request else { return }
+        Task { @MainActor in
+            guard !isMeshScanning, !ScanCoverModel.shared.blocksInput,
+                  store.records.contains(where: { $0.id == request.recordId }) else { return }
+            path = NavigationPath()
+            Task { @MainActor in
+                guard !isMeshScanning, !ScanCoverModel.shared.blocksInput,
+                      let record = store.records.first(where: { $0.id == request.recordId }) else { return }
+                path.append(record)
+            }
+        }
+    }
+
     private var renameAlertBinding: Binding<Bool> {
         Binding(
             get: { recordToRename != nil },
@@ -770,23 +787,6 @@ struct HomeView: View {
                 } else {
                     path.append(project)
                 }
-            }
-        }
-    }
-
-    /// F2 (2.79): a tapped scan reminder → that scan's page, the way a loose scan row opens it
-    /// (`path` = [record], Back = Home). Same two beats and the same guards as `openProject`
-    /// (root first, then push; ✗ while a scan is in progress); a scan deleted meanwhile = nothing.
-    private func openScan(_ request: PushNotifications.ScanRequest?) {
-        guard let request else { return }
-        Task { @MainActor in
-            guard !isMeshScanning, !ScanCoverModel.shared.blocksInput,
-                  store.records.contains(where: { $0.id == request.recordId }) else { return }
-            path = NavigationPath()
-            Task { @MainActor in
-                guard !isMeshScanning, !ScanCoverModel.shared.blocksInput,
-                      let record = store.records.first(where: { $0.id == request.recordId }) else { return }
-                path.append(record)
             }
         }
     }

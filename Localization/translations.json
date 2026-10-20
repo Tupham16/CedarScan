@@ -5448,6 +5448,18 @@
     "es": "Tu escaneo de %@ aún no se ha enviado.",
     "nl": "Je scan van %@ is nog niet verstuurd."
    }
+  },
+  {
+   "key": "This request is too large. Please shorten your text and try again.",
+   "translations": {
+    "vi": "Yêu cầu quá lớn. Vui lòng rút ngắn nội dung rồi thử lại.",
+    "fr": "Cette demande est trop volumineuse. Raccourcissez votre texte et réessayez.",
+    "de": "Diese Anfrage ist zu groß. Bitte kürzen Sie Ihren Text und versuchen Sie es erneut.",
+    "cs": "Tento požadavek je příliš velký. Zkraťte prosím text a zkuste to znovu.",
+    "sk": "Táto požiadavka je príliš veľká. Skráťte, prosím, text a skúste to znova.",
+    "es": "Esta solicitud es demasiado grande. Acorta tu texto e inténtalo de nuevo.",
+    "nl": "Dit verzoek is te groot. Maak je tekst korter en probeer het opnieuw."
+   }
   }
  ],
  "infoplist": {

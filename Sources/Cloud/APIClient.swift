@@ -558,7 +558,7 @@ final class APIClient {
         if !(200...299).contains(status) {
             let body = try? JSONDecoder().decode(ServerError.self, from: data)
             throw APIError(
-                message: body.map { Self.customerWording($0.error, status: status) }
+                message: body.map { Self.customerWording($0.error, status: status, code: $0.code) }
                     ?? String(localized: "Something went wrong. Please try again."),
                 statusCode: status,
                 code: body?.code,
@@ -587,8 +587,17 @@ final class APIClient {
     /// other keeps the server's words, as before. Matched on the exact sentence: these routes send
     /// no `code`. Wording only — decisions read `statusCode` / `code`, ✗ this text. A sentence the
     /// server rewords falls back to its own text (English), never to a wrong translation.
-    static func customerWording(_ text: String, status: Int) -> String {
+    static func customerWording(_ text: String, status: Int, code: String?) -> String {
+        // 2.79 server (S3, N10): a body over the route's cap is refused with 413 + this code
+        // instead of being read as an empty form.
+        if code == "too_large" {
+            return String(localized: "This request is too large. Please shorten your text and try again.")
+        }
         switch text {
+        // Every route: a body that is not a JSON object — never sent by this app; a bug, not
+        // something the customer can fix.
+        case "Invalid request body.":
+            return String(localized: "Something went wrong. Please try again.")
         case "Incorrect email or password.":
             return String(localized: "Incorrect email or password.")
         case "An account with this email already exists. Please sign in.":
