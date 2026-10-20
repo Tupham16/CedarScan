@@ -70,6 +70,9 @@ struct OrderScanResponse: Decodable {
     /// until paid, or `"received"` = placed at once (free / 100% coupon). `payBy` = when an unpaid
     /// order cancels itself; nil when there is nothing to pay, and for test accounts (never expire).
     let payBy: String?
+    /// F1 (2.79): same as `OrderDTO.dueAt`, for the "Order placed!" screen. nil = no line (not
+    /// paid yet, or a server that does not send it here).
+    let dueAt: String?
 }
 
 /// Kết quả "gửi bổ sung bản quét" (`POST orders/{id}/supplement-scan`).
@@ -257,8 +260,22 @@ struct OrderDTO: Decodable, Identifiable {
     /// Messages from the team ("Nhắn khách", also emailed), newest first — this order's and its
     /// extras' (root orders only). Optional: older servers. `lib/order-messages.ts`.
     let messages: [OrderMessageDTO]?
+    /// F1 (2.79): the deadline on the staff board, ISO 8601 UTC. nil while it does not apply
+    /// (unpaid, cancelled, delivered, on hold, refunded, test accounts, none set — server
+    /// `orders/route.ts`). Staff can move it, and it can be in the past. Read via `readyBy`.
+    /// Optional: older servers.
+    let dueAt: String?
 
     var id: String { orderId }
+
+    /// F1: when the order should be ready, or nil. A deadline already past is hidden (owner
+    /// 20/10: the customer is not shown a late order; the status badge stays).
+    var readyBy: Date? { Self.readyByDate(dueAt) }
+
+    static func readyByDate(_ raw: String?, now: Date = Date()) -> Date? {
+        guard let raw, let date = isoDate(raw), date > now else { return nil }
+        return date
+    }
 
     /// Not placed until paid: Pay or Cancel in the order detail.
     var isAwaitingPayment: Bool { status == "awaiting_payment" }

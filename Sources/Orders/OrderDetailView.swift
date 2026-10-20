@@ -181,11 +181,33 @@ struct OrderDetailView: View {
                 }
             }
             summaryLine(order)
+            readyByLine(order)
             stateNote(order)
             payNow(order)
         }
         .padding(EdgeInsets(top: 14, leading: 16, bottom: 15, trailing: 16))
         .detailCard()
+    }
+
+    /// F1 (owner 20/10, mockup 77): when the team expects the order ready. Hidden once past.
+    @ViewBuilder
+    private func readyByLine(_ order: OrderDTO) -> some View {
+        if let due = order.readyBy {
+            VStack(alignment: .leading, spacing: 10) {
+                Rectangle()
+                    .fill(Theme.hairline)
+                    .frame(height: 1)
+                HStack(spacing: 7) {
+                    Image(systemName: "clock")
+                        .foregroundStyle(Theme.Badge.soft.fg)
+                        .accessibilityHidden(true)
+                    Text(OrdersView.readyByText(due))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .font(.subheadline.weight(.medium))
+            }
+            .padding(.top, 2)
+        }
     }
 
     /// Orders v2 B (mockup 34/35): why an awaiting order is not being drawn, and what a cancelled

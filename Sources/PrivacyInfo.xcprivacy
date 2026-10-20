@@ -52,9 +52,9 @@
      adds only the customer identifier (User ID). Any further library brings its own
      obligations.
 
-  KHỐI `NSPrivacyAccessedAPITypes` = các API Apple đòi khai LÝ DO. Đã soi cả `Sources/`, đúng ba
-  loại; mỗi loại ghi kèm chỗ gọi thật để phiên sau kiểm lại được bằng grep, ✗ phải tin lời file
-  này. Thêm API mới thuộc nhóm bị đòi lý do (dung lượng đĩa, thời gian tạo file, active keyboard,
+  KHỐI `NSPrivacyAccessedAPITypes` = các API Apple đòi khai LÝ DO. Đã soi cả `Sources/`, đúng bốn
+  loại (DiskSpace thêm ở 2.79); mỗi loại ghi kèm chỗ gọi thật để phiên sau kiểm lại được bằng
+  grep, ✗ phải tin lời file này. Thêm API mới thuộc nhóm bị đòi lý do (dung lượng đĩa, thời gian tạo file, active keyboard,
   bàn phím tuỳ chỉnh…) mà quên khai ở đây = App Store Connect trả về email cảnh báo, rồi chặn.
 -->
 <plist version="1.0">
@@ -332,6 +332,18 @@
 			<key>NSPrivacyAccessedAPITypeReasons</key>
 			<array>
 				<string>35F9.1</string>
+			</array>
+		</dict>
+		<!-- Free space (2.79) — `FreeSpace.low()` reads `volumeAvailableCapacityForImportantUsage`
+		     before a scan opens and warns when it is below 1.5 GB (an alert the customer sees).
+		     E174.1 = check that there is room to write files; the number never leaves the phone
+		     (✗ in scan-report.json or any request). -->
+		<dict>
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryDiskSpace</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<string>E174.1</string>
 			</array>
 		</dict>
 	</array>

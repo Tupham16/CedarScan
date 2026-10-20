@@ -32,6 +32,8 @@ struct OrdersView: View {
     @State private var loadedAt: Date?
     @State private var errorMessage: String?
     @State private var filter: OrderFilter = .all
+    /// N15: the sign-in sheet of the order flow, opened from the signed-out screen.
+    @State private var showAccountGate = false
     @Environment(\.dynamicTypeSize) private var typeSize
     /// Orders v2 B: back from the browser pay page (see `refreshUnpaid`).
     @Environment(\.scenePhase) private var scenePhase
@@ -71,6 +73,13 @@ struct OrdersView: View {
                 await Task { await load() }.value
             }
             .navigationDestination(for: OrderRoute.self, destination: orderDetail)
+        }
+        // N15: on the stack, ✗ on `signedOutState`: that branch is gone the moment the sign-in
+        // lands, and a sheet hung on it would be torn down mid-flow (the email-code step of a
+        // new account). The sheet closes itself once the account can order.
+        .sheet(isPresented: $showAccountGate) {
+            AccountGateSheet()
+                .environmentObject(account)
         }
         // Khoá theo DANH TÍNH khách chứ không chỉ theo cờ `isSignedIn`: một máy có thể dùng
         // >1 tài khoản (A đăng xuất → B đăng nhập). Với `id: isSignedIn` thì cache `orders`
@@ -267,6 +276,8 @@ struct OrdersView: View {
         error is CancellationError || (error as? URLError)?.code == .cancelled
     }
 
+    /// N15 (owner 20/10, mockup 75): a Sign in button instead of "Go to the Account tab…". It opens
+    /// the order flow's sheet (sign in, create an account, verify the email) right here.
     private var signedOutState: some View {
         VStack(spacing: 12) {
             Image(systemName: "person.crop.circle.badge.questionmark")
@@ -274,10 +285,17 @@ struct OrdersView: View {
                 .foregroundStyle(.secondary)
             Text(String(localized: "Sign in to see your orders"))
                 .font(.headline)
-            Text(String(localized: "Go to the Account tab to sign in or create an account."))
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
+            Button {
+                showAccountGate = true
+            } label: {
+                Text(String(localized: "Sign in"))
+                    .font(.headline)
+                    .padding(.horizontal, 34)
+                    .padding(.vertical, 14)
+            }
+            .buttonStyle(FogPrimary())
+            .padding(.top, 8)
         }
         .padding(32)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -518,9 +536,7 @@ struct OrdersView: View {
                 }
                 HStack(alignment: .bottom, spacing: 10) {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(Self.formatDate(order.placedAt))
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
+                        dateLine(order)
                         if badgeBelow {
                             StatusBadge(status: order.status)
                         }
@@ -538,10 +554,48 @@ struct OrdersView: View {
         .buttonStyle(.plain)
     }
 
+    /// The row's date, or while the team works on the order the time it should be ready (F1,
+    /// owner 20/10, mockup 77: in place of the date, so the card does not grow).
+    @ViewBuilder
+    private func dateLine(_ order: OrderDTO) -> some View {
+        if let due = order.readyBy {
+            HStack(spacing: 5) {
+                Image(systemName: "clock")
+                    .foregroundStyle(Theme.Badge.soft.fg)
+                    .accessibilityHidden(true)
+                Text(Self.readyByText(due))
+                    .foregroundStyle(Color.primary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .font(.footnote.weight(.medium))
+        } else {
+            Text(Self.formatDate(order.placedAt))
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+        }
+    }
+
     static func formatDate(_ iso: String) -> String {
         // Server timestamps carry milliseconds, which a default ISO8601DateFormatter rejects.
         guard let date = OrderDTO.isoDate(iso) else { return "" }
         return date.formatted(date: .abbreviated, time: .omitted)
+    }
+
+    /// F1: "Ready by tomorrow at 3:40 PM" in the phone's language and time zone. Today and
+    /// tomorrow by name (the system's own words), a later day as weekday + date.
+    static func readyByText(_ due: Date) -> String {
+        let formatter = DateFormatter()
+        let calendar = Calendar.current
+        if calendar.isDateInToday(due) || calendar.isDateInTomorrow(due) {
+            formatter.doesRelativeDateFormatting = true
+            formatter.dateStyle = .medium
+            formatter.timeStyle = .short
+            formatter.formattingContext = .middleOfSentence
+        } else {
+            formatter.setLocalizedDateFormatFromTemplate("EEEMMMdjmm")
+        }
+        let when = formatter.string(from: due)
+        return String(localized: "Ready by \(when)")
     }
 }
 

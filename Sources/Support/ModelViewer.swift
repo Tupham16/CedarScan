@@ -66,6 +66,9 @@ struct ModelViewerScreen: View {
     /// The grey preview coloured on the phone at save (2.77). nil = none (older scan, valve,
     /// failure) — then the switch exists only for a baked texture, as before.
     @State private var colored: LoadedModel?
+    /// T7: why the switch went back to grey (a failed download or a file that would not open),
+    /// shown in the capsule until the switch is touched again.
+    @State private var textureError: TextureNotice?
 
     /// Floors + wall direction from the GREY preview (`MeshLayout`). Also drives the textured
     /// model when it sits in the same frame (`shownLayout(for:)`), so the floor buttons do not
@@ -86,7 +89,7 @@ struct ModelViewerScreen: View {
         return layout
     }
 
-    private var floorCount: Int { active.map { shownLayout(for: $0).floors.count } ?? 0 }
+    private var floorCount: Int { shown.map { shownLayout(for: $0).floors.count } ?? 0 }
 
     private var hasTexture: Bool { texturedRemote != nil && cloudScanId != nil }
     /// Công tắc chỉ có nghĩa khi có ĐỦ CẢ HAI thứ để gạt qua gạt lại. From 2.77 the "on"
@@ -98,6 +101,26 @@ struct ModelViewerScreen: View {
         guard wantTexture else { return grey }
         return hasTexture ? texture : colored
     }
+    /// T7 (owner 20/10, mockup 76): on screen. While the baked texture downloads or opens, the
+    /// grey model stays and can be turned (it used to vanish behind a spinner); `notice` says
+    /// what is going on. Without a grey model (scans from before 1.4) the full-screen blocks stay.
+    private var shown: LoadedModel? {
+        if let active { return active }
+        guard wantTexture, hasTexture else { return nil }
+        return grey
+    }
+
+    /// T7: the capsule under the top bar while the baked texture is not on screen yet.
+    /// `.downloading` also when the switch is off: the viewer reopened while the download runs
+    /// (the switch is locked then, and this says why).
+    private var notice: TextureNotice? {
+        guard hasTexture, grey != nil, texture == nil else { return nil }
+        if textured.phase == .downloading { return .downloading }
+        guard wantTexture else { return textureError }
+        if case .failed = textured.phase { return .downloadFailed }
+        return textureFailed ? .openFailed : .opening
+    }
+
     /// The colour path never sets `textureFailed`, so this stays as before (and keeps the
     /// "nothing to download" safety net of `beginTexture`).
     private var activeFailed: Bool { wantTexture ? textureFailed : greyFailed }
@@ -115,10 +138,10 @@ struct ModelViewerScreen: View {
             Color(uiColor: MeshPreviewView.backdropColor)
                 .ignoresSafeArea()
 
-            if let active {
+            if let shown {
                 ModelSceneView(
-                    model: active,
-                    layout: shownLayout(for: active),
+                    model: shown,
+                    layout: shownLayout(for: shown),
                     floor: floor,
                     framing: framing,
                     memory: cameraMemory
@@ -141,7 +164,13 @@ struct ModelViewerScreen: View {
                 loadingBlock
             }
 
-            topBar
+            VStack(spacing: 10) {
+                topBar
+                if let notice {
+                    noticeCapsule(notice)
+                        .padding(.horizontal, 16)
+                }
+            }
         }
         .task {
             // `.task` trơn + cờ idempotent, ✗ `.task(id:)`: SwiftUI huỷ nó lúc onDisappear và
@@ -152,13 +181,20 @@ struct ModelViewerScreen: View {
                 await loadGrey(greyURL)
             } else {
                 wantTexture = true
-                await beginTexture()
+                beginTexture()
             }
         }
         // File texture về (có thể đang tải lúc khách bật công tắc) → dựng cảnh.
         .onChange(of: textured.readyURL) { _, url in
             guard let url, texture == nil, !textureFailed else { return }
             loadTexture(url)
+        }
+        // T7: a download that failed under the grey model: the switch goes back to grey and the
+        // capsule says so (Try again). Without grey the full-screen error stays, as before.
+        .onChange(of: textured.phase) { _, phase in
+            guard case .failed = phase, wantTexture, hasTexture, grey != nil, texture == nil else { return }
+            wantTexture = false
+            textureError = .downloadFailed
         }
     }
 
@@ -217,11 +253,106 @@ struct ModelViewerScreen: View {
             get: { wantTexture },
             set: { on in
                 wantTexture = on
+                textureError = nil
                 // Phone colours are already loaded: nothing to fetch.
                 guard on, hasTexture else { return }
-                Task { await beginTexture() }
+                // Right here, ✗ in a `Task` (2.79): the capsule must not show the last failure
+                // for a frame before the new download starts.
+                beginTexture()
             }
         )
+    }
+
+    // MARK: - T7: texture capsule under the top bar (owner 20/10, mockup 76)
+
+    @ViewBuilder
+    private func noticeCapsule(_ notice: TextureNotice) -> some View {
+        HStack(spacing: 9) {
+            switch notice {
+            case .downloading:
+                downloadMark
+                Text(String(localized: "Downloading texture"))
+                if let progress = textured.progress {
+                    Text(progress, format: .percent.precision(.fractionLength(0)))
+                        .fontWeight(.medium)
+                        .monospacedDigit()
+                        .foregroundStyle(.white.opacity(0.7))
+                }
+                capsuleAction(String(localized: "Cancel")) {
+                    textured.cancel()
+                    wantTexture = false
+                }
+            case .opening:
+                ProgressView()
+                    .controlSize(.small)
+                    .tint(.white)
+                Text(String(localized: "Opening texture…"))
+            case .downloadFailed:
+                warnMark
+                Text(String(localized: "Couldn't download the texture"))
+                capsuleAction(String(localized: "Try again")) {
+                    textureError = nil
+                    wantTexture = true
+                    beginTexture()
+                }
+            case .openFailed:
+                warnMark
+                Text(String(localized: "Couldn't open the textured model."))
+            }
+        }
+        .font(.subheadline.weight(.semibold))
+        .foregroundStyle(.white)
+        .lineLimit(2)
+        .padding(.leading, 14)
+        .padding(.trailing, notice == .downloading || notice == .downloadFailed ? 2 : 14)
+        .frame(minHeight: 42)
+        .fogGlass(RoundedRectangle(cornerRadius: 21, style: .continuous))
+        .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+        .environment(\.colorScheme, .dark)
+        .accessibilityElement(children: .contain)
+    }
+
+    /// Ring filling with the download; a spinner until the size is known.
+    @ViewBuilder
+    private var downloadMark: some View {
+        if let progress = textured.progress {
+            ZStack {
+                Circle()
+                    .stroke(Color.white.opacity(0.25), lineWidth: 2.5)
+                Circle()
+                    .trim(from: 0, to: max(0.02, progress))
+                    .stroke(Color.white, style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
+                    .rotationEffect(.degrees(-90))
+            }
+            .frame(width: 18, height: 18)
+            .accessibilityHidden(true)
+        } else {
+            ProgressView()
+                .controlSize(.small)
+                .tint(.white)
+        }
+    }
+
+    private var warnMark: some View {
+        Image(systemName: "exclamationmark.triangle.fill")
+            .foregroundStyle(Theme.Badge.warn.fg)
+            .accessibilityHidden(true)
+    }
+
+    /// Text button after a hairline, 44pt tall (touch target), in the dark accent.
+    private func capsuleAction(_ title: String, action: @escaping () -> Void) -> some View {
+        HStack(spacing: 0) {
+            Rectangle()
+                .fill(Color.white.opacity(0.22))
+                .frame(width: 1, height: 22)
+            Button(action: action) {
+                Text(title)
+                    .padding(.horizontal, 12)
+                    .frame(minHeight: 44)
+                    .contentShape(Rectangle())
+            }
+            .foregroundStyle(Theme.accentText)
+        }
     }
 
     // MARK: - Bottom: floors + view switch (mockup 73, 2 modes after the owner's 30/09 call)
@@ -403,7 +534,8 @@ struct ModelViewerScreen: View {
     }
 
     /// Bật texture: đã có cảnh thì thôi; có file rồi thì dựng cảnh; chưa có thì bảo cache tải.
-    private func beginTexture() async {
+    /// Synchronous (2.79): nothing in it waits, and the switch calls it in the same transaction.
+    private func beginTexture() {
         guard texture == nil, !textureFailed else { return }
         if let ready = textured.readyURL {
             loadTexture(ready)
@@ -431,9 +563,19 @@ struct ModelViewerScreen: View {
                 texture = built
             } else {
                 textureFailed = true
+                // T7: back to the grey model with a word on why (a retry would read the same file).
+                if wantTexture, grey != nil {
+                    wantTexture = false
+                    textureError = .openFailed
+                }
             }
         }
     }
+}
+
+/// T7: what the capsule under the viewer's top bar says while the baked texture is not on screen.
+private enum TextureNotice {
+    case downloading, opening, downloadFailed, openFailed
 }
 
 /// One textured-scene build per file at a time (2.78). `SCNScene(url:)` holds the whole 30–75 MB

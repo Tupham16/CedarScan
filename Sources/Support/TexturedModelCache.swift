@@ -25,6 +25,9 @@ final class TexturedModelCache: ObservableObject {
     }
 
     @Published private(set) var phase: Phase = .idle
+    /// T7 (2.79): share of the file received (0…1) while `phase == .downloading`. nil = not known
+    /// (the transfer has not started, or the server sent no size).
+    @Published private(set) var progress: Double?
     /// File đã nằm trên đĩa, sẵn sàng mở.
     ///
     /// ⚠ **ĐỔI VAI TỪ BẢN 2.0.** Trước đây nó là `item` của một `.fullScreenCover` riêng, và màn
@@ -46,8 +49,13 @@ final class TexturedModelCache: ObservableObject {
     /// `task == nil` → bấm Xem lần nữa = TẢI LẠI cả 75MB lần thứ hai trên 4G, mà lượt đầu
     /// vẫn đang chạy. Chỉ đụng trên main (cả class là @MainActor) nên không cần lock.
     private static var inFlight: [String: Task<DownloadResult, Never>] = [:]
+    /// T7: received share of each download in flight (same key), written by its delegate. Static
+    /// like `inFlight`: an instance that joins a running download reads it too.
+    private static var received: [String: Double] = [:]
 
     private var task: Task<Void, Never>?
+    /// T7: copies `received` into `progress` while this instance follows a download.
+    private var progressPoll: Task<Void, Never>?
     /// Khoá của lượt tải instance này đang theo dõi — để `cancel()` gỡ đúng entry.
     private var inFlightKey: String?
     /// Số thứ tự lượt tải. Lượt bị HỦY vẫn chạy tiếp tới chỗ `await` rồi mới thoát, nên nếu
@@ -152,18 +160,22 @@ final class TexturedModelCache: ObservableObject {
         } else {
             // `Task {}` mở trong ngữ cảnh @MainActor thì THỪA HƯỞNG actor đó — không cần
             // gắn nhãn lại, và nhờ vậy việc sửa `Self.inFlight` ở đây là an toàn.
+            Self.received[key] = nil
             download = Task {
-                let r = await Self.download(scanId: scanId, remote: remote)
+                let r = await Self.download(scanId: scanId, remote: remote, key: key)
                 Self.inFlight[key] = nil
+                Self.received[key] = nil
                 return r
             }
             Self.inFlight[key] = download
         }
+        followProgress(key)
         task = Task { [weak self] in
             let result = await download.value
             guard let self, self.generation == mine else { return }
             self.task = nil
             self.inFlightKey = nil
+            self.stopProgress()
             switch result {
             case .success(let url):
                 self.phase = .idle
@@ -193,7 +205,28 @@ final class TexturedModelCache: ObservableObject {
         task?.cancel()
         task = nil
         generation += 1 // phần đuôi của lượt vừa hủy không được ghi gì nữa
+        stopProgress()
         phase = .idle
+    }
+
+    /// T7: mirrors the shared `received` share of `key` into `progress` while this instance
+    /// follows that download (a few times a second is enough for a percent).
+    private func followProgress(_ key: String) {
+        progressPoll?.cancel()
+        progress = Self.received[key]
+        progressPoll = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 300_000_000)
+                guard let self, self.inFlightKey == key else { return }
+                self.progress = Self.received[key]
+            }
+        }
+    }
+
+    private func stopProgress() {
+        progressPoll?.cancel()
+        progressPoll = nil
+        progress = nil
     }
 
     private enum DownloadResult {
@@ -205,15 +238,24 @@ final class TexturedModelCache: ObservableObject {
         case failure(String)
     }
 
-    private static func download(scanId: String, remote: URL) async -> DownloadResult {
+    private static func download(scanId: String, remote: URL, key: String) async -> DownloadResult {
         let dest = cachedURL(scanId: scanId, remote: remote)
         do {
             try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
             // `download(for:)` ghi thẳng ra file tạm (KHÔNG nạp 75MB vào RAM như `data(for:)`)
             // và nó CÓ tôn trọng Task.cancel — khác đường upload của app.
             var request = URLRequest(url: remote)
-            request.timeoutInterval = 600 // 4G chậm: 75MB có thể mất nhiều phút
-            let (tmp, response) = try await URLSession.shared.download(for: request)
+            // T7 (2.79): an IDLE limit — 60 s without a byte fails the download (was 600 s: a
+            // stalled 4G link left a spinner up for 10 minutes). A slow 75 MB that keeps
+            // moving still finishes.
+            request.timeoutInterval = 60
+            let watcher = DownloadProgress { fraction in
+                Task { @MainActor in
+                    // Only while that download is the one in flight (a cancel removed it).
+                    if Self.inFlight[key] != nil { Self.received[key] = fraction }
+                }
+            }
+            let (tmp, response) = try await URLSession.shared.download(for: request, delegate: watcher)
             if let http = response as? HTTPURLResponse, http.statusCode != 200 {
                 try? FileManager.default.removeItem(at: tmp)
                 return .failure("HTTP \(http.statusCode)")
@@ -254,6 +296,33 @@ final class TexturedModelCache: ObservableObject {
         }
         for old in rest.sorted(by: { modified($0) > modified($1) }).dropFirst(max(0, keepFiles - 1)) {
             try? fm.removeItem(at: old)
+        }
+    }
+}
+
+/// T7: progress of one texture download. The async `download(for:delegate:)` hands back no task,
+/// so its task delegate takes the task as it is created (iOS 16+) and reports each new whole
+/// percent of `task.progress`. Nothing else: the async call still owns the transfer, its
+/// cancellation and its temporary file. No size from the server = no report (the viewer then
+/// shows a spinner without a percent).
+/// `@unchecked Sendable`: `lastPercent` is touched only by the progress observer, one update
+/// at a time; `observation` is set once, before any update.
+private final class DownloadProgress: NSObject, URLSessionTaskDelegate, @unchecked Sendable {
+    private let report: @Sendable (Double) -> Void
+    private var observation: NSKeyValueObservation?
+    private var lastPercent = -1
+
+    init(report: @escaping @Sendable (Double) -> Void) {
+        self.report = report
+    }
+
+    func urlSession(_ session: URLSession, didCreateTask task: URLSessionTask) {
+        observation = task.progress.observe(\.fractionCompleted) { [weak self] progress, _ in
+            guard let self, progress.totalUnitCount > 0 else { return }
+            let percent = Int(progress.fractionCompleted * 100)
+            guard percent != self.lastPercent else { return }
+            self.lastPercent = percent
+            self.report(progress.fractionCompleted)
         }
     }
 }

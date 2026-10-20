@@ -85,6 +85,10 @@ struct ProjectView: View {
     @State private var pendingOrderRecord: ScanRecord?
     @State private var meshCapFollowUp = false
     @State private var showScanNextPart = false
+    /// N5: free bytes when a scan was about to open with too little room (the alert is up);
+    /// `lowSpaceScanMore` = it was "scan another area" after a save, else Scan more.
+    @State private var lowSpace: Int64?
+    @State private var lowSpaceScanMore = false
     /// Mục tiêu của form đặt hàng: DANH TÍNH các bản quét đã chốt đúng lúc mở form.
     ///
     /// 🔴 Dùng `.sheet(item:)`, KHÔNG dùng `.sheet(isPresented:)` + cờ Bool riêng. Đây là chỗ đã
@@ -511,6 +515,13 @@ struct ProjectView: View {
         } message: {
             Text(String(localized: "The 3D model hit its size limit before you finished — the saved part is safe. Scan the remaining area as another scan (name them \"Part 1\", \"Part 2\"…) and they can be merged later."))
         }
+        .lowSpaceAlert($lowSpace) {
+            if lowSpaceScanMore {
+                isMeshScanning = true
+            } else {
+                openScanMore()
+            }
+        }
         .sheet(item: $orderTarget) { target in
             orderSheetBody(target)
         }
@@ -677,7 +688,13 @@ struct ProjectView: View {
             pendingScanMore = false
             meshCapFollowUp = false
             pendingOrderRecord = nil
-            isMeshScanning = true
+            // N5: the save just used room — check again before the camera reopens.
+            if let free = FreeSpace.low() {
+                lowSpaceScanMore = true
+                lowSpace = free
+            } else {
+                isMeshScanning = true
+            }
         } else if meshCapFollowUp {
             // Xem giải thích thứ tự ưu tiên ở HomeView.
             meshCapFollowUp = false
@@ -702,6 +719,18 @@ struct ProjectView: View {
     /// rồi quét từ đây sẽ không bao giờ đọc hướng dẫn, và vì seenKey vẫn false nên lần sau quét từ
     /// Home guide mới nhảy ra — sau khi bản quét đầu tiên đã hỏng.
     private func scanMoreTapped() {
+        // N5: too little room to save a scan — say so before anything opens.
+        if let free = FreeSpace.low() {
+            lowSpaceScanMore = false
+            lowSpace = free
+            return
+        }
+        openScanMore()
+    }
+
+    /// Scan more once the space check passed (or "Scan anyway"): the guide the first time, else
+    /// the scanner.
+    private func openScanMore() {
         if !UserDefaults.standard.bool(forKey: ScanGuideView.seenKey) {
             startAfterGuide = false
             showGuide = true

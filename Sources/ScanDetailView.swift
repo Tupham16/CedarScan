@@ -1747,6 +1747,22 @@ struct OrderSheet: View {
         successBody(order, unpaid: awaitsPayment(order))
     }
 
+    /// F1 (owner 20/10, mockup 77): when the order should be ready, if the server said.
+    private func readyByPill(_ due: Date) -> some View {
+        HStack(spacing: 7) {
+            Image(systemName: "clock")
+                .accessibilityHidden(true)
+            Text(OrdersView.readyByText(due))
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .font(.subheadline.weight(.semibold))
+        .foregroundStyle(Theme.Badge.soft.fg)
+        .multilineTextAlignment(.center)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 8)
+        .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Theme.Badge.soft.bg))
+    }
+
     /// Fog: tick on an `ok` disc; a card on a `warn` disc while the order awaits payment.
     private func successDisc(unpaid: Bool) -> some View {
         let kind = unpaid ? Theme.Badge.warn : Theme.Badge.ok
@@ -1782,6 +1798,9 @@ struct OrderSheet: View {
                     .font(.footnote)
                     .foregroundStyle(Theme.Badge.warn.fg)
                     .multilineTextAlignment(.center)
+            }
+            if !unpaid, let due = OrderDTO.readyByDate(order.dueAt) {
+                readyByPill(due)
             }
             successNotes(order, unpaid: unpaid)
             successPay(order, unpaid: unpaid)
@@ -2191,7 +2210,8 @@ struct OrderSheet: View {
             free: order.paid == true && (order.total ?? 0) <= 0,
             hasTour: order.hasTour,
             payInApp: order.payInApp,
-            payBy: order.payBy
+            payBy: order.payBy,
+            dueAt: order.dueAt
         )
     }
 }
