@@ -1,9 +1,10 @@
 import SwiftUI
 import AVKit
+import UIKit // UIColor for WrappedText (F8 credit banner, 2.79)
 import UniformTypeIdentifiers // UTType — suy ra MIME + giới hạn loại file cho .fileImporter
-// (`import UIKit` GỠ 11/08 cùng RoomPlan: lý do duy nhất của nó là `UIImage` cho ảnh mặt bằng
-// `floorplan.png`, và grep toàn file nay ra 0 ký hiệu UIKit. Cần lại thì khai lại TƯỜNG MINH,
-// ✗ trông chờ SwiftUI/AVKit kéo hộ — đó là thứ chỉ lộ sau 10 phút CI.)
+// (`import UIKit` GỠ 11/08 cùng RoomPlan, KHAI LẠI 20/10 cho `UIColor` của banner F8. Thêm ký hiệu
+// UIKit thì giữ dòng import này TƯỜNG MINH, ✗ trông chờ SwiftUI/AVKit kéo hộ — thứ chỉ lộ sau 10
+// phút CI.)
 
 /// Ý ĐỊNH "Đặt hàng ngay" — một giá trị điều hướng RIÊNG, cố ý KHÔNG dùng lại `ScanRecord`.
 ///
