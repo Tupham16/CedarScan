@@ -340,10 +340,20 @@ class Block:
         self.type_qual = mt.group(1) if mt else None          # `extension Outer.Row` -> Outer.Row
         self.type_name = self.type_qual.split(".")[-1] if mt else None
         if mt:                                                 # `: View, Bannering` (inherited API)
-            ms = re.match(r"\s*(?:<[^>{]*>)?\s*:\s*([^{]*?)\s*(?:\bwhere\b.*)?$", head[mt.end(1):], re.S)
-            self.supers = [re.sub(r"<.*$", "", x.strip()).split(".")[-1]   # `Base<Int>` -> Base
-                           for x in ms.group(1).split(",") if x.strip()] if ms else []
+            ms = re.match(r"\s*(?:<[^>{]*>)?\s*:\s*([^{]*?)\s*(\bwhere\b.*)?$", head[mt.end(1):], re.S)
+            conditional = ms and ms.group(2) and re.search(r"\bextension\s", head)
+            self.supers = [strip_generics(x.strip()).split(".")[-1]   # `Base<Int>` -> Base, `A & B`
+                           for x in re.split(r"[,&]", ms.group(1)) if x.strip()] \
+                if ms and not conditional else []                     # `extension X: P where ...`: not always
         self.flow = bool(FLOW_HEAD.search(head)) and not self.type_name
+
+
+def strip_generics(t):
+    while True:
+        u = re.sub(r"<[^<>]*>", "", t)
+        if u == t:
+            return re.sub(r"<.*$", "", u).strip()
+        t = u
 
 
 def build_blocks(masked):
@@ -694,6 +704,12 @@ def param_kind(type_text):
     return "other"
 
 
+def qual_key(fi, b):
+    """`Settings.Row` for `enum Settings { struct Row }`, `extension Settings { struct Row }` and
+    `extension Settings.Row`."""
+    return ".".join([t.type_qual for t in reversed(fi.type_blocks(b.open))] + [b.type_qual])
+
+
 class Callees:
     """Our own funcs / inits / memberwise inits / enum cases and their parameter kinds.
     entries[name] = [(owner, file, {label: "loc" | "array" | "other"}, private)]: owner = the type a
@@ -705,12 +721,13 @@ class Callees:
     overloads."""
 
     def __init__(self, files):
-        self.entries, self.member_ok, self.supers = {}, set(), {}
+        self.entries, self.member_ok, self.supers, self.qsupers = {}, set(), {}, {}
         declared, top = set(), set()        # our types; those declared at top level
         for fi in files.values():
             for b in fi.blocks:
                 if b.type_name:
                     self.supers.setdefault(b.type_name, set()).update(b.supers)
+                    self.qsupers.setdefault(qual_key(fi, b), set()).update(b.supers)
                 if b.type_name and re.search(r"\b(?:struct|class|enum|actor)\s", b.head) \
                         and not re.search(r"\b(?:extension|protocol)\s", b.head):
                     declared.add(b.type_name)
@@ -793,7 +810,7 @@ class Callees:
                 if sel:
                     break
             if not sel:                      # inherited: protocol extensions, superclasses (transitive)
-                todo = [s for b in blocks for s in self.supers.get(b.type_name, ())]  # incl. `extension X: P`
+                todo = [s for b in blocks for s in self.qsupers.get(qual_key(fi, b), ())]  # incl. `extension X: P`
                 supers = set()
                 while todo:
                     t = todo.pop()
