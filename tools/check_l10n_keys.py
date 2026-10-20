@@ -1267,7 +1267,7 @@ class Types:
                         if not mp:
                             continue
                         ext, name, typ = mp.group(1), mp.group(2), mp.group(3)
-                    labels.append(ext)
+                    labels.append((ext, bool(re.search(r"(?<![=!<>])=(?!=)", typ))))   # (label, has a default)
                     mt = re.match(r"\s*(?:inout\s+)?(?:@\w+\s+)*(" + TYPE_RE + r")\s*(?:=|$)", typ, re.S)
                     if body:                            # a function type etc. is recorded untyped
                         self.add(Decl(name, fi, a, mt.group(1) if mt else None, None, body, False))
@@ -1371,7 +1371,7 @@ class Types:
             if len(links) == 2 or base in ("self", "Self") or base[:1].isupper():
                 labels = call_labels(value)
                 cands = self.funcs.get(callee, [])
-                ks = {kd for lb, kd in cands if lb[:len(labels)] == labels} - {None}
+                ks = {kd for lb, kd in cands if sig_match(lb, labels)} - {None}
                 return ks.pop() if len(ks) == 1 else None
             return None                    # x.method(): x's type unknown
         if kind == "member":
@@ -1399,7 +1399,9 @@ class Types:
         if cands:
             return max(cands, key=lambda d: (d.lo, d.off))
         if tblk is not None:                  # declared in the type's body elsewhere (extensions)
-            props = [d for d in self.decls.get(name, []) if d.prop and d.scope.type_name == tblk.type_name]
+            key = qual_key(fi, tblk)          # the same type, not another `Row` nested elsewhere
+            props = [d for d in self.decls.get(name, []) if d.prop and d.scope.type_name == tblk.type_name
+                     and qual_key(d.fi, d.scope) == key]
             if len(props) == 1:
                 return props[0]
         return None
@@ -1420,6 +1422,21 @@ class Types:
         if d.init:
             return self.infer(d.init, d.fi, d.off, trace, depth + 1)
         return None
+
+
+def sig_match(sig, call):
+    """The call's labels fit the signature [(label, has_default)] in order; a skipped parameter
+    must have a default (`format(n, unit: "ft")`); trailing ones may be omitted (trailing closure)."""
+    i = 0
+    for lb in call:
+        while i < len(sig) and sig[i][0] != lb:
+            if not sig[i][1]:
+                return False
+            i += 1
+        if i == len(sig):
+            return False
+        i += 1
+    return True
 
 
 def call_labels(args_text):
