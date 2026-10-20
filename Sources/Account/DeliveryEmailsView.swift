@@ -5,9 +5,12 @@ import SwiftUI
 /// link (server `lib/delivery-copies.ts`, list read at delivery time). Every change PUTs the whole
 /// list and shows the server's answer (lowercased, deduped), never a local guess.
 struct DeliveryEmailsView: View {
+    /// Passed in, ✗ `@EnvironmentObject`: a pushed screen reading one crashed at push time
+    /// (`ProjectView.store`, see OrdersView's note).
+    let accountEmail: String
+
     private enum Phase { case loading, failed, ready }
 
-    @EnvironmentObject private var account: AccountStore
     @State private var phase = Phase.loading
     @State private var emails: [String] = []
     /// The server's cap (5); `max` absent = 5.
@@ -18,6 +21,8 @@ struct DeliveryEmailsView: View {
     /// Red line under the list: a refused address or a failed save.
     @State private var problem: String?
     @State private var saving = false
+    /// Bumped by every save the server took: a list read that started before it is stale.
+    @State private var revision = 0
     /// The address the "Remove this email?" alert is about.
     @State private var removal: String?
     @FocusState private var fieldFocused: Bool
@@ -36,7 +41,7 @@ struct DeliveryEmailsView: View {
                     VStack(spacing: 10) {
                         Text(String(localized: "Couldn't load your delivery emails."))
                             .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Color.secondary)
                             .multilineTextAlignment(.center)
                         Button(String(localized: "Try again")) {
                             Task { await load() }
@@ -54,7 +59,12 @@ struct DeliveryEmailsView: View {
         .fogScreen()
         .navigationTitle(String(localized: "Delivery emails"))
         .navigationBarTitleDisplayMode(.inline)
+        // Also re-runs when the Account tab comes back: a quiet refresh (see `load`).
         .task { await load() }
+        .onChange(of: problem) { _, text in
+            // VoiceOver hears the red line (as MeshScanFlowView's coach announcements).
+            if let text { UIAccessibility.post(notification: .announcement, argument: text) }
+        }
         .alert(
             String(localized: "Remove this email?"),
             isPresented: Binding(get: { removal != nil }, set: { if !$0 { removal = nil } }),
@@ -80,9 +90,9 @@ struct DeliveryEmailsView: View {
                         Image(systemName: "minus.circle.fill")
                             .font(.title3)
                             .foregroundStyle(.red)
-                            .padding(EdgeInsets(top: 12, leading: 12, bottom: 12, trailing: 8))
+                            .padding(EdgeInsets(top: 12, leading: 12, bottom: 12, trailing: 10))
                             .contentShape(Rectangle())
-                            .padding(EdgeInsets(top: -12, leading: -12, bottom: -12, trailing: -8))
+                            .padding(EdgeInsets(top: -12, leading: -12, bottom: -12, trailing: -10))
                     }
                     .buttonStyle(.borderless)
                     .disabled(saving)
@@ -104,19 +114,27 @@ struct DeliveryEmailsView: View {
                     Text(problem)
                         .foregroundStyle(.red)
                 }
-                Text(String(localized: "When your floor plans are ready, we also email the download links to these addresses, for every order. They don't see prices."))
+                // WrappedText: a plain footer Text of this length lost its last line in German at
+                // xxxLarge (trap #44, the Delete account footer).
+                WrappedText(String(localized: "When your floor plans are ready, we also email the download links to these addresses, for every order. They don't see prices."),
+                            style: .footnote, color: .secondaryLabel)
             }
         }
+    }
+
+    /// The plus icon is the same size and place open or closed (the text does not jump).
+    private var plusIcon: some View {
+        Image(systemName: "plus.circle")
+            .font(.title3)
+            .foregroundStyle(Theme.accentText)
+            .accessibilityHidden(true)
     }
 
     @ViewBuilder
     private var addRow: some View {
         if adding {
             HStack(spacing: 12) {
-                Image(systemName: "plus.circle")
-                    .font(.title3)
-                    .foregroundStyle(Theme.accentText)
-                    .accessibilityHidden(true)
+                plusIcon
                 TextField(String(localized: "Email address"), text: $draft)
                     .keyboardType(.emailAddress)
                     .textContentType(.emailAddress)
@@ -150,26 +168,35 @@ struct DeliveryEmailsView: View {
                 problem = nil
                 adding = true
             } label: {
-                HStack {
-                    Label(String(localized: "Add email"), systemImage: "plus.circle")
+                HStack(spacing: 12) {
+                    plusIcon
+                    Text(String(localized: "Add email"))
                     Spacer()
+                    // Concrete colour: a hierarchical `.secondary` inside a Button label takes the
+                    // button's tint (faded blue; traps #45, #47a). Mockup: grey.
                     Text("\(emails.count) of \(limit)")
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Color.secondary)
                 }
             }
             .disabled(saving || emails.count >= limit)
         }
     }
 
+    /// First load: spinner, then the list or the retry row. Later loads (the tab coming back) are
+    /// quiet: a failure keeps the list on screen, and an answer older than a save is dropped.
     private func load() async {
-        phase = .loading
+        if phase != .ready { phase = .loading }
+        let started = revision
         do {
             let list = try await APIClient.shared.deliveryEmails()
+            guard !saving, revision == started else { return }
             emails = list.emails
             limit = list.max ?? 5
             phase = .ready
         } catch {
-            phase = .failed
+            // Leaving the screen cancels the request: nothing to show, ✗ the retry row.
+            if Task.isCancelled || (error as? URLError)?.code == .cancelled { return }
+            if phase != .ready { phase = .failed }
         }
     }
 
@@ -178,17 +205,26 @@ struct DeliveryEmailsView: View {
         let email = draft.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         if email.isEmpty {
             // Done on an empty field: nothing to add, the "Add email" row comes back.
+            fieldFocused = false
             adding = false
-        } else if !Self.looksValid(email) {
+            return
+        }
+        if !Self.looksValid(email) {
             problem = String(localized: "Please enter a valid email address.")
-        } else if email == account.customer?.email.lowercased() {
+        } else if email == accountEmail.lowercased() {
             problem = String(localized: "This is your account email. You already get these emails.")
         } else if emails.contains(email) {
             problem = String(localized: "This email is already on the list.")
         } else if await save(emails + [email]) {
             draft = ""
+            // Reset first: a focus left `true` on the removed field would make the next
+            // "Add email" tap set true → true and the keyboard would not open.
+            fieldFocused = false
             adding = false
+            return
         }
+        // Refused: keep typing (mockup ④ keeps the keyboard up).
+        fieldFocused = true
     }
 
     /// PUTs the whole list; on success the list is the server's echo. False = refused or failed
@@ -203,6 +239,7 @@ struct DeliveryEmailsView: View {
             let list = try await APIClient.shared.setDeliveryEmails(next)
             emails = list.emails
             limit = list.max ?? 5
+            revision += 1
             return true
         } catch let error as APIError {
             switch error.code {

@@ -184,7 +184,7 @@
         "vi": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld/%lld"
+            "value": "%lld trên %lld"
           }
         }
       }
@@ -12909,7 +12909,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Retirer ce courriel ?"
+            "value": "Retirer ce courriel?"
           }
         },
         "nl": {
@@ -19677,7 +19677,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Quand vos plans sont prêts, nous envoyons aussi les liens de téléchargement à ces adresses, pour chaque commande. Elles ne voient pas les prix."
+            "value": "Quand vos plans sont prêts, nous envoyons aussi les liens de téléchargement à ces adresses, pour chaque commande. Les destinataires ne voient pas les prix."
           }
         },
         "nl": {

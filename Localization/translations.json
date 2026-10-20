@@ -5224,7 +5224,7 @@
   {
    "key": "%lld of %lld",
    "translations": {
-    "vi": "%lld/%lld",
+    "vi": "%lld trên %lld",
     "fr": "%lld sur %lld",
     "de": "%lld von %lld",
     "cs": "%lld z %lld",
@@ -5249,7 +5249,7 @@
    "key": "When your floor plans are ready, we also email the download links to these addresses, for every order. They don't see prices.",
    "translations": {
     "vi": "Khi bản vẽ mặt bằng xong, chúng tôi gửi thêm link tải tới các địa chỉ này, cho mọi đơn. Người nhận không thấy giá.",
-    "fr": "Quand vos plans sont prêts, nous envoyons aussi les liens de téléchargement à ces adresses, pour chaque commande. Elles ne voient pas les prix.",
+    "fr": "Quand vos plans sont prêts, nous envoyons aussi les liens de téléchargement à ces adresses, pour chaque commande. Les destinataires ne voient pas les prix.",
     "de": "Sobald Ihre Grundrisse fertig sind, senden wir die Download-Links bei jeder Bestellung auch an diese Adressen. Preise sehen die Empfänger nicht.",
     "cs": "Až budou vaše půdorysy hotové, pošleme odkazy ke stažení i na tyto adresy, u každé objednávky. Ceny příjemci neuvidí.",
     "sk": "Keď budú vaše pôdorysy hotové, pošleme odkazy na stiahnutie aj na tieto adresy, pri každej objednávke. Ceny príjemcovia neuvidia.",
@@ -5309,7 +5309,7 @@
    "key": "Remove this email?",
    "translations": {
     "vi": "Xóa email này?",
-    "fr": "Retirer ce courriel ?",
+    "fr": "Retirer ce courriel?",
     "de": "Diese E-Mail-Adresse entfernen?",
     "cs": "Odebrat tento e-mail?",
     "sk": "Odstrániť tento e-mail?",

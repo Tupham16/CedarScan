@@ -63,7 +63,7 @@ struct AccountView: View {
                         Section {
                             NavigationLink {
                                 // Pushed in the Account tab: room for `CedarTabBar` (as `LegalLinks`).
-                                DeliveryEmailsView()
+                                DeliveryEmailsView(accountEmail: customer.email)
                                     .safeAreaPadding(.bottom, CedarTabBar.reservedHeight)
                             } label: {
                                 Label(String(localized: "Delivery emails"), systemImage: "envelope")
