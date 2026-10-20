@@ -811,7 +811,38 @@ final class APIClient {
         projectName: String,
         coupon: String
     ) async throws -> OrderScanResponse {
-        let body: [String: Any] = [
+        let body = Self.orderBody(
+            extraScanIds: extraScanIds, packageIds: packageIds, addonIds: addonIds,
+            templates: templates, orderFiles: orderFiles, notes: notes, unitSystem: unitSystem,
+            language: language, floorNaming: floorNaming, projectName: projectName, coupon: coupon
+        )
+        // N10 (2.79): the backstop of `OrderSheet.submit`'s check before its uploads.
+        if Self.isTooLarge(body) {
+            throw APIError(
+                message: String(localized: "This request is too large. Please shorten your text and try again."),
+                statusCode: 413,
+                code: "too_large"
+            )
+        }
+        return try await send("scans/\(scanId)/order", method: "POST", json: body, timeout: 60)
+    }
+
+    /// The Place order body (the primary scan id goes in the path). Also measured by
+    /// `OrderSheet.submit` BEFORE its uploads (`isTooLarge`).
+    static func orderBody(
+        extraScanIds: [String],
+        packageIds: [String],
+        addonIds: [String],
+        templates: [String: String],
+        orderFiles: [[String: String]],
+        notes: String,
+        unitSystem: String,
+        language: String,
+        floorNaming: String,
+        projectName: String,
+        coupon: String
+    ) -> [String: Any] {
+        [
             "packageIds": packageIds, // đa gói (server cũng nhận `packageId` đơn, nhưng app mới gửi mảng)
             "addons": addonIds,
             "templates": templates, // addonId → templateId (color / siteplan)
@@ -830,19 +861,19 @@ final class APIClient {
             // 🔴 ALWAYS sent: the Cancel button, the placed screen and the stamp release all assume it.
             "payFirst": true,
         ]
-        // N10 (2.79): the live server reads a body over 16 KB as an EMPTY form = a default 2D order
-        // without the floors, add-ons, notes or files (and `submit` would stamp every ticked floor
-        // with it). The fields are capped (`OrderSheet`), yet a full note + 10 long file names can
-        // still pass 16 KB: refused here, nothing sent. The 2.79 server (S3) refuses with 413
-        // `too_large` itself and allows 64 KB — this guard may follow once that is live everywhere.
-        if let encoded = try? JSONSerialization.data(withJSONObject: body), encoded.count > 16 * 1024 {
-            throw APIError(
-                message: String(localized: "This request is too large. Please shorten your text and try again."),
-                statusCode: 413,
-                code: "too_large"
-            )
-        }
-        return try await send("scans/\(scanId)/order", method: "POST", json: body, timeout: 60)
+    }
+
+    /// N10 (2.79): the live server reads a body over 16 KB as an EMPTY form = a default 2D order
+    /// without the floors, add-ons, notes or files (and `submit` would stamp every ticked floor
+    /// with it). The fields are capped (`OrderSheet`), yet a full note + 10 long file names can
+    /// still pass 16 KB: refused in the app, nothing sent. Same `JSONSerialization` call as
+    /// `makeRequest` = the exact bytes. The 2.79 server (S3, `claude/s3-audit`) refuses with 413
+    /// `too_large` itself and allows 64 KB — once that is live, this limit can go up.
+    static let maxOrderBodyBytes = 16 * 1024
+
+    static func isTooLarge(_ body: [String: Any]) -> Bool {
+        guard let encoded = try? JSONSerialization.data(withJSONObject: body) else { return false }
+        return encoded.count > maxOrderBodyBytes
     }
 
     /// `include=cancelled`: orders cancelled unpaid are listed too (status `cancelled`, `scanIds` =

@@ -1341,6 +1341,10 @@ struct OrderSheet: View {
     private func openAccountGate() {
         gateAccountId = account.customer?.id
         showAccountGate = true
+        // The code from sign-up is usually long expired (15 min) by the time an order needs it:
+        // a fresh one, so "We sent a 6-digit code to …" is true. Too soon after the last one
+        // (server cooldown 60 s) = refused, nothing to show — that code still works.
+        Task { _ = try? await APIClient.shared.resendCode() }
     }
 
     /// The gate closed. Verified, still the account it opened for, the form as it was tapped ⇒
@@ -1351,8 +1355,10 @@ struct OrderSheet: View {
     private func resumeAfterGate() {
         let opener = gateAccountId
         gateAccountId = nil
-        guard let opener, account.customer?.id == opener, !account.needsVerification,
-              placedOrder == nil, !isBusy, !uploadingFile, !selectedPackages.isEmpty,
+        guard let opener, account.customer?.id == opener, !account.needsVerification else { return }
+        // Verified: the "verify your email" line under the button is no longer true.
+        errorMessage = nil
+        guard placedOrder == nil, !isBusy, !uploadingFile, !selectedPackages.isEmpty,
               tappedForm == formState else { return }
         submit()
     }
@@ -1699,9 +1705,9 @@ struct OrderSheet: View {
                             // (negative padding: the hit shape uses the row's own space). Less to
                             // the left: ✗ over the end of a long file name (a tap there removes).
                             Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
-                                .padding(EdgeInsets(top: 14, leading: 10, bottom: 14, trailing: 14))
+                                .padding(EdgeInsets(top: 14, leading: 10, bottom: 14, trailing: 18))
                                 .contentShape(Rectangle())
-                                .padding(EdgeInsets(top: -14, leading: -10, bottom: -14, trailing: -14))
+                                .padding(EdgeInsets(top: -14, leading: -10, bottom: -14, trailing: -18))
                         }
                         .buttonStyle(.plain)
                         .accessibilityLabel(String(localized: "Remove attachment"))
@@ -2062,6 +2068,21 @@ struct OrderSheet: View {
         let floorNamingSnapshot = Self.cut(floorNaming, Self.maxFloorNaming)
         let projectNameSnapshot = Self.cut(projectName ?? "", Self.maxProjectName)
         let couponSnapshot = Self.cut(couponCode.trimmingCharacters(in: .whitespacesAndNewlines), Self.maxCoupon)
+        // N10 (2.79): the body measured NOW, ✗ after 40–200 MB of uploads (`orderScan` refuses it
+        // again as a backstop). The scans' server ids are not known yet: 36 characters each (cuids
+        // are 25), so the guess is never smaller than the real body.
+        let probe = APIClient.orderBody(
+            extraScanIds: extras.map { _ in String(repeating: "x", count: 36) },
+            packageIds: pkgIds, addonIds: addonIds, templates: templatesSnapshot,
+            orderFiles: filesSnapshot, notes: notesSnapshot, unitSystem: unitSnapshot,
+            language: languageSnapshot, floorNaming: floorNamingSnapshot,
+            projectName: projectNameSnapshot, coupon: couponSnapshot
+        )
+        if APIClient.isTooLarge(probe) {
+            errorMessage = String(localized: "This request is too large. Please shorten your text and try again.")
+            isBusy = false
+            return
+        }
         submitTask = Task { @MainActor in
             // 2.59: screen awake + background time for the WHOLE flow (uploads → order), released
             // on every exit. The uploads themselves survive lock / app switch (`BackgroundUploads`).
@@ -2282,7 +2303,8 @@ struct OrderSheet: View {
             placingOrder = false
             isBusy = false
             busyLabel = nil
-            if verifyFirst { openAccountGate() }
+            // ✗ after Cancel (unlocked during the check): the sheet is on its way out.
+            if verifyFirst, !Task.isCancelled { openAccountGate() }
         }
     }
 

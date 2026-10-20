@@ -96,7 +96,8 @@ final class ScanStore: ObservableObject {
     /// iPhone backup starts failing. The flag on the folder covers everything in it. Set at every
     /// launch: existing installs get it too, and so does a re-created folder (the flag lives on
     /// the folder). Known, accepted: a phone restored from a backup has no scans (ordered ones
-    /// stay on our server). projects.json (property names, order bindings) stays in the backup.
+    /// stay on our server). projects.json (property names, order bindings) stays in the backup —
+    /// and an ordered house keeps its order there (`bindProperty`, set at stamp time).
     private func excludeScansFromBackup() {
         var url = rootURL
         var values = URLResourceValues()
@@ -718,6 +719,22 @@ final class ScanStore: ObservableObject {
     /// comes from the server's own word instead (`adoptStamps`).
     func setOrderNumber(_ record: ScanRecord, orderNumber: String) {
         update(record) { $0.cloudOrderNumber = orderNumber }
+        bindProperty(of: record, to: orderNumber)
+    }
+
+    /// Q1 (2.79): the scan folders (and so every stamp, in meta.json) are out of the iCloud backup,
+    /// projects.json is not — a phone restored from a backup has the properties but none of their
+    /// stamped scans, and its next scan of an ordered house would offer "Order" = a second paid
+    /// order (owner 11/08: one house, one order). So the property is bound at stamp time too
+    /// (`ScanProject.orderNumber`, as "Add a scan" / L6 bind it), only when unbound. A stamped scan
+    /// still wins in `orderNumber(ofProject:)`; the binding is cleared like any binding
+    /// (`releaseBinding`: the order cancelled unpaid or refunded).
+    private func bindProperty(of record: ScanRecord, to orderNumber: String) {
+        guard let projectId = records.first(where: { $0.id == record.id })?.projectId ?? record.projectId,
+              let index = projects.firstIndex(where: { $0.id == projectId }),
+              projects[index].orderNumber == nil else { return }
+        projects[index].orderNumber = orderNumber
+        persistProjects()
     }
 
     /// Số đơn mà DỰ ÁN này đã đặt — `nil` = chưa có đơn nào ⇒ đường ĐẶT HÀNG bình thường.
@@ -878,6 +895,7 @@ final class ScanStore: ObservableObject {
         }
         for record in targets {
             update(record) { $0.cloudOrderNumber = orderNumber }
+            bindProperty(of: record, to: orderNumber)
         }
     }
 

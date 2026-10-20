@@ -80,9 +80,11 @@ final class BackgroundUploads: NSObject {
     /// none is recreated: `createdInBackground` / `replacing` are emptied FIRST, else
     /// `didBecomeActive` or a swap's completion would start them again (trap #50); every waiting
     /// flow ends now with `CancellationError` (not retried by `ScanUploader`) and `launched` is
-    /// emptied, so no wait can adopt an old task back. The journal stays (account deletion calls
-    /// this before its request: a refused deletion keeps the resume). The returned task ends once
-    /// `cancel()` reached every transfer — the deletion waits for it.
+    /// emptied. (A wait registered in the instant before the async `cancel()` lands could still
+    /// adopt a running task — it then ends with that task's cancel error; no UI can start one
+    /// then: sign-out and deletion sit behind the Account tab / their sheet.) The journal stays
+    /// (account deletion calls this before its request: a refused deletion keeps the resume). The
+    /// returned task ends once `cancel()` reached every transfer — the deletion waits for it.
     @discardableResult
     func cancelTransfers() -> Task<Void, Never> {
         lock.lock()
