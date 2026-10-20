@@ -113,8 +113,9 @@ struct TeamView: View {
             } header: {
                 Text(String(localized: "Team card"))
             } footer: {
-                // ✗ while the server would not charge it (card keys / in-app switch).
-                if answer.cardsAvailable == true {
+                // ✗ while the server would not charge it (card keys / in-app switch), or while the
+                // company's account pays first (F10c `billing.mode` "wallet" / "invoice").
+                if answer.cardsAvailable == true, (answer.billing?.mode ?? "card") == "card" {
                     WrappedText(String(localized: "Your orders are paid with this card."), style: .footnote, color: .secondaryLabel)
                 }
             }

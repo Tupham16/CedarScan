@@ -61,6 +61,14 @@ struct TeamResponse: Decodable {
     /// The team card pays this account's orders now (card keys + the in-app switch). `GET me`'s
     /// `team.card` is already nil otherwise; here the card is listed either way.
     let cardsAvailable: Bool?
+    /// F10c (later server): who pays first. nil = a server without it (the card does).
+    let billing: TeamBillingDTO?
+}
+
+struct TeamBillingDTO: Decodable {
+    /// "card" | "wallet" | "invoice": with the company's cedar247.com account (wallet / invoice) the
+    /// team card is only the fallback.
+    let mode: String?
 }
 
 struct TeamMemberDTO: Decodable, Identifiable {
