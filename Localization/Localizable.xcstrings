@@ -1382,7 +1382,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Añadir mi logotipo"
+            "value": "Añadir mi logo"
           }
         },
         "fr": {
@@ -1429,7 +1429,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Añadir mi logotipo a cada plano"
+            "value": "Añadir mi logo a cada plano"
           }
         },
         "fr": {
@@ -1617,7 +1617,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Añadir tu logotipo"
+            "value": "Añadir tu logo"
           }
         },
         "fr": {
@@ -3691,7 +3691,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Cambiar logotipo"
+            "value": "Cambiar logo"
           }
         },
         "fr": {
@@ -14454,7 +14454,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Quitar logotipo"
+            "value": "Quitar logo"
           }
         },
         "fr": {
@@ -22632,7 +22632,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tu logotipo"
+            "value": "Tu logo"
           }
         },
         "fr": {

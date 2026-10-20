@@ -1394,7 +1394,15 @@ struct OrderSheet: View {
     private func resumeAfterGate() {
         let opener = gateAccountId
         gateAccountId = nil
-        guard let opener, account.customer?.id == opener, !account.needsVerification else { return }
+        guard let opener else { return }
+        // Signed out, or another account signed in, inside the gate: this form (catalog, free
+        // banner, logo choice) belongs to the account that opened it ⇒ close it. One tick later:
+        // closing the parent sheet from the child sheet's dismissal is the nested-sheet trap.
+        guard account.customer?.id == opener else {
+            Task { @MainActor in dismiss() }
+            return
+        }
+        guard !account.needsVerification else { return }
         // Verified: the "verify your email" line under the button is no longer true.
         errorMessage = nil
         guard placedOrder == nil, !isBusy, !uploadingFile, !selectedPackages.isEmpty,

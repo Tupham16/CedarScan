@@ -46,6 +46,8 @@ final class AccountStore: ObservableObject {
            !UserDefaults.standard.bool(forKey: Self.installedKey) {
             if UserDefaults.standard.data(forKey: Self.customerKey) == nil {
                 Keychain.delete(Self.tokenKey)
+                // Link may keep its session in the Keychain too: same reason as `signOut`.
+                PaymentSheet.resetCustomer()
             } else {
                 // The session kept across the update: a token saved before 2.31 still has the
                 // access class that moves with backups — moved once, in place, to today's
