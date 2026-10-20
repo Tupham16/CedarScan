@@ -9,6 +9,7 @@ struct TeamView: View {
 
     @State private var phase = Phase.loading
     @State private var answer: TeamResponse?
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     private static let manageURL = URL(string: "https://app.cedar247.com/my/team")!
 
@@ -68,6 +69,8 @@ struct TeamView: View {
             HStack(spacing: 12) {
                 Text(Self.initials(team.name))
                     .font(.subheadline.weight(.bold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.5)
                     .foregroundStyle(.white)
                     .frame(width: 44, height: 44)
                     .background(RoundedRectangle(cornerRadius: 11, style: .continuous).fill(Theme.accentFill))
@@ -80,41 +83,28 @@ struct TeamView: View {
         }
         Section {
             ForEach(answer.members ?? []) { member in
-                HStack(spacing: 12) {
-                    avatar { Text(Self.initials(member.name)) }
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text(member.name)
-                        if member.isYou == true {
-                            Text(String(localized: "You"))
-                                .font(.footnote)
-                                .foregroundStyle(Color.secondary)
-                        }
-                    }
-                    Spacer(minLength: 8)
-                    if member.role == "admin" {
-                        FogBadge(String(localized: "Admin"), .neutral)
-                    }
-                }
-                .accessibilityElement(children: .combine)
-                .listRowBackground(Theme.card)
+                personRow(
+                    avatar { Text(Self.initials(member.name)) },
+                    title: member.name,
+                    subtitle: member.isYou == true ? String(localized: "You") : nil,
+                    badge: member.role == "admin" ? FogBadge(String(localized: "Admin"), .neutral) : nil
+                )
             }
             // Admins only (the server sends none to members).
             ForEach(answer.invites ?? []) { invite in
-                HStack(spacing: 12) {
-                    avatar { Image(systemName: "envelope") }
-                    Text(verbatim: invite.email)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                    Spacer(minLength: 8)
-                    FogBadge(String(localized: "Invited"), .warn)
-                }
-                .accessibilityElement(children: .combine)
-                .listRowBackground(Theme.card)
+                personRow(
+                    avatar(.warn) { Image(systemName: "envelope") },
+                    title: invite.email,
+                    subtitle: nil,
+                    badge: FogBadge(String(localized: "Invited"), .warn)
+                )
             }
         } header: {
             Text(String(localized: "Members"))
         } footer: {
-            Text(String(localized: "Everyone on the team sees the team's orders and can order any scan the team uploaded."))
+            // WrappedText: a plain footer Text lost its last line in German at xxxLarge (trap #44).
+            WrappedText(String(localized: "Everyone on the team sees the team's orders and can order any scan the team uploaded."),
+                        style: .footnote, color: .secondaryLabel)
         }
         if let card = team.card {
             Section {
@@ -123,17 +113,50 @@ struct TeamView: View {
             } header: {
                 Text(String(localized: "Team card"))
             } footer: {
-                Text(String(localized: "Your orders are paid with this card."))
+                // ✗ while the server would not charge it (card keys / in-app switch).
+                if answer.cardsAvailable == true {
+                    WrappedText(String(localized: "Your orders are paid with this card."), style: .footnote, color: .secondaryLabel)
+                }
             }
         }
     }
 
-    private func avatar<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+    /// Avatar, name (+ "You"), badge. At accessibility sizes the badge goes under the name (as
+    /// `OrdersView.orderRow`): beside it an email was squeezed to "an…m".
+    private func personRow(_ avatar: some View, title: String, subtitle: String?, badge: FogBadge?) -> some View {
+        HStack(spacing: 12) {
+            avatar
+            VStack(alignment: .leading, spacing: 2) {
+                Text(verbatim: title)
+                    .lineLimit(typeSize.isAccessibilitySize ? nil : 1)
+                    .truncationMode(.middle)
+                if let subtitle {
+                    Text(subtitle)
+                        .font(.footnote)
+                        .foregroundStyle(Color.secondary)
+                }
+                if typeSize.isAccessibilitySize, let badge {
+                    badge
+                }
+            }
+            Spacer(minLength: 8)
+            if !typeSize.isAccessibilitySize, let badge {
+                badge
+            }
+        }
+        .accessibilityElement(children: .combine)
+        .listRowBackground(Theme.card)
+    }
+
+    /// `kind` nil = a person (grey), `.warn` = an open invitation (mockup f10b-2).
+    private func avatar<Content: View>(_ kind: Theme.Badge? = nil, @ViewBuilder _ content: () -> Content) -> some View {
         content()
             .font(.footnote.weight(.semibold))
-            .foregroundStyle(Theme.thumbLine)
+            .lineLimit(1)
+            .minimumScaleFactor(0.5)
+            .foregroundStyle(kind?.fg ?? Theme.thumbLine)
             .frame(width: 34, height: 34)
-            .background(Circle().fill(Theme.thumbBg))
+            .background(Circle().fill(kind?.bg ?? Theme.thumbBg))
             .accessibilityHidden(true)
     }
 

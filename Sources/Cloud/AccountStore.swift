@@ -130,6 +130,16 @@ final class AccountStore: ObservableObject {
         return verified
     }
 
+    /// F10b: the team only, for the order form's team-card line. Unlike `refresh()`, ✗ a sign-out on a
+    /// 401 in the middle of an order (the server answers 401 to a database blip too); an answer for
+    /// another account (signed out / switched meanwhile) is dropped.
+    func refreshTeam() async {
+        guard let asked = customer?.id, APIClient.shared.token != nil,
+              let me = try? await APIClient.shared.me(),
+              customer?.id == asked, me.customer.id == asked else { return }
+        team = me.team
+    }
+
     /// Every sign-out passes here (Account tab, verify screen, account deletion, a 401 in `refresh`).
     func signOut() {
         // Before the session goes (plan: unregister first); this phone stops getting its pushes.

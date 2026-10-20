@@ -32,6 +32,7 @@ struct TeamSummaryDTO: Decodable, Equatable {
     let name: String
     /// "admin" | "member" (`GET me` only).
     let role: String?
+    let memberCount: Int?
     /// The card that pays the team's orders; nil = none.
     let card: TeamCardDTO?
 
@@ -57,6 +58,9 @@ struct TeamResponse: Decodable {
     let team: TeamSummaryDTO?
     let members: [TeamMemberDTO]?
     let invites: [TeamInviteDTO]?
+    /// The team card pays this account's orders now (card keys + the in-app switch). `GET me`'s
+    /// `team.card` is already nil otherwise; here the card is listed either way.
+    let cardsAvailable: Bool?
 }
 
 struct TeamMemberDTO: Decodable, Identifiable {
@@ -753,6 +757,8 @@ final class APIClient {
             return String(localized: "Your team membership just changed. Please try again.")
         case "A teammate's scan can't be added to your personal order.":
             return String(localized: "A teammate's scan can't be added to your personal order.")
+        case "Your team could not be found. Please try again.":
+            return String(localized: "Your team could not be found. Please try again.")
         default:
             break
         }

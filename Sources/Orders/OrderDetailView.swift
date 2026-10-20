@@ -630,8 +630,14 @@ struct OrderDetailView: View {
     }
 
     private func extraLine(_ extra: OrderDTO) -> some View {
-        HStack(spacing: 5) {
-            summaryParts(extra, dots: true)
+        // F10b: stacked when "· Team card" makes one line too long, as `summaryLine`.
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 5) {
+                summaryParts(extra, dots: true)
+            }
+            VStack(alignment: .leading, spacing: 4) {
+                summaryParts(extra, dots: false)
+            }
         }
         .font(.footnote)
         .foregroundStyle(.secondary)

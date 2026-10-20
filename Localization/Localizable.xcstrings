@@ -8626,13 +8626,13 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Invitación enviada"
+            "value": "Pendiente"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Invitation envoyée"
+            "value": "En attente"
           }
         },
         "nl": {
@@ -13179,7 +13179,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Bezahlt mit der Karte Ihres Teams (%@)"
+            "value": "Zahlung mit der Karte Ihres Teams (%@)"
           }
         },
         "es": {
@@ -13191,13 +13191,13 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Payée avec la carte de votre équipe (%@)"
+            "value": "Paiement avec la carte de votre équipe (%@)"
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Betaald met de kaart van je team (%@)"
+            "value": "Betaling met de kaart van je team (%@)"
           }
         },
         "sk": {
@@ -23695,6 +23695,53 @@
         }
       }
     },
+    "Your team could not be found. Please try again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Váš tým se nepodařilo najít. Zkuste to prosím znovu."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ihr Team wurde nicht gefunden. Bitte versuchen Sie es erneut."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se encontró tu equipo. Inténtalo de nuevo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre équipe est introuvable. Veuillez réessayer."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Je team kon niet worden gevonden. Probeer het opnieuw."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Váš tím sa nepodarilo nájsť. Skúste to, prosím, znova."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Không tìm thấy nhóm của bạn. Vui lòng thử lại."
+          }
+        }
+      }
+    },
     "Your team membership just changed. Please try again.": {
       "extractionState": "manual",
       "localizations": {
@@ -23748,7 +23795,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "od %@"
+            "value": "objednal(a) %@"
           }
         },
         "de": {
@@ -23778,7 +23825,7 @@
         "sk": {
           "stringUnit": {
             "state": "translated",
-            "value": "od %@"
+            "value": "objednal(a) %@"
           }
         },
         "vi": {

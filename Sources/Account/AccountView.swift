@@ -362,8 +362,9 @@ struct DeleteAccountView: View {
                             // "Deleting your account" says the same).
                             Text(String(localized: "An order still awaiting payment is cancelled first, where possible."))
                             // F10: the server keeps the files of a team's orders while the team goes
-                            // on (`account/delete/route.ts`, Privacy "Deleting your account").
-                            if account.team != nil {
+                            // on (`account/delete/route.ts`, Privacy "Deleting your account"); a sole
+                            // member's team ends with the account.
+                            if (account.team?.memberCount ?? 0) > 1 {
                                 Text(String(localized: "Scans and photos in your team's orders stay with the team."))
                             }
                         }

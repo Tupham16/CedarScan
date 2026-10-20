@@ -5969,11 +5969,11 @@
    "key": "Invited",
    "translations": {
     "vi": "Đã mời",
-    "fr": "Invitation envoyée",
+    "fr": "En attente",
     "de": "Eingeladen",
     "cs": "Pozvánka",
     "sk": "Pozvánka",
-    "es": "Invitación enviada",
+    "es": "Pendiente",
     "nl": "Uitgenodigd"
    }
   },
@@ -6055,8 +6055,8 @@
     "vi": "do %@ đặt",
     "fr": "par %@",
     "de": "von %@",
-    "cs": "od %@",
-    "sk": "od %@",
+    "cs": "objednal(a) %@",
+    "sk": "objednal(a) %@",
     "es": "por %@",
     "nl": "door %@"
    }
@@ -6077,12 +6077,12 @@
    "key": "Paid with your team card (%@)",
    "translations": {
     "vi": "Trả bằng thẻ của nhóm (%@)",
-    "fr": "Payée avec la carte de votre équipe (%@)",
-    "de": "Bezahlt mit der Karte Ihres Teams (%@)",
+    "fr": "Paiement avec la carte de votre équipe (%@)",
+    "de": "Zahlung mit der Karte Ihres Teams (%@)",
     "cs": "Platí se kartou vašeho týmu (%@)",
     "sk": "Platí sa kartou vášho tímu (%@)",
     "es": "Se paga con la tarjeta de tu equipo (%@)",
-    "nl": "Betaald met de kaart van je team (%@)"
+    "nl": "Betaling met de kaart van je team (%@)"
    }
   },
   {
@@ -6143,6 +6143,18 @@
     "sk": "Skeny a fotky v objednávkach vášho tímu zostávajú tímu.",
     "es": "Los escaneos y las fotos de los pedidos de tu equipo se quedan con el equipo.",
     "nl": "Scans en foto's in de bestellingen van je team blijven bij het team."
+   }
+  },
+  {
+   "key": "Your team could not be found. Please try again.",
+   "translations": {
+    "vi": "Không tìm thấy nhóm của bạn. Vui lòng thử lại.",
+    "fr": "Votre équipe est introuvable. Veuillez réessayer.",
+    "de": "Ihr Team wurde nicht gefunden. Bitte versuchen Sie es erneut.",
+    "cs": "Váš tým se nepodařilo najít. Zkuste to prosím znovu.",
+    "sk": "Váš tím sa nepodarilo nájsť. Skúste to, prosím, znova.",
+    "es": "No se encontró tu equipo. Inténtalo de nuevo.",
+    "nl": "Je team kon niet worden gevonden. Probeer het opnieuw."
    }
   }
  ],
