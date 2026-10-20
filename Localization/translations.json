@@ -5184,6 +5184,294 @@
     "es": "Esta propiedad ya tiene el pedido %@ — añade este escaneo con \"Enviar escaneo adicional\". No tiene costo adicional.",
     "nl": "Deze woning heeft al bestelling %@ — voeg deze scan toe met \"Extra scan versturen\". Dat kost niets extra."
    }
+  },
+  {
+   "key": "Invite a friend",
+   "translations": {
+    "vi": "Mời bạn bè",
+    "fr": "Inviter un ami",
+    "de": "Freunde einladen",
+    "cs": "Pozvat přítele",
+    "sk": "Pozvať priateľa",
+    "es": "Invitar a un amigo",
+    "nl": "Vriend uitnodigen"
+   }
+  },
+  {
+   "key": "Invite a friend isn't available right now.",
+   "translations": {
+    "vi": "Hiện chưa dùng được tính năng mời bạn bè.",
+    "fr": "L'invitation d'amis n'est pas disponible pour le moment.",
+    "de": "Freunde einladen ist gerade nicht verfügbar.",
+    "cs": "Pozvání přátel teď není k dispozici.",
+    "sk": "Pozvanie priateľov teraz nie je k dispozícii.",
+    "es": "Invitar a amigos no está disponible ahora mismo.",
+    "nl": "Vrienden uitnodigen is nu niet beschikbaar."
+   }
+  },
+  {
+   "key": "Get a free floor plan",
+   "translations": {
+    "vi": "Nhận một bản vẽ mặt bằng miễn phí",
+    "fr": "Obtenez un plan gratuit",
+    "de": "Holen Sie sich einen kostenlosen Grundriss",
+    "cs": "Získejte půdorys zdarma",
+    "sk": "Získajte pôdorys zadarmo",
+    "es": "Consigue un plano de planta gratis",
+    "nl": "Krijg een gratis plattegrond"
+   }
+  },
+  {
+   "key": "Your friend gets %lld free orders, like every new customer. When their first order is delivered, you get a free 2D floor plan.",
+   "translations": {
+    "vi": "Bạn của bạn được %lld đơn miễn phí như mọi khách mới. Khi đơn đầu tiên của họ được giao, bạn nhận một bản vẽ mặt bằng 2D miễn phí.",
+    "fr": "Votre ami reçoit %lld commandes gratuites, comme tout nouveau client. Une fois sa première commande livrée, vous recevez un plan 2D gratuit.",
+    "de": "Ihr Freund erhält %lld Gratis-Bestellungen, wie jeder Neukunde. Sobald die erste davon geliefert ist, erhalten Sie einen kostenlosen 2D-Grundriss.",
+    "cs": "Váš přítel dostane první objednávky zdarma (celkem %lld) jako každý nový zákazník. Jakmile bude doručena první z nich, dostanete 2D půdorys zdarma.",
+    "sk": "Váš priateľ dostane prvé objednávky zadarmo (počet: %lld) ako každý nový zákazník. Keď doručíme prvú z nich, dostanete 2D pôdorys zadarmo.",
+    "es": "Tu amigo recibe %lld pedidos gratis, como todo cliente nuevo. Cuando se entregue su primer pedido, recibes un plano de planta 2D gratis.",
+    "nl": "Je vriend krijgt %lld gratis bestellingen, net als elke nieuwe klant. Zodra de eerste daarvan is geleverd, krijg jij een gratis 2D-plattegrond."
+   }
+  },
+  {
+   "key": "When a friend you invite gets their first order delivered, you get a free 2D floor plan.",
+   "translations": {
+    "vi": "Khi bạn bè bạn mời được giao đơn đầu tiên, bạn nhận một bản vẽ mặt bằng 2D miễn phí.",
+    "fr": "Quand un ami que vous invitez reçoit sa première commande, vous recevez un plan 2D gratuit.",
+    "de": "Wenn ein Freund, den Sie einladen, seine erste Bestellung geliefert bekommt, erhalten Sie einen kostenlosen 2D-Grundriss.",
+    "cs": "Když přítel, kterého pozvete, dostane doručenou první objednávku, získáte 2D půdorys zdarma.",
+    "sk": "Keď priateľ, ktorého pozvete, dostane doručenú prvú objednávku, získate 2D pôdorys zadarmo.",
+    "es": "Cuando un amigo al que invites reciba su primer pedido, recibes un plano de planta 2D gratis.",
+    "nl": "Als een vriend die je uitnodigt de eerste bestelling geleverd krijgt, krijg jij een gratis 2D-plattegrond."
+   }
+  },
+  {
+   "key": "Invite code copied",
+   "translations": {
+    "vi": "Đã chép mã mời",
+    "fr": "Code d'invitation copié",
+    "de": "Einladungscode kopiert",
+    "cs": "Kód pozvánky zkopírován",
+    "sk": "Kód pozvánky skopírovaný",
+    "es": "Código de invitación copiado",
+    "nl": "Uitnodigingscode gekopieerd"
+   }
+  },
+  {
+   "key": "Tap the code to copy it",
+   "translations": {
+    "vi": "Chạm vào mã để chép",
+    "fr": "Touchez le code pour le copier",
+    "de": "Tippen Sie auf den Code, um ihn zu kopieren",
+    "cs": "Klepnutím kód zkopírujete",
+    "sk": "Ťuknutím kód skopírujete",
+    "es": "Toca el código para copiarlo",
+    "nl": "Tik op de code om hem te kopiëren"
+   }
+  },
+  {
+   "key": "Share invite",
+   "translations": {
+    "vi": "Gửi lời mời",
+    "fr": "Partager l'invitation",
+    "de": "Einladung teilen",
+    "cs": "Sdílet pozvánku",
+    "sk": "Zdieľať pozvánku",
+    "es": "Compartir invitación",
+    "nl": "Uitnodiging delen"
+   }
+  },
+  {
+   "key": "1 free 2D floor plan ready — it is used on your next order.",
+   "translations": {
+    "vi": "Có sẵn 1 bản vẽ mặt bằng 2D miễn phí — tự dùng cho đơn tiếp theo của bạn.",
+    "fr": "1 plan 2D gratuit disponible — il sera utilisé pour votre prochaine commande.",
+    "de": "1 kostenloser 2D-Grundriss bereit — er wird für Ihre nächste Bestellung verwendet.",
+    "cs": "Máte připravený jeden 2D půdorys zdarma — použije se u vaší příští objednávky.",
+    "sk": "Máte pripravený jeden 2D pôdorys zadarmo — použije sa pri vašej ďalšej objednávke.",
+    "es": "1 plano de planta 2D gratis listo — se usa en tu próximo pedido.",
+    "nl": "1 gratis 2D-plattegrond klaar — die wordt gebruikt voor je volgende bestelling."
+   }
+  },
+  {
+   "key": "%lld free 2D floor plans ready — one is used on each of your next orders.",
+   "translations": {
+    "vi": "Có sẵn %lld bản vẽ mặt bằng 2D miễn phí — mỗi đơn tiếp theo tự dùng một bản.",
+    "fr": "%lld plans 2D gratuits disponibles — un est utilisé pour chacune de vos prochaines commandes.",
+    "de": "%lld kostenlose 2D-Grundrisse bereit — je einer wird für Ihre nächsten Bestellungen verwendet.",
+    "cs": "Připravené 2D půdorysy zdarma: %lld — u každé z vašich dalších objednávek se použije jeden.",
+    "sk": "Pripravené 2D pôdorysy zadarmo: %lld — pri každej z vašich ďalších objednávok sa použije jeden.",
+    "es": "%lld planos de planta 2D gratis listos — se usa uno en cada uno de tus próximos pedidos.",
+    "nl": "%lld gratis 2D-plattegronden klaar — er wordt er één gebruikt per volgende bestelling."
+   }
+  },
+  {
+   "key": "Your friend enters the code when they create their account. Free floor plans have no cash value.",
+   "translations": {
+    "vi": "Bạn của bạn nhập mã lúc tạo tài khoản. Bản vẽ miễn phí không quy đổi thành tiền.",
+    "fr": "Votre ami saisit le code lors de la création de son compte. Les plans gratuits n'ont aucune valeur monétaire.",
+    "de": "Ihr Freund gibt den Code beim Erstellen seines Kontos ein. Kostenlose Grundrisse haben keinen Geldwert.",
+    "cs": "Přítel zadá kód při vytváření účtu. Půdorysy zdarma nemají peněžní hodnotu.",
+    "sk": "Priateľ zadá kód pri vytváraní účtu. Pôdorysy zadarmo nemajú peňažnú hodnotu.",
+    "es": "Tu amigo introduce el código al crear su cuenta. Los planos gratis no tienen valor en efectivo.",
+    "nl": "Je vriend vult de code in bij het aanmaken van een account. Gratis plattegronden hebben geen geldwaarde."
+   }
+  },
+  {
+   "key": "I use CedarScan to get floor plans from a quick iPhone scan. Get it on the App Store and sign up with my invite code %@: new customers get their first %lld orders free.",
+   "translations": {
+    "vi": "Mình dùng CedarScan để có bản vẽ mặt bằng chỉ từ một lần quét nhanh bằng iPhone. Tải app trên App Store và đăng ký bằng mã mời %@ của mình: khách mới được %lld đơn đầu miễn phí.",
+    "fr": "J'utilise CedarScan pour obtenir des plans à partir d'une numérisation rapide avec un iPhone. Téléchargez-la sur l'App Store et inscrivez-vous avec mon code d'invitation %@ : les nouveaux clients ont leurs %lld premières commandes gratuites.",
+    "de": "Ich nutze CedarScan, um aus einem kurzen iPhone-Scan Grundrisse zu bekommen. Hol dir die App im App Store und registriere dich mit meinem Einladungscode %@: Neukunden erhalten ihre ersten %lld Bestellungen gratis.",
+    "cs": "Používám CedarScan — z rychlého skenu iPhonem dostanu půdorysy. Stáhni si ji v App Store a zaregistruj se s mým kódem pozvánky %@: noví zákazníci mají první objednávky zdarma (celkem %lld).",
+    "sk": "Používam CedarScan — z rýchleho skenu iPhonom dostanem pôdorysy. Stiahni si ju v App Store a zaregistruj sa s mojím kódom pozvánky %@: noví zákazníci majú prvé objednávky zadarmo (počet: %lld).",
+    "es": "Uso CedarScan para conseguir planos de planta con un escaneo rápido del iPhone. Descárgala en la App Store y regístrate con mi código de invitación %@: los clientes nuevos reciben sus primeros %lld pedidos gratis.",
+    "nl": "Ik gebruik CedarScan om plattegronden te krijgen van een snelle iPhone-scan. Download de app in de App Store en meld je aan met mijn uitnodigingscode %@: nieuwe klanten krijgen hun eerste %lld bestellingen gratis."
+   }
+  },
+  {
+   "key": "I use CedarScan to get floor plans from a quick iPhone scan. Get it on the App Store and sign up with my invite code %@.",
+   "translations": {
+    "vi": "Mình dùng CedarScan để có bản vẽ mặt bằng chỉ từ một lần quét nhanh bằng iPhone. Tải app trên App Store và đăng ký bằng mã mời %@ của mình.",
+    "fr": "J'utilise CedarScan pour obtenir des plans à partir d'une numérisation rapide avec un iPhone. Téléchargez-la sur l'App Store et inscrivez-vous avec mon code d'invitation %@.",
+    "de": "Ich nutze CedarScan, um aus einem kurzen iPhone-Scan Grundrisse zu bekommen. Hol dir die App im App Store und registriere dich mit meinem Einladungscode %@.",
+    "cs": "Používám CedarScan — z rychlého skenu iPhonem dostanu půdorysy. Stáhni si ji v App Store a zaregistruj se s mým kódem pozvánky %@.",
+    "sk": "Používam CedarScan — z rýchleho skenu iPhonom dostanem pôdorysy. Stiahni si ju v App Store a zaregistruj sa s mojím kódom pozvánky %@.",
+    "es": "Uso CedarScan para conseguir planos de planta con un escaneo rápido del iPhone. Descárgala en la App Store y regístrate con mi código de invitación %@.",
+    "nl": "Ik gebruik CedarScan om plattegronden te krijgen van een snelle iPhone-scan. Download de app in de App Store en meld je aan met mijn uitnodigingscode %@."
+   }
+  },
+  {
+   "key": "Invite code",
+   "translations": {
+    "vi": "Mã mời",
+    "fr": "Code d'invitation",
+    "de": "Einladungscode",
+    "cs": "Kód pozvánky",
+    "sk": "Kód pozvánky",
+    "es": "Código de invitación",
+    "nl": "Uitnodigingscode"
+   }
+  },
+  {
+   "key": "Friends joined",
+   "translations": {
+    "vi": "Bạn đã tham gia",
+    "fr": "Amis inscrits",
+    "de": "Freunde beigetreten",
+    "cs": "Přátelé, kteří se přidali",
+    "sk": "Priatelia, ktorí sa pridali",
+    "es": "Amigos registrados",
+    "nl": "Vrienden aangemeld"
+   }
+  },
+  {
+   "key": "Free floor plans earned",
+   "translations": {
+    "vi": "Bản vẽ miễn phí đã nhận",
+    "fr": "Plans gratuits obtenus",
+    "de": "Gratis-Grundrisse erhalten",
+    "cs": "Získané půdorysy zdarma",
+    "sk": "Získané pôdorysy zadarmo",
+    "es": "Planos gratis conseguidos",
+    "nl": "Gratis plattegronden verdiend"
+   }
+  },
+  {
+   "key": "Invite code (optional) — it can only be added now.",
+   "translations": {
+    "vi": "Mã mời (không bắt buộc) — chỉ nhập được lúc này.",
+    "fr": "Code d'invitation (facultatif) — il ne peut être ajouté que maintenant.",
+    "de": "Einladungscode (optional) — er kann nur jetzt eingegeben werden.",
+    "cs": "Kód pozvánky (nepovinné) — lze ho zadat jen teď.",
+    "sk": "Kód pozvánky (nepovinné) — dá sa zadať len teraz.",
+    "es": "Código de invitación (opcional) — solo se puede añadir ahora.",
+    "nl": "Uitnodigingscode (optioneel) — die kun je alleen nu invullen."
+   }
+  },
+  {
+   "key": "This invite code isn't valid. Check it, or leave the field empty.",
+   "translations": {
+    "vi": "Mã mời này không hợp lệ. Kiểm tra lại, hoặc để trống ô này.",
+    "fr": "Ce code d'invitation n'est pas valide. Vérifiez-le ou laissez le champ vide.",
+    "de": "Dieser Einladungscode ist ungültig. Prüfen Sie ihn oder lassen Sie das Feld leer.",
+    "cs": "Tento kód pozvánky není platný. Zkontrolujte ho, nebo pole nechte prázdné.",
+    "sk": "Tento kód pozvánky nie je platný. Skontrolujte ho alebo nechajte pole prázdne.",
+    "es": "Este código de invitación no es válido. Revísalo o deja el campo vacío.",
+    "nl": "Deze uitnodigingscode is niet geldig. Controleer hem of laat het veld leeg."
+   }
+  },
+  {
+   "key": "This invite code can't be used here: invite codes are only for new customers on an iPhone that hasn't used free orders yet. Leave the field empty to create your account.",
+   "translations": {
+    "vi": "Không dùng được mã mời này: mã mời chỉ dành cho khách mới, trên iPhone chưa từng dùng đơn miễn phí. Để trống ô này để tạo tài khoản.",
+    "fr": "Ce code d'invitation ne peut pas être utilisé ici : les codes d'invitation sont réservés aux nouveaux clients, sur un iPhone qui n'a pas encore bénéficié de commandes gratuites. Laissez le champ vide pour créer votre compte.",
+    "de": "Dieser Einladungscode kann hier nicht verwendet werden: Einladungscodes gelten nur für Neukunden auf einem iPhone, das noch keine Gratis-Bestellungen genutzt hat. Lassen Sie das Feld leer, um Ihr Konto zu erstellen.",
+    "cs": "Tento kód pozvánky zde nelze použít: kódy pozvánek jsou jen pro nové zákazníky na iPhonu, který ještě nevyužil objednávky zdarma. Pro vytvoření účtu nechte pole prázdné.",
+    "sk": "Tento kód pozvánky tu nemožno použiť: kódy pozvánok sú len pre nových zákazníkov na iPhone, ktorý ešte nevyužil objednávky zadarmo. Na vytvorenie účtu nechajte pole prázdne.",
+    "es": "Este código de invitación no se puede usar aquí: los códigos de invitación son solo para clientes nuevos en un iPhone que aún no haya usado pedidos gratis. Deja el campo vacío para crear tu cuenta.",
+    "nl": "Deze uitnodigingscode kan hier niet worden gebruikt: uitnodigingscodes zijn alleen voor nieuwe klanten op een iPhone die nog geen gratis bestellingen heeft gebruikt. Laat het veld leeg om je account aan te maken."
+   }
+  },
+  {
+   "key": "Invite codes can't be used at the moment. Leave the field empty to create your account.",
+   "translations": {
+    "vi": "Hiện không dùng được mã mời. Để trống ô này để tạo tài khoản.",
+    "fr": "Les codes d'invitation ne peuvent pas être utilisés pour le moment. Laissez le champ vide pour créer votre compte.",
+    "de": "Einladungscodes können im Moment nicht verwendet werden. Lassen Sie das Feld leer, um Ihr Konto zu erstellen.",
+    "cs": "Kódy pozvánek teď nelze použít. Pro vytvoření účtu nechte pole prázdné.",
+    "sk": "Kódy pozvánok teraz nemožno použiť. Na vytvorenie účtu nechajte pole prázdne.",
+    "es": "Ahora mismo no se pueden usar códigos de invitación. Deja el campo vacío para crear tu cuenta.",
+    "nl": "Uitnodigingscodes kunnen op dit moment niet worden gebruikt. Laat het veld leeg om je account aan te maken."
+   }
+  },
+  {
+   "key": "Your 2D floor plan is free — a thank-you for inviting a friend.",
+   "translations": {
+    "vi": "Bản vẽ mặt bằng 2D của đơn này miễn phí — quà cảm ơn vì bạn đã mời bạn bè.",
+    "fr": "Votre plan 2D est gratuit — un merci pour avoir invité un ami.",
+    "de": "Ihr 2D-Grundriss ist kostenlos — ein Dankeschön dafür, dass Sie einen Freund eingeladen haben.",
+    "cs": "Váš 2D půdorys je zdarma — poděkování za pozvání přítele.",
+    "sk": "Váš 2D pôdorys je zadarmo — poďakovanie za pozvanie priateľa.",
+    "es": "Tu plano de planta 2D es gratis — un agradecimiento por invitar a un amigo.",
+    "nl": "Je 2D-plattegrond is gratis — een bedankje voor het uitnodigen van een vriend."
+   }
+  },
+  {
+   "key": "Free",
+   "translations": {
+    "vi": "Miễn phí",
+    "fr": "Gratuit",
+    "de": "Gratis",
+    "cs": "Zdarma",
+    "sk": "Zadarmo",
+    "es": "Gratis",
+    "nl": "Gratis"
+   }
+  },
+  {
+   "key": "You have a free %@ from inviting a friend: select it to use it.",
+   "translations": {
+    "vi": "Bạn có một %@ miễn phí nhờ mời bạn bè: chọn gói đó để dùng.",
+    "fr": "Vous avez un %@ gratuit grâce à une invitation : sélectionnez-le pour l'utiliser.",
+    "de": "Sie haben einen kostenlosen %@, weil Sie einen Freund eingeladen haben: Wählen Sie ihn aus, um ihn zu nutzen.",
+    "cs": "Za pozvání přítele máte %@ zdarma: vyberte ho, abyste ho využili.",
+    "sk": "Za pozvanie priateľa máte %@ zadarmo: vyberte ho, aby ste ho využili.",
+    "es": "Tienes un %@ gratis por invitar a un amigo: selecciónalo para usarlo.",
+    "nl": "Je hebt een gratis %@ doordat je een vriend hebt uitgenodigd: selecteer die om hem te gebruiken."
+   }
+  },
+  {
+   "key": "Your free 2D order from inviting a friend was just used. Please review the price and tap Place order again.",
+   "translations": {
+    "vi": "Bản vẽ 2D miễn phí nhờ mời bạn bè vừa được dùng. Vui lòng xem lại giá rồi bấm Đặt hàng lại.",
+    "fr": "Votre commande 2D gratuite obtenue grâce à une invitation vient d'être utilisée. Vérifiez le prix, puis touchez de nouveau Passer la commande.",
+    "de": "Ihre kostenlose 2D-Bestellung aus einer Einladung wurde gerade verwendet. Bitte prüfen Sie den Preis und tippen Sie erneut auf \"Bestellung aufgeben\".",
+    "cs": "Vaše objednávka 2D zdarma za pozvání přítele byla právě použita. Zkontrolujte prosím cenu a klepněte znovu na Odeslat objednávku.",
+    "sk": "Vaša objednávka 2D zadarmo za pozvanie priateľa bola práve použitá. Skontrolujte, prosím, cenu a znova ťuknite na Odoslať objednávku.",
+    "es": "Tu pedido 2D gratis por invitar a un amigo se acaba de usar. Revisa el precio y toca Realizar pedido de nuevo.",
+    "nl": "Je gratis 2D-bestelling van een uitnodiging is net gebruikt. Controleer de prijs en tik opnieuw op Bestelling plaatsen."
+   }
   }
  ],
  "infoplist": {

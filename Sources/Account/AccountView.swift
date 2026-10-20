@@ -58,6 +58,21 @@ struct AccountView: View {
                                     .listRowBackground(Theme.card)
                             }
                         }
+                        // F8 "Invite a friend" (mockup 86): its own Section, shown while the server
+                        // runs the programme (`GET me` → `referral`). F6 / F9 add rows of their own:
+                        // keep this one separate.
+                        if account.referralAvailable {
+                            Section {
+                                NavigationLink {
+                                    // Pushed in the Account tab: room for `CedarTabBar`, as `LegalLinks`.
+                                    InviteFriendView()
+                                        .safeAreaPadding(.bottom, CedarTabBar.reservedHeight)
+                                } label: {
+                                    Label(String(localized: "Invite a friend"), systemImage: "gift")
+                                }
+                                .listRowBackground(Theme.card)
+                            }
+                        }
                         Section {
                             Link(destination: URL(string: "https://cedar247.com")!) {
                                 Label("cedar247.com", systemImage: "globe")

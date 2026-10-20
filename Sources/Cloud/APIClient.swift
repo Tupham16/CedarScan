@@ -19,6 +19,8 @@ struct MeResponse: Decodable {
     let emailVerified: Bool?
     /// Account → "Payment methods" row. Absent on older servers = no row.
     let paymentMethods: Bool?
+    /// Account → "Invite a friend" row (F8). Absent (older server) or false (programme closed) = no row.
+    let referral: Bool?
 }
 
 struct OKResponse: Decodable {
@@ -70,6 +72,8 @@ struct OrderScanResponse: Decodable {
     /// until paid, or `"received"` = placed at once (free / 100% coupon). `payBy` = when an unpaid
     /// order cancels itself; nil when there is nothing to pay, and for test accounts (never expire).
     let payBy: String?
+    /// F8: the invite-a-friend credit paid this order's 2D package (`useReferralCredit` was sent).
+    let referralCreditUsed: Bool?
 }
 
 /// Kết quả "gửi bổ sung bản quét" (`POST orders/{id}/supplement-scan`).
@@ -150,6 +154,26 @@ struct CatalogResponse: Decodable {
     let freeOrdersRemaining: Int?
     let defaults: OrderDefaults?
     let scanQuality: ScanQualityConfig? // ngưỡng Accuracy Suite — server tinh chỉnh từ xa
+    /// F8: free 2D orders from inviting friends that this account can use now. Absent (older
+    /// server) = none. Never counted together with `freeOrdersRemaining`: an order free by the
+    /// allowance does not use one (server `scans/[id]/order`).
+    let referralCredits: Int?
+}
+
+/// `GET referral` — Account → "Invite a friend" (F8, server `lib/referrals.ts`). Counts only:
+/// the server never says who joined. `enabled: false` = programme closed (hide the row).
+/// Every field Optional: one the server drops must not fail the screen.
+struct ReferralResponse: Decodable {
+    let enabled: Bool?
+    /// "JOHN-7Q2" — made by the server on the first visit.
+    let code: String?
+    let friendsJoined: Int?
+    let freeOrdersEarned: Int?
+    let freeOrdersAvailable: Int?
+    /// What the share text promises the friend (the usual free first orders); 0 = say nothing.
+    let freeFirstOrders: Int?
+    /// App Store link to share with the text; nil until the owner sets it (server `referral-config`).
+    let shareUrl: String?
 }
 
 struct DeliveryFileDTO: Decodable, Hashable {
@@ -571,10 +595,14 @@ final class APIClient {
 
     // MARK: Auth
 
-    func register(email: String, password: String, name: String) async throws -> AuthResponse {
-        try await send("auth/register", method: "POST", json: [
+    /// `inviteCode` (F8, optional): a code the server cannot use refuses the sign-up with 400 and
+    /// `code` `invite_invalid` / `invite_not_eligible` / `invite_closed` — nothing is created.
+    func register(email: String, password: String, name: String, inviteCode: String = "") async throws -> AuthResponse {
+        var body: [String: Any] = [
             "email": email, "password": password, "name": name, "deviceId": DeviceID.current,
-        ])
+        ]
+        if !inviteCode.isEmpty { body["inviteCode"] = inviteCode }
+        return try await send("auth/register", method: "POST", json: body)
     }
 
     func login(email: String, password: String) async throws -> AuthResponse {
@@ -583,6 +611,11 @@ final class APIClient {
 
     func me() async throws -> MeResponse {
         try await send("me")
+    }
+
+    /// F8 "Invite a friend": the account's code (made on the first call) and its counts.
+    func referral() async throws -> ReferralResponse {
+        try await send("referral")
     }
 
     struct OkResponse: Decodable {
@@ -708,7 +741,8 @@ final class APIClient {
         language: String,
         floorNaming: String,
         projectName: String,
-        coupon: String
+        coupon: String,
+        useReferralCredit: Bool = false
     ) async throws -> OrderScanResponse {
         try await send("scans/\(scanId)/order", method: "POST", json: [
             "packageIds": packageIds, // đa gói (server cũng nhận `packageId` đơn, nhưng app mới gửi mảng)
@@ -728,6 +762,10 @@ final class APIClient {
             // cancelled by itself after 7 days) instead of being worked on before payment.
             // 🔴 ALWAYS sent: the Cancel button, the placed screen and the stamp release all assume it.
             "payFirst": true,
+            // F8: the form showed the invite-a-friend credit on the 2D package (`OrderSheet`). The
+            // server uses one only with this flag, and answers 409 `credit_gone` when none is left
+            // (nothing placed) — so the price paid is always the one the form showed.
+            "useReferralCredit": useReferralCredit,
         ], timeout: 60)
     }
 

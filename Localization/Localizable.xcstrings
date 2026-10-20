@@ -95,6 +95,53 @@
         }
       }
     },
+    "%lld free 2D floor plans ready — one is used on each of your next orders.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Připravené 2D půdorysy zdarma: %lld — u každé z vašich dalších objednávek se použije jeden."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld kostenlose 2D-Grundrisse bereit — je einer wird für Ihre nächsten Bestellungen verwendet."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld planos de planta 2D gratis listos — se usa uno en cada uno de tus próximos pedidos."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld plans 2D gratuits disponibles — un est utilisé pour chacune de vos prochaines commandes."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld gratis 2D-plattegronden klaar — er wordt er één gebruikt per volgende bestelling."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pripravené 2D pôdorysy zadarmo: %lld — pri každej z vašich ďalších objednávok sa použije jeden."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Có sẵn %lld bản vẽ mặt bằng 2D miễn phí — mỗi đơn tiếp theo tự dùng một bản."
+          }
+        }
+      }
+    },
     "%lld new": {
       "extractionState": "manual",
       "localizations": {
@@ -420,6 +467,53 @@
           "stringUnit": {
             "state": "translated",
             "value": "1 tin nhắn cũ hơn"
+          }
+        }
+      }
+    },
+    "1 free 2D floor plan ready — it is used on your next order.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Máte připravený jeden 2D půdorys zdarma — použije se u vaší příští objednávky."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 kostenloser 2D-Grundriss bereit — er wird für Ihre nächste Bestellung verwendet."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 plano de planta 2D gratis listo — se usa en tu próximo pedido."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 plan 2D gratuit disponible — il sera utilisé pour votre prochaine commande."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 gratis 2D-plattegrond klaar — die wordt gebruikt voor je volgende bestelling."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Máte pripravený jeden 2D pôdorys zadarmo — použije sa pri vašej ďalšej objednávke."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Có sẵn 1 bản vẽ mặt bằng 2D miễn phí — tự dùng cho đơn tiếp theo của bạn."
           }
         }
       }
@@ -6211,6 +6305,100 @@
         }
       }
     },
+    "Free": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zdarma"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gratis"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gratis"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gratuit"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gratis"
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zadarmo"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Miễn phí"
+          }
+        }
+      }
+    },
+    "Free floor plans earned": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Získané půdorysy zdarma"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gratis-Grundrisse erhalten"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Planos gratis conseguidos"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plans gratuits obtenus"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gratis plattegronden verdiend"
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Získané pôdorysy zadarmo"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bản vẽ miễn phí đã nhận"
+          }
+        }
+      }
+    },
     "Free order — no payment needed. Our team starts right after you place it.": {
       "extractionState": "manual",
       "localizations": {
@@ -6254,6 +6442,100 @@
           "stringUnit": {
             "state": "translated",
             "value": "Đơn miễn phí — không cần thanh toán, đội ngũ bắt đầu ngay sau khi đặt."
+          }
+        }
+      }
+    },
+    "Friends joined": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Přátelé, kteří se přidali"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Freunde beigetreten"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Amigos registrados"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Amis inscrits"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vrienden aangemeld"
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Priatelia, ktorí sa pridali"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bạn đã tham gia"
+          }
+        }
+      }
+    },
+    "Get a free floor plan": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Získejte půdorys zdarma"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Holen Sie sich einen kostenlosen Grundriss"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Consigue un plano de planta gratis"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Obtenez un plan gratuit"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Krijg een gratis plattegrond"
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Získajte pôdorys zadarmo"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nhận một bản vẽ mặt bằng miễn phí"
           }
         }
       }
@@ -7010,6 +7292,100 @@
         }
       }
     },
+    "I use CedarScan to get floor plans from a quick iPhone scan. Get it on the App Store and sign up with my invite code %@.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Používám CedarScan — z rychlého skenu iPhonem dostanu půdorysy. Stáhni si ji v App Store a zaregistruj se s mým kódem pozvánky %@."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ich nutze CedarScan, um aus einem kurzen iPhone-Scan Grundrisse zu bekommen. Hol dir die App im App Store und registriere dich mit meinem Einladungscode %@."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uso CedarScan para conseguir planos de planta con un escaneo rápido del iPhone. Descárgala en la App Store y regístrate con mi código de invitación %@."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "J'utilise CedarScan pour obtenir des plans à partir d'une numérisation rapide avec un iPhone. Téléchargez-la sur l'App Store et inscrivez-vous avec mon code d'invitation %@."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ik gebruik CedarScan om plattegronden te krijgen van een snelle iPhone-scan. Download de app in de App Store en meld je aan met mijn uitnodigingscode %@."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Používam CedarScan — z rýchleho skenu iPhonom dostanem pôdorysy. Stiahni si ju v App Store a zaregistruj sa s mojím kódom pozvánky %@."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mình dùng CedarScan để có bản vẽ mặt bằng chỉ từ một lần quét nhanh bằng iPhone. Tải app trên App Store và đăng ký bằng mã mời %@ của mình."
+          }
+        }
+      }
+    },
+    "I use CedarScan to get floor plans from a quick iPhone scan. Get it on the App Store and sign up with my invite code %@: new customers get their first %lld orders free.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Používám CedarScan — z rychlého skenu iPhonem dostanu půdorysy. Stáhni si ji v App Store a zaregistruj se s mým kódem pozvánky %@: noví zákazníci mají první objednávky zdarma (celkem %lld)."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ich nutze CedarScan, um aus einem kurzen iPhone-Scan Grundrisse zu bekommen. Hol dir die App im App Store und registriere dich mit meinem Einladungscode %@: Neukunden erhalten ihre ersten %lld Bestellungen gratis."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uso CedarScan para conseguir planos de planta con un escaneo rápido del iPhone. Descárgala en la App Store y regístrate con mi código de invitación %@: los clientes nuevos reciben sus primeros %lld pedidos gratis."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "J'utilise CedarScan pour obtenir des plans à partir d'une numérisation rapide avec un iPhone. Téléchargez-la sur l'App Store et inscrivez-vous avec mon code d'invitation %@ : les nouveaux clients ont leurs %lld premières commandes gratuites."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ik gebruik CedarScan om plattegronden te krijgen van een snelle iPhone-scan. Download de app in de App Store en meld je aan met mijn uitnodigingscode %@: nieuwe klanten krijgen hun eerste %lld bestellingen gratis."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Používam CedarScan — z rýchleho skenu iPhonom dostanem pôdorysy. Stiahni si ju v App Store a zaregistruj sa s mojím kódom pozvánky %@: noví zákazníci majú prvé objednávky zadarmo (počet: %lld)."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mình dùng CedarScan để có bản vẽ mặt bằng chỉ từ một lần quét nhanh bằng iPhone. Tải app trên App Store và đăng ký bằng mã mời %@ của mình: khách mới được %lld đơn đầu miễn phí."
+          }
+        }
+      }
+    },
     "I want to cancel or get a refund": {
       "extractionState": "manual",
       "localizations": {
@@ -7288,6 +7664,288 @@
           "stringUnit": {
             "state": "translated",
             "value": "Link tải lên không hợp lệ"
+          }
+        }
+      }
+    },
+    "Invite a friend": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pozvat přítele"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Freunde einladen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Invitar a un amigo"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inviter un ami"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vriend uitnodigen"
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pozvať priateľa"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mời bạn bè"
+          }
+        }
+      }
+    },
+    "Invite a friend isn't available right now.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pozvání přátel teď není k dispozici."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Freunde einladen ist gerade nicht verfügbar."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Invitar a amigos no está disponible ahora mismo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L'invitation d'amis n'est pas disponible pour le moment."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vrienden uitnodigen is nu niet beschikbaar."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pozvanie priateľov teraz nie je k dispozícii."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hiện chưa dùng được tính năng mời bạn bè."
+          }
+        }
+      }
+    },
+    "Invite code": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kód pozvánky"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Einladungscode"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Código de invitación"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Code d'invitation"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uitnodigingscode"
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kód pozvánky"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mã mời"
+          }
+        }
+      }
+    },
+    "Invite code (optional) — it can only be added now.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kód pozvánky (nepovinné) — lze ho zadat jen teď."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Einladungscode (optional) — er kann nur jetzt eingegeben werden."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Código de invitación (opcional) — solo se puede añadir ahora."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Code d'invitation (facultatif) — il ne peut être ajouté que maintenant."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uitnodigingscode (optioneel) — die kun je alleen nu invullen."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kód pozvánky (nepovinné) — dá sa zadať len teraz."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mã mời (không bắt buộc) — chỉ nhập được lúc này."
+          }
+        }
+      }
+    },
+    "Invite code copied": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kód pozvánky zkopírován"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Einladungscode kopiert"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Código de invitación copiado"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Code d'invitation copié"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uitnodigingscode gekopieerd"
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kód pozvánky skopírovaný"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đã chép mã mời"
+          }
+        }
+      }
+    },
+    "Invite codes can't be used at the moment. Leave the field empty to create your account.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kódy pozvánek teď nelze použít. Pro vytvoření účtu nechte pole prázdné."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Einladungscodes können im Moment nicht verwendet werden. Lassen Sie das Feld leer, um Ihr Konto zu erstellen."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ahora mismo no se pueden usar códigos de invitación. Deja el campo vacío para crear tu cuenta."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les codes d'invitation ne peuvent pas être utilisés pour le moment. Laissez le champ vide pour créer votre compte."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uitnodigingscodes kunnen op dit moment niet worden gebruikt. Laat het veld leeg om je account aan te maken."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kódy pozvánok teraz nemožno použiť. Na vytvorenie účtu nechajte pole prázdne."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hiện không dùng được mã mời. Để trống ô này để tạo tài khoản."
           }
         }
       }
@@ -14577,6 +15235,53 @@
         }
       }
     },
+    "Share invite": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sdílet pozvánku"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Einladung teilen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Compartir invitación"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Partager l'invitation"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uitnodiging delen"
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zdieľať pozvánku"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gửi lời mời"
+          }
+        }
+      }
+    },
     "Sign in": {
       "extractionState": "manual",
       "localizations": {
@@ -15517,6 +16222,53 @@
         }
       }
     },
+    "Tap the code to copy it": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klepnutím kód zkopírujete"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tippen Sie auf den Code, um ihn zu kopieren"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toca el código para copiarlo"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Touchez le code pour le copier"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tik op de code om hem te kopiëren"
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ťuknutím kód skopírujete"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chạm vào mã để chép"
+          }
+        }
+      }
+    },
     "Terms and Conditions": {
       "extractionState": "manual",
       "localizations": {
@@ -16124,6 +16876,100 @@
           "stringUnit": {
             "state": "translated",
             "value": "iPhone này không có cảm biến LiDAR. CedarScan cần iPhone bản Pro (12 Pro trở lên)."
+          }
+        }
+      }
+    },
+    "This invite code can't be used here: invite codes are only for new customers on an iPhone that hasn't used free orders yet. Leave the field empty to create your account.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tento kód pozvánky zde nelze použít: kódy pozvánek jsou jen pro nové zákazníky na iPhonu, který ještě nevyužil objednávky zdarma. Pro vytvoření účtu nechte pole prázdné."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dieser Einladungscode kann hier nicht verwendet werden: Einladungscodes gelten nur für Neukunden auf einem iPhone, das noch keine Gratis-Bestellungen genutzt hat. Lassen Sie das Feld leer, um Ihr Konto zu erstellen."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este código de invitación no se puede usar aquí: los códigos de invitación son solo para clientes nuevos en un iPhone que aún no haya usado pedidos gratis. Deja el campo vacío para crear tu cuenta."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce code d'invitation ne peut pas être utilisé ici : les codes d'invitation sont réservés aux nouveaux clients, sur un iPhone qui n'a pas encore bénéficié de commandes gratuites. Laissez le champ vide pour créer votre compte."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deze uitnodigingscode kan hier niet worden gebruikt: uitnodigingscodes zijn alleen voor nieuwe klanten op een iPhone die nog geen gratis bestellingen heeft gebruikt. Laat het veld leeg om je account aan te maken."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tento kód pozvánky tu nemožno použiť: kódy pozvánok sú len pre nových zákazníkov na iPhone, ktorý ešte nevyužil objednávky zadarmo. Na vytvorenie účtu nechajte pole prázdne."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Không dùng được mã mời này: mã mời chỉ dành cho khách mới, trên iPhone chưa từng dùng đơn miễn phí. Để trống ô này để tạo tài khoản."
+          }
+        }
+      }
+    },
+    "This invite code isn't valid. Check it, or leave the field empty.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tento kód pozvánky není platný. Zkontrolujte ho, nebo pole nechte prázdné."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dieser Einladungscode ist ungültig. Prüfen Sie ihn oder lassen Sie das Feld leer."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este código de invitación no es válido. Revísalo o deja el campo vacío."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce code d'invitation n'est pas valide. Vérifiez-le ou laissez le champ vide."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deze uitnodigingscode is niet geldig. Controleer hem of laat het veld leeg."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tento kód pozvánky nie je platný. Skontrolujte ho alebo nechajte pole prázdne."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mã mời này không hợp lệ. Kiểm tra lại, hoặc để trống ô này."
           }
         }
       }
@@ -19042,6 +19888,53 @@
         }
       }
     },
+    "When a friend you invite gets their first order delivered, you get a free 2D floor plan.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Když přítel, kterého pozvete, dostane doručenou první objednávku, získáte 2D půdorys zdarma."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wenn ein Freund, den Sie einladen, seine erste Bestellung geliefert bekommt, erhalten Sie einen kostenlosen 2D-Grundriss."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cuando un amigo al que invites reciba su primer pedido, recibes un plano de planta 2D gratis."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quand un ami que vous invitez reçoit sa première commande, vous recevez un plan 2D gratuit."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Als een vriend die je uitnodigt de eerste bestelling geleverd krijgt, krijg jij een gratis 2D-plattegrond."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keď priateľ, ktorého pozvete, dostane doručenú prvú objednávku, získate 2D pôdorys zadarmo."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Khi bạn bè bạn mời được giao đơn đầu tiên, bạn nhận một bản vẽ mặt bằng 2D miễn phí."
+          }
+        }
+      }
+    },
     "When you do split, start the next scan by walking back through a room you already scanned — that overlap is what lets our team line the parts up by hand.": {
       "extractionState": "manual",
       "localizations": {
@@ -19606,6 +20499,53 @@
         }
       }
     },
+    "You have a free %@ from inviting a friend: select it to use it.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Za pozvání přítele máte %@ zdarma: vyberte ho, abyste ho využili."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sie haben einen kostenlosen %@, weil Sie einen Freund eingeladen haben: Wählen Sie ihn aus, um ihn zu nutzen."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tienes un %@ gratis por invitar a un amigo: selecciónalo para usarlo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vous avez un %@ gratuit grâce à une invitation : sélectionnez-le pour l'utiliser."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Je hebt een gratis %@ doordat je een vriend hebt uitgenodigd: selecteer die om hem te gebruiken."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Za pozvanie priateľa máte %@ zadarmo: vyberte ho, aby ste ho využili."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bạn có một %@ miễn phí nhờ mời bạn bè: chọn gói đó để dùng."
+          }
+        }
+      }
+    },
     "You have a new message about your order for %@.": {
       "extractionState": "manual",
       "localizations": {
@@ -19649,6 +20589,53 @@
           "stringUnit": {
             "state": "translated",
             "value": "Bạn có tin nhắn mới về đơn hàng cho %@."
+          }
+        }
+      }
+    },
+    "Your 2D floor plan is free — a thank-you for inviting a friend.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Váš 2D půdorys je zdarma — poděkování za pozvání přítele."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ihr 2D-Grundriss ist kostenlos — ein Dankeschön dafür, dass Sie einen Freund eingeladen haben."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tu plano de planta 2D es gratis — un agradecimiento por invitar a un amigo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre plan 2D est gratuit — un merci pour avoir invité un ami."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Je 2D-plattegrond is gratis — een bedankje voor het uitnodigen van een vriend."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Váš 2D pôdorys je zadarmo — poďakovanie za pozvanie priateľa."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bản vẽ mặt bằng 2D của đơn này miễn phí — quà cảm ơn vì bạn đã mời bạn bè."
           }
         }
       }
@@ -19794,6 +20781,53 @@
         }
       }
     },
+    "Your free 2D order from inviting a friend was just used. Please review the price and tap Place order again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vaše objednávka 2D zdarma za pozvání přítele byla právě použita. Zkontrolujte prosím cenu a klepněte znovu na Odeslat objednávku."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ihre kostenlose 2D-Bestellung aus einer Einladung wurde gerade verwendet. Bitte prüfen Sie den Preis und tippen Sie erneut auf \"Bestellung aufgeben\"."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tu pedido 2D gratis por invitar a un amigo se acaba de usar. Revisa el precio y toca Realizar pedido de nuevo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre commande 2D gratuite obtenue grâce à une invitation vient d'être utilisée. Vérifiez le prix, puis touchez de nouveau Passer la commande."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Je gratis 2D-bestelling van een uitnodiging is net gebruikt. Controleer de prijs en tik opnieuw op Bestelling plaatsen."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vaša objednávka 2D zadarmo za pozvanie priateľa bola práve použitá. Skontrolujte, prosím, cenu a znova ťuknite na Odoslať objednávku."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bản vẽ 2D miễn phí nhờ mời bạn bè vừa được dùng. Vui lòng xem lại giá rồi bấm Đặt hàng lại."
+          }
+        }
+      }
+    },
     "Your free-order slots were just used up. Please review the price and tap Place order again.": {
       "extractionState": "manual",
       "localizations": {
@@ -19837,6 +20871,100 @@
           "stringUnit": {
             "state": "translated",
             "value": "Suất miễn phí vừa hết. Vui lòng xem lại giá rồi bấm Đặt hàng lại."
+          }
+        }
+      }
+    },
+    "Your friend enters the code when they create their account. Free floor plans have no cash value.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Přítel zadá kód při vytváření účtu. Půdorysy zdarma nemají peněžní hodnotu."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ihr Freund gibt den Code beim Erstellen seines Kontos ein. Kostenlose Grundrisse haben keinen Geldwert."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tu amigo introduce el código al crear su cuenta. Los planos gratis no tienen valor en efectivo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre ami saisit le code lors de la création de son compte. Les plans gratuits n'ont aucune valeur monétaire."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Je vriend vult de code in bij het aanmaken van een account. Gratis plattegronden hebben geen geldwaarde."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Priateľ zadá kód pri vytváraní účtu. Pôdorysy zadarmo nemajú peňažnú hodnotu."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bạn của bạn nhập mã lúc tạo tài khoản. Bản vẽ miễn phí không quy đổi thành tiền."
+          }
+        }
+      }
+    },
+    "Your friend gets %lld free orders, like every new customer. When their first order is delivered, you get a free 2D floor plan.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Váš přítel dostane první objednávky zdarma (celkem %lld) jako každý nový zákazník. Jakmile bude doručena první z nich, dostanete 2D půdorys zdarma."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ihr Freund erhält %lld Gratis-Bestellungen, wie jeder Neukunde. Sobald die erste davon geliefert ist, erhalten Sie einen kostenlosen 2D-Grundriss."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tu amigo recibe %lld pedidos gratis, como todo cliente nuevo. Cuando se entregue su primer pedido, recibes un plano de planta 2D gratis."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre ami reçoit %lld commandes gratuites, comme tout nouveau client. Une fois sa première commande livrée, vous recevez un plan 2D gratuit."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Je vriend krijgt %lld gratis bestellingen, net als elke nieuwe klant. Zodra de eerste daarvan is geleverd, krijg jij een gratis 2D-plattegrond."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Váš priateľ dostane prvé objednávky zadarmo (počet: %lld) ako každý nový zákazník. Keď doručíme prvú z nich, dostanete 2D pôdorys zadarmo."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bạn của bạn được %lld đơn miễn phí như mọi khách mới. Khi đơn đầu tiên của họ được giao, bạn nhận một bản vẽ mặt bằng 2D miễn phí."
           }
         }
       }
