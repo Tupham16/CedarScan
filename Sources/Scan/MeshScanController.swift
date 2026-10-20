@@ -39,11 +39,12 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
     static let fastSaveMinShots = 30
 
     /// T3 (2.79): nil once Stop & Save has paused it — dropped so ARKit's world map, mesh anchors
-    /// and frame buffers are freed before the save's RAM peak instead of sitting under it (the
-    /// camera view, the other strong holder, is torn down by MeshScanFlowView while saving).
+    /// and frame buffers are freed before the save's RAM peak instead of sitting under it.
+    /// PUBLISHED: MeshScanFlowView removes the camera view (the other strong holder) when this
+    /// turns nil — i.e. only after the pause, never while the final frame is still being read.
     /// Every helper below holds it weakly. Nothing reads it after the pause: the final shot poses
     /// are read before it, the export works on the builder's own copies.
-    private(set) var arSession: ARSession?
+    @Published private(set) var arSession: ARSession?
     let qualityMonitor: ScanQualityMonitor
     /// Auto flashlight (26/09) — see AutoTorch.
     let torch: AutoTorch
@@ -78,7 +79,8 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
     init(quality: MeshQuality) {
         self.quality = quality
         let session = ARSession()
-        arSession = session
+        // The backing store, ✗ the setter: a @Published setter needs `self` (before super.init).
+        _arSession = Published(initialValue: session)
         qualityMonitor = ScanQualityMonitor(arSession: session)
         torch = AutoTorch(arSession: session)
         super.init()
@@ -222,8 +224,7 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
         }
         arSession?.pause()
         // T3 (2.79): let the paused session go (see the property). The only other strong holder
-        // is the camera view (ARSCNView.session), which MeshScanFlowView removes once `isSaving`
-        // is up — the session is freed when the later of the two lets go.
+        // is the camera view (ARSCNView.session), which MeshScanFlowView removes on this change.
         arSession = nil
         // capReached STICKY của builder = "đã từng phải bỏ dữ liệu" → call-site dùng để
         // mời khách quét BẢN BỔ SUNG cho phần còn thiếu (nhà rất lớn chạm trần 2M).

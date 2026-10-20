@@ -167,23 +167,27 @@ struct MeshScanFlowView: View {
             // ✗ nối lại khi chưa sửa GỐC sổ-theo-anchor và chưa hỏi chủ app.
             // Tắt lưới khi đã sang màn preview: nhịp cập nhật dừng hẳn nên CADisplayLink 30Hz
             // không quay không tải suốt lúc khách ngồi xem lại video.
-            // 🔴 `!isSaving` KHÔNG PHẢI THỪA. `savedRecord` chỉ được gán SAU khi `stopAndExport()`
-            // + `onFinish()` chạy xong, tức sau vài chục giây tới vài phút dựng mesh + nén zip.
-            // Thiếu vế này thì lớp phủ giữ nguyên ~70MB hình học (`wireGeos` + node) xuyên qua
-            // ĐÚNG đỉnh RAM của cả app — chỗ bị iOS giết thì mất trắng buổi quét 10–30 phút. Chỉ
-            // gác `isSaving` (không gác `showNaming`): từ lúc đang lưu là không còn đường quay lại
-            // quét tiếp, nên giải phóng rồi không phải dựng lại; còn ở màn đặt tên thì khách vẫn
-            // bấm "Quay lại" để quét thêm được.
-            // T3 (2.79): the WHOLE camera view goes at that moment (was: only the mesh layer), and
-            // with it ARSCNView's hold on the session — `stopAndExport` drops the controller's own
-            // right after `pause()`. The scan itself is unchanged: mesh and camera image still
-            // come from ONE view while scanning (§RUNG LƯỚI). Black behind the saving card.
-            if let session = controller.arSession, !isSaving, savedRecord == nil {
+            // T3 (2.79): the WHOLE camera view goes once `stopAndExport` has paused the session and
+            // dropped it (`controller.arSession` nil, published) — ARSCNView's hold on the session
+            // goes with it, so ARKit's memory is freed before the PLY / OBJ peaks. ✗ remove it on
+            // `isSaving` instead: the final mesh frame and the shots' final poses are read from
+            // the RUNNING session right after the Save tap. The scan itself is unchanged: mesh
+            // and camera image still come from ONE view while scanning (§RUNG LƯỚI). Black behind
+            // the saving card from then on.
+            if let session = controller.arSession, savedRecord == nil {
                 ARCameraViewRepresentable(
                     arSession: session,
                     sessionDelegate: controller,
                     meshMaxVerts: 600_000,
-                    showMesh: showScanMesh,
+                    // 🔴 `!isSaving` KHÔNG PHẢI THỪA. `savedRecord` chỉ được gán SAU khi
+                    // `stopAndExport()` + `onFinish()` chạy xong, tức sau vài chục giây tới vài
+                    // phút dựng mesh + bake màu + nén zip. Thiếu vế này thì lớp phủ giữ nguyên
+                    // ~70MB hình học (`wireGeos` + node) xuyên qua ĐÚNG đỉnh RAM của cả app — chỗ
+                    // bị iOS giết thì mất trắng buổi quét 10–30 phút. Chỉ gác `isSaving` (không
+                    // gác `showNaming`): từ lúc đang lưu là không còn đường quay lại quét tiếp,
+                    // nên giải phóng rồi không phải dựng lại; còn ở màn đặt tên thì khách vẫn bấm
+                    // "Quay lại" để quét thêm được. (Released here first, the view a moment later.)
+                    showMesh: showScanMesh && !isSaving,
                     recordedCounts: { [weak controller] in controller?.recordedAnchorCounts ?? [:] }
                     // photoCoverage CỐ Ý không truyền (default nil) — đọc chú thích 🔴 ở trên.
                     // Reconnecting also needs a MeshScanController accessor for the recorder's
