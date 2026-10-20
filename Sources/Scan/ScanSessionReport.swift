@@ -389,16 +389,16 @@ final class ScanSessionReport {
         " save (app 2.79+): memMB = peak app memory (phys_footprint, MB) per save stage (stop = ",
         "closing video + shots, ply = mesh file, preview, objRead / objWrite = reading the mesh + ",
         "writing the OBJ; sampled at 5 Hz until packing), memAtMB = the same when the stage began ",
-        "(stop = when Stop & Save was pressed, camera still on), memPeakMB = overall peak, ",
+        "(stop = when Save was tapped on the naming screen, camera still on), memPeakMB = overall peak, ",
         "memAvailMB = memory iOS said was still available at that moment (memAtMB.stop + this ~ ",
         "the limit). video = partial: the video exists but part of the recording was lost. ",
         "videoSegments = video files recorded (a new one each time the app came back to the ",
         "screen), videoJoin = none / ok / failed:<domain:code> (failed = the longest segment was ",
         "kept), videoRecovered = segments whose writer failed but whose movie fragments were ",
         "readable, videoLost = segments dropped, videoKbps = bitrate used. bgTask = iOS 26 ",
-        "continued-processing task for the save, as at packing: started / unsupported (iOS < 26) / ",
-        "notPermitted / submitFailed:<code> / expired (the system or the customer stopped it; the ",
-        "save went on).",
+        "continued-processing task for the save, as at packing: running (iOS launched it) / started ",
+        "(accepted, not launched yet) / unsupported (iOS < 26) / notPermitted / submitFailed:<code> / ",
+        "expired (the system or the customer stopped it; the save went on).",
     ].joined()
 
     // MARK: - Helpers
@@ -485,7 +485,7 @@ final class SaveProbe: @unchecked Sendable {
     /// `os_proc_available_memory()` at the start, MB; 0 = not reported.
     private let availMB: Int
 
-    /// Main thread, when Stop & Save starts (before the camera is torn down).
+    /// Main thread, when Save is tapped on the naming screen (scan still running, camera on).
     static func begin() -> SaveProbe {
         let probe = SaveProbe()
         active = probe

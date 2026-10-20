@@ -894,17 +894,15 @@ private final class SaveBackgroundTime {
         let registered = BGTaskScheduler.shared.register(
             forTaskWithIdentifier: identifier, using: .main
         ) { [weak self] launched in
-            MainActor.assumeIsolated {
-                guard let running = launched as? BGContinuedProcessingTask else {
-                    launched.setTaskCompleted(success: false)
-                    return
+            // `using: .main` puts it on main; should it ever not be, hop instead of letting
+            // `assumeIsolated` crash the app in the middle of the save.
+            let owner = self
+            if Thread.isMainThread {
+                MainActor.assumeIsolated { Self.launched(launched, owner: owner) }
+            } else {
+                DispatchQueue.main.async {
+                    MainActor.assumeIsolated { Self.launched(launched, owner: owner) }
                 }
-                guard let self, !self.ended else {
-                    // The save is over already (or the screen is gone).
-                    running.setTaskCompleted(success: true)
-                    return
-                }
-                self.adopt(running)
             }
         }
         guard registered else {
@@ -927,8 +925,24 @@ private final class SaveBackgroundTime {
     }
 
     @available(iOS 26.0, *)
+    private static func launched(_ launched: BGTask, owner: SaveBackgroundTime?) {
+        guard let running = launched as? BGContinuedProcessingTask else {
+            launched.setTaskCompleted(success: false)
+            return
+        }
+        guard let owner, !owner.ended else {
+            // The save is over already (or the screen is gone).
+            running.setTaskCompleted(success: true)
+            return
+        }
+        owner.adopt(running)
+    }
+
+    @available(iOS 26.0, *)
     private func adopt(_ running: BGContinuedProcessingTask) {
         continued = running
+        // "started" = accepted by the scheduler; "running" = iOS actually launched it.
+        probe.set("bgTask", "running")
         running.progress.totalUnitCount = 100
         show(on: running, newStage: true)
         // Called by the system on its own queue; the work goes on (see the class comment).
