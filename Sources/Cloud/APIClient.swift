@@ -558,7 +558,8 @@ final class APIClient {
         if !(200...299).contains(status) {
             let body = try? JSONDecoder().decode(ServerError.self, from: data)
             throw APIError(
-                message: body?.error ?? String(localized: "Something went wrong. Please try again."),
+                message: body.map { Self.customerWording($0.error, status: status) }
+                    ?? String(localized: "Something went wrong. Please try again."),
                 statusCode: status,
                 code: body?.code,
                 orderId: body?.orderId,
@@ -566,7 +567,81 @@ final class APIClient {
                 orderStatus: body?.status
             )
         }
-        return try JSONDecoder().decode(T.self, from: data)
+        do {
+            return try JSONDecoder().decode(T.self, from: data)
+        } catch is DecodingError {
+            // N13: Foundation's "The data couldn't be read because it isn't in the correct format."
+            // means nothing to a customer. Same HTTP status (2xx: no caller reads it as a refusal)
+            // and no `code` a caller acts on.
+            throw APIError(
+                message: String(localized: "Something went wrong. Please try again."),
+                statusCode: status,
+                code: "unreadable_response"
+            )
+        }
+    }
+
+    /// N13 (2.79): the server writes every error in English (`app-api.ts`), and the app showed it
+    /// as it came — in an 8-language app. The ones customers meet (sign-in, sign-up, the code
+    /// screens, account deletion, Place order, rate limits) are shown in the app's language; any
+    /// other keeps the server's words, as before. Matched on the exact sentence: these routes send
+    /// no `code`. Wording only — decisions read `statusCode` / `code`, ✗ this text. A sentence the
+    /// server rewords falls back to its own text (English), never to a wrong translation.
+    static func customerWording(_ text: String, status: Int) -> String {
+        switch text {
+        case "Incorrect email or password.":
+            return String(localized: "Incorrect email or password.")
+        case "An account with this email already exists. Please sign in.":
+            return String(localized: "An account with this email already exists. Please sign in.")
+        case "Please enter a valid email address.":
+            return String(localized: "Please enter a valid email address.")
+        case "Password must be at least 8 characters.":
+            return String(localized: "Password must be at least 8 characters.")
+        case "Please enter your name.":
+            return String(localized: "Please enter your name.")
+        case "Incorrect code. Please try again.":
+            return String(localized: "Incorrect code. Please try again.")
+        case "The code has expired. Please request a new one.":
+            return String(localized: "The code has expired. Please request a new one.")
+        case "Invalid or expired code.":
+            return String(localized: "Invalid or expired code.")
+        case "Too many attempts. Please request a new code.":
+            return String(localized: "Too many attempts. Please request a new code.")
+        case "Could not send the email right now. Please try again.":
+            return String(localized: "Could not send the email right now. Please try again.")
+        case "Incorrect password.":
+            return String(localized: "Incorrect password.")
+        case "Please sign in to continue.":
+            return String(localized: "Please sign in to continue.")
+        case "Please verify your email before placing an order.":
+            return String(localized: "Please verify your email before placing an order.")
+        case "One of the selected scans is already part of another order.":
+            return String(localized: "One of the selected scans is already part of another order.")
+        default:
+            break
+        }
+        if let minutes = number(in: text, #"^Too many failed attempts\. Please try again in (\d+) minute\(s\)\.$"#) {
+            return String(localized: "Too many failed attempts. Please try again in \(minutes) minute(s).")
+        }
+        if let seconds = number(in: text, #"^Please wait (\d+)s before requesting another code\.$"#) {
+            return String(localized: "Please wait \(seconds) s before requesting another code.")
+        }
+        // Rate limits, worded per route ("Too many requests. Please slow down.", "Too many
+        // attempts. Please try again later." …). ✗ every 429: "Daily scan limit reached. Please
+        // try again tomorrow." says something else and keeps its words.
+        if status == 429, text.hasPrefix("Too many") {
+            return String(localized: "Too many attempts. Please try again later.")
+        }
+        return text
+    }
+
+    /// The one number `pattern` captures in `text`, or nil when the sentence is not that one.
+    private static func number(in text: String, _ pattern: String) -> Int? {
+        guard let regex = try? NSRegularExpression(pattern: pattern),
+              let match = regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
+              match.numberOfRanges == 2,
+              let range = Range(match.range(at: 1), in: text) else { return nil }
+        return Int(text[range])
     }
 
     // MARK: Auth
@@ -675,13 +750,27 @@ final class APIClient {
         // deviceId (:373) nên lúc đặt server thấy máy hết suất và THU ĐỦ TIỀN. Khách bấm một nút
         // ghi MIỄN PHÍ rồi nhận link thanh toán.
         let response: CatalogResponse = try await send("catalog", query: ["deviceId": DeviceID.current])
-        // Server có thể tinh chỉnh ngưỡng Accuracy Suite — cache lại cho lần quét sau.
-        // Server KHÔNG có override (null) → về mặc định, để xóa AppSetting là hồi phục được.
-        // Written on MAIN (2.73): scan start reads `current` on main, and since 2.73 this also
-        // runs at launch / foreground (RootView), i.e. possibly while a scan is starting.
-        let quality = response.scanQuality ?? .defaults
-        await MainActor.run { ScanQualityConfig.current = quality }
+        await storeScanQuality(response.scanQuality)
         return response
+    }
+
+    /// N8 (2.79): the launch / sign-in / foreground fetch of the remote scan settings
+    /// (`RootView.refreshScanQualityConfig`) — the same GET WITHOUT `deviceId`. The Privacy Policy
+    /// ("Device identifier") names three moments: account creation, viewing prices, placing an
+    /// order; this one is none of them. The server reads `deviceId` only for the free-order count
+    /// (`catalog/route.ts`), which nothing reads from this answer.
+    func scanSettings() async throws {
+        let response: CatalogResponse = try await send("catalog")
+        await storeScanQuality(response.scanQuality)
+    }
+
+    /// Server có thể tinh chỉnh ngưỡng Accuracy Suite — cache lại cho lần quét sau.
+    /// Server KHÔNG có override (null) → về mặc định, để xóa AppSetting là hồi phục được.
+    /// Written on MAIN (2.73): scan start reads `current` on main, and since 2.73 this also
+    /// runs at launch / foreground (RootView), i.e. possibly while a scan is starting.
+    private func storeScanQuality(_ scanQuality: ScanQualityConfig?) async {
+        let quality = scanQuality ?? .defaults
+        await MainActor.run { ScanQualityConfig.current = quality }
     }
 
     /// Xin presigned URL upload 1 file đính kèm đơn (logo / file thêm). App PUT file lên `putUrl`

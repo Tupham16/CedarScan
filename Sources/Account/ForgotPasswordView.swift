@@ -18,7 +18,8 @@ struct ForgotPasswordView: View {
                     Section {
                         TextField("Email", text: $email)
                             .keyboardType(.emailAddress)
-                            .textContentType(.emailAddress)
+                            // C9 (2.79): the account the new password below is saved under.
+                            .textContentType(.username)
                             .textInputAutocapitalization(.never)
                             .autocorrectionDisabled()
                             .listRowBackground(Theme.card)

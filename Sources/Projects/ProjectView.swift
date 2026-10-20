@@ -480,6 +480,8 @@ struct ProjectView: View {
                                 // Thanh % của màn "Đang dựng mô hình 3D…" — chuyển thẳng, ✗ nuốt.
                                 progress: saveProgress
                             )
+                            // F2: the 24 h reminder (same line in `HomeView`).
+                            ScanReminder.scanSaved(saved, store: store)
                             if result.hitCap { meshCapFollowUp = true }
                             return saved
                         } catch {

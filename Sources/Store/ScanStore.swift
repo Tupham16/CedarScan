@@ -86,8 +86,22 @@ final class ScanStore: ObservableObject {
     init() {
         awaitingOrderNumbers = Set(UserDefaults.standard.stringArray(forKey: Self.awaitingKey) ?? [])
         try? fileManager.createDirectory(at: rootURL, withIntermediateDirectories: true)
+        excludeScansFromBackup()
         loadProjects()
         reload()
+    }
+
+    /// Q1 (2.79, owner 20/10): `Documents/Scans` stays out of the iCloud / computer backup — a
+    /// 30-min scan is ~300 MB, about 15 of them fill the free 5 GB and the customer's whole
+    /// iPhone backup starts failing. The flag on the folder covers everything in it. Set at every
+    /// launch: existing installs get it too, and so does a re-created folder (the flag lives on
+    /// the folder). Known, accepted: a phone restored from a backup has no scans (ordered ones
+    /// stay on our server). projects.json (property names, order bindings) stays in the backup.
+    private func excludeScansFromBackup() {
+        var url = rootURL
+        var values = URLResourceValues()
+        values.isExcludedFromBackup = true
+        try? url.setResourceValues(values)
     }
 
     // MARK: - Dự án (căn nhà / địa chỉ)
@@ -152,6 +166,8 @@ final class ScanStore: ObservableObject {
               let index = projects.firstIndex(where: { $0.id == project.id }) else { return }
         projects[index].name = trimmed
         persistProjects()
+        // F2: a pending reminder names the property.
+        ScanReminder.refresh([ScanReminder.key(project: project.id)], store: self, withdrawDelivered: false)
     }
 
     /// Xoá dự án VÀ XOÁ LUÔN FILE BẢN QUÉT CỦA NÓ KHỎI MÁY.
@@ -211,6 +227,11 @@ final class ScanStore: ObservableObject {
         // tác đĩa có thể hỏng nữa, đổi lấy đúng 0 thay đổi trên màn hình.
         projects.removeAll { $0.id == project.id }
         persistProjects()
+        // F2: the property's reminder goes with its scans.
+        ScanReminder.refresh(
+            Set(doomed.map { ScanReminder.key($0) }).union([ScanReminder.key(project: project.id)]),
+            store: self, withdrawDelivered: true
+        )
         return removed.count
     }
 
@@ -615,6 +636,8 @@ final class ScanStore: ObservableObject {
         }
         try? fileManager.removeItem(at: folderURL(for: record))
         records.removeAll { $0.id == record.id }
+        // F2: its reminder goes (or names the property's other unsent scan).
+        ScanReminder.refresh([ScanReminder.key(record)], store: self, withdrawDelivered: true)
     }
 
     /// Dọn hẳn khỏi máy những bản quét thuộc đơn ĐÃ GIAO (chủ app chốt 2026-07-19: "máy khách
@@ -664,6 +687,7 @@ final class ScanStore: ObservableObject {
         guard !removed.isEmpty else { return 0 }
         let removedIds = Set(removed.map(\.id))
         records.removeAll { removedIds.contains($0.id) }
+        ScanReminder.refresh(Set(removed.map { ScanReminder.key($0) }), store: self, withdrawDelivered: true)
 
         // Chỉ xét dự án mất bản quét THẬT — dùng `removed`, không dùng `doomed`.
         let touched = touchedProjects.intersection(removed.compactMap(\.projectId))
@@ -944,8 +968,23 @@ final class ScanStore: ObservableObject {
 
     private func update(_ record: ScanRecord, _ mutate: (inout ScanRecord) -> Void) {
         guard let index = records.firstIndex(where: { $0.id == record.id }) else { return }
+        let before = records[index]
         mutate(&records[index])
         try? writeMeta(records[index])
+        reminderFollows(before, records[index])
+    }
+
+    /// F2 (2.79): every stamp (Place order, extra scan, a list's adopt), release, move and rename
+    /// passes `update` — the scan reminder of its property follows (`ScanReminder`). A stamp
+    /// withdraws a reminder already shown as well.
+    private func reminderFollows(_ before: ScanRecord, _ after: ScanRecord) {
+        guard before.cloudOrderNumber != after.cloudOrderNumber
+            || before.projectId != after.projectId
+            || before.name != after.name else { return }
+        let stamped = before.cloudOrderNumber == nil && after.cloudOrderNumber != nil
+        ScanReminder.refresh(
+            [ScanReminder.key(before), ScanReminder.key(after)], store: self, withdrawDelivered: stamped
+        )
     }
 
     /// `.atomic` (the repo's disk-full rule: `TextureShotRecorder`, `MeshPreviewFile.write`): a

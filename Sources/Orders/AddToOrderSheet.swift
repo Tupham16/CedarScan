@@ -371,6 +371,7 @@ struct AddToOrderSheet: View {
                 HStack {
                     Image(systemName: selectedPackages.contains(item.id) ? "checkmark.circle.fill" : "circle")
                         .foregroundStyle(.tint)
+                        .accessibilityHidden(true)
                     // Concrete colours in a Button label (trap #45).
                     Text(item.name)
                         .foregroundStyle(Color.primary)
@@ -380,6 +381,8 @@ struct AddToOrderSheet: View {
                 }
             }
             .disabled(locked)
+            // N17: chosen = the trait, ✗ only the tick's colour (the tick is hidden from VoiceOver).
+            .accessibilityAddTraits(selectedPackages.contains(item.id) ? AccessibilityTraits.isSelected : AccessibilityTraits())
         }
     }
 

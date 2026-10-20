@@ -1015,6 +1015,9 @@ struct OrderSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
     @EnvironmentObject private var store: ScanStore
+    /// N14: the verify-email gate below (a sheet's content reads the environment safely — see
+    /// `ProjectView.store`).
+    @EnvironmentObject private var account: AccountStore
     let record: ScanRecord
     var projectName: String? = nil // tên dự án/địa chỉ nhà — hiện trên thẻ đơn cho đội xử lý
     var candidateScans: [ScanRecord]? = nil // chế độ dự án: danh sách tầng, chọn sẵn tất cả
@@ -1037,7 +1040,8 @@ struct OrderSheet: View {
     @State private var extraFloors: Set<UUID> = []
     /// From the phone's region until the customer has a saved choice (`loadCatalog` sets that one).
     @State private var unitSystem = OrderSheet.regionUnitSystem()
-    @State private var language = "English"
+    /// Same idea (N16, 2.79): region / app language until a saved choice arrives.
+    @State private var language = OrderSheet.regionLanguage()
     @State private var floorNaming = ""
     @State private var notes = ""
     @State private var couponCode = ""
@@ -1064,6 +1068,11 @@ struct OrderSheet: View {
     @ObservedObject private var flow = PaymentFlow.shared
     /// The server said this order is paid (a browser payment: `PaymentFlow` never hears of it).
     @State private var serverPaid = false
+    /// N14 (2.79): the server says this account's email is not verified (before the uploads, or
+    /// Place order's 403 after them) — the code screen opens over the form. `gateAccountId` = who
+    /// it opened for: verified, the same account, ⇒ Place order goes on by itself (`resumeAfterGate`).
+    @State private var showAccountGate = false
+    @State private var gateAccountId: String?
     /// The placed screen shows an order found in the list (`showAdoptedOrder`: before placing, or
     /// after a 409), ✗ one this tap made: its card sheet does not open by itself — its price may
     /// not be the one this form showed (rule 3 of `AddToOrderSheet`). Pay Now is there to tap.
@@ -1086,6 +1095,73 @@ struct OrderSheet: View {
         "English", "English (UK)", "English (AU)", "English (US/CA)",
         "French", "German", "Czech", "Slovak", "Spanish",
     ]
+
+    /// N16 (2.79): the drawing language of a first order (no saved default — `loadCatalog` puts a
+    /// saved one over this), like `regionUnitSystem`: the phone's region first, then the app
+    /// language. A Québec customer with a French phone got English drawings by default.
+    nonisolated private static func regionLanguage() -> String {
+        let app = AppLanguage.code
+        switch Locale.current.region?.identifier {
+        case "US": return "English (US/CA)"
+        case "CA": return app == "fr" ? "French" : "English (US/CA)"
+        case "AU", "NZ": return "English (AU)"
+        case "GB", "IE": return "English (UK)"
+        default:
+            switch app {
+            case "fr": return "French"
+            case "de": return "German"
+            case "cs": return "Czech"
+            case "sk": return "Slovak"
+            case "es": return "Spanish"
+            default: return "English"
+            }
+        }
+    }
+
+    /// N16 (2.79): an option as the customer reads it — its name in the app language, from the
+    /// system's own list (nothing to translate), capitalised as a menu item. The TAG stays the
+    /// English value: the server stores it and the drafting team reads it. English app: the value
+    /// itself, as before. No name from the system: the value.
+    private static func languageLabel(_ value: String) -> String {
+        let app = AppLanguage.code
+        guard app != "en" else { return value }
+        let locale = Locale(identifier: app)
+        let name: String?
+        switch value {
+        case "English": name = locale.localizedString(forLanguageCode: "en")
+        case "English (UK)": name = locale.localizedString(forIdentifier: "en_GB")
+        case "English (AU)": name = locale.localizedString(forIdentifier: "en_AU")
+        case "English (US/CA)":
+            if let en = locale.localizedString(forLanguageCode: "en"),
+               let us = locale.localizedString(forRegionCode: "US"),
+               let ca = locale.localizedString(forRegionCode: "CA") {
+                name = "\(en) (\(us) / \(ca))"
+            } else {
+                name = nil
+            }
+        case "French": name = locale.localizedString(forLanguageCode: "fr")
+        case "German": name = locale.localizedString(forLanguageCode: "de")
+        case "Czech": name = locale.localizedString(forLanguageCode: "cs")
+        case "Slovak": name = locale.localizedString(forLanguageCode: "sk")
+        case "Spanish": name = locale.localizedString(forLanguageCode: "es")
+        default: name = nil
+        }
+        guard let name, let first = name.first else { return value }
+        return String(first).uppercased(with: locale) + name.dropFirst()
+    }
+
+    /// N10 (2.79): the server keeps `notes` to 2,000 and `floorNaming` / `projectName` to 120 /
+    /// `coupon` to 50 UTF-16 units (`str(…, n)`, `scans/[id]/order/route.ts`), and reads a body
+    /// over 16 KB as `{}` = a default 2D order with the floors, add-ons and notes dropped. The form
+    /// stops at those limits (notes, floor naming) and `submit` sends nothing longer.
+    private static let maxNotes = 2000
+    private static let maxFloorNaming = 120
+    private static let maxProjectName = 120
+    private static let maxCoupon = 50
+
+    private static func cut(_ text: String, _ limit: Int) -> String {
+        TextLimit.cut(text, limit)
+    }
 
     /// Các bản quét khác (tầng khác của CÙNG căn nhà) có thể gộp vào đơn này.
     private var otherScans: [ScanRecord] {
@@ -1226,6 +1302,28 @@ struct OrderSheet: View {
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { recheckPlacedOrder() }
         }
+        .sheet(isPresented: $showAccountGate, onDismiss: { resumeAfterGate() }) {
+            AccountGateSheet()
+        }
+    }
+
+    /// N14: the code screen over the form. Opened only on the server's own "not verified"
+    /// (`AccountStore.serverEmailVerified`), never on the cached flag (trap #17).
+    private func openAccountGate() {
+        gateAccountId = account.customer?.id
+        showAccountGate = true
+    }
+
+    /// The gate closed. Verified, still the account it opened for ⇒ Place order again by itself —
+    /// the customer already tapped it, and the uploads are done (`cloudScanId`), so this goes
+    /// straight to the order. Narrower than the button on purpose (trap #18): a swipe-down,
+    /// Cancel, a sign-out or another account ⇒ nothing; the form and its button stay.
+    private func resumeAfterGate() {
+        let opener = gateAccountId
+        gateAccountId = nil
+        guard let opener, account.customer?.id == opener, !account.needsVerification,
+              placedOrder == nil, !isBusy else { return }
+        submit()
     }
 
     private func loadCatalog() async {
@@ -1261,7 +1359,7 @@ struct OrderSheet: View {
             selectedTemplates = tpls
             if let u = d?.unitSystem, u == "imperial" || u == "metric" || u == "both" { unitSystem = u }
             // Chỉ nhận ngôn ngữ lần trước nếu còn trong list (Picker cần selection khớp một tag, không
-            // thì hiện rỗng). Giá trị cũ tự do (vd "Vietnamese") → giữ mặc định "English".
+            // thì hiện rỗng). Giá trị cũ tự do (vd "Vietnamese") → giữ mặc định theo vùng (N16).
             if let lang = d?.language, Self.languageOptions.contains(lang) { language = lang }
             if let fn = d?.floorNaming { floorNaming = fn }
         } catch {
@@ -1445,6 +1543,7 @@ struct OrderSheet: View {
                         HStack {
                             Image(systemName: selectedPackages.contains(pkg.id) ? "checkmark.circle.fill" : "circle")
                                 .foregroundStyle(.tint)
+                                .accessibilityHidden(true)
                             // Concrete colours: `.primary`/`.secondary` in a Button label = the tint (trap #45).
                             Text(pkg.name)
                                 .foregroundStyle(Color.primary)
@@ -1453,6 +1552,8 @@ struct OrderSheet: View {
                                 .foregroundStyle(Color.secondary)
                         }
                     }
+                    // N17: chosen = the trait, ✗ only the tick's colour (the tick is hidden from VoiceOver).
+                    .accessibilityAddTraits(selectedPackages.contains(pkg.id) ? AccessibilityTraits.isSelected : AccessibilityTraits())
                 }
             }
             .listRowBackground(Theme.card)
@@ -1506,7 +1607,8 @@ struct OrderSheet: View {
                 }
                 Picker(String(localized: "Language"), selection: $language) {
                     ForEach(Self.languageOptions, id: \.self) { lang in
-                        Text(lang).tag(lang)
+                        // `verbatim`: a system-made name (N16), ✗ a catalog key.
+                        Text(verbatim: Self.languageLabel(lang)).tag(lang)
                     }
                 }
                 // 🔴 CHỮ "(không bắt buộc)"/"(optional)" ĐÃ BỎ Ở CẢ 4 Ô CỦA FORM NÀY (kiểu đặt tên
@@ -1515,6 +1617,10 @@ struct OrderSheet: View {
                 // nên dán nhãn "không bắt buộc" lên từng ô là lặp lại một điều đúng với tất cả.
                 // ✗ thêm lại cho riêng một ô: lúc đó ba ô còn lại trông như thể BẮT BUỘC.
                 TextField(String(localized: "Floor naming style"), text: $floorNaming)
+                    .onChange(of: floorNaming) { _, text in
+                        let cut = Self.cut(text, Self.maxFloorNaming)
+                        if cut != text { floorNaming = cut }
+                    }
             }
             .listRowBackground(Theme.card)
         } header: {
@@ -1532,6 +1638,12 @@ struct OrderSheet: View {
                 axis: .vertical
             )
             .lineLimit(3...6)
+            // N10: stops at the server's limit, no counter (a pasted wall of text is cut here,
+            // ✗ silently by the server or, past 16 KB, read as an empty form).
+            .onChange(of: notes) { _, text in
+                let cut = Self.cut(text, Self.maxNotes)
+                if cut != text { notes = cut }
+            }
             .listRowBackground(Theme.card)
         } header: {
             sectionHeader(String(localized: "Note"))
@@ -1544,14 +1656,21 @@ struct OrderSheet: View {
                 ForEach(orderFiles) { file in
                     HStack {
                         Image(systemName: "doc.fill").foregroundStyle(.secondary)
+                            .accessibilityHidden(true)
                         Text(file.name).lineLimit(1)
                         Spacer()
                         Button {
                             orderFiles.removeAll { $0.id == file.id }
                         } label: {
+                            // N17: a named 44pt target (was the bare ~17pt icon), row height kept
+                            // (negative padding: the hit shape uses the row's own space).
                             Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+                                .padding(14)
+                                .contentShape(Rectangle())
+                                .padding(-14)
                         }
                         .buttonStyle(.plain)
+                        .accessibilityLabel(String(localized: "Remove attachment"))
                     }
                 }
                 Button {
@@ -1897,11 +2016,14 @@ struct OrderSheet: View {
         let addonIds = Array(selectedAddons)
         let templatesSnapshot = selectedTemplates
         let filesSnapshot = orderFiles.map { ["name": $0.name, "url": $0.url] }
-        let notesSnapshot = notes
+        // N10: within the server's limits (the fields above stop there already; the property name
+        // and the coupon come from elsewhere and are cut only here).
+        let notesSnapshot = Self.cut(notes, Self.maxNotes)
         let unitSnapshot = unitSystem
         let languageSnapshot = language
-        let floorNamingSnapshot = floorNaming
-        let couponSnapshot = couponCode.trimmingCharacters(in: .whitespacesAndNewlines)
+        let floorNamingSnapshot = Self.cut(floorNaming, Self.maxFloorNaming)
+        let projectNameSnapshot = Self.cut(projectName ?? "", Self.maxProjectName)
+        let couponSnapshot = Self.cut(couponCode.trimmingCharacters(in: .whitespacesAndNewlines), Self.maxCoupon)
         submitTask = Task { @MainActor in
             // 2.59: screen awake + background time for the WHOLE flow (uploads → order), released
             // on every exit. The uploads themselves survive lock / app switch (`BackgroundUploads`).
@@ -1948,6 +2070,23 @@ struct OrderSheet: View {
             // One label for the whole batch (they all run at once).
             let toSend = queue.filter { scan in
                 (store.records.first { $0.id == scan.id } ?? scan).cloudScanId == nil
+            }
+            // N14 (2.79): this phone believes the email unverified ⇒ ask the server BEFORE
+            // 40–200 MB go up (it refuses an unverified order with 403 only after them, trap
+            // #19). Only its own "no" stops here (the code screen opens); no answer = carry on and
+            // let the server decide (trap #17). Verified accounts skip the request.
+            if !toSend.isEmpty, account.needsVerification,
+               await account.serverEmailVerified() == false {
+                errorMessage = String(localized: "Please verify your email before placing an order.")
+                isBusy = false
+                busyLabel = nil
+                if !Task.isCancelled { openAccountGate() }
+                return
+            }
+            if Task.isCancelled {
+                isBusy = false
+                busyLabel = nil
+                return
             }
             if toSend.count == 1 {
                 busyLabel = String(localized: "Uploading \(toSend[0].name)…")
@@ -2037,6 +2176,7 @@ struct OrderSheet: View {
             // Đặt cờ trên MainActor TRƯỚC `await` nên UI kịp disable nút Hủy trước khi request bay đi.
             placingOrder = true
             busyLabel = String(localized: "Placing order…")
+            var verifyFirst = false
             do {
                 let result = try await APIClient.shared.orderScan(
                     scanId: primaryCloudId,
@@ -2049,7 +2189,7 @@ struct OrderSheet: View {
                     unitSystem: unitSnapshot,
                     language: languageSnapshot,
                     floorNaming: floorNamingSnapshot,
-                    projectName: projectName ?? "",
+                    projectName: projectNameSnapshot,
                     coupon: couponSnapshot
                 )
                 placedOrder = result
@@ -2087,11 +2227,20 @@ struct OrderSheet: View {
                     await adoptExistingOrder(api, primaryCloudId: primaryCloudId, ticked: tickedCloudIds)
                 } else {
                     errorMessage = error.localizedDescription
+                    // N14 (2.79): 403 = "Please verify your email before placing an order." (the
+                    // route's only 403; it sends no `code`). The code screen opens at once — on
+                    // the server's own "not verified", ✗ on a 403 alone (an edge proxy can send
+                    // one): the uploads are done, verifying then places the order (`resumeAfterGate`).
+                    if let api = error as? APIError, api.statusCode == 403,
+                       await account.serverEmailVerified() == false {
+                        verifyFirst = true
+                    }
                 }
             }
             placingOrder = false
             isBusy = false
             busyLabel = nil
+            if verifyFirst { openAccountGate() }
         }
     }
 

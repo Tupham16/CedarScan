@@ -53,6 +53,8 @@ struct RootView: View {
     /// Yêu cầu mở một dự án, bắn từ tab Đơn hàng. Xem `OpenProjectRequest` + `requestOpenProject`.
     @State private var openProjectRequest: OpenProjectRequest?
     @State private var openProjectSeq = 0
+    /// F2 (2.79): a tapped scan reminder, handed to `HomeView` (it pushes that scan's page).
+    @State private var openScanRequest: PushNotifications.ScanRequest?
     /// A tapped push notification (`tapped`) → Orders tab (`openOrder`, `OrdersView` pushes it).
     @ObservedObject private var push = PushNotifications.shared
 
@@ -67,6 +69,7 @@ struct RootView: View {
             HomeView(
                 scanRequest: scanRequest,
                 openProjectRequest: openProjectRequest,
+                openScanRequest: openScanRequest,
                 store: store,
                 account: account
             )
@@ -160,6 +163,26 @@ struct RootView: View {
             guard let request else { return }
             openTappedOrder(request)
         }
+        // F2: the scan reminder — same rules as an order tap.
+        .onReceive(push.$tappedScan) { request in
+            guard let request else { return }
+            openTappedScan(request)
+        }
+    }
+
+    /// F2 (2.79): a tapped scan reminder → Home, that scan's page. Same rules as
+    /// `openTappedOrder`: one tick later, only over a plain screen (✗ under the scan cover, a sheet,
+    /// an alert — then nothing moves), and only for a scan still on this device. An ordinary tab
+    /// switch like `requestOpenProject`; `HomeView.openScan` defers its push itself.
+    private func openTappedScan(_ request: PushNotifications.ScanRequest) {
+        Task { @MainActor in
+            guard push.tappedScan == request else { return }
+            push.tappedScan = nil
+            guard !PushNotifications.somethingOnTop,
+                  store.records.contains(where: { $0.id == request.recordId }) else { return }
+            openScanRequest = request
+            if tab != .home { tab = .home }
+        }
     }
 
     /// A notification was tapped: its order in the Orders tab. One tick later (at cold start this
@@ -192,8 +215,9 @@ struct RootView: View {
     /// arrive only with the order form's `catalog()` — a customer who scans before ever reopening
     /// the form would never get a server "off". Launch / sign-in / foreground now fetch it too
     /// while signed in (catalog needs a token; a phone never signed in keeps its defaults), at
-    /// most every 30 min, in its own Task (nothing else waits on it); `catalog()` stores the
+    /// most every 30 min, in its own Task (nothing else waits on it); `scanSettings()` stores the
     /// config on main. GET only, no server change. Failure = retried at the next foreground.
+    /// 2.79 (N8): `scanSettings()`, ✗ `catalog()` — the same GET without the device identifier.
     /// Wall clock (keeps counting while the phone sleeps — uptime does not); `abs` so a clock set
     /// back cannot stop the fetches. nil = never / failed.
     private static var scanConfigFetchedAt: Date?
@@ -204,7 +228,7 @@ struct RootView: View {
         if let last = Self.scanConfigFetchedAt, abs(now.timeIntervalSince(last)) < 30 * 60 { return }
         Self.scanConfigFetchedAt = now
         Task {
-            if (try? await APIClient.shared.catalog()) == nil {
+            if (try? await APIClient.shared.scanSettings()) == nil {
                 Self.scanConfigFetchedAt = nil
             }
         }
@@ -309,6 +333,9 @@ struct RootView: View {
     /// ≈ 4GB/tháng, và `Documents/Scans/` NẰM TRONG bộ sao lưu iCloud (không chỗ nào đặt
     /// `isExcludedFromBackup`) → khoảng 30 bản quét là đầy gói iCloud 5GB miễn phí và bản sao lưu
     /// iPhone của khách bắt đầu lỗi. Ông được nghe con số này rồi vẫn chọn tắt.
+    /// 2.79 (Q1, owner 20/10, ~300 MB per 30-min scan by then): `Documents/Scans/` is now OUT of
+    /// the backup (`ScanStore.excludeScansFromBackup`) — the space on the phone itself is still
+    /// the customer's to free (trash on Home).
     private static let autoPurgeAfterDelivery = false
 
     /// Giữ bản quét thêm bấy nhiêu ngày SAU khi giao rồi mới dọn — cửa sổ để vòng "Yêu cầu sửa"

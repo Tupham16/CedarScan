@@ -16,6 +16,9 @@ struct TourPhotosView: View {
     @State private var customRoomName = ""
     @State private var showCustomRoom = false
     @State private var extraRooms: [String] = [] // phòng vừa thêm nhưng chưa có ảnh
+    /// N17 (2.79): the photo whose delete was tapped — asked first: the delete target grew to
+    /// 44pt over the photo's corner, and a deleted photo is gone from the server.
+    @State private var photoToDelete: TourPhotoDTO?
 
     /// Gợi ý tên phòng (giá trị lưu = TIẾNG ANH — hiện trên trang tour cho người xem nước ngoài)
     private static let suggestions = [
@@ -181,7 +184,7 @@ struct TourPhotosView: View {
                         locked: isPublished,
                         uploading: uploadingRooms.contains(group.room),
                         onUpload: { items in uploadPhotos(items, room: group.room) },
-                        onDelete: { photo in deletePhoto(photo) }
+                        onDelete: { photo in photoToDelete = photo }
                     )
                     .listRowBackground(Theme.card)
                 } header: {
@@ -212,6 +215,21 @@ struct TourPhotosView: View {
             }
         }
         .fogScreen()
+        // `presenting:` = the photo chosen at the tap (✗ a Bool + a second @State, trap #7).
+        .alert(
+            String(localized: "Delete this photo?"),
+            isPresented: Binding(
+                get: { photoToDelete != nil },
+                set: { if !$0 { photoToDelete = nil } }
+            ),
+            presenting: photoToDelete
+        ) { photo in
+            Button(String(localized: "Delete"), role: .destructive) {
+                photoToDelete = nil
+                deletePhoto(photo)
+            }
+            Button(String(localized: "Cancel"), role: .cancel) { photoToDelete = nil }
+        }
     }
 
     private func uploadPhotos(_ items: [PhotosPickerItem], room: String) {
@@ -308,8 +326,14 @@ private struct RoomPhotosRow: View {
                                 Image(systemName: "xmark.circle.fill")
                                     .font(.system(size: 18))
                                     .foregroundStyle(.white, .red)
+                                    // N17 (2.79): a 44pt target (the 18pt icon was all of it), the
+                                    // icon where it was — top-right, over the corner. It now covers
+                                    // part of the photo, hence the confirm (`photoToDelete`).
+                                    .frame(width: 44, height: 44, alignment: .topTrailing)
+                                    .contentShape(Rectangle())
                             }
                             .offset(x: 6, y: -6)
+                            .accessibilityLabel(String(localized: "Delete photo"))
                         }
                     }
                 }
@@ -334,6 +358,9 @@ private struct RoomPhotosRow: View {
                                 .strokeBorder(Theme.accentText.opacity(0.4), style: StrokeStyle(lineWidth: 1, dash: [4]))
                         )
                     }
+                    // N17: VoiceOver read "Add, 1/3".
+                    .accessibilityLabel(String(localized: "Add tour photos"))
+                    .accessibilityValue(Text(verbatim: "\(photos.count)/\(maxPerRoom)"))
                     .onChange(of: picked) { _, items in
                         guard !items.isEmpty else { return }
                         onUpload(items)

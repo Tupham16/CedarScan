@@ -451,6 +451,9 @@ struct OrdersView: View {
                 .foregroundStyle(isOn ? Theme.Badge.soft.fg : Color.primary)
         }
         .buttonStyle(.plain)
+        // N17: the chosen filter was shown by colour only. Both branches typed (see
+        // `CedarTabBar.tabItem`).
+        .accessibilityAddTraits(isOn ? AccessibilityTraits.isSelected : AccessibilityTraits())
     }
 
     private var ordersList: some View {
@@ -609,6 +612,12 @@ struct RevisionSheet: View {
                             axis: .vertical
                         )
                         .lineLimit(4...8)
+                        // N10 (2.79): the server keeps 2,000 UTF-16 units of it (`revision/route.ts`)
+                        // and reads a body over 16 KB as empty: stops there, as the order note.
+                        .onChange(of: message) { _, text in
+                            let cut = TextLimit.cut(text, 2000)
+                            if cut != text { message = cut }
+                        }
                         .listRowBackground(Theme.card)
                     } header: {
                         Text(order.orderNumber)
@@ -671,14 +680,20 @@ struct RevisionSheet: View {
             ForEach(files) { file in
                 HStack {
                     Image(systemName: "doc.fill").foregroundStyle(.secondary)
+                        .accessibilityHidden(true)
                     Text(file.name).lineLimit(1)
                     Spacer()
                     Button {
                         files.removeAll { $0.id == file.id }
                     } label: {
+                        // N17: a named 44pt target (was the bare ~17pt icon), row height kept.
                         Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+                            .padding(14)
+                            .contentShape(Rectangle())
+                            .padding(-14)
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel(String(localized: "Remove attachment"))
                 }
                 .listRowBackground(Theme.card)
             }

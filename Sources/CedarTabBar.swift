@@ -154,6 +154,12 @@ struct CedarTabBar: View {
         // Kiểu ghi rõ ở CẢ HAI nhánh (`AccessibilityTraits()` = rỗng): ternary với hai
         // implicit-member của một OptionSet là chỗ trình biên dịch hay chịu thua.
         .accessibilityAddTraits(isOn ? AccessibilityTraits.isSelected : AccessibilityTraits())
+        // N17 (2.79): the bar keeps fixed sizes (19pt icon, 10pt label — the layout invariants
+        // of `totalHeight`); at accessibility text sizes a long press shows the item enlarged,
+        // as the system tab bar does.
+        .accessibilityShowsLargeContentViewer {
+            Label(title, systemImage: icon)
+        }
     }
 
     /// Nút SCAN: vòng tròn to nhô qua đường viền + nhãn "Scan" (chủ app yêu cầu 2026-07-28:
@@ -188,6 +194,10 @@ struct CedarTabBar: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(String(localized: "Scan a new space"))
+        // N17: the fixed 10pt label, enlarged on a long press at accessibility text sizes.
+        .accessibilityShowsLargeContentViewer {
+            Label(String(localized: "Scan"), systemImage: "plus.viewfinder")
+        }
     }
 
     /// Tallest stack is the punch-out ring (`scanDiameter + 6` = 72) — it drives the size

@@ -217,7 +217,8 @@ struct ScanPreviewView: View {
                 .font(.subheadline.weight(.semibold))
                 // Không có hai dòng này thì vùng chạm chỉ cao bằng chữ (~20pt) — dưới chuẩn 44pt
                 // của Apple, mà nó lại nằm cách nút "Đặt hàng ngay" đúng 10pt.
-                .padding(.vertical, 8)
+                // N17 (2.79): `minHeight: 44`, ✗ the old 8pt padding (= ~36pt).
+                .frame(minHeight: 44)
                 .contentShape(Rectangle())
             }
 

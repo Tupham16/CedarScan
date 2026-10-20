@@ -5184,6 +5184,270 @@
     "es": "Esta propiedad ya tiene el pedido %@ — añade este escaneo con \"Enviar escaneo adicional\". No tiene costo adicional.",
     "nl": "Deze woning heeft al bestelling %@ — voeg deze scan toe met \"Extra scan versturen\". Dat kost niets extra."
    }
+  },
+  {
+   "key": "Incorrect email or password.",
+   "translations": {
+    "vi": "Email hoặc mật khẩu không đúng.",
+    "fr": "Courriel ou mot de passe incorrect.",
+    "de": "E-Mail-Adresse oder Passwort ist falsch.",
+    "cs": "Nesprávný e-mail nebo heslo.",
+    "sk": "Nesprávny e-mail alebo heslo.",
+    "es": "Correo o contraseña incorrectos.",
+    "nl": "Onjuist e-mailadres of wachtwoord."
+   }
+  },
+  {
+   "key": "An account with this email already exists. Please sign in.",
+   "translations": {
+    "vi": "Email này đã có tài khoản. Vui lòng đăng nhập.",
+    "fr": "Un compte existe déjà avec ce courriel. Veuillez vous connecter.",
+    "de": "Für diese E-Mail-Adresse gibt es bereits ein Konto. Bitte melden Sie sich an.",
+    "cs": "Účet s tímto e-mailem už existuje. Přihlaste se prosím.",
+    "sk": "Účet s týmto e-mailom už existuje. Prihláste sa, prosím.",
+    "es": "Ya existe una cuenta con este correo. Inicia sesión.",
+    "nl": "Er bestaat al een account met dit e-mailadres. Log in."
+   }
+  },
+  {
+   "key": "Please enter a valid email address.",
+   "translations": {
+    "vi": "Vui lòng nhập địa chỉ email hợp lệ.",
+    "fr": "Veuillez saisir une adresse courriel valide.",
+    "de": "Bitte geben Sie eine gültige E-Mail-Adresse ein.",
+    "cs": "Zadejte prosím platnou e-mailovou adresu.",
+    "sk": "Zadajte, prosím, platnú e-mailovú adresu.",
+    "es": "Escribe un correo electrónico válido.",
+    "nl": "Voer een geldig e-mailadres in."
+   }
+  },
+  {
+   "key": "Password must be at least 8 characters.",
+   "translations": {
+    "vi": "Mật khẩu phải có ít nhất 8 ký tự.",
+    "fr": "Le mot de passe doit contenir au moins 8 caractères.",
+    "de": "Das Passwort muss mindestens 8 Zeichen lang sein.",
+    "cs": "Heslo musí mít alespoň 8 znaků.",
+    "sk": "Heslo musí mať aspoň 8 znakov.",
+    "es": "La contraseña debe tener al menos 8 caracteres.",
+    "nl": "Het wachtwoord moet minstens 8 tekens hebben."
+   }
+  },
+  {
+   "key": "Please enter your name.",
+   "translations": {
+    "vi": "Vui lòng nhập tên của bạn.",
+    "fr": "Veuillez saisir votre nom.",
+    "de": "Bitte geben Sie Ihren Namen ein.",
+    "cs": "Zadejte prosím své jméno.",
+    "sk": "Zadajte, prosím, svoje meno.",
+    "es": "Escribe tu nombre.",
+    "nl": "Voer je naam in."
+   }
+  },
+  {
+   "key": "Incorrect code. Please try again.",
+   "translations": {
+    "vi": "Mã không đúng. Vui lòng thử lại.",
+    "fr": "Code incorrect. Veuillez réessayer.",
+    "de": "Falscher Code. Bitte versuchen Sie es erneut.",
+    "cs": "Nesprávný kód. Zkuste to prosím znovu.",
+    "sk": "Nesprávny kód. Skúste to znova, prosím.",
+    "es": "Código incorrecto. Inténtalo de nuevo.",
+    "nl": "Onjuiste code. Probeer het opnieuw."
+   }
+  },
+  {
+   "key": "The code has expired. Please request a new one.",
+   "translations": {
+    "vi": "Mã đã hết hạn. Vui lòng yêu cầu mã mới.",
+    "fr": "Le code a expiré. Veuillez en demander un nouveau.",
+    "de": "Der Code ist abgelaufen. Bitte fordern Sie einen neuen an.",
+    "cs": "Platnost kódu vypršela. Požádejte prosím o nový.",
+    "sk": "Platnosť kódu vypršala. Požiadajte, prosím, o nový.",
+    "es": "El código caducó. Solicita uno nuevo.",
+    "nl": "De code is verlopen. Vraag een nieuwe aan."
+   }
+  },
+  {
+   "key": "Invalid or expired code.",
+   "translations": {
+    "vi": "Mã không hợp lệ hoặc đã hết hạn.",
+    "fr": "Code invalide ou expiré.",
+    "de": "Ungültiger oder abgelaufener Code.",
+    "cs": "Kód je neplatný nebo vypršel.",
+    "sk": "Kód je neplatný alebo vypršal.",
+    "es": "Código no válido o caducado.",
+    "nl": "Ongeldige of verlopen code."
+   }
+  },
+  {
+   "key": "Too many attempts. Please request a new code.",
+   "translations": {
+    "vi": "Thử quá nhiều lần. Vui lòng yêu cầu mã mới.",
+    "fr": "Trop de tentatives. Veuillez demander un nouveau code.",
+    "de": "Zu viele Versuche. Bitte fordern Sie einen neuen Code an.",
+    "cs": "Příliš mnoho pokusů. Požádejte prosím o nový kód.",
+    "sk": "Príliš veľa pokusov. Požiadajte, prosím, o nový kód.",
+    "es": "Demasiados intentos. Solicita un código nuevo.",
+    "nl": "Te veel pogingen. Vraag een nieuwe code aan."
+   }
+  },
+  {
+   "key": "Could not send the email right now. Please try again.",
+   "translations": {
+    "vi": "Hiện chưa gửi được email. Vui lòng thử lại.",
+    "fr": "Impossible d'envoyer le courriel pour le moment. Veuillez réessayer.",
+    "de": "Die E-Mail konnte gerade nicht gesendet werden. Bitte versuchen Sie es erneut.",
+    "cs": "E-mail se teď nepodařilo odeslat. Zkuste to prosím znovu.",
+    "sk": "E-mail sa teraz nepodarilo odoslať. Skúste to znova, prosím.",
+    "es": "No se pudo enviar el correo ahora. Inténtalo de nuevo.",
+    "nl": "De e-mail kon nu niet worden verstuurd. Probeer het opnieuw."
+   }
+  },
+  {
+   "key": "Incorrect password.",
+   "translations": {
+    "vi": "Mật khẩu không đúng.",
+    "fr": "Mot de passe incorrect.",
+    "de": "Falsches Passwort.",
+    "cs": "Nesprávné heslo.",
+    "sk": "Nesprávne heslo.",
+    "es": "Contraseña incorrecta.",
+    "nl": "Onjuist wachtwoord."
+   }
+  },
+  {
+   "key": "Please sign in to continue.",
+   "translations": {
+    "vi": "Vui lòng đăng nhập để tiếp tục.",
+    "fr": "Veuillez vous connecter pour continuer.",
+    "de": "Bitte melden Sie sich an, um fortzufahren.",
+    "cs": "Pro pokračování se prosím přihlaste.",
+    "sk": "Ak chcete pokračovať, prihláste sa, prosím.",
+    "es": "Inicia sesión para continuar.",
+    "nl": "Log in om verder te gaan."
+   }
+  },
+  {
+   "key": "Please verify your email before placing an order.",
+   "translations": {
+    "vi": "Vui lòng xác minh email trước khi đặt hàng.",
+    "fr": "Veuillez vérifier votre courriel avant de passer une commande.",
+    "de": "Bitte bestätigen Sie Ihre E-Mail, bevor Sie eine Bestellung aufgeben.",
+    "cs": "Před odesláním objednávky prosím ověřte svůj e-mail.",
+    "sk": "Pred odoslaním objednávky si, prosím, overte e-mail.",
+    "es": "Verifica tu correo antes de realizar un pedido.",
+    "nl": "Verifieer je e-mailadres voordat je een bestelling plaatst."
+   }
+  },
+  {
+   "key": "One of the selected scans is already part of another order.",
+   "translations": {
+    "vi": "Một trong các bản quét đã chọn đã nằm trong một đơn khác.",
+    "fr": "L'une des numérisations sélectionnées fait déjà partie d'une autre commande.",
+    "de": "Einer der ausgewählten Scans gehört bereits zu einer anderen Bestellung.",
+    "cs": "Jeden z vybraných skenů už je součástí jiné objednávky.",
+    "sk": "Jeden z vybraných skenov je už súčasťou inej objednávky.",
+    "es": "Uno de los escaneos seleccionados ya forma parte de otro pedido.",
+    "nl": "Een van de geselecteerde scans hoort al bij een andere bestelling."
+   }
+  },
+  {
+   "key": "Too many failed attempts. Please try again in %lld minute(s).",
+   "translations": {
+    "vi": "Sai quá nhiều lần. Vui lòng thử lại sau %lld phút.",
+    "fr": "Trop de tentatives infructueuses. Réessayez dans %lld minute(s).",
+    "de": "Zu viele Fehlversuche. Bitte versuchen Sie es in %lld Minute(n) erneut.",
+    "cs": "Příliš mnoho neúspěšných pokusů. Zkuste to prosím znovu za %lld min.",
+    "sk": "Príliš veľa neúspešných pokusov. Skúste to znova o %lld min.",
+    "es": "Demasiados intentos fallidos. Inténtalo de nuevo en %lld minuto(s).",
+    "nl": "Te veel mislukte pogingen. Probeer het over %lld min. opnieuw."
+   }
+  },
+  {
+   "key": "Please wait %lld s before requesting another code.",
+   "translations": {
+    "vi": "Vui lòng đợi %lld giây trước khi yêu cầu mã khác.",
+    "fr": "Veuillez patienter %lld s avant de demander un autre code.",
+    "de": "Bitte warten Sie %lld s, bevor Sie einen neuen Code anfordern.",
+    "cs": "Před vyžádáním dalšího kódu prosím počkejte %lld s.",
+    "sk": "Pred vyžiadaním ďalšieho kódu počkajte, prosím, %lld s.",
+    "es": "Espera %lld s antes de pedir otro código.",
+    "nl": "Wacht %lld s voordat je een nieuwe code aanvraagt."
+   }
+  },
+  {
+   "key": "Too many attempts. Please try again later.",
+   "translations": {
+    "vi": "Thử quá nhiều lần. Vui lòng thử lại sau.",
+    "fr": "Trop de tentatives. Veuillez réessayer plus tard.",
+    "de": "Zu viele Versuche. Bitte versuchen Sie es später erneut.",
+    "cs": "Příliš mnoho pokusů. Zkuste to prosím později.",
+    "sk": "Príliš veľa pokusov. Skúste to, prosím, neskôr.",
+    "es": "Demasiados intentos. Inténtalo más tarde.",
+    "nl": "Te veel pogingen. Probeer het later opnieuw."
+   }
+  },
+  {
+   "key": "Scan files uploaded",
+   "translations": {
+    "vi": "Đã tải lên tệp bản quét",
+    "fr": "Fichiers de numérisation téléversés",
+    "de": "Scan-Dateien hochgeladen",
+    "cs": "Soubory skenu nahrány",
+    "sk": "Súbory skenu nahrané",
+    "es": "Archivos del escaneo subidos",
+    "nl": "Scanbestanden geüpload"
+   }
+  },
+  {
+   "key": "Remove attachment",
+   "translations": {
+    "vi": "Bỏ tệp đính kèm",
+    "fr": "Retirer la pièce jointe",
+    "de": "Anhang entfernen",
+    "cs": "Odebrat přílohu",
+    "sk": "Odobrať prílohu",
+    "es": "Quitar el archivo adjunto",
+    "nl": "Bijlage verwijderen"
+   }
+  },
+  {
+   "key": "Delete photo",
+   "translations": {
+    "vi": "Xóa ảnh",
+    "fr": "Supprimer la photo",
+    "de": "Foto löschen",
+    "cs": "Smazat fotku",
+    "sk": "Vymazať fotku",
+    "es": "Eliminar foto",
+    "nl": "Foto verwijderen"
+   }
+  },
+  {
+   "key": "Delete this photo?",
+   "translations": {
+    "vi": "Xóa ảnh này?",
+    "fr": "Supprimer cette photo?",
+    "de": "Dieses Foto löschen?",
+    "cs": "Smazat tuto fotku?",
+    "sk": "Vymazať túto fotku?",
+    "es": "¿Eliminar esta foto?",
+    "nl": "Deze foto verwijderen?"
+   }
+  },
+  {
+   "key": "Your scan of %@ hasn't been sent yet.",
+   "translations": {
+    "vi": "Bản quét %@ chưa được gửi.",
+    "fr": "Votre numérisation de %@ n'a pas encore été envoyée.",
+    "de": "Ihr Scan von %@ wurde noch nicht gesendet.",
+    "cs": "Váš sken %@ zatím nebyl odeslán.",
+    "sk": "Váš sken %@ zatiaľ nebol odoslaný.",
+    "es": "Tu escaneo de %@ aún no se ha enviado.",
+    "nl": "Je scan van %@ is nog niet verstuurd."
+   }
   }
  ],
  "infoplist": {

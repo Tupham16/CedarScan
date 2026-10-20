@@ -32,6 +32,10 @@ struct TemplatePicker: View {
                             }
                         }
                         .buttonStyle(.plain)
+                        // N17: the template's name (the thumbnail has none) and which one is
+                        // chosen — the blue ring alone said it to nobody using VoiceOver.
+                        .accessibilityLabel(tpl.name)
+                        .accessibilityAddTraits(selection == tpl.id ? AccessibilityTraits.isSelected : AccessibilityTraits())
                     }
                 }
                 .padding(.vertical, 4)

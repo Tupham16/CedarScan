@@ -7,6 +7,9 @@ struct HomeView: View {
     /// Yêu cầu "mở dự án X" bắn từ tab Đơn hàng (nút **"Thêm bản quét"**, chủ app đặt 19/08).
     /// Cùng khuôn tín hiệu với `scanRequest` ngay trên — xem `OpenProjectRequest` và `.onChange`.
     let openProjectRequest: OpenProjectRequest?
+    /// F2 (2.79): a tapped scan reminder — push that scan's page (`openScan`). `seq` inside: the
+    /// same scan tapped twice still fires `onChange` (`OpenProjectRequest`'s reason).
+    let openScanRequest: PushNotifications.ScanRequest?
     /// 🔴 TRUYỀN VÀO TỪ `RootView`, ✗ `@EnvironmentObject` — LÝ DO KHÁC hai màn PUSH, đọc kỹ.
     /// Bản thân HomeView chưa bao giờ văng: nó là GỐC của `NavigationStack` (không bị push) và
     /// tiêu đề là chuỗi CHẾT. Đổi ở đây là để ba closure `navigationDestination` bên dưới dựng
@@ -218,6 +221,9 @@ struct HomeView: View {
                                     // Thanh % màn "Đang dựng mô hình 3D…" — chuyển thẳng, ✗ nuốt.
                                     progress: saveProgress
                                 )
+                                // F2: the 24 h reminder, if it is still not sent then. Both save
+                                // call sites (also `ProjectView`) — the only place it is set.
+                                ScanReminder.scanSaved(saved, store: store)
                                 // Nhà rất lớn chạm trần: cover đóng xong sẽ mời quét phần còn lại.
                                 if result.hitCap { meshCapFollowUp = true }
                                 return saved
@@ -263,6 +269,10 @@ struct HomeView: View {
             // Tab Đơn hàng yêu cầu mở một dự án — nút "Thêm bản quét".
             .onChange(of: openProjectRequest) { _, request in
                 openProject(request)
+            }
+            // F2: a tapped scan reminder.
+            .onChange(of: openScanRequest) { _, request in
+                openScan(request)
             }
             .alert(String(localized: "LiDAR required"), isPresented: $showScanUnsupported) {
                 Button("OK", role: .cancel) {}
@@ -764,6 +774,23 @@ struct HomeView: View {
         }
     }
 
+    /// F2 (2.79): a tapped scan reminder → that scan's page, the way a loose scan row opens it
+    /// (`path` = [record], Back = Home). Same two beats and the same guards as `openProject`
+    /// (root first, then push; ✗ while a scan is in progress); a scan deleted meanwhile = nothing.
+    private func openScan(_ request: PushNotifications.ScanRequest?) {
+        guard let request else { return }
+        Task { @MainActor in
+            guard !isMeshScanning, !ScanCoverModel.shared.blocksInput,
+                  store.records.contains(where: { $0.id == request.recordId }) else { return }
+            path = NavigationPath()
+            Task { @MainActor in
+                guard !isMeshScanning, !ScanCoverModel.shared.blocksInput,
+                      let record = store.records.first(where: { $0.id == request.recordId }) else { return }
+                path.append(record)
+            }
+        }
+    }
+
     /// Mở màn quét mới — gọi từ `.onChange(of: scanRequest)` khi khách bấm tab SCAN. Giữ NGUYÊN
     /// logic của nút "Quét không gian mới" cũ: lần đầu mở guide (guide tự gọi quét ở onDismiss),
     /// các lần sau vào thẳng màn địa chỉ. Máy không LiDAR thì alert giải thích thay vì im lặng.
@@ -802,6 +829,8 @@ struct ScanRow: View {
                     .foregroundStyle(Theme.thumbLine)
                     .frame(width: 40, height: 40)
                     .background(Theme.thumbBg, in: RoundedRectangle(cornerRadius: 11, style: .continuous))
+                    // N17: decoration — VoiceOver read "cube" before every scan name.
+                    .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 2) {
                     nameLine
                     Text(subtitle)
@@ -904,6 +933,8 @@ struct ScanRow: View {
                     Image(systemName: "checkmark.icloud.fill")
                         .font(.caption)
                         .foregroundStyle(.green)
+                        // N17: what the green cloud means, for VoiceOver (it had no label).
+                        .accessibilityLabel(String(localized: "Scan files uploaded"))
                 }
             }
         }

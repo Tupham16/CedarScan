@@ -69,6 +69,28 @@ final class BackgroundUploads: NSObject {
     /// Call once at launch so completions queued while the app was dead are delivered (journal).
     func reconnect() { _ = session }
 
+    /// N8 (2.79): sign-out (`AccountStore.signOut`, every path) — no scan file of the account
+    /// that left reaches R2 afterwards, and nothing is left to resume.
+    func cancelAll() {
+        cancelTransfers()
+        UploadJournal.clearAll()
+    }
+
+    /// Every transfer of the session, including ones from before a relaunch, is cancelled and
+    /// none is recreated: `createdInBackground` / `replacing` are emptied FIRST, else
+    /// `didBecomeActive` or a swap's completion would start them again (trap #50). Waiting flows
+    /// end with the transfer's cancel error. The journal stays (account deletion calls this
+    /// before its request: a refused deletion keeps the resume).
+    func cancelTransfers() {
+        lock.lock()
+        createdInBackground.removeAll()
+        replacing.removeAll()
+        lock.unlock()
+        session.getAllTasks { tasks in
+            for task in tasks { task.cancel() }
+        }
+    }
+
     /// Main thread. Called by `AppDelegate.handleEventsForBackgroundURLSession`.
     func setSystemCompletion(_ handler: @escaping () -> Void) {
         if eventsFinished {
@@ -377,6 +399,13 @@ enum UploadJournal {
         var all = load()
         all[recordId.uuidString] = nil
         save(all)
+    }
+
+    /// Sign-out (`BackgroundUploads.cancelAll`): every entry. A late 2xx then finds no entry
+    /// (`markDone` needs one) and records nothing.
+    static func clearAll() {
+        lock.lock(); defer { lock.unlock() }
+        UserDefaults.standard.removeObject(forKey: key)
     }
 
     static func markDone(_ tagString: String) {
