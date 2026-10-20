@@ -148,9 +148,11 @@ final class ScanStore: ObservableObject {
 
     /// `.atomic`: a plain write truncates first, so a kill or a full disk mid-write leaves a
     /// truncated file that no longer decodes (same rule as `MeshPreviewFile.write`).
-    private func persistProjects() {
-        guard !projectsWriteBlocked, let data = try? JSONEncoder().encode(projects) else { return }
-        try? data.write(to: projectsURL, options: .atomic)
+    /// Returns whether the file was written (2.79: `backfillOrderBindings` retries otherwise).
+    @discardableResult
+    private func persistProjects() -> Bool {
+        guard !projectsWriteBlocked, let data = try? JSONEncoder().encode(projects) else { return false }
+        return (try? data.write(to: projectsURL, options: .atomic)) != nil
     }
 
     @discardableResult
@@ -741,26 +743,30 @@ final class ScanStore: ObservableObject {
         persistProjects()
     }
 
+    private static let bindingBackfillKey = "projects.bindingBackfill.v1"
+
     /// Q1 (2.79), once per install: houses ordered BEFORE 2.79 have their order only in their
     /// scans' meta.json, which the backup no longer carries — bound now as a 2.79 stamp would
     /// (newest stamp, `orderNumber(ofProject:)`). Only once the files are readable (before the
-    /// first unlock `records` reads back empty) and projects.json can be written. ⚠ A refunded
-    /// order's house gets bound too (the app keeps no refund state): harmless while its stamped
-    /// scans are here (they win anyway); a restored phone then offers "Send extra scan" into it
-    /// (refused `order_closed`) — accepted, rare.
-    private static let bindingBackfillKey = "projects.bindingBackfill.v1"
-
+    /// first unlock `records` reads back empty) and projects.json can be written; the flag only
+    /// once the write succeeded (full disk = tried again next launch). ✗ a property whose scans
+    /// carry two orders (data from before "1 house, 1 order"): bound to the newest, "Add a scan"
+    /// would lose its way to the other one (`project(withOrderNumber:)`). ⚠ A refunded order's
+    /// house gets bound too (the app keeps no refund state): harmless while its stamped scans are
+    /// here (they win anyway); a restored phone then offers "Send extra scan" into it, refused
+    /// `order_closed` after the upload (the sheet's close releases the binding) — accepted, rare.
     private func backfillOrderBindings() {
         guard !UserDefaults.standard.bool(forKey: Self.bindingBackfillKey),
               UIApplication.shared.isProtectedDataAvailable, !projectsWriteBlocked else { return }
         var changed = false
         for index in projects.indices where projects[index].orderNumber == nil {
-            if let number = orderNumber(ofProject: projects[index].id) {
-                projects[index].orderNumber = number
-                changed = true
-            }
+            let id = projects[index].id
+            let numbers = Set(records.compactMap { $0.projectId == id ? $0.cloudOrderNumber : nil })
+            guard numbers.count == 1, let number = orderNumber(ofProject: id) else { continue }
+            projects[index].orderNumber = number
+            changed = true
         }
-        if changed { persistProjects() }
+        guard !changed || persistProjects() else { return }
         UserDefaults.standard.set(true, forKey: Self.bindingBackfillKey)
     }
 
