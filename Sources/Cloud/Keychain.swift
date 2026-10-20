@@ -37,6 +37,21 @@ enum Keychain {
         return String(data: data, encoding: .utf8)
     }
 
+    /// 2.79 (N8): moves an item saved with an older access class (before 2.31: it moved with
+    /// device backups) to today's this-device-only class IN PLACE — `save` would delete first, and
+    /// a failed add after that delete loses the session.
+    static func makeThisDeviceOnly(_ key: String) {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: key,
+        ]
+        let change: [String: Any] = [
+            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
+        ]
+        SecItemUpdate(query as CFDictionary, change as CFDictionary)
+    }
+
     static func delete(_ key: String) {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,

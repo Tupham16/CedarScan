@@ -29,26 +29,39 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         PushNotifications.shared.didFailToRegister(error)
     }
 
-    /// App on screen: show the banner too, and reload the Orders list.
+    /// App on screen: show the banner too, and reload the Orders list. The local scan reminder (F2)
+    /// only goes to Notification Center: no banner or sound over the app in use (a scan may be
+    /// running), nothing to reload.
     nonisolated func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         willPresent notification: UNNotification,
         withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
     ) {
+        if notification.request.identifier.hasPrefix(ScanReminder.idPrefix) {
+            completionHandler([.list])
+            return
+        }
         completionHandler([.banner, .list, .sound])
         Task { @MainActor in PushNotifications.shared.noteArrival() }
     }
 
-    /// Tapped (cold start included): open that order.
+    /// Tapped (cold start included): open that order — or, for the local scan reminder (F2,
+    /// `ScanReminder`), that scan.
     nonisolated func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         didReceive response: UNNotificationResponse,
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
-        let orderId = response.actionIdentifier == UNNotificationDefaultActionIdentifier
-            ? response.notification.request.content.userInfo["orderId"] as? String
-            : nil
+        let opened = response.actionIdentifier == UNNotificationDefaultActionIdentifier
+        let userInfo = response.notification.request.content.userInfo
+        let orderId = opened ? userInfo["orderId"] as? String : nil
+        let scanId = opened ? ScanReminder.recordId(in: userInfo) : nil
+        let projectId = ScanReminder.projectId(in: userInfo)
         completionHandler()
+        if let scanId {
+            Task { @MainActor in PushNotifications.shared.didTapScan(recordId: scanId, projectId: projectId) }
+            return
+        }
         guard let orderId, !orderId.isEmpty else { return }
         Task { @MainActor in PushNotifications.shared.didTap(orderId: orderId) }
     }

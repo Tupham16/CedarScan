@@ -29,3 +29,22 @@ enum TextMatch {
         return key(haystack).contains(n)
     }
 }
+
+/// N10 (2.79): text the server keeps to `limit` UTF-16 units (`str(…, n)` in order-webapp's
+/// `app-api.ts`) — the order note, floor naming, property name, coupon, a revision request. The
+/// longest prefix of WHOLE characters within the limit, never half an emoji (the server's
+/// `cutText` rule). Shorter text comes back as it is.
+enum TextLimit {
+    static func cut(_ text: String, _ limit: Int) -> String {
+        guard text.utf16.count > limit else { return text }
+        var kept = ""
+        var used = 0
+        for character in text {
+            let size = character.utf16.count
+            if used + size > limit { break }
+            kept.append(character)
+            used += size
+        }
+        return kept
+    }
+}
