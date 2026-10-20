@@ -1371,7 +1371,7 @@ class Types:
             if len(links) == 2 or base in ("self", "Self") or base[:1].isupper():
                 labels = call_labels(value)
                 cands = self.funcs.get(callee, [])
-                ks = {kd for lb, kd in cands if sig_match(lb, labels)} - {None}
+                ks = {kd for lb, kd in cands if sig_match(lb, labels)}   # an unknown candidate = unknown
                 return ks.pop() if len(ks) == 1 else None
             return None                    # x.method(): x's type unknown
         if kind == "member":
