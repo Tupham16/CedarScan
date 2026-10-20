@@ -863,10 +863,9 @@ struct OrderDetailView: View {
     }
 
     /// F10: a teammate's order (or items they added) — only its placer or a team admin may cancel it
-    /// (server `orders/{id}/cancel` → 403 `not_allowed`); the others still see Pay Now. `placedBy`
-    /// nil = yours.
+    /// (server `orders/{id}/cancel` → 403 `not_allowed`); the others still see Pay Now.
     private func mayCancel(_ order: OrderDTO) -> Bool {
-        order.placedBy == nil || account.team?.isAdmin == true
+        order.placedByMe || account.team?.isAdmin == true
     }
 
     /// `POST orders/{id}/cancel` (up to ~45 s). Its own task, ✗ tied to this screen: Back during

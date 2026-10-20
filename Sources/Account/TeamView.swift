@@ -154,6 +154,8 @@ struct TeamView: View {
             .font(.footnote.weight(.semibold))
             .lineLimit(1)
             .minimumScaleFactor(0.5)
+            // Decorative (hidden from VoiceOver): past xxxLarge the envelope symbol outgrew its circle.
+            .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
             .foregroundStyle(kind?.fg ?? Theme.thumbLine)
             .frame(width: 34, height: 34)
             .background(Circle().fill(kind?.bg ?? Theme.thumbBg))

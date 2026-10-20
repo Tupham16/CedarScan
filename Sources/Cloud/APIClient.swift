@@ -359,12 +359,18 @@ struct OrderDTO: Decodable, Identifiable {
     /// F10 (team accounts): the teammate who placed it (their account's name). nil = you, a personal
     /// order, or a teammate whose account is gone. Optional: older servers.
     let placedBy: String?
+    /// This account placed it (asked of F10a 20/10 to tell "you" from a deleted teammate). Read via
+    /// `placedByMe`. Optional: a server without it.
+    let placedByYou: Bool?
     /// "team_card" once the team's card paid it. Optional: older servers.
     let paidWith: String?
 
     var id: String { orderId }
 
     var paidWithTeamCard: Bool { paidWith == "team_card" }
+
+    /// Without `placedByYou`, nil `placedBy` = yours (a deleted teammate's reads as yours then).
+    var placedByMe: Bool { placedByYou ?? (placedBy == nil) }
 
     /// F1: when the order should be ready, or nil. A deadline already past is hidden (owner
     /// 20/10: the customer is not shown a late order; the status badge stays).

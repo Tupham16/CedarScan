@@ -2507,8 +2507,8 @@ struct OrderSheet: View {
         let holdsTicked = Set(ticked).isSubset(of: order.allScanIds)
         let payLinkReady = !order.isAwaitingPayment || httpsURL(order.paymentUrl) != nil
         // F10: a teammate's order (they ordered this team scan) is not this tap's: one line, ✗ "Order
-        // placed!". The lost answer to this phone's own tap is always `placedBy` nil.
-        guard isNew, holdsTicked, payLinkReady, order.placedBy == nil else {
+        // placed!". The lost answer to this phone's own tap is always this account's.
+        guard isNew, holdsTicked, payLinkReady, order.placedByMe else {
             errorMessage = String(localized: "This scan is already in order \(order.orderNumber) — see the Orders tab.")
             return
         }
