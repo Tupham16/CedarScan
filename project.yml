@@ -88,6 +88,8 @@ targets:
     # and sets CODE_SIGN_ENTITLEMENTS. `development` is right: the App Store export (release.yml)
     # rewrites it to `production`. build.yml is unsigned, so the AltStore IPA carries no entitlement
     # (free teams cannot use push): those builds install as before and simply never get a token.
+    # release.yml adds the App Store-only ones to the generated file: Apple Pay (repo variable),
+    # Increased Memory Limit and webcredentials:app.cedar247.com (2.79).
     entitlements:
       path: Sources/CedarScan.entitlements
       properties:

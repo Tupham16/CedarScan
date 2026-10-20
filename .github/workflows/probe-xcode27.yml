@@ -1,0 +1,175 @@
+name: Probe Xcode 27 (not shipping)
+
+# C1 (audit 20/10/2026). From April 2027 App Store Connect takes only builds made with the iOS 27
+# SDK (Apple news 09/09/2026). This builds the app with Xcode 27 now, so breakage shows up months
+# before the switch: an unsigned device archive (the build.yml command) + a launch on the iOS 27
+# simulator (TN3187: an app without the scene life cycle does not launch when built with the iOS 27
+# SDK). It SHIPS NOTHING: no IPA artifact, only logs, a bundle file list and a screenshot.
+# build.yml / release.yml stay pinned to Xcode 26.3 on macos-15 (trap #40) until the planned
+# switch in Feb-Mar 2027 (checklist: PLAN-RA-SOAT-2026-10-20.md, C1).
+on:
+  workflow_dispatch:
+    inputs:
+      xcode:
+        description: "Xcode app on the xcode-27 image, e.g. Xcode_27.1.app (empty = the image default)"
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    # GitHub's Xcode 27 image (one Xcode major per image, public preview since 16/07/2026, macOS 27,
+    # arm64). Its default Xcode is the newest release, betas sit beside it.
+    runs-on: xcode-27
+    timeout-minutes: 75
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Select Xcode 27
+        env:
+          XCODE_APP: ${{ inputs.xcode }}
+        run: |
+          # The runner context is not available in job-level env: export OUT here.
+          OUT="$RUNNER_TEMP/probe"
+          echo "OUT=$OUT" >> "$GITHUB_ENV"
+          mkdir -p "$OUT"
+          if [ -n "$XCODE_APP" ]; then sudo xcode-select -s "/Applications/$XCODE_APP"; fi
+          ls -d /Applications/Xcode*.app
+          xcodebuild -version | tee "$OUT/xcode-version.txt"
+          head -1 "$OUT/xcode-version.txt" | grep -q '^Xcode 27\.' || { echo "::error::not Xcode 27"; exit 1; }
+
+      # Same pin and zip as build.yml (see the note there).
+      - name: Install XcodeGen 2.46.0
+        env:
+          XCODEGEN_VERSION: "2.46.0"
+          XCODEGEN_SHA256: "4d9e34b62172d645eed6457cac13fc222569974098ef4ee9c3368bedf0196806"
+        run: |
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/xcodegen.zip" \
+            "https://github.com/yonaskolb/XcodeGen/releases/download/$XCODEGEN_VERSION/xcodegen.zip"
+          echo "$XCODEGEN_SHA256  $RUNNER_TEMP/xcodegen.zip" | shasum -a 256 -c -
+          unzip -q -o "$RUNNER_TEMP/xcodegen.zip" -d "$RUNNER_TEMP"
+          test -f "$RUNNER_TEMP/xcodegen/share/xcodegen/SettingPresets/base.yml"
+          echo "$RUNNER_TEMP/xcodegen/bin" >> "$GITHUB_PATH"
+
+      - name: Generate Xcode project
+        run: |
+          xcodegen --version
+          xcodegen generate
+
+      - name: Resolve Swift packages
+        run: xcodebuild -resolvePackageDependencies -project CedarScan.xcodeproj -scheme CedarScan
+
+      # The build.yml command (the App Store build only adds signing + APPSTORE).
+      - name: Archive for device (unsigned)
+        run: |
+          xcodebuild \
+            -project CedarScan.xcodeproj \
+            -scheme CedarScan \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath build/CedarScan.xcarchive \
+            archive \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" 2>&1 | tee "$OUT/device.log"
+
+      # Trap #39: compare this list with an IPA of the Xcode 26.3 build before switching.
+      - name: Bundle facts + file list
+        run: |
+          python3 - build/CedarScan.xcarchive/Products/Applications/CedarScan.app "$OUT" <<'PY'
+          import os, plistlib, sys
+          app, out = sys.argv[1], sys.argv[2]
+          info = plistlib.load(open(os.path.join(app, "Info.plist"), "rb"))
+          for k in ("CFBundleShortVersionString", "DTXcode", "DTXcodeBuild", "DTSDKName",
+                    "DTPlatformVersion", "MinimumOSVersion"):
+              print(f"{k:28}", info.get(k))
+          rows = []
+          for dp, dn, fn in os.walk(app):
+              for f in fn:
+                  p = os.path.join(dp, f)
+                  rows.append(f"{os.path.relpath(p, app)}\t{os.path.getsize(p)}")
+          open(os.path.join(out, "app-files.txt"), "w").write("\n".join(sorted(rows)) + "\n")
+          print(len(rows), "files in the app bundle")
+          PY
+
+      - name: Build for the iOS 27 simulator
+        id: sim
+        if: ${{ !cancelled() }}
+        run: |
+          xcodebuild \
+            -project CedarScan.xcodeproj \
+            -scheme CedarScan \
+            -configuration Release \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build/sim \
+            build \
+            ARCHS=arm64 \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" 2>&1 | tee "$OUT/sim.log"
+
+      # Alive 30 s after launch = the scene life cycle works with the iOS 27 SDK (SwiftUI App +
+      # WindowGroup; the UIApplicationDelegateAdaptor does not configure scenes).
+      - name: Launch on the iOS 27 simulator
+        if: ${{ !cancelled() && steps.sim.outcome == 'success' }}
+        run: |
+          UDID=$(xcrun simctl list devices available -j | python3 -c '
+          import json, sys
+          best = None
+          for rt, devs in json.load(sys.stdin)["devices"].items():
+              if "SimRuntime.iOS-27" not in rt:
+                  continue
+              for d in devs:
+                  if d["name"].startswith("iPhone") and (best is None or "Pro" in d["name"]):
+                      best = d
+          print(best["udid"] + " " + best["name"] if best else "")
+          ')
+          [ -n "$UDID" ] || { xcrun simctl list runtimes; echo "::error::no iOS 27 iPhone simulator"; exit 1; }
+          echo "Simulator: $UDID"
+          UDID=${UDID%% *}
+          xcrun simctl boot "$UDID" || true
+          xcrun simctl bootstatus "$UDID" -b
+          xcrun simctl install "$UDID" build/sim/Build/Products/Release-iphonesimulator/CedarScan.app
+          xcrun simctl launch "$UDID" com.cedar247.cedarscan | tee "$OUT/launch.txt"
+          sleep 30
+          xcrun simctl io "$UDID" screenshot "$OUT/launch-ios27.png"
+          xcrun simctl spawn "$UDID" log show --last 5m --style compact \
+            --predicate 'process == "CedarScan"' > "$OUT/app-log.txt" 2>&1 || true
+          echo "--- scene / assert lines in the app log:"
+          grep -i -E 'uiscene|scene life|lifecycle|assert' "$OUT/app-log.txt" | head -40 || true
+          cp ~/Library/Logs/DiagnosticReports/CedarScan* "$OUT/" 2>/dev/null || true
+          if xcrun simctl spawn "$UDID" launchctl list | grep -E '^[0-9]+[[:space:]].*UIKitApplication:com\.cedar247\.cedarscan'; then
+            echo "CedarScan is running 30 s after launch"
+          else
+            echo "::error::CedarScan is not running 30 s after launch on the iOS 27 simulator (crash report, if any, in the artifact)"
+            exit 1
+          fi
+
+      - name: Warnings summary
+        if: ${{ always() }}
+        run: |
+          {
+            echo "## Xcode 27 probe"
+            echo '```'; cat "$OUT/xcode-version.txt" 2>/dev/null; echo '```'
+            for f in device sim; do
+              [ -f "$OUT/$f.log" ] || continue
+              grep -E '(warning|error): ' "$OUT/$f.log" \
+                | sed -E "s#$GITHUB_WORKSPACE/##g; s#/Users/runner/Library/Developer/Xcode/DerivedData/[^/]+/#DerivedData/#g" \
+                | sort -u > "$OUT/$f-diagnostics.txt" || true
+              echo "### $f build: $(wc -l < "$OUT/$f-diagnostics.txt") unique warning / error lines"
+              echo '```'; cat "$OUT/$f-diagnostics.txt"; echo '```'
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # Logs only — never an IPA from this workflow.
+      - name: Upload probe logs
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: probe-xcode27
+          path: ${{ runner.temp }}/probe
+          retention-days: 30

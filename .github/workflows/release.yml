@@ -43,6 +43,11 @@ on:
         # Ai muốn nộp thì phải TỰ TICK — bấm nhầm chỉ mất mấy phút CI.
         default: false
 
+# Least privilege (2.79): reads the repo only. The App Store Connect key comes from the four
+# secrets above, not from GITHUB_TOKEN.
+permissions:
+  contents: read
+
 jobs:
   release:
     runs-on: macos-15
@@ -120,6 +125,22 @@ jobs:
           /usr/libexec/PlistBuddy \
             -c "Add :com.apple.developer.in-app-payments array" \
             -c "Add :com.apple.developer.in-app-payments:0 string $APPLE_PAY_MERCHANT_ID" \
+            Sources/CedarScan.entitlements
+          plutil -p Sources/CedarScan.entitlements
+
+      # App Store builds only (2.79); build.yml stays unsigned, so the AltStore build carries neither
+      # (a free AltStore team could not sign them anyway).
+      # - Increased Memory Limit (T2): a long scan's save peaks near iOS's default app memory limit.
+      # - Associated Domains `webcredentials:` (C9): Password AutoFill offers / saves the
+      #   app.cedar247.com account in the sign-in fields; that site serves the
+      #   /.well-known/apple-app-site-association file that names this app.
+      # Both need the capability on the App ID; "Kiểm entitlements" below fails if either is missing.
+      - name: App Store entitlements
+        run: |
+          /usr/libexec/PlistBuddy \
+            -c "Add :com.apple.developer.kernel.increased-memory-limit bool true" \
+            -c "Add :com.apple.developer.associated-domains array" \
+            -c "Add :com.apple.developer.associated-domains:0 string webcredentials:app.cedar247.com" \
             Sources/CedarScan.entitlements
           plutil -p Sources/CedarScan.entitlements
 
@@ -272,7 +293,8 @@ jobs:
 
       # Push notifications (2.61): the signed app must carry aps-environment = production (the
       # export rewrites project.yml's `development`), or no TestFlight/App Store phone gets a token.
-      - name: Kiểm quyền push
+      # Also Apple Pay (only with its repo variable) and the two App Store entitlements of 2.79.
+      - name: Kiểm entitlements
         env:
           APPLE_PAY_MERCHANT_ID: ${{ vars.APPLE_PAY_MERCHANT_ID }}
         run: |
@@ -301,6 +323,13 @@ jobs:
               sys.exit(1)
           if not want and (got or key):
               print("::error::Apple Pay present although APPLE_PAY_MERCHANT_ID is unset")
+              sys.exit(1)
+          mem = ents.get("com.apple.developer.kernel.increased-memory-limit")
+          dom = ents.get("com.apple.developer.associated-domains")
+          print("increased-memory-limit   :", mem)
+          print("associated-domains       :", dom)
+          if mem is not True or dom != ["webcredentials:app.cedar247.com"]:
+              print("::error::App Store entitlements missing or changed (step 'App Store entitlements')")
               sys.exit(1)
           PY
 
