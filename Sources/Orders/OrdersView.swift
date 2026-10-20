@@ -585,6 +585,7 @@ struct OrdersView: View {
     /// tomorrow by name (the system's own words), a later day as weekday + date.
     static func readyByText(_ due: Date) -> String {
         let formatter = DateFormatter()
+        formatter.locale = appLanguageLocale()
         let calendar = Calendar.current
         if calendar.isDateInToday(due) || calendar.isDateInTomorrow(due) {
             formatter.doesRelativeDateFormatting = true
@@ -596,6 +597,16 @@ struct OrdersView: View {
         }
         let when = formatter.string(from: due)
         return String(localized: "Ready by \(when)")
+    }
+
+    /// The phone's locale in the app's language: on a phone set to a language the app lacks the
+    /// sentence is English, and "Ready by domani alle 15:40" mixed the two. Region formats stay.
+    private static func appLanguageLocale() -> Locale {
+        let current = Locale.current
+        guard current.language.languageCode?.identifier != AppLanguage.code else { return current }
+        var parts = Locale.Components(locale: current)
+        parts.languageComponents = Locale.Language.Components(languageCode: Locale.LanguageCode(AppLanguage.code))
+        return Locale(components: parts)
     }
 }
 

@@ -52,6 +52,9 @@ final class TexturedModelCache: ObservableObject {
     /// T7: received share of each download in flight (same key), written by its delegate. Static
     /// like `inFlight`: an instance that joins a running download reads it too.
     private static var received: [String: Double] = [:]
+    /// T7: the download that owns `inFlight[key]` / `received[key]`. A cancelled one that ends
+    /// late must not clear (or feed) a newer download of the same file.
+    private static var owner: [String: UUID] = [:]
 
     private var task: Task<Void, Never>?
     /// T7: copies `received` into `progress` while this instance follows a download.
@@ -160,11 +163,18 @@ final class TexturedModelCache: ObservableObject {
         } else {
             // `Task {}` mở trong ngữ cảnh @MainActor thì THỪA HƯỞNG actor đó — không cần
             // gắn nhãn lại, và nhờ vậy việc sửa `Self.inFlight` ở đây là an toàn.
+            let token = UUID()
+            Self.owner[key] = token
             Self.received[key] = nil
             download = Task {
-                let r = await Self.download(scanId: scanId, remote: remote, key: key)
-                Self.inFlight[key] = nil
-                Self.received[key] = nil
+                let r = await Self.download(scanId: scanId, remote: remote, key: key, token: token)
+                // Only this download's own entries (a cancel already removed them, and a newer
+                // download of the same file may hold the key now).
+                if Self.owner[key] == token {
+                    Self.inFlight[key] = nil
+                    Self.received[key] = nil
+                    Self.owner[key] = nil
+                }
                 return r
             }
             Self.inFlight[key] = download
@@ -200,6 +210,8 @@ final class TexturedModelCache: ObservableObject {
         if let key = inFlightKey {
             Self.inFlight[key]?.cancel()
             Self.inFlight[key] = nil
+            Self.received[key] = nil
+            Self.owner[key] = nil
             inFlightKey = nil
         }
         task?.cancel()
@@ -218,7 +230,9 @@ final class TexturedModelCache: ObservableObject {
             while !Task.isCancelled {
                 try? await Task.sleep(nanoseconds: 300_000_000)
                 guard let self, self.inFlightKey == key else { return }
-                self.progress = Self.received[key]
+                // Only on a change: every assignment redraws the screens that watch this cache.
+                let value = Self.received[key]
+                if self.progress != value { self.progress = value }
             }
         }
     }
@@ -238,7 +252,7 @@ final class TexturedModelCache: ObservableObject {
         case failure(String)
     }
 
-    private static func download(scanId: String, remote: URL, key: String) async -> DownloadResult {
+    private static func download(scanId: String, remote: URL, key: String, token: UUID) async -> DownloadResult {
         let dest = cachedURL(scanId: scanId, remote: remote)
         do {
             try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
@@ -251,8 +265,8 @@ final class TexturedModelCache: ObservableObject {
             request.timeoutInterval = 60
             let watcher = DownloadProgress { fraction in
                 Task { @MainActor in
-                    // Only while that download is the one in flight (a cancel removed it).
-                    if Self.inFlight[key] != nil { Self.received[key] = fraction }
+                    // Only while this download still owns the key (a cancel removed it).
+                    if Self.owner[key] == token { Self.received[key] = fraction }
                 }
             }
             let (tmp, response) = try await URLSession.shared.download(for: request, delegate: watcher)

@@ -10306,7 +10306,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Volné místo je jen %1$@. Uložení skenu potřebuje asi %2$@, takže se tento sken nemusí uložit. Uvolněte místo v Nastavení › Obecné › Úložiště iPhonu."
+            "value": "Zbývá jen %1$@ volného místa. K uložení skenu je potřeba asi %2$@, takže se tento sken nemusí uložit. Uvolněte místo v Nastavení › Obecné › Úložiště iPhonu."
           }
         },
         "de": {
@@ -10318,7 +10318,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Solo quedan %1$@ libres. Guardar un escaneo necesita unos %2$@, así que este escaneo podría no guardarse. Libera espacio en Ajustes › General › Almacenamiento del iPhone."
+            "value": "Solo quedan %1$@ libres. Para guardar un escaneo se necesitan unos %2$@, así que este escaneo podría no guardarse. Libera espacio en Ajustes › General › Almacenamiento del iPhone."
           }
         },
         "fr": {
@@ -10336,7 +10336,7 @@
         "sk": {
           "stringUnit": {
             "state": "translated",
-            "value": "Voľné miesto je len %1$@. Uloženie skenu potrebuje asi %2$@, takže sa tento sken nemusí uložiť. Uvoľnite miesto v Nastaveniach › Všeobecné › Úložisko iPhonu."
+            "value": "Zostáva len %1$@ voľného miesta. Na uloženie skenu treba asi %2$@, takže sa tento sken nemusí uložiť. Uvoľnite miesto v Nastaveniach › Všeobecné › Úložisko iPhonu."
           }
         },
         "vi": {
@@ -12580,7 +12580,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Prêt d'ici %@"
+            "value": "Prête d'ici %@"
           }
         },
         "nl": {

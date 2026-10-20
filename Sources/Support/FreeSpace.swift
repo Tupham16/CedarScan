@@ -22,14 +22,21 @@ enum FreeSpace {
         return free
     }
 
-    /// "1.2 GB" in the phone's language, decimal as in Settings.
+    /// "1.2 GB" in the phone's language, decimal as in Settings. Always a number ("0 KB", ✗ the
+    /// formatter's "Zero KB").
     static func text(_ bytes: Int64) -> String {
-        ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
+        let formatter = ByteCountFormatter()
+        formatter.countStyle = .file
+        formatter.allowsNonnumericFormatting = false
+        return formatter.string(fromByteCount: bytes)
     }
 }
 
 extension View {
     /// N5: "Your iPhone is almost full" while `free` holds a value; "Scan anyway" runs `scanAnyway`.
+    /// `scanAnyway` may open a sheet (guide, address): an alert's button runs once the alert has
+    /// gone (UIAlertController calls an action's handler after its dismissal), so that sheet is
+    /// not presented over a closing alert. ⚠ Not yet seen on a device (needs < 1.5 GB free).
     func lowSpaceAlert(_ free: Binding<Int64?>, scanAnyway: @escaping () -> Void) -> some View {
         alert(
             String(localized: "Your iPhone is almost full"),

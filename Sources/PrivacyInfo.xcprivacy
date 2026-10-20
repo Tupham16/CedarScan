@@ -336,14 +336,16 @@
 		</dict>
 		<!-- Free space (2.79) — `FreeSpace.low()` reads `volumeAvailableCapacityForImportantUsage`
 		     before a scan opens and warns when it is below 1.5 GB (an alert the customer sees).
-		     E174.1 = check that there is room to write files; the number never leaves the phone
-		     (✗ in scan-report.json or any request). -->
+		     E174.1 = check that there is room to write files; 85F4.1 = the alert shows the free
+		     amount ("Only 1.2 GB free"). The number never leaves the phone (✗ in scan-report.json
+		     or any request). -->
 		<dict>
 			<key>NSPrivacyAccessedAPIType</key>
 			<string>NSPrivacyAccessedAPICategoryDiskSpace</string>
 			<key>NSPrivacyAccessedAPITypeReasons</key>
 			<array>
 				<string>E174.1</string>
+				<string>85F4.1</string>
 			</array>
 		</dict>
 	</array>

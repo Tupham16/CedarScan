@@ -1064,6 +1064,9 @@ struct OrderSheet: View {
     @ObservedObject private var flow = PaymentFlow.shared
     /// The server said this order is paid (a browser payment: `PaymentFlow` never hears of it).
     @State private var serverPaid = false
+    /// F1: the ready-by time of an order paid on this screen. The Place order reply has none for a
+    /// pay-first order (the target starts at payment), so it is read from the list once paid.
+    @State private var placedDueAt: String?
     /// The placed screen shows an order found in the list (`showAdoptedOrder`: before placing, or
     /// after a 409), ✗ one this tap made: its card sheet does not open by itself — its price may
     /// not be the one this form showed (rule 3 of `AddToOrderSheet`). Pay Now is there to tap.
@@ -1225,6 +1228,28 @@ struct OrderSheet: View {
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { recheckPlacedOrder() }
+        }
+        // F1: paid in the card sheet here → its ready-by time (the server sets it at payment).
+        .onChange(of: flow.paidOrderIds) { _, ids in
+            guard let placed = placedOrder, ids.contains(placed.orderId), placedDueAt == nil else { return }
+            loadPlacedDueAt(placed.orderId)
+        }
+    }
+
+    /// F1: the ready-by time of an order just paid on this screen, from the order list. The server
+    /// confirms a card payment a moment later (webhook), so up to three tries, 5 s apart. Read
+    /// only; nothing else on this screen changes.
+    private func loadPlacedDueAt(_ orderId: String) {
+        Task {
+            for attempt in 0..<3 {
+                if attempt > 0 { try? await Task.sleep(nanoseconds: 5_000_000_000) }
+                if let list = try? await APIClient.shared.listOrders(),
+                   let live = list.orders.first(where: { $0.orderId == orderId }),
+                   let due = live.dueAt {
+                    placedDueAt = due
+                    return
+                }
+            }
         }
     }
 
@@ -1735,6 +1760,8 @@ struct OrderSheet: View {
                    live.paid == true, !live.isCancelled {
                     serverPaid = true
                     store.noteOrderStatus(orderNumber: live.orderNumber, status: live.status)
+                    // F1: the paid order's ready-by time, from the same answer.
+                    if let due = live.dueAt { placedDueAt = due }
                     return
                 }
             }
@@ -1799,7 +1826,7 @@ struct OrderSheet: View {
                     .foregroundStyle(Theme.Badge.warn.fg)
                     .multilineTextAlignment(.center)
             }
-            if !unpaid, let due = OrderDTO.readyByDate(order.dueAt) {
+            if !unpaid, let due = OrderDTO.readyByDate(placedDueAt ?? order.dueAt) {
                 readyByPill(due)
             }
             successNotes(order, unpaid: unpaid)

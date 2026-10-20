@@ -189,14 +189,24 @@ struct ModelViewerScreen: View {
             guard let url, texture == nil, !textureFailed else { return }
             loadTexture(url)
         }
-        // T7: a download that failed under the grey model: the switch goes back to grey and the
-        // capsule says so (Try again). Without grey the full-screen error stays, as before.
         .onChange(of: textured.phase) { _, phase in
-            guard case .failed = phase, wantTexture, hasTexture, grey != nil, texture == nil else { return }
-            wantTexture = false
-            textureError = .downloadFailed
+            if case .failed = phase { showDownloadFailure() }
         }
     }
+
+    /// T7: a failed download under the grey model: the switch goes back to grey and the capsule
+    /// says so — also when the viewer was reopened mid-download with the switch off. Without grey
+    /// the full-screen error stays, as before.
+    private func showDownloadFailure() {
+        guard hasTexture, grey != nil, texture == nil else { return }
+        wantTexture = false
+        textureError = .downloadFailed
+        UIAccessibility.post(notification: .announcement, argument: String(localized: "Couldn't download the texture"))
+    }
+
+    /// Try again can help only a download from the server, ✗ the offline copy of the cache that
+    /// `ScanDetailView` hands over when it cannot reach the server (an empty one stays empty).
+    private var canRetryTexture: Bool { texturedRemote?.isFileURL != true }
 
     // MARK: - Thanh trên: nút Đóng + công tắc Texture
 
@@ -290,10 +300,12 @@ struct ModelViewerScreen: View {
             case .downloadFailed:
                 warnMark
                 Text(String(localized: "Couldn't download the texture"))
-                capsuleAction(String(localized: "Try again")) {
-                    textureError = nil
-                    wantTexture = true
-                    beginTexture()
+                if canRetryTexture {
+                    capsuleAction(String(localized: "Try again")) {
+                        textureError = nil
+                        wantTexture = true
+                        beginTexture()
+                    }
                 }
             case .openFailed:
                 warnMark
@@ -302,14 +314,24 @@ struct ModelViewerScreen: View {
         }
         .font(.subheadline.weight(.semibold))
         .foregroundStyle(.white)
-        .lineLimit(2)
+        // 3: fr / cs / sk / es failure texts need it beside Try again at the largest size.
+        .lineLimit(3)
         .padding(.leading, 14)
-        .padding(.trailing, notice == .downloading || notice == .downloadFailed ? 2 : 14)
+        .padding(.trailing, capsuleTrailing(notice))
         .frame(minHeight: 42)
         .fogGlass(RoundedRectangle(cornerRadius: 21, style: .continuous))
         .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
         .environment(\.colorScheme, .dark)
         .accessibilityElement(children: .contain)
+    }
+
+    /// A text button ends the capsule (its own padding) or the text does (14).
+    private func capsuleTrailing(_ notice: TextureNotice) -> CGFloat {
+        switch notice {
+        case .downloading: return 2
+        case .downloadFailed: return canRetryTexture ? 2 : 14
+        case .opening, .openFailed: return 14
+        }
     }
 
     /// Ring filling with the download; a spinner until the size is known.
@@ -334,7 +356,7 @@ struct ModelViewerScreen: View {
     }
 
     private var warnMark: some View {
-        Image(systemName: "exclamationmark.triangle.fill")
+        Image(systemName: "exclamationmark.triangle")
             .foregroundStyle(Theme.Badge.warn.fg)
             .accessibilityHidden(true)
     }
@@ -551,6 +573,9 @@ struct ModelViewerScreen: View {
         // Gọi lại lúc đang tải = không làm gì (`open` tự gác), và nó bám vào lượt đang chạy nếu
         // khách vừa đóng/mở lại màn — xem `TexturedModelCache.inFlight`.
         textured.open(scanId: cloudScanId, remote: texturedRemote)
+        // T7: `open` can fail on the spot (an empty offline copy). A second failure in a row leaves
+        // `phase` unchanged, so `.onChange(of: textured.phase)` would not see it.
+        if case .failed = textured.phase { showDownloadFailure() }
     }
 
     /// Builds the textured scene through `TexturedSceneBuilds`: a build of this file already
@@ -567,6 +592,7 @@ struct ModelViewerScreen: View {
                 if wantTexture, grey != nil {
                     wantTexture = false
                     textureError = .openFailed
+                    UIAccessibility.post(notification: .announcement, argument: String(localized: "Couldn't open the textured model."))
                 }
             }
         }

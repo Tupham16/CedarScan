@@ -5177,7 +5177,7 @@
    "key": "Ready by %@",
    "translations": {
     "vi": "Dự kiến xong: %@",
-    "fr": "Prêt d'ici %@",
+    "fr": "Prête d'ici %@",
     "de": "Fertig bis %@",
     "cs": "Hotovo do %@",
     "sk": "Hotové do %@",
@@ -5239,9 +5239,9 @@
     "vi": "Chỉ còn trống %1$@. Lưu một bản quét cần khoảng %2$@, nên bản quét này có thể không lưu được. Hãy dọn bớt dung lượng trong Cài đặt › Cài đặt chung › Dung lượng iPhone.",
     "fr": "Il ne reste que %1$@ d'espace libre. L'enregistrement d'une numérisation demande environ %2$@, celle-ci risque donc de ne pas être enregistrée. Libérez de l'espace dans Réglages › Général › Stockage iPhone.",
     "de": "Nur noch %1$@ frei. Zum Speichern eines Scans werden etwa %2$@ benötigt, dieser Scan wird daher eventuell nicht gespeichert. Schaffen Sie Platz unter Einstellungen › Allgemein › iPhone-Speicher.",
-    "cs": "Volné místo je jen %1$@. Uložení skenu potřebuje asi %2$@, takže se tento sken nemusí uložit. Uvolněte místo v Nastavení › Obecné › Úložiště iPhonu.",
-    "sk": "Voľné miesto je len %1$@. Uloženie skenu potrebuje asi %2$@, takže sa tento sken nemusí uložiť. Uvoľnite miesto v Nastaveniach › Všeobecné › Úložisko iPhonu.",
-    "es": "Solo quedan %1$@ libres. Guardar un escaneo necesita unos %2$@, así que este escaneo podría no guardarse. Libera espacio en Ajustes › General › Almacenamiento del iPhone.",
+    "cs": "Zbývá jen %1$@ volného místa. K uložení skenu je potřeba asi %2$@, takže se tento sken nemusí uložit. Uvolněte místo v Nastavení › Obecné › Úložiště iPhonu.",
+    "sk": "Zostáva len %1$@ voľného miesta. Na uloženie skenu treba asi %2$@, takže sa tento sken nemusí uložiť. Uvoľnite miesto v Nastaveniach › Všeobecné › Úložisko iPhonu.",
+    "es": "Solo quedan %1$@ libres. Para guardar un escaneo se necesitan unos %2$@, así que este escaneo podría no guardarse. Libera espacio en Ajustes › General › Almacenamiento del iPhone.",
     "nl": "Nog maar %1$@ vrij. Een scan opslaan vraagt ongeveer %2$@, dus deze scan wordt mogelijk niet opgeslagen. Maak ruimte vrij via Instellingen › Algemeen › iPhone-opslag."
    }
   },
