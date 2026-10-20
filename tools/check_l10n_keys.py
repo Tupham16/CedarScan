@@ -3,6 +3,7 @@
 # languages, with CI green. build.yml runs this right after the String Catalog check.
 #
 #   python tools/check_l10n_keys.py          (exit 1 + one ::error:: line per problem)
+#   python tools/check_l10n_keys.py --root <another checkout>   (check that tree instead)
 #
 # Customer-facing = a literal that Swift turns into a localization key:
 #   - String(localized: "..."), AttributedString(localized: "..."), LocalizedStringKey("..."),
@@ -27,6 +28,8 @@ import json, os, re, sys, unicodedata
 
 sys.stdout.reconfigure(encoding="utf-8")
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if "--root" in sys.argv:
+    ROOT = os.path.abspath(sys.argv[sys.argv.index("--root") + 1])
 SRC = os.path.join(ROOT, "Sources")
 
 # Deliberately English literals in localizable positions: literal -> why.
