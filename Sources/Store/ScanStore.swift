@@ -86,18 +86,48 @@ final class ScanStore: ObservableObject {
 
     // MARK: - Dự án (căn nhà / địa chỉ)
 
+    /// projects.json exists but this run could not read it, or could not set an undecodable one
+    /// aside: `projects` is empty here, so any write would replace every property name and order
+    /// binding with what this run holds. Nothing writes the file until the next launch.
+    private var projectsWriteBlocked = false
+
     private func loadProjects() {
-        guard let data = try? Data(contentsOf: projectsURL),
-              let loaded = try? JSONDecoder().decode([ScanProject].self, from: data) else {
+        let data: Data
+        do {
+            data = try Data(contentsOf: projectsURL)
+        } catch {
+            // No file = first launch. A file that is there but unreadable (data protection before
+            // the first unlock is the realistic case) is left as it is.
+            projectsWriteBlocked = fileManager.fileExists(atPath: projectsURL.path)
             return
         }
-        projects = loaded.sorted { $0.createdAt > $1.createdAt }
+        do {
+            projects = try JSONDecoder().decode([ScanProject].self, from: data)
+                .sorted { $0.createdAt > $1.createdAt }
+        } catch {
+            setAsideUnreadableProjects()
+        }
     }
 
-    private func persistProjects() {
-        if let data = try? JSONEncoder().encode(projects) {
-            try? data.write(to: projectsURL)
+    /// An undecodable projects.json (e.g. a write cut short before writes were atomic) is moved
+    /// to `projects.json.unreadable-<unix time>`, ✗ silently overwritten by the next create or
+    /// rename. Kept for a manual recovery; the app starts with no properties.
+    private func setAsideUnreadableProjects() {
+        let aside = documentsURL.appendingPathComponent(
+            "projects.json.unreadable-\(Int(Date().timeIntervalSince1970))"
+        )
+        do {
+            try fileManager.moveItem(at: projectsURL, to: aside)
+        } catch {
+            projectsWriteBlocked = true
         }
+    }
+
+    /// `.atomic`: a plain write truncates first, so a kill or a full disk mid-write leaves a
+    /// truncated file that no longer decodes (same rule as `MeshPreviewFile.write`).
+    private func persistProjects() {
+        guard !projectsWriteBlocked, let data = try? JSONEncoder().encode(projects) else { return }
+        try? data.write(to: projectsURL, options: .atomic)
     }
 
     @discardableResult
@@ -178,8 +208,46 @@ final class ScanStore: ObservableObject {
         return removed.count
     }
 
+    /// No UI moves an ORDERED scan any more (`ScanRow.contextMenu`, L6): in another property its
+    /// stamp would route that property's new scans into the first house's order. Kept generic.
     func moveScan(_ record: ScanRecord, to project: ScanProject?) {
+        if let live = records.first(where: { $0.id == record.id }), live.projectId != project?.id {
+            keepOrderBinding(leaving: live)
+        }
         update(record) { $0.projectId = project?.id }
+    }
+
+    /// L6: an ordered scan is leaving its property (swipe delete, move). When no scan left there
+    /// carries a stamp, `orderNumber(ofProject:)` would fall back to nil and the property's next
+    /// scan would offer "Order" = a second paid order for the same house (owner 11/08: "1 dự án
+    /// chỉ có 1 đơn"). The property keeps that order as its own binding (`ScanProject.orderNumber`,
+    /// as "Add a scan" sets it), only if it has none. Cleared like any binding when that order is
+    /// cancelled unpaid (`releaseBinding`).
+    private func keepOrderBinding(leaving record: ScanRecord) {
+        guard let number = record.cloudOrderNumber,
+              let projectId = record.projectId,
+              let index = projects.firstIndex(where: { $0.id == projectId }),
+              projects[index].orderNumber == nil else { return }
+        let stillStamped = records.contains {
+            $0.id != record.id && $0.projectId == projectId && $0.cloudOrderNumber != nil
+        }
+        guard !stillStamped else { return }
+        projects[index].orderNumber = number
+        persistProjects()
+    }
+
+    /// N12: removes a property that never got a scan — HomeView's new-scan flow, for the property
+    /// its address screen created when the scanner then closed with nothing saved (Cancel, camera
+    /// denied, failed save). Fail-closed: kept while any scan on this device points at it or it is
+    /// bound to an order. The caller holds back while a save runs (its scan joins `records` only
+    /// when the save ends); ✗ gate on `isBusy` here: the closing scan session's own count may
+    /// still be up when the cover's close completion runs.
+    func discardEmptyProject(_ id: UUID) {
+        guard let index = projects.firstIndex(where: { $0.id == id }),
+              projects[index].orderNumber == nil,
+              !records.contains(where: { $0.projectId == id }) else { return }
+        projects.remove(at: index)
+        persistProjects()
     }
 
     func scans(in project: ScanProject) -> [ScanRecord] {
@@ -535,6 +603,10 @@ final class ScanStore: ObservableObject {
     // 🔴 Bài học vẫn đúng và vẫn nên nhớ khi gỡ thứ khác: **gỡ đường TẠO khác hẳn gỡ đường XEM.**
 
     func delete(_ record: ScanRecord) {
+        // L6: before it goes, an ordered scan hands its order to its property.
+        if let live = records.first(where: { $0.id == record.id }) {
+            keepOrderBinding(leaving: live)
+        }
         try? fileManager.removeItem(at: folderURL(for: record))
         records.removeAll { $0.id == record.id }
     }
@@ -856,14 +928,18 @@ final class ScanStore: ObservableObject {
         try? writeMeta(records[index])
     }
 
+    /// `.atomic` (the repo's disk-full rule: `TextureShotRecorder`, `MeshPreviewFile.write`): a
+    /// plain write truncates first, and a meta.json cut short no longer decodes ⇒ `reload()` skips
+    /// the folder ⇒ a 40–200 MB scan nobody can see or delete (trap #14). That is the reason the
+    /// handoff's rejected finding "writeMeta not atomic" never had.
     private func writeMeta(_ record: ScanRecord) throws {
         try JSONEncoder().encode(record)
-            .write(to: folderURL(for: record).appendingPathComponent("meta.json"))
+            .write(to: folderURL(for: record).appendingPathComponent("meta.json"), options: .atomic)
     }
 
+    /// The locale's date order (en_US "10/20/2026, 3:45 PM"), ✗ a fixed "dd/MM/yyyy": US customers
+    /// read "03/11" as March 11, next to the locale-formatted date in the row subtitle.
     private static func defaultName() -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "dd/MM/yyyy HH:mm"
-        return String(localized: "Scan \(formatter.string(from: Date()))")
+        String(localized: "Scan \(Date().formatted(date: .numeric, time: .shortened))")
     }
 }

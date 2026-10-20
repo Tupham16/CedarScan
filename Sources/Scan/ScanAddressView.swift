@@ -30,7 +30,9 @@ struct ScanAddressView: View {
     /// projectId để gắn bản quét sắp tới. Từ 2026-07-19 địa chỉ là BẮT BUỘC nên thực tế luôn
     /// non-nil; giữ Optional vì `createProject` vẫn có thể trả nil (tên toàn ký tự lạ bị lọc
     /// sạch) — lúc đó thà cho quét còn hơn nuốt mất buổi quét vì một cái tên kỳ quặc.
-    let onStart: (UUID?) -> Void
+    /// `createdHere` = this screen just created that property (✗ picked an existing one): the
+    /// caller removes it again if the scan never gets saved (N12, `HomeView.newProjectId`).
+    let onStart: (_ projectId: UUID?, _ createdHere: Bool) -> Void
 
     @State private var address = ""
     @State private var pickedProjectId: UUID?
@@ -563,14 +565,17 @@ struct ScanAddressView: View {
     /// hai căn khác nhau vào một đơn tệ hơn tách nhầm, vì đội vẽ không có cách nào phát hiện.
     private func start() {
         let id: UUID?
+        let createdHere: Bool
         if let picked = pickedProjectId {
             id = picked
+            createdHere = false
         } else {
             let trimmed = address.trimmingCharacters(in: .whitespacesAndNewlines)
             id = trimmed.isEmpty ? nil : store.createProject(name: trimmed)?.id
+            createdHere = id != nil
         }
         dismiss()
-        onStart(id)
+        onStart(id, createdHere)
     }
 
     /// Khoá so khớp tên căn nhà. Thân hàm đã dời sang `TextMatch.key` (dùng chung với ô tìm kiếm

@@ -233,6 +233,9 @@ struct ProjectView: View {
             // đều bị chặn khi cover đang che (`deleteProjectAndScans`: gác ở CẢ HAI lối bấm — menu
             // "…" ngay dưới + nút giỏ rác ở Home nằm trong cây bị `.allowsHitTesting(false)`;
             // `purgeDelivered`: `guard !isBusy` + cờ `autoPurgeAfterDelivery = false`).
+            // 2.78: `discardEmptyProject` (N12) removes one too, but only the property the address
+            // screen created for a scan that closed unsaved — never open here: the cover blocks
+            // input from its creation until that call.
             // 🔴 **BẬT LẠI `autoPurgeAfterDelivery` LÀ PHẢI ĐỔI BA CHỐT NÀY TRƯỚC** sang
             // `scanCover.blocksInput`. VÀ ĐỔI CẢ BA CÙNG LÚC: sửa mỗi cái guard trong
             // `leaveDeadProject` là chuỗi CHẾT ĐÓI — `.onChange(of: isMeshScanning)` bắn ở nhịp

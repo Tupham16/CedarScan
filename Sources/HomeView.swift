@@ -56,6 +56,13 @@ struct HomeView: View {
     /// — sai địa chỉ trên thẻ gửi đội vẽ mà không có dấu hiệu gì. Thêm lối vào như vậy thì phải
     /// đặt lại `pendingProjectId` tường minh ở đó.
     @State private var pendingProjectId: UUID?
+    /// N12: the property `ScanAddressView` CREATED for this scan; nil when the customer picked an
+    /// existing one. Survives "Scan more" (same property, like `pendingProjectId`); when the scan
+    /// cover closes for good, `discardUnusedNewProperty` removes it if nothing was saved into it.
+    @State private var newProjectId: UUID?
+    /// Saves running in the cover's `onFinish`: a scan joins `store.records` only when its save
+    /// ends, so until then its property looks empty.
+    @State private var savingScans = 0
     @State private var meshCapFollowUp = false
     @State private var showScanNextPart = false
     @State private var recordToRename: ScanRecord?
@@ -166,8 +173,9 @@ struct HomeView: View {
                 // Không .presentationDetents: màn đó là BẢN ĐỒ + ô địa chỉ + nút vị trí + danh
                 // sách gợi ý, ép .medium là bản đồ và phần gợi ý cùng bị bóp còn một hai dòng.
                 // (Từ 13/08 bản đồ chiếm hẳn phần trên — càng không nhét vừa nửa màn hình.)
-                ScanAddressView { projectId in
+                ScanAddressView { projectId, createdHere in
                     pendingProjectId = projectId
+                    newProjectId = createdHere ? projectId : nil
                     pendingScanStart = true
                 }
             }
@@ -196,6 +204,8 @@ struct HomeView: View {
                             onScanMore: { pendingScanMore = true },
                             dismiss: { isMeshScanning = false }
                         ) { result, saveProgress in
+                            savingScans += 1
+                            defer { savingScans -= 1 }
                             do {
                                 let saved = try await store.saveMeshScan(
                                     videoURL: result.videoURL, meshURL: result.meshURL,
@@ -361,6 +371,7 @@ struct HomeView: View {
             meshCapFollowUp = false
             pendingOrderRecord = nil // không mời đặt hàng một bản quét vừa lưu hụt
             pendingScanMore = false
+            discardUnusedNewProperty()
             saveError = message
         } else if pendingScanMore {
             pendingScanMore = false
@@ -374,10 +385,28 @@ struct HomeView: View {
             // phòng là đơn phải làm lại. Hai nút của alert tự quyết định số phận
             // `pendingOrderRecord`.
             meshCapFollowUp = false
+            // The cap follows a SAVE: the new property is in use.
+            newProjectId = nil
             showScanNextPart = true
         } else {
+            discardUnusedNewProperty()
             goToPendingOrder()
         }
+    }
+
+    /// N12: "Start scanning" creates the property BEFORE the scanner opens. When the scan cover
+    /// closes for good (✗ Scan more, which continues in it) with nothing saved into it — scanner
+    /// Cancel, camera denied, save failed — it goes, ✗ stays on Home as "12 Maple St · 0 scans"
+    /// (retyping the address then offered "Create a separate home with this name"). Only a
+    /// property this flow created (`newProjectId`), ✗ one the customer picked; the store keeps it
+    /// anyway if it has a scan or an order binding.
+    private func discardUnusedNewProperty() {
+        guard let id = newProjectId else { return }
+        newProjectId = nil
+        // A save still running: its scan is not in `records` yet. Cannot happen today (the
+        // scanner hides Cancel while saving); kept if it ever does.
+        guard savingScans == 0 else { return }
+        store.discardEmptyProject(id)
     }
 
     /// Đưa khách tới BƯỚC ĐẶT HÀNG của bản quét vừa lưu, nếu họ đã bấm "Đặt hàng ngay" ở màn
@@ -681,6 +710,7 @@ struct HomeView: View {
         pendingScanStart = false
         pendingOrderRecord = nil
         pendingScanMore = false
+        newProjectId = nil // same reason; the address screen sets it again
         showScanSetup = true
     }
 
@@ -781,7 +811,9 @@ struct ScanRow: View {
             }
             .padding(.vertical, 4)
         }
-        .swipeActions {
+        // ✗ full swipe (the default): an overshoot while reaching "Rename" deleted a 10–30 min
+        // scan at once, with no confirm (`ScanStore.delete` removes the folder).
+        .swipeActions(allowsFullSwipe: false) {
             Button(role: .destructive) {
                 store.delete(record)
             } label: {
@@ -794,28 +826,40 @@ struct ScanRow: View {
             }
         }
         .contextMenu {
-            if !store.projects.isEmpty {
-                Menu {
-                    ForEach(store.projects) { project in
-                        Button(project.name) {
-                            store.moveScan(record, to: project)
-                        }
-                    }
-                } label: {
-                    Label(String(localized: "Move to property"), systemImage: "folder")
-                }
-            }
-            if record.projectId != nil {
-                Button {
-                    store.moveScan(record, to: nil)
-                } label: {
-                    Label(String(localized: "Remove from property"), systemImage: "folder.badge.minus")
-                }
+            // Ordered scans stay in their property (L6): moved into another one, the stamp would
+            // route that property's new scans into the first house's order (only "Add a scan" in
+            // Orders guards against that); removed, it leaves the house it was ordered for. Same
+            // "ordered" rule as `badges`.
+            if record.cloudOrderNumber == nil {
+                moveItems
             }
             Button {
                 onRename()
             } label: {
                 Label(String(localized: "Rename"), systemImage: "pencil")
+            }
+        }
+    }
+
+    /// "Move to property" / "Remove from property" (split out: type-check time).
+    @ViewBuilder
+    private var moveItems: some View {
+        if !store.projects.isEmpty {
+            Menu {
+                ForEach(store.projects) { project in
+                    Button(project.name) {
+                        store.moveScan(record, to: project)
+                    }
+                }
+            } label: {
+                Label(String(localized: "Move to property"), systemImage: "folder")
+            }
+        }
+        if record.projectId != nil {
+            Button {
+                store.moveScan(record, to: nil)
+            } label: {
+                Label(String(localized: "Remove from property"), systemImage: "folder.badge.minus")
             }
         }
     }

@@ -158,7 +158,7 @@ struct ModelViewerScreen: View {
         // File texture về (có thể đang tải lúc khách bật công tắc) → dựng cảnh.
         .onChange(of: textured.readyURL) { _, url in
             guard let url, texture == nil, !textureFailed else { return }
-            Task { await loadTexture(url) }
+            loadTexture(url)
         }
     }
 
@@ -406,7 +406,7 @@ struct ModelViewerScreen: View {
     private func beginTexture() async {
         guard texture == nil, !textureFailed else { return }
         if let ready = textured.readyURL {
-            await loadTexture(ready)
+            loadTexture(ready)
             return
         }
         guard let cloudScanId, let texturedRemote else {
@@ -421,12 +421,48 @@ struct ModelViewerScreen: View {
         textured.open(scanId: cloudScanId, remote: texturedRemote)
     }
 
-    private func loadTexture(_ url: URL) async {
+    /// Builds the textured scene through `TexturedSceneBuilds`: a build of this file already
+    /// running (Texture flipped off/on while opening, or this viewer closed and reopened) is
+    /// joined, ✗ started again.
+    private func loadTexture(_ url: URL) {
         guard texture == nil, !textureFailed else { return }
-        if let built = await TexturedSceneLoader.load(url) {
-            texture = built
-        } else {
-            textureFailed = true
+        TexturedSceneBuilds.load(url) { built in
+            if let built {
+                texture = built
+            } else {
+                textureFailed = true
+            }
+        }
+    }
+}
+
+/// One textured-scene build per file at a time (2.78). `SCNScene(url:)` holds the whole 30–75 MB
+/// USDZ while it parses and cannot be stopped: flipping Texture off/on during "Opening the
+/// model…", or closing and reopening the viewer mid-build, used to start a second and third build
+/// beside the first (memory ×2–3). A request for a file already building waits for that build
+/// and gets its result, a failure included — the switch still ends where the customer left it.
+/// Main actor: only the waiting list lives here; the build runs off main
+/// (`TexturedSceneLoader.load`, non-isolated async). ✗ a `Task<LoadedModel?, Never>` registry:
+/// `Task` wants a Sendable result, and `LoadedModel` holds SceneKit objects.
+@MainActor
+enum TexturedSceneBuilds {
+    private static var waiting: [String: [(LoadedModel?) -> Void]] = [:]
+
+    static func load(_ url: URL, then deliver: @escaping (LoadedModel?) -> Void) {
+        // One key per file: the same cached copy can be named /var/… or /private/var/….
+        let key = url.resolvingSymlinksInPath().path
+        if Self.waiting[key] != nil {
+            Self.waiting[key]?.append(deliver)
+            return
+        }
+        Self.waiting[key] = [deliver]
+        // Inherits the main actor (as in `TexturedModelCache.open`).
+        Task {
+            let built = await TexturedSceneLoader.load(url)
+            let receivers = Self.waiting.removeValue(forKey: key) ?? []
+            for receive in receivers {
+                receive(built)
+            }
         }
     }
 }

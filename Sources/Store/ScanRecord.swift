@@ -43,6 +43,8 @@ struct ScanProject: Identifiable, Codable, Hashable {
     /// had no property holding that order's scans (deleted on Home, or another iPhone; owner
     /// 26/09 "cách 1"). An empty property has no stamped scan to derive its order from, so without
     /// this its first scan would offer "Order" = a second paid order for the same house.
+    /// 2.78: also written when the property's last ordered scan is deleted or moved out
+    /// (`ScanStore.keepOrderBinding`, same reason).
     /// Read ONLY through `ScanStore.orderNumber(ofProject:)` / `project(withOrderNumber:)`; cleared
     /// with the stamps when that order is cancelled unpaid. nil = every other property (and every
     /// projects.json written before this field: optional, decodes as nil).
