@@ -704,10 +704,18 @@ class Callees:
     overloads."""
 
     def __init__(self, files):
-        self.entries, self.member_ok = {}, set()
-        declared = {b.type_name for fi in files.values() for b in fi.blocks
-                    if b.type_name and re.search(r"\b(?:struct|class|enum|actor)\s", b.head)
-                    and not re.search(r"\b(?:extension|protocol)\s", b.head)}
+        self.entries, self.member_ok, self.supers = {}, set(), {}
+        declared, top = set(), set()        # our types; those declared at top level
+        for fi in files.values():
+            for b in fi.blocks:
+                if b.type_name:
+                    self.supers.setdefault(b.type_name, set()).update(b.supers)
+                if b.type_name and re.search(r"\b(?:struct|class|enum|actor)\s", b.head) \
+                        and not re.search(r"\b(?:extension|protocol)\s", b.head):
+                    declared.add(b.type_name)
+                    if len(fi.type_blocks(b.open)) == 0:
+                        top.add(b.type_name)
+        private_type = lambda tb: bool(re.search(r"\b(?:private|fileprivate)\s", tb.head))
         for fi in files.values():
             masked = fi.masked
             for m in re.finditer(r"\b(?:func\s+([A-Za-z_]\w*)|(?<!\.)init[?!]?)\s*(?:<[^>]*>)?\s*\(", masked):
@@ -723,10 +731,13 @@ class Callees:
                     tb = fi.type_blocks(m.start())[0]
                     if "." in tb.type_qual:          # `extension Outer.Row { init(...) }`
                         name, owner = chain[0], tb.type_qual.split(".")[-2]
+                        if name not in declared:
+                            continue
                     else:
                         name, owner = chain[0], (chain[1] if len(chain) > 1 else None)
-                    if name not in declared:
-                        continue                     # `extension Text { init(...) }`: an SDK type
+                        if (name not in top if owner is None else name not in declared):
+                            continue                 # `extension Text { init(...) }`: an SDK type
+                    priv = priv or private_type(tb)  # a private type's inits: its file only
                 else:
                     continue
                 self.add(name, owner, fi.rel, signature_labels(masked, m.end() - 1), priv)
@@ -762,7 +773,7 @@ class Callees:
                     continue                        # `let x: T = v` is not a memberwise-init label
                 chain = fi.type_chain(m.start())
                 self.add(blk.type_name, chain[1] if len(chain) > 1 else None, fi.rel,
-                         {m.group(2): param_kind(m.group(3))})
+                         {m.group(2): param_kind(m.group(3))}, private_type(blk))
         sdk = set(VIEW_CALLS) | set(MODIFIERS) | {"String", "AttributedString", "LocalizedStringKey",
                                                   "LocalizedStringResource", "NSLocalizedString"}
         self.localizable = {n for n, es in self.entries.items() if (n not in sdk or n in declared)
@@ -780,8 +791,14 @@ class Callees:
                 sel = [e[2] for e in es if e[0] == b.type_name]
                 if sel:
                     break
-            if not sel:                      # inherited: protocol extension, superclass
-                supers = {s for b in blocks for s in b.supers}
+            if not sel:                      # inherited: protocol extensions, superclasses (transitive)
+                todo = [s for b in blocks for s in b.supers]
+                supers = set()
+                while todo:
+                    t = todo.pop()
+                    if t not in supers:
+                        supers.add(t)
+                        todo.extend(self.supers.get(t, ()))
                 sel = [e[2] for e in es if e[0] in supers]
             if not sel and form == "bare":   # top level: a private func only in its own file
                 sel = [e[2] for e in es if e[0] is None and (not e[3] or e[1] == fi.rel)]
@@ -924,7 +941,9 @@ def localizable_literals(fi, callees, types):
             form, base = "bare", None
             if m.group(1):
                 left = masked[max(0, m.start() - 200):m.start()].rstrip()
-                if not left or not (left[-1].isalnum() or left[-1] in "_)]}\"" or masked[m.start() - 1] in "?!") or re.search(
+                # a receiver ends the text before the dot: `x`, `)`, `]`, `}`, `"`, or a postfix ?/!
+                # glued to one (`center?` + line break + `.name(`); `c ? .name(` is a ternary
+                if not left or not (left[-1].isalnum() or left[-1] in "_)]}\"" or re.search(r"[\w)\]}\"][?!]+$", left)) or re.search(
                         r"(?<![\w.])(?:return|in|throw|try|await|else|case|where|is|as|some|any|if|guard"
                         r"|while|switch|do|repeat)$", left):
                     continue               # implicit member: its type is the context's
@@ -1028,7 +1047,7 @@ def case_values(fi, sw):
     """(start, end) of each case's value inside a `switch` block (labels start a statement, so
     `counts[kind, default: 0]` is not one)."""
     masked, labels, top = fi.masked, [], top_text(fi, sw)
-    for r in re.finditer(r"\bdefault\s*:|\bcase\b", masked[sw.open + 1:sw.close]):
+    for r in re.finditer(r"(?<![.`])\bdefault\s*:|(?<!\bfor )\bcase\b", masked[sw.open + 1:sw.close]):
         s = sw.open + 1 + r.start()
         seg = top[:s - sw.open - 1]
         if fi.innermost(s) is not sw or sum(map(seg.count, "([")) != sum(map(seg.count, ")]")):
