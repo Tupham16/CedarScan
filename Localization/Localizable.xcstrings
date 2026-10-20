@@ -95,49 +95,49 @@
         }
       }
     },
-    "%lld free 2D floor plans ready — one is used on each order with the 2D package.": {
+    "%lld free 2D floor plans ready — each is used automatically on a later order with the 2D package.": {
       "extractionState": "manual",
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Připravené 2D půdorysy zdarma: %lld — u každé objednávky s balíčkem 2D se použije jeden."
+            "value": "Připravené 2D půdorysy zdarma: %lld — každý se automaticky použije u některé další objednávky s balíčkem 2D."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld Gratis-2D-Grundrisse bereit — je einer wird für jede Bestellung mit dem 2D-Paket verwendet."
+            "value": "%lld Gratis-2D-Grundrisse bereit — jeder wird automatisch für eine spätere Bestellung mit dem 2D-Paket verwendet."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld planos de planta 2D gratis listos — se usa uno en cada pedido con el paquete 2D."
+            "value": "%lld planos de planta 2D gratis listos — cada uno se usa automáticamente en un pedido posterior con el paquete 2D."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld plans 2D gratuits disponibles — un est utilisé pour chaque commande comprenant le forfait 2D."
+            "value": "%lld plans 2D gratuits disponibles — chacun sera utilisé automatiquement pour une prochaine commande comprenant le forfait 2D."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld gratis 2D-plattegronden klaar — er wordt er één gebruikt per bestelling met het 2D-pakket."
+            "value": "%lld gratis 2D-plattegronden klaar — elk wordt automatisch gebruikt voor een latere bestelling met het 2D-pakket."
           }
         },
         "sk": {
           "stringUnit": {
             "state": "translated",
-            "value": "Pripravené 2D pôdorysy zadarmo: %lld — pri každej objednávke s balíkom 2D sa použije jeden."
+            "value": "Pripravené 2D pôdorysy zadarmo: %lld — každý sa automaticky použije pri niektorej ďalšej objednávke s balíkom 2D."
           }
         },
         "vi": {
           "stringUnit": {
             "state": "translated",
-            "value": "Có sẵn %lld bản vẽ mặt bằng 2D miễn phí — mỗi đơn có gói 2D tự dùng một bản."
+            "value": "Có sẵn %lld bản vẽ mặt bằng 2D miễn phí — mỗi bản tự dùng cho một đơn sau có gói 2D."
           }
         }
       }
@@ -471,49 +471,49 @@
         }
       }
     },
-    "1 free 2D floor plan ready — it is used on your next order with the 2D package.": {
+    "1 free 2D floor plan ready — it is used automatically on a later order with the 2D package.": {
       "extractionState": "manual",
       "localizations": {
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Máte připravený jeden 2D půdorys zdarma — použije se u vaší příští objednávky s balíčkem 2D."
+            "value": "Máte připravený jeden 2D půdorys zdarma — automaticky se použije u některé další objednávky s balíčkem 2D."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "1 Gratis-2D-Grundriss bereit — er wird für Ihre nächste Bestellung mit dem 2D-Paket verwendet."
+            "value": "1 Gratis-2D-Grundriss bereit — er wird automatisch für eine spätere Bestellung mit dem 2D-Paket verwendet."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "1 plano de planta 2D gratis listo — se usa en tu próximo pedido con el paquete 2D."
+            "value": "1 plano de planta 2D gratis listo — se usa automáticamente en un pedido posterior con el paquete 2D."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "1 plan 2D gratuit disponible — il sera utilisé pour votre prochaine commande comprenant le forfait 2D."
+            "value": "1 plan 2D gratuit disponible — il sera utilisé automatiquement pour une prochaine commande comprenant le forfait 2D."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "1 gratis 2D-plattegrond klaar — die wordt gebruikt voor je volgende bestelling met het 2D-pakket."
+            "value": "1 gratis 2D-plattegrond klaar — die wordt automatisch gebruikt voor een latere bestelling met het 2D-pakket."
           }
         },
         "sk": {
           "stringUnit": {
             "state": "translated",
-            "value": "Máte pripravený jeden 2D pôdorys zadarmo — použije sa pri vašej ďalšej objednávke s balíkom 2D."
+            "value": "Máte pripravený jeden 2D pôdorys zadarmo — automaticky sa použije pri niektorej ďalšej objednávke s balíkom 2D."
           }
         },
         "vi": {
           "stringUnit": {
             "state": "translated",
-            "value": "Có sẵn 1 bản vẽ mặt bằng 2D miễn phí — tự dùng cho đơn tiếp theo có gói 2D."
+            "value": "Có sẵn 1 bản vẽ mặt bằng 2D miễn phí — tự dùng cho một đơn sau có gói 2D."
           }
         }
       }

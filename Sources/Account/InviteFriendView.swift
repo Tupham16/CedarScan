@@ -5,7 +5,8 @@ import UIKit
 /// 87 dark). The rules live on the server (`lib/referrals.ts` in order-webapp): a friend who enters
 /// this account's code while creating their account gets the usual free first orders; when the
 /// friend's first order is delivered, this account gets one free 2D floor plan, which the order
-/// form then uses by itself (`OrderSheet.referralCreditApplies`).
+/// form then uses by itself on an order with the 2D package that the free allowance does not cover
+/// (`OrderSheet.referralCreditApplies`) — "a later order", ✗ "your next order".
 ///
 /// · The code is made by the server on the first visit (`GET referral`); the screen shows only
 ///   counts — the server never says who joined (Privacy Policy, "Information you give us").
@@ -137,8 +138,8 @@ struct InviteFriendView: View {
                     Text(verbatim: "🎁")
                         .accessibilityHidden(true)
                     WrappedText(available == 1
-                                ? String(localized: "1 free 2D floor plan ready — it is used on your next order with the 2D package.")
-                                : String(localized: "\(available) free 2D floor plans ready — one is used on each order with the 2D package."),
+                                ? String(localized: "1 free 2D floor plan ready — it is used automatically on a later order with the 2D package.")
+                                : String(localized: "\(available) free 2D floor plans ready — each is used automatically on a later order with the 2D package."),
                                 style: .subheadline, color: UIColor(Theme.Badge.ok.fg), weight: .semibold)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }

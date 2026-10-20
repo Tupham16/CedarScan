@@ -93,6 +93,7 @@ struct AuthView: View {
             Button {
                 isRegistering.toggle()
                 errorMessage = nil
+                inviteError = false
             } label: {
                 Text(isRegistering
                      ? String(localized: "Already have an account? Sign in")

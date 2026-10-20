@@ -1414,13 +1414,14 @@ struct OrderSheet: View {
             // while a credit waits, whatever is ticked — only its sentence changes (✗ a row that
             // comes and goes when 2D is ticked: the rows under the finger would jump).
             Section {
-                Label {
-                    Text(referralBannerText(catalog))
-                    .font(.subheadline.weight(.semibold))
-                } icon: {
-                    Text("🎁")
+                // WrappedText: 3–4 lines in German, the customer reads it whole (trap #44).
+                HStack(alignment: .top, spacing: 10) {
+                    Text(verbatim: "🎁")
+                        .accessibilityHidden(true)
+                    WrappedText(referralBannerText(catalog), style: .subheadline,
+                                color: UIColor(Theme.Badge.ok.fg), weight: .semibold)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .foregroundStyle(Theme.Badge.ok.fg)
                 .listRowBackground(Theme.Badge.ok.bg)
             }
         }
@@ -1702,9 +1703,9 @@ struct OrderSheet: View {
                 // nên nó in ra vô điều kiện cho MỌI đơn — một câu luôn đúng thì không nói với ai
                 // điều gì, mà lại ngồi ngay trên nút trả tiền. ✗ thêm lại.
                 if let errorMessage {
-                    Text(errorMessage)
-                        .font(.footnote)
-                        .foregroundStyle(.red)
+                    // WrappedText: the longer errors (credit_gone in German: its last line is the
+                    // instruction) must not lose a line (trap #44).
+                    WrappedText(errorMessage, style: .footnote, color: .systemRed)
                 }
             }
             .listRowBackground(Theme.card)
@@ -1749,7 +1750,8 @@ struct OrderSheet: View {
                 } else if isFreeOrder {
                     // F8: a free 2D floor plan covers the order. "now": a large-property fee can still
                     // follow once the area is measured (Terms "Invite a friend": surcharges as usual).
-                    Text(String(localized: "Nothing to pay now: your free 2D floor plan covers this order. Our team starts right after you place it."))
+                    WrappedText(String(localized: "Nothing to pay now: your free 2D floor plan covers this order. Our team starts right after you place it."),
+                                style: .footnote, color: .secondaryLabel)
                 }
                 // Dòng đồng ý điều khoản — MỘT dòng footer, bấm được để đọc ngay tại chỗ
                 // (không bắt khách rời form sang tab Tài khoản). Sheet bọc NavigationStack
@@ -2101,11 +2103,13 @@ struct OrderSheet: View {
             // F8: the same re-check for the free 2D floor plan this tap priced the order with (an
             // order placed meanwhile, on this phone or another, may have used it). The server
             // refuses anyway (409 `credit_gone`, nothing placed): this saves the customer a round trip.
-            if creditSnapshot, listLoaded, let fresh = try? await APIClient.shared.catalog() {
+            // A catalog without the count (the server could not count: it omits the key) changes
+            // nothing: the form stays as the customer saw it and the server decides below.
+            if creditSnapshot, listLoaded, let fresh = try? await APIClient.shared.catalog(),
+               let left = fresh.referralCredits {
                 catalog = fresh
                 creditGone = false
-                // nil = the server could not count (it omits the key): let it decide below.
-                if let left = fresh.referralCredits, left == 0 {
+                if left == 0 {
                     creditGone = true
                     errorMessage = String(localized: "Your free 2D floor plan from inviting a friend was just used on another order. Please review the price and tap Place order again.")
                     isBusy = false

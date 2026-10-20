@@ -300,9 +300,17 @@ struct WrappedTextView: UIViewRepresentable {
         }
         let base = UIFont.preferredFont(forTextStyle: style, compatibleWith: traits)
         guard let weight else { return base }
-        // Same family and Dynamic Type size, the asked weight.
-        let descriptor = base.fontDescriptor.addingAttributes([.traits: [UIFontDescriptor.TraitKey.weight: weight.rawValue]])
-        return UIFont(descriptor: descriptor, size: base.pointSize)
+        // The system font at the text style's Dynamic Type size (as `MeshScanFlowView`'s labels).
+        // ✗ a weight trait on the text-style descriptor: UIKit may ignore it, and it drops Bold Text.
+        let asked = environment.legibilityWeight == .bold ? heavier(weight) : weight
+        return UIFont.systemFont(ofSize: base.pointSize, weight: asked)
+    }
+
+    /// One step heavier (Bold Text on): semibold → bold, bold → heavy.
+    private static func heavier(_ weight: UIFont.Weight) -> UIFont.Weight {
+        let steps: [UIFont.Weight] = [.ultraLight, .thin, .light, .regular, .medium, .semibold, .bold, .heavy, .black]
+        guard let i = steps.firstIndex(of: weight), i + 1 < steps.count else { return weight }
+        return steps[i + 1]
     }
 
     static func configure(_ view: UITextView, text: String, font: UIFont, alignment: NSTextAlignment = .natural,
