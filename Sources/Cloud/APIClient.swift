@@ -519,6 +519,12 @@ struct APIError: LocalizedError {
     var errorDescription: String? { message }
 }
 
+/// N13 (2.79): a 2xx answer the app could not decode — shown as the generic message. Its own type,
+/// ✗ `APIError`: see `APIClient.send`.
+struct UnreadableResponse: LocalizedError {
+    var errorDescription: String? { String(localized: "Something went wrong. Please try again.") }
+}
+
 // MARK: - Client
 
 final class APIClient {
@@ -593,7 +599,8 @@ final class APIClient {
         if !(200...299).contains(status) {
             let body = try? JSONDecoder().decode(ServerError.self, from: data)
             throw APIError(
-                message: body?.error ?? String(localized: "Something went wrong. Please try again."),
+                message: body.map { Self.customerWording($0.error, status: status, code: $0.code) }
+                    ?? String(localized: "Something went wrong. Please try again."),
                 statusCode: status,
                 code: body?.code,
                 orderId: body?.orderId,
@@ -601,7 +608,87 @@ final class APIClient {
                 orderStatus: body?.status
             )
         }
-        return try JSONDecoder().decode(T.self, from: data)
+        do {
+            return try JSONDecoder().decode(T.self, from: data)
+        } catch is DecodingError {
+            // N13: Foundation's "The data couldn't be read because it isn't in the correct format."
+            // means nothing to a customer. ✗ an `APIError`: callers read `is APIError` as "the
+            // server refused" (`OrderDetailView.cancelOrder`: a lost cancel answer vs a refusal) —
+            // a 2xx it could not read is neither, as the `DecodingError` it replaces.
+            throw UnreadableResponse()
+        }
+    }
+
+    /// N13 (2.79): the server writes every error in English (`app-api.ts`), and the app showed it
+    /// as it came — in an 8-language app. The ones customers meet (sign-in, sign-up, the code
+    /// screens, account deletion, Place order, rate limits) are shown in the app's language; any
+    /// other keeps the server's words, as before. Matched on the exact sentence: these routes send
+    /// no `code`. Wording only — decisions read `statusCode` / `code`, ✗ this text. A sentence the
+    /// server rewords falls back to its own text (English), never to a wrong translation.
+    static func customerWording(_ text: String, status: Int, code: String?) -> String {
+        // 2.79 server (S3, N10): a body over the route's cap is refused with 413 + this code
+        // instead of being read as an empty form.
+        if code == "too_large" {
+            return String(localized: "This request is too large. Please shorten your text and try again.")
+        }
+        switch text {
+        // Every route: a body that is not a JSON object — never sent by this app; a bug, not
+        // something the customer can fix.
+        case "Invalid request body.":
+            return String(localized: "Something went wrong. Please try again.")
+        case "Incorrect email or password.":
+            return String(localized: "Incorrect email or password.")
+        case "An account with this email already exists. Please sign in.":
+            return String(localized: "An account with this email already exists. Please sign in.")
+        case "Please enter a valid email address.":
+            return String(localized: "Please enter a valid email address.")
+        case "Password must be at least 8 characters.":
+            return String(localized: "Password must be at least 8 characters.")
+        case "Please enter your name.":
+            return String(localized: "Please enter your name.")
+        case "Incorrect code. Please try again.":
+            return String(localized: "Incorrect code. Please try again.")
+        case "The code has expired. Please request a new one.":
+            return String(localized: "The code has expired. Please request a new one.")
+        case "Invalid or expired code.":
+            return String(localized: "Invalid or expired code.")
+        case "Too many attempts. Please request a new code.":
+            return String(localized: "Too many attempts. Please request a new code.")
+        case "Could not send the email right now. Please try again.":
+            return String(localized: "Could not send the email right now. Please try again.")
+        case "Incorrect password.":
+            return String(localized: "Incorrect password.")
+        case "Please sign in to continue.":
+            return String(localized: "Please sign in to continue.")
+        case "Please verify your email before placing an order.":
+            return String(localized: "Please verify your email before placing an order.")
+        case "One of the selected scans is already part of another order.":
+            return String(localized: "One of the selected scans is already part of another order.")
+        default:
+            break
+        }
+        if let minutes = number(in: text, #"^Too many failed attempts\. Please try again in (\d+) minute\(s\)\.$"#) {
+            return String(localized: "Too many failed attempts. Please try again in \(minutes) minute(s).")
+        }
+        if let seconds = number(in: text, #"^Please wait (\d+)s before requesting another code\.$"#) {
+            return String(localized: "Please wait \(seconds) s before requesting another code.")
+        }
+        // Rate limits, worded per route ("Too many requests. Please slow down.", "Too many
+        // attempts. Please try again later." …). ✗ every 429: "Daily scan limit reached. Please
+        // try again tomorrow." says something else and keeps its words.
+        if status == 429, text.hasPrefix("Too many") {
+            return String(localized: "Too many attempts. Please try again later.")
+        }
+        return text
+    }
+
+    /// The one number `pattern` captures in `text`, or nil when the sentence is not that one.
+    private static func number(in text: String, _ pattern: String) -> Int? {
+        guard let regex = try? NSRegularExpression(pattern: pattern),
+              let match = regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
+              match.numberOfRanges == 2,
+              let range = Range(match.range(at: 1), in: text) else { return nil }
+        return Int(text[range])
     }
 
     // MARK: Auth
@@ -710,13 +797,27 @@ final class APIClient {
         // deviceId (:373) nên lúc đặt server thấy máy hết suất và THU ĐỦ TIỀN. Khách bấm một nút
         // ghi MIỄN PHÍ rồi nhận link thanh toán.
         let response: CatalogResponse = try await send("catalog", query: ["deviceId": DeviceID.current])
-        // Server có thể tinh chỉnh ngưỡng Accuracy Suite — cache lại cho lần quét sau.
-        // Server KHÔNG có override (null) → về mặc định, để xóa AppSetting là hồi phục được.
-        // Written on MAIN (2.73): scan start reads `current` on main, and since 2.73 this also
-        // runs at launch / foreground (RootView), i.e. possibly while a scan is starting.
-        let quality = response.scanQuality ?? .defaults
-        await MainActor.run { ScanQualityConfig.current = quality }
+        await storeScanQuality(response.scanQuality)
         return response
+    }
+
+    /// N8 (2.79): the launch / sign-in / foreground fetch of the remote scan settings
+    /// (`RootView.refreshScanQualityConfig`) — the same GET WITHOUT `deviceId`. The Privacy Policy
+    /// ("Device identifier") names three moments: account creation, viewing prices, placing an
+    /// order; this one is none of them. The server reads `deviceId` only for the free-order count
+    /// (`catalog/route.ts`), which nothing reads from this answer.
+    func scanSettings() async throws {
+        let response: CatalogResponse = try await send("catalog")
+        await storeScanQuality(response.scanQuality)
+    }
+
+    /// Server có thể tinh chỉnh ngưỡng Accuracy Suite — cache lại cho lần quét sau.
+    /// Server KHÔNG có override (null) → về mặc định, để xóa AppSetting là hồi phục được.
+    /// Written on MAIN (2.73): scan start reads `current` on main, and since 2.73 this also
+    /// runs at launch / foreground (RootView), i.e. possibly while a scan is starting.
+    private func storeScanQuality(_ scanQuality: ScanQualityConfig?) async {
+        let quality = scanQuality ?? .defaults
+        await MainActor.run { ScanQualityConfig.current = quality }
     }
 
     /// Xin presigned URL upload 1 file đính kèm đơn (logo / file thêm). App PUT file lên `putUrl`
@@ -746,6 +847,39 @@ final class APIClient {
         coupon: String,
         addLogo: Bool? = nil
     ) async throws -> OrderScanResponse {
+        let body = Self.orderBody(
+            extraScanIds: extraScanIds, packageIds: packageIds, addonIds: addonIds,
+            templates: templates, orderFiles: orderFiles, notes: notes, unitSystem: unitSystem,
+            language: language, floorNaming: floorNaming, projectName: projectName, coupon: coupon,
+            addLogo: addLogo
+        )
+        // N10 (2.79): the backstop of `OrderSheet.submit`'s check before its uploads.
+        if Self.isTooLarge(body) {
+            throw APIError(
+                message: String(localized: "This request is too large. Please shorten your text and try again."),
+                statusCode: 413,
+                code: "too_large"
+            )
+        }
+        return try await send("scans/\(scanId)/order", method: "POST", json: body, timeout: 60)
+    }
+
+    /// The Place order body (the primary scan id goes in the path). Also measured by
+    /// `OrderSheet.submit` BEFORE its uploads (`isTooLarge`).
+    static func orderBody(
+        extraScanIds: [String],
+        packageIds: [String],
+        addonIds: [String],
+        templates: [String: String],
+        orderFiles: [[String: String]],
+        notes: String,
+        unitSystem: String,
+        language: String,
+        floorNaming: String,
+        projectName: String,
+        coupon: String,
+        addLogo: Bool? = nil
+    ) -> [String: Any] {
         var body: [String: Any] = [
             "packageIds": packageIds, // đa gói (server cũng nhận `packageId` đơn, nhưng app mới gửi mảng)
             "addons": addonIds,
@@ -765,9 +899,22 @@ final class APIClient {
             // 🔴 ALWAYS sent: the Cancel button, the placed screen and the stamp release all assume it.
             "payFirst": true,
         ]
-        // F9: the form's logo switch, sent only when a logo is saved (absent = the saved setting).
+        // F9: the form's logo switch (2.79). Absent = the saved setting decides (server `lib/brand.ts`).
         if let addLogo { body["addLogo"] = addLogo }
-        return try await send("scans/\(scanId)/order", method: "POST", json: body, timeout: 60)
+        return body
+    }
+
+    /// N10 (2.79): the order route's cap = the server's `MAX_TEXT_JSON_BYTES` (S3, live 20/10
+    /// `c9fc3cb`: over it 413 `too_large`; before that server a body over 16 KB was read as an
+    /// EMPTY form = a default 2D order). Checked in `OrderSheet.submit` BEFORE the uploads, so a
+    /// too-long body is refused before 40–200 MB go up; the fields are capped anyway (a full
+    /// note + 10 long file names measured 17.5 KB). Same `JSONSerialization` call as
+    /// `makeRequest` = the exact bytes. Change it with the server, ✗ alone.
+    static let maxOrderBodyBytes = 64 * 1024
+
+    static func isTooLarge(_ body: [String: Any]) -> Bool {
+        guard let encoded = try? JSONSerialization.data(withJSONObject: body) else { return false }
+        return encoded.count > maxOrderBodyBytes
     }
 
     /// `include=cancelled`: orders cancelled unpaid are listed too (status `cancelled`, `scanIds` =

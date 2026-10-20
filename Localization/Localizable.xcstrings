@@ -142,6 +142,53 @@
         }
       }
     },
+    "%lld of %lld": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld z %lld"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld von %lld"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld de %lld"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld sur %lld"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld van %lld"
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld z %lld"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld trên %lld"
+          }
+        }
+      }
+    },
     "%lld scan(s)": {
       "extractionState": "manual",
       "localizations": {
@@ -1893,7 +1940,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Agenturstil"
+            "value": "Maklerstil"
           }
         },
         "es": {
@@ -2165,6 +2212,53 @@
           "stringUnit": {
             "state": "translated",
             "value": "Đã quét — chạm để dùng lại"
+          }
+        }
+      }
+    },
+    "An account with this email already exists. Please sign in.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Účet s tímto e-mailem už existuje. Přihlaste se prosím."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Für diese E-Mail-Adresse gibt es bereits ein Konto. Bitte melden Sie sich an."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ya existe una cuenta con este correo. Inicia sesión."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un compte existe déjà avec ce courriel. Veuillez vous connecter."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Er bestaat al een account met dit e-mailadres. Log in."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Účet s týmto e-mailom už existuje. Prihláste sa, prosím."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Email này đã có tài khoản. Vui lòng đăng nhập."
           }
         }
       }
@@ -4143,6 +4237,53 @@
         }
       }
     },
+    "Could not send the email right now. Please try again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "E-mail se teď nepodařilo odeslat. Zkuste to prosím znovu."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die E-Mail konnte gerade nicht gesendet werden. Bitte versuchen Sie es erneut."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo enviar el correo ahora. Inténtalo de nuevo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible d'envoyer le courriel pour le moment. Veuillez réessayer."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "De e-mail kon nu niet worden verstuurd. Probeer het opnieuw."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "E-mail sa teraz nepodarilo odoslať. Skúste to znova, prosím."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hiện chưa gửi được email. Vui lòng thử lại."
+          }
+        }
+      }
+    },
     "Could not upload %@.": {
       "extractionState": "manual",
       "localizations": {
@@ -4895,6 +5036,53 @@
         }
       }
     },
+    "Delete photo": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Smazat fotku"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Foto löschen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eliminar foto"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Supprimer la photo"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Foto verwijderen"
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vymazať fotku"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Xóa ảnh"
+          }
+        }
+      }
+    },
     "Delete property": {
       "extractionState": "manual",
       "localizations": {
@@ -4985,6 +5173,53 @@
           "stringUnit": {
             "state": "translated",
             "value": "Xóa dự án và %lld bản quét"
+          }
+        }
+      }
+    },
+    "Delete this photo?": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Smazat tuto fotku?"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dieses Foto löschen?"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Eliminar esta foto?"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Supprimer cette photo?"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deze foto verwijderen?"
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vymazať túto fotku?"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Xóa ảnh này?"
           }
         }
       }
@@ -6552,7 +6787,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Folgt dem Stil der Grundrisse der jeweiligen Agentur. Cedar247 ist mit diesen Agenturen nicht verbunden."
+            "value": "Folgt dem Stil der Grundrisse des jeweiligen Maklerbüros. Cedar247 ist mit diesen Maklerbüros nicht verbunden."
           }
         },
         "es": {
@@ -7664,6 +7899,194 @@
           "stringUnit": {
             "state": "translated",
             "value": "Đã có"
+          }
+        }
+      }
+    },
+    "Incorrect code. Please try again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nesprávný kód. Zkuste to prosím znovu."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Falscher Code. Bitte versuchen Sie es erneut."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Código incorrecto. Inténtalo de nuevo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Code incorrect. Veuillez réessayer."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Onjuiste code. Probeer het opnieuw."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nesprávny kód. Skúste to znova, prosím."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mã không đúng. Vui lòng thử lại."
+          }
+        }
+      }
+    },
+    "Incorrect email or password.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nesprávný e-mail nebo heslo."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "E-Mail-Adresse oder Passwort ist falsch."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Correo o contraseña incorrectos."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Courriel ou mot de passe incorrect."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Onjuist e-mailadres of wachtwoord."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nesprávny e-mail alebo heslo."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Email hoặc mật khẩu không đúng."
+          }
+        }
+      }
+    },
+    "Incorrect password.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nesprávné heslo."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Falsches Passwort."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Contraseña incorrecta."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mot de passe incorrect."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Onjuist wachtwoord."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nesprávne heslo."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mật khẩu không đúng."
+          }
+        }
+      }
+    },
+    "Invalid or expired code.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kód je neplatný nebo vypršel."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ungültiger oder abgelaufener Code."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Código no válido o expirado."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Code invalide ou expiré."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ongeldige of verlopen code."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kód je neplatný alebo vypršal."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mã không hợp lệ hoặc đã hết hạn."
           }
         }
       }
@@ -9607,7 +10030,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Kein Agenturstil"
+            "value": "Kein Maklerstil"
           }
         },
         "es": {
@@ -10719,6 +11142,53 @@
           "stringUnit": {
             "state": "translated",
             "value": "Tạm giữ"
+          }
+        }
+      }
+    },
+    "One of the selected scans is already part of another order.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jeden z vybraných skenů už je součástí jiné objednávky."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Einer der ausgewählten Scans gehört bereits zu einer anderen Bestellung."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uno de los escaneos seleccionados ya forma parte de otro pedido."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L'une des numérisations sélectionnées fait déjà partie d'une autre commande."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Een van de geselecteerde scans hoort al bij een andere bestelling."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jeden z vybraných skenov je už súčasťou inej objednávky."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Một trong các bản quét đã chọn đã nằm trong một đơn khác."
           }
         }
       }
@@ -11945,6 +12415,53 @@
         }
       }
     },
+    "Password must be at least 8 characters.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Heslo musí mít alespoň 8 znaků."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Das Passwort muss mindestens 8 Zeichen lang sein."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La contraseña debe tener al menos 8 caracteres."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le mot de passe doit contenir au moins 8 caractères."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Het wachtwoord moet minstens 8 tekens hebben."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Heslo musí mať aspoň 8 znakov."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mật khẩu phải có ít nhất 8 ký tự."
+          }
+        }
+      }
+    },
     "Password updated!": {
       "extractionState": "manual",
       "localizations": {
@@ -12321,6 +12838,53 @@
         }
       }
     },
+    "Please enter a valid email address.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zadejte prosím platnou e-mailovou adresu."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bitte geben Sie eine gültige E-Mail-Adresse ein."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Escribe un correo electrónico válido."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Veuillez saisir une adresse courriel valide."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Voer een geldig e-mailadres in."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zadajte, prosím, platnú e-mailovú adresu."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vui lòng nhập địa chỉ email hợp lệ."
+          }
+        }
+      }
+    },
     "Please enter the address to continue.": {
       "extractionState": "manual",
       "localizations": {
@@ -12368,6 +12932,53 @@
         }
       }
     },
+    "Please enter your name.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zadejte prosím své jméno."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bitte geben Sie Ihren Namen ein."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Escribe tu nombre."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Veuillez saisir votre nom."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Voer je naam in."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zadajte, prosím, svoje meno."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vui lòng nhập tên của bạn."
+          }
+        }
+      }
+    },
     "Please scan that area again — we cannot draw a floor plan from video alone. Already ordered? Send the new scan with \"Send extra scan\" — there is no extra charge.": {
       "extractionState": "manual",
       "localizations": {
@@ -12411,6 +13022,147 @@
           "stringUnit": {
             "state": "translated",
             "value": "Bạn quét lại khu đó giúp nhé — chỉ có video thì chúng tôi không dựng được mặt bằng. Đã đặt hàng rồi? Gửi bản quét mới bằng nút \"Gửi bổ sung bản quét\" — không mất thêm phí."
+          }
+        }
+      }
+    },
+    "Please sign in to continue.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pro pokračování se prosím přihlaste."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bitte melden Sie sich an, um fortzufahren."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inicia sesión para continuar."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Veuillez vous connecter pour continuer."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Log in om verder te gaan."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ak chcete pokračovať, prihláste sa, prosím."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vui lòng đăng nhập để tiếp tục."
+          }
+        }
+      }
+    },
+    "Please verify your email before placing an order.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Před odesláním objednávky prosím ověřte svůj e-mail."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bitte bestätigen Sie Ihre E-Mail, bevor Sie eine Bestellung aufgeben."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verifica tu correo antes de realizar un pedido."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Veuillez vérifier votre courriel avant de passer une commande."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verifieer je e-mailadres voordat je een bestelling plaatst."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pred odoslaním objednávky si, prosím, overte e-mail."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vui lòng xác minh email trước khi đặt hàng."
+          }
+        }
+      }
+    },
+    "Please wait %lld s before requesting another code.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Před vyžádáním dalšího kódu prosím počkejte %lld s."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bitte warten Sie %lld s, bevor Sie einen neuen Code anfordern."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Espera %lld s antes de pedir otro código."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Veuillez patienter %lld s avant de demander un autre code."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wacht %lld s voordat je een nieuwe code aanvraagt."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pred vyžiadaním ďalšieho kódu počkajte, prosím, %lld s."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vui lòng đợi %lld giây trước khi yêu cầu mã khác."
           }
         }
       }
@@ -13069,6 +13821,53 @@
           "stringUnit": {
             "state": "translated",
             "value": "Hoàn tiền"
+          }
+        }
+      }
+    },
+    "Remove attachment": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Odebrat přílohu"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anhang entfernen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quitar el archivo adjunto"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retirer la pièce jointe"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bijlage verwijderen"
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Odobrať prílohu"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bỏ tệp đính kèm"
           }
         }
       }
@@ -14103,6 +14902,53 @@
           "stringUnit": {
             "state": "translated",
             "value": "Trợ giúp khi quét"
+          }
+        }
+      }
+    },
+    "Scan files uploaded": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Soubory skenu nahrány"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scan-Dateien hochgeladen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Archivos del escaneo subidos"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fichiers de numérisation téléversés"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scanbestanden geüpload"
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Súbory skenu nahrané"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đã tải lên tệp bản quét"
           }
         }
       }
@@ -16457,6 +17303,53 @@
         }
       }
     },
+    "The code has expired. Please request a new one.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Platnost kódu vypršela. Požádejte prosím o nový."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Der Code ist abgelaufen. Bitte fordern Sie einen neuen an."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El código expiró. Solicita uno nuevo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le code a expiré. Veuillez en demander un nouveau."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "De code is verlopen. Vraag een nieuwe aan."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Platnosť kódu vypršala. Požiadajte, prosím, o nový."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mã đã hết hạn. Vui lòng yêu cầu mã mới."
+          }
+        }
+      }
+    },
     "The discount is applied on the payment page.": {
       "extractionState": "manual",
       "localizations": {
@@ -17350,6 +18243,53 @@
         }
       }
     },
+    "This request is too large. Please shorten your text and try again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tento požadavek je příliš velký. Zkraťte prosím text a zkuste to znovu."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diese Anfrage ist zu groß. Bitte kürzen Sie Ihren Text und versuchen Sie es erneut."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esta solicitud es demasiado grande. Acorta tu texto e inténtalo de nuevo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cette demande est trop volumineuse. Raccourcissez votre texte et réessayez."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dit verzoek is te groot. Maak je tekst korter en probeer het opnieuw."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Táto požiadavka je príliš veľká. Skráťte, prosím, text a skúste to znova."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yêu cầu quá lớn. Vui lòng rút ngắn nội dung rồi thử lại."
+          }
+        }
+      }
+    },
     "This scan is already in order %@ — see the Orders tab.": {
       "extractionState": "manual",
       "localizations": {
@@ -17421,7 +18361,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ce style n'est plus offert. Choisissez-en un autre."
+            "value": "Ce style n'est plus disponible. Choisissez-en un autre."
           }
         },
         "nl": {
@@ -17534,6 +18474,147 @@
           "stringUnit": {
             "state": "translated",
             "value": "Bật/tắt lưới quét"
+          }
+        }
+      }
+    },
+    "Too many attempts. Please request a new code.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Příliš mnoho pokusů. Požádejte prosím o nový kód."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zu viele Versuche. Bitte fordern Sie einen neuen Code an."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Demasiados intentos. Solicita un código nuevo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trop de tentatives. Veuillez demander un nouveau code."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Te veel pogingen. Vraag een nieuwe code aan."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Príliš veľa pokusov. Požiadajte, prosím, o nový kód."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thử quá nhiều lần. Vui lòng yêu cầu mã mới."
+          }
+        }
+      }
+    },
+    "Too many attempts. Please try again later.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Příliš mnoho pokusů. Zkuste to prosím později."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zu viele Versuche. Bitte versuchen Sie es später erneut."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Demasiados intentos. Inténtalo más tarde."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trop de tentatives. Veuillez réessayer plus tard."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Te veel pogingen. Probeer het later opnieuw."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Príliš veľa pokusov. Skúste to, prosím, neskôr."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thử quá nhiều lần. Vui lòng thử lại sau."
+          }
+        }
+      }
+    },
+    "Too many failed attempts. Please try again in %lld minute(s).": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Příliš mnoho neúspěšných pokusů. Zkuste to prosím znovu za %lld min."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zu viele Fehlversuche. Bitte versuchen Sie es in %lld Minute(n) erneut."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Demasiados intentos fallidos. Inténtalo de nuevo en %lld minuto(s)."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trop de tentatives infructueuses. Réessayez dans %lld minute(s)."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Te veel mislukte pogingen. Probeer het over %lld min. opnieuw."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Príliš veľa neúspešných pokusov. Skúste to znova o %lld min."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sai quá nhiều lần. Vui lòng thử lại sau %lld phút."
           }
         }
       }
@@ -18555,7 +19636,7 @@
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Gebruikt wanneer je een kleurenplattegrond bestelt. Je kunt het per bestelling nog steeds wijzigen."
+            "value": "Gebruikt wanneer je een kleurenplattegrond bestelt. Je kunt hem per bestelling nog steeds wijzigen."
           }
         },
         "sk": {
@@ -20918,6 +21999,53 @@
           "stringUnit": {
             "state": "translated",
             "value": "Đơn hàng cho %@ đã bị hủy vì chưa được thanh toán trong 7 ngày."
+          }
+        }
+      }
+    },
+    "Your scan of %@ hasn't been sent yet.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Váš sken %@ zatím nebyl odeslán."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ihr Scan von %@ wurde noch nicht gesendet."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tu escaneo de %@ aún no se ha enviado."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre numérisation de %@ n'a pas encore été envoyée."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Je scan van %@ is nog niet verstuurd."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Váš sken %@ zatiaľ nebol odoslaný."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bản quét %@ chưa được gửi."
           }
         }
       }

@@ -190,6 +190,8 @@ struct ScanGuideContent: View {
                 .foregroundStyle(Theme.Badge.ok.fg)
                 .frame(width: tickWidth)
                 .padding(.top, 2)
+                // N17: a bullet, ✗ "checkmark" read before every tip.
+                .accessibilityHidden(true)
             // Not `Text`: iOS 26 cut the last line of German tips (text-cut audit §4b #3–4).
             WrappedText(tip, style: .subheadline)
         }

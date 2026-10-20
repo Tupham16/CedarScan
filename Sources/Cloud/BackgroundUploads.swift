@@ -69,6 +69,38 @@ final class BackgroundUploads: NSObject {
     /// Call once at launch so completions queued while the app was dead are delivered (journal).
     func reconnect() { _ = session }
 
+    /// N8 (2.79): sign-out (`AccountStore.signOut`, every path) — no scan file of the account
+    /// that left reaches R2 afterwards, and nothing is left to resume.
+    func cancelAll() {
+        cancelTransfers()
+        UploadJournal.clearAll()
+    }
+
+    /// Every transfer of the session, including ones from before a relaunch, is cancelled and
+    /// none is recreated: `createdInBackground` / `replacing` are emptied FIRST, else
+    /// `didBecomeActive` or a swap's completion would start them again (trap #50); every waiting
+    /// flow ends now with `CancellationError` (not retried by `ScanUploader`) and `launched` is
+    /// emptied. (A wait registered in the instant before the async `cancel()` lands could still
+    /// adopt a running task — it then ends with that task's cancel error; no UI can start one
+    /// then: sign-out and deletion sit behind the Account tab / their sheet.) The journal stays
+    /// (account deletion calls this before its request: a refused deletion keeps the resume). The
+    /// returned task ends once `cancel()` reached every transfer — the deletion waits for it.
+    @discardableResult
+    func cancelTransfers() -> Task<Void, Never> {
+        lock.lock()
+        createdInBackground.removeAll()
+        replacing.removeAll()
+        launched.removeAll()
+        let waiting = waiters.values.flatMap { Array($0.values) }
+        waiters.removeAll()
+        lock.unlock()
+        Self.resume(waiting, CancellationError())
+        let session: URLSession = self.session
+        return Task {
+            for task in await session.allTasks { task.cancel() }
+        }
+    }
+
     /// Main thread. Called by `AppDelegate.handleEventsForBackgroundURLSession`.
     func setSystemCompletion(_ handler: @escaping () -> Void) {
         if eventsFinished {
@@ -377,6 +409,13 @@ enum UploadJournal {
         var all = load()
         all[recordId.uuidString] = nil
         save(all)
+    }
+
+    /// Sign-out (`BackgroundUploads.cancelAll`): every entry. A late 2xx then finds no entry
+    /// (`markDone` needs one) and records nothing.
+    static func clearAll() {
+        lock.lock(); defer { lock.unlock() }
+        UserDefaults.standard.removeObject(forKey: key)
     }
 
     static func markDone(_ tagString: String) {

@@ -1,5 +1,6 @@
 import Foundation
 import StripePaymentSheet
+import UIKit
 
 /// Trạng thái đăng nhập của khách (token trong Keychain, thông tin trong UserDefaults).
 @MainActor
@@ -10,6 +11,9 @@ final class AccountStore: ObservableObject {
     private static let tokenKey = "app-token"
     private static let customerKey = "app-customer"
     private static let emailVerifiedKey = "app-email-verified"
+    /// N8 (2.79): set on the first launch of an install. Keychain items outlive an uninstall,
+    /// UserDefaults does not — see `init`.
+    private static let installedKey = "app-installed.v1"
 
     var isSignedIn: Bool { customer != nil }
 
@@ -27,6 +31,26 @@ final class AccountStore: ObservableObject {
     var needsVerification: Bool { customer != nil && !emailVerified }
 
     init() {
+        // N8 (2.79): the token sits in the Keychain, which iOS keeps after the app is deleted — a
+        // reinstall (or the next owner of a phone sold without being erased) came back signed in
+        // to the old account. No flag = first launch of this install ⇒ the old token goes before
+        // it is read. An update from a build without the flag still holds `customerKey` while
+        // signed in (UserDefaults survives updates, not uninstalls): that session stays.
+        // Only while protected data is readable: before the first unlock after a reboot
+        // UserDefaults reads back empty (`ScanStore.loadProjects` has the same case) and every
+        // signed-in phone would look like a fresh install.
+        if UIApplication.shared.isProtectedDataAvailable,
+           !UserDefaults.standard.bool(forKey: Self.installedKey) {
+            if UserDefaults.standard.data(forKey: Self.customerKey) == nil {
+                Keychain.delete(Self.tokenKey)
+            } else {
+                // The session kept across the update: a token saved before 2.31 still has the
+                // access class that moves with backups — moved once, in place, to today's
+                // this-device-only class.
+                Keychain.makeThisDeviceOnly(Self.tokenKey)
+            }
+            UserDefaults.standard.set(true, forKey: Self.installedKey)
+        }
         if let token = Keychain.read(Self.tokenKey) {
             APIClient.shared.token = token
             if let data = UserDefaults.standard.data(forKey: Self.customerKey),
@@ -85,10 +109,27 @@ final class AccountStore: ObservableObject {
         setEmailVerified(true)
     }
 
+    /// N14 (2.79): the server's answer NOW — nil when there is none (offline, an error, no field,
+    /// another account signed in meanwhile). Updates the flag like `refresh()`, so a "no" opens
+    /// `AccountGateSheet` on the code screen (a stale `true` would close it at once). Callers stop
+    /// only on `false`, the server's own word: the cached flag alone never blocks anybody (trap #17).
+    func serverEmailVerified() async -> Bool? {
+        guard let asked = customer?.id, APIClient.shared.token != nil,
+              let me = try? await APIClient.shared.me(),
+              customer?.id == asked, me.customer.id == asked,
+              let verified = me.emailVerified else { return nil }
+        setEmailVerified(verified)
+        return verified
+    }
+
     /// Every sign-out passes here (Account tab, verify screen, account deletion, a 401 in `refresh`).
     func signOut() {
         // Before the session goes (plan: unregister first); this phone stops getting its pushes.
         PushNotifications.shared.signingOut()
+        // N8 (2.79): scan files still going up in the background (an order cancelled mid-upload
+        // keeps transferring, trap #50) stop here, and their journal goes — ✗ a scan of the
+        // account that left reaching our storage afterwards.
+        BackgroundUploads.shared.cancelAll()
         APIClient.shared.token = nil
         Keychain.delete(Self.tokenKey)
         UserDefaults.standard.removeObject(forKey: Self.customerKey)

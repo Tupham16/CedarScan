@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import UIKit
 
 @MainActor
 final class ScanStore: ObservableObject {
@@ -86,8 +87,24 @@ final class ScanStore: ObservableObject {
     init() {
         awaitingOrderNumbers = Set(UserDefaults.standard.stringArray(forKey: Self.awaitingKey) ?? [])
         try? fileManager.createDirectory(at: rootURL, withIntermediateDirectories: true)
+        excludeScansFromBackup()
         loadProjects()
         reload()
+        backfillOrderBindings()
+    }
+
+    /// Q1 (2.79, owner 20/10): `Documents/Scans` stays out of the iCloud / computer backup — a
+    /// 30-min scan is ~300 MB, about 15 of them fill the free 5 GB and the customer's whole
+    /// iPhone backup starts failing. The flag on the folder covers everything in it. Set at every
+    /// launch: existing installs get it too, and so does a re-created folder (the flag lives on
+    /// the folder). Known, accepted: a phone restored from a backup has no scans (ordered ones
+    /// stay on our server). projects.json (property names, order bindings) stays in the backup —
+    /// and an ordered house keeps its order there (`bindProperty`, set at stamp time).
+    private func excludeScansFromBackup() {
+        var url = rootURL
+        var values = URLResourceValues()
+        values.isExcludedFromBackup = true
+        try? url.setResourceValues(values)
     }
 
     // MARK: - Dự án (căn nhà / địa chỉ)
@@ -131,9 +148,11 @@ final class ScanStore: ObservableObject {
 
     /// `.atomic`: a plain write truncates first, so a kill or a full disk mid-write leaves a
     /// truncated file that no longer decodes (same rule as `MeshPreviewFile.write`).
-    private func persistProjects() {
-        guard !projectsWriteBlocked, let data = try? JSONEncoder().encode(projects) else { return }
-        try? data.write(to: projectsURL, options: .atomic)
+    /// Returns whether the file was written (2.79: `backfillOrderBindings` retries otherwise).
+    @discardableResult
+    private func persistProjects() -> Bool {
+        guard !projectsWriteBlocked, let data = try? JSONEncoder().encode(projects) else { return false }
+        return (try? data.write(to: projectsURL, options: .atomic)) != nil
     }
 
     @discardableResult
@@ -152,6 +171,8 @@ final class ScanStore: ObservableObject {
               let index = projects.firstIndex(where: { $0.id == project.id }) else { return }
         projects[index].name = trimmed
         persistProjects()
+        // F2: a pending reminder names the property.
+        ScanReminder.refresh([ScanReminder.key(project: project.id)], store: self, withdrawDelivered: false)
     }
 
     /// Xoá dự án VÀ XOÁ LUÔN FILE BẢN QUÉT CỦA NÓ KHỎI MÁY.
@@ -211,6 +232,11 @@ final class ScanStore: ObservableObject {
         // tác đĩa có thể hỏng nữa, đổi lấy đúng 0 thay đổi trên màn hình.
         projects.removeAll { $0.id == project.id }
         persistProjects()
+        // F2: the property's reminder goes with its scans.
+        ScanReminder.refresh(
+            Set(doomed.map { ScanReminder.key($0) }).union([ScanReminder.key(project: project.id)]),
+            store: self, withdrawDelivered: true
+        )
         return removed.count
     }
 
@@ -615,6 +641,8 @@ final class ScanStore: ObservableObject {
         }
         try? fileManager.removeItem(at: folderURL(for: record))
         records.removeAll { $0.id == record.id }
+        // F2: its reminder goes (or names the property's other unsent scan).
+        ScanReminder.refresh([ScanReminder.key(record)], store: self, withdrawDelivered: true)
     }
 
     /// Dọn hẳn khỏi máy những bản quét thuộc đơn ĐÃ GIAO (chủ app chốt 2026-07-19: "máy khách
@@ -664,6 +692,7 @@ final class ScanStore: ObservableObject {
         guard !removed.isEmpty else { return 0 }
         let removedIds = Set(removed.map(\.id))
         records.removeAll { removedIds.contains($0.id) }
+        ScanReminder.refresh(Set(removed.map { ScanReminder.key($0) }), store: self, withdrawDelivered: true)
 
         // Chỉ xét dự án mất bản quét THẬT — dùng `removed`, không dùng `doomed`.
         let touched = touchedProjects.intersection(removed.compactMap(\.projectId))
@@ -694,6 +723,59 @@ final class ScanStore: ObservableObject {
     /// comes from the server's own word instead (`adoptStamps`).
     func setOrderNumber(_ record: ScanRecord, orderNumber: String) {
         update(record) { $0.cloudOrderNumber = orderNumber }
+        bindProperty(of: record, to: orderNumber)
+    }
+
+    /// Q1 (2.79): the scan folders (and so every stamp, in meta.json) are out of the iCloud backup,
+    /// projects.json is not — a phone restored from a backup has the properties but none of their
+    /// stamped scans, and its next scan of an ordered house would offer "Order" = a second paid
+    /// order (owner 11/08: one house, one order). So the property is bound at stamp time too
+    /// (`ScanProject.orderNumber`, as "Add a scan" / L6 bind it), only when unbound. A stamped scan
+    /// still wins in `orderNumber(ofProject:)`; the binding is cleared like any binding
+    /// (`releaseBinding`: the order cancelled unpaid or refunded).
+    private func bindProperty(of record: ScanRecord, to orderNumber: String) {
+        // The live record's property (nil when it is loose now), ✗ a snapshot's.
+        let live = records.first { $0.id == record.id }
+        guard let projectId = live.map({ $0.projectId }) ?? record.projectId,
+              let index = projects.firstIndex(where: { $0.id == projectId }),
+              projects[index].orderNumber == nil else { return }
+        projects[index].orderNumber = orderNumber
+        persistProjects()
+    }
+
+    private static let bindingBackfillKey = "projects.bindingBackfill.v1"
+
+    /// Q1 (2.79), once per install: houses ordered BEFORE 2.79 have their order only in their
+    /// scans' meta.json, which the backup no longer carries — bound now as a 2.79 stamp would
+    /// (newest stamp, `orderNumber(ofProject:)`). Only once the files are readable (before the
+    /// first unlock `records` reads back empty) and projects.json can be written; the flag only
+    /// once the write succeeded — a failed write (full disk) puts the bindings back as they were
+    /// (a leftover in memory would stop L6's `keepOrderBinding` from writing its own this run)
+    /// and the next launch tries again. ✗ a property whose scans carry two orders (data from
+    /// before "1 house, 1 order", mostly the owner's): bound to the newest, "Add a scan" for that
+    /// order would get lost once its scans are deleted here (`project(withOrderNumber:)` falls
+    /// back to the property, whose older stamp then disagrees); skipped, such a house offers
+    /// "Order" again on a restored phone — accepted, rare. ⚠ A refunded order's house gets bound
+    /// too (the app keeps no refund state): harmless while its stamped scans are here (they win
+    /// anyway); a restored phone then offers "Send extra scan" into it, refused `order_closed`
+    /// after the upload (the sheet's close releases the binding) — accepted, rare.
+    private func backfillOrderBindings() {
+        guard !UserDefaults.standard.bool(forKey: Self.bindingBackfillKey),
+              UIApplication.shared.isProtectedDataAvailable, !projectsWriteBlocked else { return }
+        let before = projects
+        var changed = false
+        for index in projects.indices where projects[index].orderNumber == nil {
+            let id = projects[index].id
+            let numbers = Set(records.compactMap { $0.projectId == id ? $0.cloudOrderNumber : nil })
+            guard numbers.count == 1, let number = orderNumber(ofProject: id) else { continue }
+            projects[index].orderNumber = number
+            changed = true
+        }
+        guard !changed || persistProjects() else {
+            projects = before
+            return
+        }
+        UserDefaults.standard.set(true, forKey: Self.bindingBackfillKey)
     }
 
     /// Số đơn mà DỰ ÁN này đã đặt — `nil` = chưa có đơn nào ⇒ đường ĐẶT HÀNG bình thường.
@@ -837,15 +919,17 @@ final class ScanStore: ObservableObject {
                   !cancelledOrderIds.contains(order.orderId),
                   !seenCancelledOrderIds.contains(order.orderId) else { continue }
             // `allScanIds`: for a live order its `scanId` fallback (old server) is in it too.
-            adoptStamps(orderNumber: order.orderNumber, scanIds: order.allScanIds)
+            adoptStamps(orderNumber: order.orderNumber, scanIds: order.allScanIds, status: order.status)
         }
     }
 
     /// Stamps `orderNumber` on the scans whose `cloudScanId` the SERVER says are in that order (an
     /// order list, or the Place order 409 naming the order — `OrderSheet.adoptExistingOrder`).
     /// Unstamped scans only: ✗ overwrite another number (a newer order's, or a dead one the next
-    /// sync releases — then the following one stamps it).
-    func adoptStamps(orderNumber: String, scanIds: [String]) {
+    /// sync releases — then the following one stamps it). `status`: the order's customer status
+    /// (nil = unknown) — a refunded one stamps but ✗ binds the property (2.78: refunded = unbound,
+    /// `releaseCancelledStamps`; 2.79 `bindProperty`). No default: both callers say what they know.
+    func adoptStamps(orderNumber: String, scanIds: [String], status: String?) {
         guard !scanIds.isEmpty else { return }
         let listed = Set(scanIds)
         let targets = records.filter { record in
@@ -854,6 +938,7 @@ final class ScanStore: ObservableObject {
         }
         for record in targets {
             update(record) { $0.cloudOrderNumber = orderNumber }
+            if status != "refunded" { bindProperty(of: record, to: orderNumber) }
         }
     }
 
@@ -944,8 +1029,23 @@ final class ScanStore: ObservableObject {
 
     private func update(_ record: ScanRecord, _ mutate: (inout ScanRecord) -> Void) {
         guard let index = records.firstIndex(where: { $0.id == record.id }) else { return }
+        let before = records[index]
         mutate(&records[index])
         try? writeMeta(records[index])
+        reminderFollows(before, records[index])
+    }
+
+    /// F2 (2.79): every stamp (Place order, extra scan, a list's adopt), release, move and rename
+    /// passes `update` — the scan reminder of its property follows (`ScanReminder`). A stamp
+    /// withdraws a reminder already shown as well.
+    private func reminderFollows(_ before: ScanRecord, _ after: ScanRecord) {
+        guard before.cloudOrderNumber != after.cloudOrderNumber
+            || before.projectId != after.projectId
+            || before.name != after.name else { return }
+        let stamped = before.cloudOrderNumber == nil && after.cloudOrderNumber != nil
+        ScanReminder.refresh(
+            [ScanReminder.key(before), ScanReminder.key(after)], store: self, withdrawDelivered: stamped
+        )
     }
 
     /// `.atomic` (the repo's disk-full rule: `TextureShotRecorder`, `MeshPreviewFile.write`): a
