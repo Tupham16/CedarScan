@@ -247,6 +247,8 @@ final class ScanStore: ObservableObject {
         /// % đứng hình đúng ở đoạn lâu nhất — hỏng lặng lẽ, CI vẫn xanh.
         progress: @escaping SaveStageReport
     ) async throws -> ScanRecord {
+        // scan-report.json `save.storeMs` (2.78): this function's share, until packing.
+        let storeStart = ScanSessionReport.clock()
         // Khoá việc dọn-sau-khi-giao suốt quá trình lưu. Bản ghi chỉ được `records.insert` ở
         // CUỐI hàm (dòng ~297), sau khi await nén zip/GLB — việc mất hàng chục giây tới vài
         // phút với nhà nguyên căn. Trong cửa sổ đó bản quét mới CHƯA có trong `records`, nên
@@ -307,8 +309,8 @@ final class ScanStore: ObservableObject {
 
         // Ghi meta.json NGAY SAU khi tạo thư mục, TRƯỚC khi move file tạm / nén zip (bước nén mất
         // hàng chục giây tới vài phút với nhà nguyên căn). Nếu app bị kill giữa lúc nén, thư mục
-        // này vẫn ĐỌC LẠI được ở `reload()` → bản quét hiện trên danh sách (thiếu mesh, uploader
-        // từ chối CÓ báo, khách xoá/chia sẻ được) thay vì thành thư mục rác VÔ HÌNH vĩnh viễn mà
+        // này vẫn ĐỌC LẠI được ở `reload()` → bản quét hiện trên danh sách (từ 2.78 kèm PLY phao,
+        // xem ngay dưới; khách xoá/đặt hàng được) thay vì thành thư mục rác VÔ HÌNH vĩnh viễn mà
         // không UI nào chạm tới (ScanRow là lối vào duy nhất tới swipe-xoá). `record` là `let` cố
         // định từ đầu tới cuối hàm nên ghi sớm cho ra ĐÚNG bytes như ghi muộn.
         // writeMeta throw (đĩa đầy — rất thật với file trăm MB) lúc này thì thư mục còn RỖNG, chưa
@@ -319,6 +321,18 @@ final class ScanStore: ObservableObject {
         } catch {
             try? fileManager.removeItem(at: folder)
             throw error
+        }
+
+        // 0. (2.78, L1) The PLY is the only copy of the mesh and the OBJ + zip step takes minutes:
+        //    long enough for iOS to suspend, then kill, the app — before 2.78 that reopened as an
+        //    orderable video-only scan. Moved in now under the PLY-fallback name (`ScanUploader`
+        //    kind `mesh`, `ScanDetailView.hasMeshModel`), so a kill from here on keeps the model.
+        //    Same volume: a rename. After meta.json, ✗ before it: a failed writeMeta deletes the
+        //    folder. Step 2 removes it once the zip is in.
+        let folderPLYURL = folder.appendingPathComponent("colored-mesh.ply")
+        var plyInFolder = false
+        if hasMesh, let meshURL {
+            plyInFolder = (try? fileManager.moveItem(at: meshURL, to: folderPLYURL)) != nil
         }
 
         // 1. Video walkthrough (nếu quay được)
@@ -393,8 +407,15 @@ final class ScanStore: ObservableObject {
         //    PLY chỉ là file trung gian từ builder → nén xong XÓA. Nén lỗi thì dọn zip cụt và
         //    GIỮ PLY lại làm phao (menu chia sẻ + uploader đều xử lý được PLY) — không bao giờ
         //    mất dữ liệu 3D.
+        //    2.78 (L1): the PLY already sits in the folder (step 0); the zip is built in tmp and
+        //    renamed in only when complete, and only then does the PLY go. At every moment the
+        //    folder holds the PLY, the zip, or both (killed in between: `ScanUploader` sends the
+        //    zip alone) — and never a half-written zip under its final name.
         if hasMesh, let meshURL {
             let zipURL = folder.appendingPathComponent("model-colored.zip")
+            let stagingZipURL = fileManager.temporaryDirectory
+                .appendingPathComponent("model-colored-\(UUID().uuidString.prefix(8)).zip")
+            let plyURL = plyInFolder ? folderPLYURL : meshURL
             // .userInitiated: người dùng đang đứng chờ trên overlay "Đang dựng mô hình 3D…"
             // (.utility đẩy sang efficiency core, nhà lớn chờ lâu gấp đôi vô ích).
             var extraFiles = savedTrackURL.map { [$0] } ?? []
@@ -420,14 +441,24 @@ final class ScanStore: ObservableObject {
             // Colours join here, right before scan-report.json is copied into the zip.
             // `@Sendable`: runs on the zip thread; a plain closure written in this @MainActor
             // class would be inferred main-actor-isolated.
+            // 2.78: then the `save` timings (`objMs` = this attempt's PLY read + OBJ/GLB write,
+            // taken before the colour join; `storeMs` after it).
             let job = colourJob
             let reportForJob = savedReportURL
-            let beforePacking: @Sendable () -> Void = { job?.finishAndReport(to: reportForJob) }
+            let packHook: @Sendable (Int, Double) -> Void = { attempt, attemptStart in
+                let objMs = ScanSessionReport.ms(since: attemptStart)
+                job?.finishAndReport(to: reportForJob)
+                ScanSessionReport.patchSave(reportForJob, [
+                    "objMs": objMs, "zipAttempts": attempt,
+                    "storeMs": ScanSessionReport.ms(since: storeStart),
+                ])
+            }
             let converted = await Task.detached(priority: .userInitiated) { () -> Bool in
+                let firstStart = ScanSessionReport.clock()
                 do {
                     try ColoredOBJExporter.makeOBJZip(
-                        fromPLY: meshURL, to: zipURL, includeGLB: wantGLB, extraFiles: extraFiles,
-                        beforePacking: beforePacking, progress: progress
+                        fromPLY: plyURL, to: stagingZipURL, includeGLB: wantGLB, extraFiles: extraFiles,
+                        beforePacking: { packHook(1, firstStart) }, progress: progress
                     )
                     return true
                 } catch {
@@ -440,14 +471,15 @@ final class ScanStore: ObservableObject {
                     // bỏ) và bắt đầu từ chỗ đã có thêm chỗ trống do xoá zip cụt.
                     // ✗ đặt `guard wantGLB`: ở đường LƯU NHANH thì GLB vốn đã tắt, mà ĐÓ MỚI LÀ
                     // đường cần cứu nhất — lượt hai lúc đó là "dọn rác rồi thử lại một lần".
-                    try? FileManager.default.removeItem(at: zipURL)
+                    try? FileManager.default.removeItem(at: stagingZipURL)
+                    let secondStart = ScanSessionReport.clock()
                     do {
                         // Lượt hai báo lại từ đầu dải; bộ thu chỉ lấy giá trị TĂNG nên thanh
                         // KHÔNG lùi — nó đứng yên tới khi lượt hai vượt qua mốc cũ. Đứng yên
                         // ở đây là đúng sự thật: đang làm lại việc vừa hỏng.
                         try ColoredOBJExporter.makeOBJZip(
-                            fromPLY: meshURL, to: zipURL, includeGLB: false, extraFiles: extraFiles,
-                            beforePacking: beforePacking, progress: progress
+                            fromPLY: plyURL, to: stagingZipURL, includeGLB: false, extraFiles: extraFiles,
+                            beforePacking: { packHook(2, secondStart) }, progress: progress
                         )
                         return true
                     } catch {
@@ -459,14 +491,17 @@ final class ScanStore: ObservableObject {
             // + chèn bản ghi, tính bằng mili giây. 100% cuối cùng do `MeshScanFlowView` đặt
             // trong đúng nhịp chuyển sang màn preview.
             progress(.packaging, 0.8)
+            // The complete zip goes in by a rename (atomic); the PLY is removed only after that.
+            var landed = false
             if converted {
-                try? fileManager.removeItem(at: meshURL)
-            } else {
-                try? fileManager.removeItem(at: zipURL) // dọn zip ghi dở
-                try? fileManager.moveItem(
-                    at: meshURL,
-                    to: folder.appendingPathComponent("colored-mesh.ply")
-                )
+                landed = (try? fileManager.moveItem(at: stagingZipURL, to: zipURL)) != nil
+            }
+            try? fileManager.removeItem(at: stagingZipURL) // dọn zip ghi dở / không vào được
+            if landed {
+                try? fileManager.removeItem(at: plyURL)
+            } else if !plyInFolder {
+                // Step 0's move failed: the PLY fallback the old way.
+                try? fileManager.moveItem(at: meshURL, to: folderPLYURL)
             }
         }
 

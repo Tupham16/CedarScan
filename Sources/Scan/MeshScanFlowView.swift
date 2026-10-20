@@ -82,6 +82,8 @@ struct MeshScanFlowView: View {
 
     @State private var showNaming = false
     @State private var showEmptyMeshConfirm = false
+    /// Cancel with a real scan behind it (≥ `minMeshVertices`) asks first — see `cancelTapped`.
+    @State private var showDiscardConfirm = false
     @State private var showUnsupported = false
     /// Quyền camera bị từ chối → alert riêng có nút mở Cài đặt (xem `.onAppear` + `.onChange`).
     @State private var showCameraDenied = false
@@ -304,6 +306,16 @@ struct MeshScanFlowView: View {
         } message: {
             Text(String(localized: "Walk around and point the camera at walls and floors for a few more seconds."))
         }
+        .confirmationDialog(
+            String(localized: "Discard this scan?"),
+            isPresented: $showDiscardConfirm,
+            titleVisibility: .visible
+        ) {
+            Button(String(localized: "Discard scan"), role: .destructive) { discardScan() }
+            Button(String(localized: "Keep scanning"), role: .cancel) {}
+        } message: {
+            Text(String(localized: "Everything scanned so far will be deleted."))
+        }
     }
 
     // MARK: - Top bar (Cancel + timer + mesh toggle)
@@ -313,8 +325,7 @@ struct MeshScanFlowView: View {
     private var topBar: some View {
         HStack(spacing: 8) {
             Button {
-                controller.cancel()
-                dismiss()
+                cancelTapped()
             } label: {
                 // Explicit white: `.primary` inside a Button resolves to the tint (rendered blue).
                 Text(String(localized: "Cancel"))
@@ -596,9 +607,29 @@ struct MeshScanFlowView: View {
         }
     }
 
+    /// Below this the scan holds next to nothing: Stop & Save asks "No 3D model captured yet",
+    /// Cancel discards without asking. One number for both.
+    private static let minMeshVertices = 5_000
+
+    /// L4 (2.78): Cancel deletes the video, the shots and the mesh — with a real scan behind it,
+    /// ask first. No coach/torch hold (unlike the naming screen): the dialog is a one-second
+    /// choice and "Keep scanning" simply carries on with the scan that never stopped.
+    private func cancelTapped() {
+        if controller.meshVertexCount >= Self.minMeshVertices {
+            showDiscardConfirm = true
+        } else {
+            discardScan()
+        }
+    }
+
+    private func discardScan() {
+        controller.cancel()
+        dismiss()
+    }
+
     private func stopTapped() {
         // Đọc vertexCount TRƯỚC khi export (finishColoredMesh giải phóng builder).
-        if controller.meshVertexCount < 5_000 {
+        if controller.meshVertexCount < Self.minMeshVertices {
             showEmptyMeshConfirm = true
         } else {
             // Tắt coach trong lúc đặt tên — không rung/nói "bật đèn" khi đang gõ chữ.
@@ -658,15 +689,15 @@ struct MeshScanFlowView: View {
         Task {
             // Giữ app sống nếu bị background đúng lúc export/lưu (cuộc gọi đến ở giây
             // cuối) — không thì buổi quét 30 phút có thể mất trắng vì chưa ghi record.
-            let bgTask = UIApplication.shared.beginBackgroundTask(expirationHandler: nil)
+            // 2.78 (L1): with an expiration handler that ENDS the task — see `SaveBackgroundTime`.
+            let background = SaveBackgroundTime()
+            background.begin()
             defer {
                 // Trả lại auto-lock CHỈ khi đã lưu xong hẳn (stopAndExport giữ màn hình
                 // thức qua cả export lẫn giai đoạn nén zip trong onFinish). Từ đây trở đi
                 // khách chỉ ngồi xem video ở màn preview — khoá máy lúc đó là chuyện thường.
                 UIApplication.shared.isIdleTimerDisabled = false
-                if bgTask != .invalid {
-                    UIApplication.shared.endBackgroundTask(bgTask)
-                }
+                background.end()
             }
             let exported = await controller.stopAndExport(progress: report)
             let result = MeshScanResult(
@@ -706,6 +737,56 @@ struct MeshScanFlowView: View {
             savedRecord = saved
             isSaving = false
         }
+    }
+}
+
+/// Background time for one save (L1, 2.78). A whole-house save takes minutes; background time
+/// is ~30 s, and a task still held when it runs out gets the app KILLED (the save, and the
+/// scan, gone). So the expiration handler ENDS the task: iOS suspends the app instead and the
+/// save carries on when the customer comes back. Back on screen = renewed, so the next lock or
+/// call gets its own ~30 s. Same pattern as `UploadKeepAlive.renew/expire`. Main thread only.
+@MainActor
+private final class SaveBackgroundTime {
+    private var task: UIBackgroundTaskIdentifier = .invalid
+    private var activeObserver: NSObjectProtocol?
+
+    func begin() {
+        renew()
+        guard activeObserver == nil else { return }
+        activeObserver = NotificationCenter.default.addObserver(
+            forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                self.renew()
+            }
+        }
+    }
+
+    /// End of the save (every exit). Idempotent.
+    func end() {
+        if let activeObserver {
+            NotificationCenter.default.removeObserver(activeObserver)
+        }
+        activeObserver = nil
+        expire()
+    }
+
+    /// No-op while a task is held. One at a time ⇒ the handler always ends the held one.
+    private func renew() {
+        guard task == .invalid else { return }
+        task = UIApplication.shared.beginBackgroundTask(withName: "scan-save") { [weak self] in
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                self.expire()
+            }
+        }
+    }
+
+    private func expire() {
+        let id = task
+        task = .invalid
+        if id != .invalid { UIApplication.shared.endBackgroundTask(id) }
     }
 }
 

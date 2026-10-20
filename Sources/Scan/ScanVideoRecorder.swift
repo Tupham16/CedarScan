@@ -19,6 +19,13 @@ final class ScanVideoRecorder {
     /// trả về URL video thành công. Track đi kèm video: thiếu video thì track vô nghĩa.
     private(set) var cameraTrackURL: URL?
 
+    /// scan-report.json `save.video` (2.78), set by `finish()`: "ok", "notStarted" (the writer
+    /// never started), "noFrames", or "failed" with the writer's status raw value and error
+    /// codes ("domain:code", then the underlying error's). Diagnostics only.
+    private(set) var finishStatus = "notFinished"
+    private(set) var writerStatus: Int?
+    private(set) var writerError: String?
+
     private weak var arSession: ARSession?
     private var writer: AVAssetWriter?
     private var input: AVAssetWriterInput?
@@ -208,12 +215,21 @@ final class ScanVideoRecorder {
     /// chạy thân hàm trên executor NỀN theo SE-0338).
     @MainActor
     func finish() async -> URL? {
-        guard let writer, let input, !isFinishing else { return nil }
+        guard let writer, let input, !isFinishing else {
+            if self.writer == nil { finishStatus = "notStarted" }
+            return nil
+        }
         isFinishing = true
         displayLink?.invalidate()
         displayLink = nil
 
         guard firstTimestamp != nil, writer.status == .writing else {
+            // Read before cancelWriting(), which changes the status.
+            if writer.status == .writing {
+                finishStatus = "noFrames"
+            } else {
+                noteFailure(writer)
+            }
             writer.cancelWriting()
             return nil
         }
@@ -221,9 +237,25 @@ final class ScanVideoRecorder {
         await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
             writer.finishWriting { continuation.resume() }
         }
-        guard writer.status == .completed else { return nil }
+        guard writer.status == .completed else {
+            noteFailure(writer)
+            return nil
+        }
+        finishStatus = "ok"
         writeCameraTrackFile()
         return outputURL
+    }
+
+    private func noteFailure(_ writer: AVAssetWriter) {
+        finishStatus = "failed"
+        writerStatus = writer.status.rawValue
+        guard let failure = writer.error else { return }
+        let error = failure as NSError
+        var codes = "\(error.domain):\(error.code)"
+        if let underlying = error.userInfo[NSUnderlyingErrorKey] as? NSError {
+            codes += " \(underlying.domain):\(underlying.code)"
+        }
+        writerError = codes
     }
 
     /// Hủy quay (khi khách bấm Hủy) — xoá file tạm.

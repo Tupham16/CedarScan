@@ -602,18 +602,22 @@ final class ColorMeshBuilder {
     /// locked through stage A; stage B is then bounded at ~140MB by `maxStageVertices`, above it
     /// → clustering fallback. One meshoptimizer call on the whole house would have been ~260MB inside
     /// the library alone; that is why `PreviewSimplifier` works per 4m cell first.
+    /// Besides the URL: the path that ran ("quadric" / "cluster" / "none") and the vertices
+    /// written (0 = no file) — scan-report.json `save` (2.78), nothing reads them in the app.
     @MainActor
-    func exportPreviewMesh() async -> URL? {
+    func exportPreviewMesh() async -> PreviewExport {
         let pieces = self.pieces
-        guard !pieces.isEmpty else { return nil }
-        return await withCheckedContinuation { (continuation: CheckedContinuation<URL?, Never>) in
+        guard !pieces.isEmpty else { return (nil, "none", 0) }
+        return await withCheckedContinuation { (continuation: CheckedContinuation<PreviewExport, Never>) in
             queue.async {
                 continuation.resume(returning: Self.buildPreview(pieces: pieces))
             }
         }
     }
 
-    private static func buildPreview(pieces: [UUID: MeshPiece]) -> URL? {
+    typealias PreviewExport = (url: URL?, path: String, vertices: Int)
+
+    private static func buildPreview(pieces: [UUID: MeshPiece]) -> PreviewExport {
         // Sorted-key walk exactly like `buildPLY`: Swift's Dictionary order is not stable, and
         // saving the same scan twice must not produce two different files.
         let keys = pieces.keys.sorted { $0.uuidString < $1.uuidString }
@@ -621,12 +625,13 @@ final class ColorMeshBuilder {
         for key in keys {
             totalVerts += pieces[key]?.worldVertices.count ?? 0
         }
-        guard totalVerts > 0 else { return nil }
+        guard totalVerts > 0 else { return (nil, "none", 0) }
 
         // 2.75: quadric edge collapse first (`PreviewSimplifier`, doc there), clustering only as
         // the fallback. `map(\.…)` hands over array references, no vertex data is copied.
         var result: (positions: [SIMD3<Float>], normals: [SIMD3<Float>], indices: [UInt32])
             = ([], [], [])
+        var path = "quadric"
         let ordered = keys.compactMap { pieces[$0] }
         if let quadric = PreviewSimplifier.build(
             vertexLists: ordered.map(\.worldVertices),
@@ -636,10 +641,11 @@ final class ColorMeshBuilder {
            quadric.indices.count <= previewQuadricCeiling * 6 {
             result = (quadric.positions, quadric.normals, quadric.indices)
         } else {
+            path = "cluster"
             result = clusterWithRetries(pieces: pieces, keys: keys, totalVerts: totalVerts)
         }
 
-        guard !result.positions.isEmpty, !result.indices.isEmpty else { return nil }
+        guard !result.positions.isEmpty, !result.indices.isEmpty else { return (nil, path, 0) }
 
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("mesh-preview-\(UUID().uuidString.prefix(8)).bin")
@@ -650,11 +656,11 @@ final class ColorMeshBuilder {
                 indices: result.indices,
                 to: url
             )
-            return url
+            return (url, path, result.positions.count)
         } catch {
             // Never fail the save because of the preview — the scan itself is already exported.
             try? FileManager.default.removeItem(at: url)
-            return nil
+            return (nil, path, 0)
         }
     }
 

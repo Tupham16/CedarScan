@@ -199,6 +199,8 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
     ) {
         guard !isStopped else { return (nil, nil, nil, nil, nil, nil, false, false) }
         isStopped = true
+        // scan-report.json `save` (2.78): stage durations — nobody had timed a save on a phone.
+        let saveStart = ScanSessionReport.clock()
         ScanPerfProfiler.noteEvent("stop-and-save")
         report?.markStopped()
         teardownCommon()
@@ -232,12 +234,17 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
         progress(.finishingCapture, 0)
         let videoURL = await recorder?.finish()
         let trackURL = recorder?.cameraTrackURL // chỉ khác nil khi video hoàn tất OK
+        // Why there is (no) video — read before the recorder goes (report `save.video`).
+        let videoStatus = recorder?.finishStatus ?? "noRecorder"
+        let videoWriterStatus = recorder?.writerStatus
+        let videoError = recorder?.writerError
         recorder = nil
         // Chốt sổ ảnh texture TRƯỚC exportColoredPLY: phần chờ chỉ là nén nốt ≤3 ảnh
         // (~chục ms), xong là nó im — không giành CPU/RAM với đoạn bake màu nặng phía sau.
         // Thứ tự này CÒN là điều kiện của LƯU NHANH: số ảnh phải chốt xong mới quyết được.
         let texshots = await texShots?.finish(finalAnchorPoses: finalShotPoses)
         texShots = nil
+        let stopMs = ScanSessionReport.ms(since: saveStart)
         // LƯU NHANH: đủ ảnh texture → MÁY TRẠM sẽ là nơi làm ra màu (texture chiếu-1-khung),
         // nên bake màu-đỉnh ngay đây là làm hai lần một việc, mà lần này tốn hàng phút của
         // khách. Đổi lấy mesh xám + lưu nhanh hơn hẳn.
@@ -253,7 +260,9 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
             torch: torch.stats, exposureCap: exposureCap.stats
         )
         report = nil
+        let plyStart = ScanSessionReport.clock()
         let meshURL = await colorMesh?.exportColoredPLY(geometryOnly: fastSave, progress: progress)
+        let plyMs = ScanSessionReport.ms(since: plyStart)
         // Lưới XÁM nhẹ cho trình xem 3D trong app (mesh-preview.bin) — chủ app duyệt 10/08.
         // 🔴 Dựng SAU exportColoredPLY, không phải trước: `queue` của builder là SERIAL nên
         // chạy trước là đẩy FILE GIAO — thứ khách đang đứng chờ sau overlay "Đang dựng mô hình
@@ -262,6 +271,9 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
         // ✗ viết gọn thành `meshURL == nil ? nil : await …`: Swift cấm `await` đứng bên phải
         // toán tử không-phải-gán, và một vòng CI đắt hơn ba dòng.
         var previewURL: URL?
+        var previewPath = "none"
+        var previewVertices = 0
+        let previewStart = ScanSessionReport.clock()
         if meshURL != nil {
             // Chặng CÂM ngắn (từ 2.75 là quadric `PreviewSimplifier`: riêng thư viện 0,84s trên
             // desktop cho nhà 1,55 triệu đỉnh, ƯỚC ~1,3–2,7s trên iPhone, tới ~3,5s ở 1,8–2 triệu
@@ -269,10 +281,31 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
             // xỏ đầu thu vào `buildPreview` — thêm tham số vào file trap-dense nhất app để
             // mua 1–3 nhịp báo là không đáng. Nếu máy thật cho thấy nó đứng lâu hơn ~4s thì
             // báo theo từng ô 4m của chặng A trong `PreviewSimplifier` là chỗ sửa đúng.
+            // (2.78: `save.previewMs` in scan-report.json is that phone timing.)
             progress(.previewMesh, 0)
-            previewURL = await colorMesh?.exportPreviewMesh()
+            if let preview = await colorMesh?.exportPreviewMesh() {
+                previewURL = preview.url
+                previewPath = preview.path
+                previewVertices = preview.vertices
+            }
         }
+        let previewMs = ScanSessionReport.ms(since: previewStart)
         colorMesh = nil
+        if let reportURL {
+            // First half of `save`; the zip step adds its own just before packing. Off main and
+            // awaited: it must land before `ScanStore` moves the file (~1 MB at most).
+            var save: [String: any Sendable] = [
+                "stopMs": stopMs, "plyMs": plyMs, "previewMs": previewMs,
+                "preview": previewPath, "previewVertices": previewVertices, "video": videoStatus,
+            ]
+            if let videoWriterStatus { save["videoWriterStatus"] = videoWriterStatus }
+            if let videoError { save["videoError"] = videoError }
+            save["exportMs"] = ScanSessionReport.ms(since: saveStart)
+            let fields = save
+            await Task.detached(priority: .userInitiated) {
+                ScanSessionReport.patchSave(reportURL, fields)
+            }.value
+        }
         return (videoURL, meshURL, trackURL, texshots?.dir, previewURL, reportURL, hitCap, fastSave)
     }
 

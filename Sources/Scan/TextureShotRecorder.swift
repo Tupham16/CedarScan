@@ -329,6 +329,8 @@ final class TextureShotRecorder {
     private var approxShotCount = 0
     private var shotIndex = 0
     private var pendingEncodes = 0
+    /// Ticks at which a due shot waited on the `maxPendingEncodes` gate (scan-report.json, 2.78).
+    private var encodeBusyTicks = 0
     /// Time + pose of the last window-OPENING frame (= the frame the pre-2.70 rule saved).
     /// The interval / travel / turn gates measure from it, so the shot cadence is unchanged.
     private var lastShotTime: TimeInterval = 0
@@ -460,7 +462,10 @@ final class TextureShotRecorder {
             guard moved >= Self.minTravel || turned >= Self.minTurnDeg else { return }
         }
 
-        guard pendingEncodes < Self.maxPendingEncodes else { return }
+        guard pendingEncodes < Self.maxPendingEncodes else {
+            encodeBusyTicks += 1
+            return
+        }
 
         // A shot is due: this frame (the one builds before 2.70 saved) opens the choice window
         // as its first copy — the fallback when no sharper frame comes.
@@ -819,7 +824,8 @@ final class TextureShotRecorder {
         displayLink = nil
         let dirURL = shotsDirURL
         let taken = shotIndex
-        return await withCheckedContinuation {
+        let busyTicks = encodeBusyTicks
+        let result = await withCheckedContinuation {
             (continuation: CheckedContinuation<(dir: URL?, shotCount: Int, stats: ScanSessionReport.ShotStats), Never>) in
             ioQueue.async { [weak self] in
                 guard let self, !self.metas.isEmpty else {
@@ -850,6 +856,10 @@ final class TextureShotRecorder {
                 }
             }
         }
+        // Main-thread counter: added here, after the ioQueue part, on every path above.
+        var finalStats = result.stats
+        finalStats.encodeBusyTicks = busyTicks
+        return (dir: result.dir, shotCount: result.shotCount, stats: finalStats)
     }
 
     /// Stop taking shots (Stop & Save, before the final anchor poses are read). Pending

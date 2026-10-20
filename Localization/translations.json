@@ -5268,6 +5268,42 @@
     "es": "Arrastra para mover · pellizca para hacer zoom · gira para rotar",
     "nl": "Sleep om te verplaatsen · knijp om te zoomen · draai om te roteren"
    }
+  },
+  {
+   "key": "Discard this scan?",
+   "translations": {
+    "vi": "Bỏ bản quét này?",
+    "fr": "Abandonner cette numérisation?",
+    "de": "Diesen Scan verwerfen?",
+    "cs": "Zahodit tento sken?",
+    "sk": "Zahodiť tento sken?",
+    "es": "¿Descartar este escaneo?",
+    "nl": "Deze scan weggooien?"
+   }
+  },
+  {
+   "key": "Everything scanned so far will be deleted.",
+   "translations": {
+    "vi": "Toàn bộ phần đã quét sẽ bị xoá.",
+    "fr": "Tout ce qui a été numérisé jusqu'ici sera supprimé.",
+    "de": "Alles, was bisher gescannt wurde, wird gelöscht.",
+    "cs": "Vše, co jste dosud naskenovali, bude smazáno.",
+    "sk": "Všetko, čo ste doteraz naskenovali, bude vymazané.",
+    "es": "Se eliminará todo lo escaneado hasta ahora.",
+    "nl": "Alles wat tot nu toe is gescand, wordt verwijderd."
+   }
+  },
+  {
+   "key": "Discard scan",
+   "translations": {
+    "vi": "Bỏ bản quét",
+    "fr": "Abandonner la numérisation",
+    "de": "Scan verwerfen",
+    "cs": "Zahodit sken",
+    "sk": "Zahodiť sken",
+    "es": "Descartar escaneo",
+    "nl": "Scan weggooien"
+   }
   }
  ],
  "infoplist": {

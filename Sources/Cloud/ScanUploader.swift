@@ -63,7 +63,14 @@ final class ScanUploader: ObservableObject {
         defer { UploadKeepAlive.shared.end() }
         let fm = FileManager.default
 
-        let present = Self.fileKinds.filter { fm.fileExists(atPath: folder.appendingPathComponent($0.fileName).path) }
+        var present = Self.fileKinds.filter { fm.fileExists(atPath: folder.appendingPathComponent($0.fileName).path) }
+        // 2.78 (L1): the save moves the PLY into the folder before zipping and deletes it once
+        // model-colored.zip is in — killed in between, both stay. The zip holds that same mesh
+        // plus the texture shots: it goes alone. (Before 2.78 the PLY reached the folder only
+        // after the zip had failed and been deleted, so no older scan has both.)
+        if present.contains(where: { $0.kind == "objzip" }) {
+            present.removeAll { $0.kind == "mesh" }
+        }
         // Bản quét mesh có thể chỉ có model-colored.zip (objzip) hoặc PLY phao (video recorder
         // fail lặng lẽ vẫn upload được) — nên chấp nhận bất kỳ cái nào trong bốn.
         // (Vế `$0.kind == "usdz"` bỏ cùng RoomPlan 11/08.)

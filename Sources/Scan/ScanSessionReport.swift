@@ -186,6 +186,9 @@ final class ScanSessionReport {
         /// m ↔ m2 (pose at capture vs. final ARKit anchor pose at stop).
         var withFinalPose = 0
         var poseDelta: PoseDelta?
+        /// 2.78: ticks at which a due shot waited on the `maxPendingEncodes` gate (main-thread
+        /// count, filled in by `TextureShotRecorder.finish`).
+        var encodeBusyTicks = 0
     }
 
     struct PoseDelta: Encodable {
@@ -251,6 +254,12 @@ final class ScanSessionReport {
         "exposureOffset = auto-exposure target offset, EV), lim (device auto-exposure limit ms).",
     ].joined()
 
+    /// 2.78. Array join, ✗ a `+` chain (CI type-check time).
+    private static let encodeBusyNote: String = [
+        " textureShots.encodeBusyTicks (app 2.78+) = shot ticks (3 Hz) at which a due texture ",
+        "shot waited because 3 JPEG encodes were still pending (one wait can count several ticks).",
+    ].joined()
+
     /// Writes the report to a temp file; nil on any failure (the scan saves without it).
     func write(
         hitCap: Bool, vertexCount: Int, fastSave: Bool, shots: ShotStats?, torch: AutoTorch.Stats,
@@ -267,6 +276,7 @@ final class ScanSessionReport {
         if exposureCap != nil {
             note += Self.exposureCapNote
         }
+        note += Self.encodeBusyNote
         let file = File(
             version: 1,
             note: note,
@@ -313,6 +323,62 @@ final class ScanSessionReport {
             return nil
         }
     }
+
+    // MARK: - Save timings (2.78)
+
+    /// Clock of the `save` block — same monotonic clock as `now`. Only DIFFERENCES are written
+    /// (durations, covered by the privacy text), never a reading of the clock itself.
+    static func clock() -> CFTimeInterval { CACurrentMediaTime() }
+
+    /// Whole milliseconds since `start` (a `clock()` reading); 0 if not a sane duration.
+    static func ms(since start: CFTimeInterval) -> Int {
+        let value = (CACurrentMediaTime() - start) * 1000
+        guard value.isFinite, value > 0, value < 1e12 else { return 0 }
+        return Int(value.rounded())
+    }
+
+    /// Merges `fields` (Int / String values only) into the report's `save` block, and sets
+    /// `totalMs` = `exportMs` + `storeMs` once both are there. Two writers, in order:
+    /// `MeshScanController.stopAndExport` (awaited, off main) and the zip step of
+    /// `ScanStore.saveMeshScan` right before packing (after `PreviewColorJob` wrote
+    /// `previewColour`). Blocking file I/O — never on main. Atomic rewrite; any failure = the
+    /// report stays as it was, the save goes on.
+    static func patchSave(_ url: URL?, _ fields: [String: any Sendable]) {
+        guard let url, !fields.isEmpty,
+              let data = try? Data(contentsOf: url),
+              var object = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+        else { return }
+        var save = (object["save"] as? [String: Any]) ?? [:]
+        for (key, value) in fields {
+            save[key] = value
+        }
+        if let exportMs = save["exportMs"] as? Int, let storeMs = save["storeMs"] as? Int {
+            save["totalMs"] = exportMs + storeMs
+        }
+        object["save"] = save
+        if let note = object["note"] as? String, !note.contains(saveNote) {
+            object["note"] = note + saveNote
+        }
+        guard JSONSerialization.isValidJSONObject(object),
+              let out = try? JSONSerialization.data(
+                withJSONObject: object, options: [.prettyPrinted, .sortedKeys]
+              )
+        else { return }
+        try? out.write(to: url, options: .atomic)
+    }
+
+    /// Appended to `note` by the first `patchSave`. Array join (CI type-check time).
+    private static let saveNote: String = [
+        " save (app 2.78+) = how long Stop & Save took on this phone, ms: stopMs = until the ",
+        "video and texture shots were closed; plyMs = mesh file; previewMs = grey 3D preview ",
+        "(preview = quadric / cluster / none, previewVertices = vertices written, 0 = no preview ",
+        "file); exportMs = all of these; storeMs = moving the files + reading the mesh + writing ",
+        "the OBJ, until packing (objMs = reading + writing of the attempt that was packed, ",
+        "zipAttempts = 1 or 2); totalMs = exportMs + storeMs. Packing (copy + compress) runs ",
+        "after this file is written and is not included. video = ok / noFrames / notStarted / ",
+        "failed / noRecorder (videoWriterStatus = AVAssetWriter.Status raw value, videoError = ",
+        "error domain:code, then the underlying one).",
+    ].joined()
 
     // MARK: - Helpers
 
