@@ -4472,6 +4472,53 @@
         }
       }
     },
+    "Couldn't download the texture": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Texturu se nepodařilo stáhnout"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Textur konnte nicht geladen werden"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo descargar la textura"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de télécharger la texture"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Textuur downloaden mislukt"
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Textúru sa nepodarilo stiahnuť"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Không tải được texture"
+          }
+        }
+      }
+    },
     "Couldn't load your delivery emails.": {
       "extractionState": "manual",
       "localizations": {
@@ -5882,6 +5929,53 @@
         }
       }
     },
+    "Downloading texture": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stahování textury"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Textur wird geladen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Descargando la textura"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Téléchargement de la texture"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Textuur downloaden"
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sťahuje sa textúra"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đang tải texture"
+          }
+        }
+      }
+    },
     "Downloading the textured model…": {
       "extractionState": "manual",
       "localizations": {
@@ -7194,53 +7288,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Kính/cửa sổ luôn đỏ — bỏ qua. Cầu thang/nhiều tầng thoải mái."
-          }
-        }
-      }
-    },
-    "Go to the Account tab to sign in or create an account.": {
-      "extractionState": "manual",
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Přejděte na záložku Účet a přihlaste se nebo si vytvořte účet."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Öffnen Sie den Tab \"Konto\", um sich anzumelden oder ein Konto zu erstellen."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ve a la pestaña Cuenta para iniciar sesión o crear una cuenta."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Allez dans l'onglet Compte pour vous connecter ou créer un compte."
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ga naar het tabblad Account om in te loggen of een account aan te maken."
-          }
-        },
-        "sk": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Prejdite na kartu Účet a prihláste sa alebo si vytvorte účet."
-          }
-        },
-        "vi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Vào mục Tài khoản để đăng nhập hoặc đăng ký."
           }
         }
       }
@@ -10958,6 +11005,53 @@
         }
       }
     },
+    "Not now": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Teď ne"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nicht jetzt"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ahora no"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plus tard"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Niet nu"
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Teraz nie"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Để sau"
+          }
+        }
+      }
+    },
     "Not on the map — you can still scan.": {
       "extractionState": "manual",
       "localizations": {
@@ -11428,6 +11522,53 @@
         }
       }
     },
+    "Only %@ free. Saving a scan needs about %@, so this scan may not save. Free up space in Settings › General › iPhone Storage.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zbývá jen %1$@ volného místa. K uložení skenu je potřeba asi %2$@, takže se tento sken nemusí uložit. Uvolněte místo v Nastavení › Obecné › Úložiště iPhonu."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nur noch %1$@ frei. Zum Speichern eines Scans werden etwa %2$@ benötigt, dieser Scan wird daher eventuell nicht gespeichert. Schaffen Sie Platz unter Einstellungen › Allgemein › iPhone-Speicher."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Solo quedan %1$@ libres. Para guardar un escaneo se necesitan unos %2$@, así que este escaneo podría no guardarse. Libera espacio en Ajustes › General › Almacenamiento del iPhone."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Il ne reste que %1$@ d'espace libre. L'enregistrement d'une numérisation demande environ %2$@, celle-ci risque donc de ne pas être enregistrée. Libérez de l'espace dans Réglages › Général › Stockage iPhone."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nog maar %1$@ vrij. Een scan opslaan vraagt ongeveer %2$@, dus deze scan wordt mogelijk niet opgeslagen. Maak ruimte vrij via Instellingen › Algemeen › iPhone-opslag."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zostáva len %1$@ voľného miesta. Na uloženie skenu treba asi %2$@, takže sa tento sken nemusí uložiť. Uvoľnite miesto v Nastaveniach › Všeobecné › Úložisko iPhonu."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chỉ còn trống %1$@. Lưu một bản quét cần khoảng %2$@, nên bản quét này có thể không lưu được. Hãy dọn bớt dung lượng trong Cài đặt › Cài đặt chung › Dung lượng iPhone."
+          }
+        }
+      }
+    },
     "Open Settings": {
       "extractionState": "manual",
       "localizations": {
@@ -11518,6 +11659,53 @@
           "stringUnit": {
             "state": "translated",
             "value": "Mở một bản quét và bấm \"Đặt làm mặt bằng\" để đội ngũ Cedar247 vẽ bản chuyên nghiệp cho bạn."
+          }
+        }
+      }
+    },
+    "Opening texture…": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Otevírání textury…"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Textur wird geöffnet …"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abriendo la textura…"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ouverture de la texture…"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Textuur openen…"
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Otvára sa textúra…"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đang mở texture…"
           }
         }
       }
@@ -13966,6 +14154,53 @@
         }
       }
     },
+    "Ready by %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hotovo do %@"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fertig bis %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Listo para %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prête d'ici %@"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klaar uiterlijk %@"
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hotové do %@"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dự kiến xong: %@"
+          }
+        }
+      }
+    },
     "Red = not scanned yet": {
       "extractionState": "manual",
       "localizations": {
@@ -15184,6 +15419,53 @@
           "stringUnit": {
             "state": "translated",
             "value": "Quét thêm khu vực còn thiếu"
+          }
+        }
+      }
+    },
+    "Scan anyway": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Přesto skenovat"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trotzdem scannen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Escanear de todos modos"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Numériser quand même"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toch scannen"
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aj tak skenovať"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vẫn quét"
           }
         }
       }
@@ -22281,6 +22563,53 @@
           "stringUnit": {
             "state": "translated",
             "value": "Suất miễn phí vừa hết. Vui lòng xem lại giá rồi bấm Đặt hàng lại."
+          }
+        }
+      }
+    },
+    "Your iPhone is almost full": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Váš iPhone je téměř plný"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ihr iPhone ist fast voll"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tu iPhone está casi lleno"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre iPhone est presque plein"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Je iPhone is bijna vol"
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Váš iPhone je takmer plný"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iPhone sắp đầy bộ nhớ"
           }
         }
       }

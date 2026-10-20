@@ -68,6 +68,10 @@ struct HomeView: View {
     @State private var savingScans = 0
     @State private var meshCapFollowUp = false
     @State private var showScanNextPart = false
+    /// N5: free bytes when a scan was about to open with too little room (the alert is up);
+    /// `lowSpaceScanMore` = it was "scan another area" after a save, else a new scan.
+    @State private var lowSpace: Int64?
+    @State private var lowSpaceScanMore = false
     @State private var recordToRename: ScanRecord?
     /// Dự án khách vừa bấm giỏ rác — cũng là cờ bật hộp xác nhận (mục 6). Giữ CẢ ĐỐI TƯỢNG chứ
     /// không phải một Bool + một id riêng: hai `@State` set cùng một nhịp là đúng cái race đã làm
@@ -279,6 +283,13 @@ struct HomeView: View {
             } message: {
                 Text(String(localized: "CedarScan needs an iPhone Pro (12 Pro or newer) with a LiDAR sensor."))
             }
+            .lowSpaceAlert($lowSpace) {
+                if lowSpaceScanMore {
+                    isMeshScanning = true
+                } else {
+                    openNewScan()
+                }
+            }
             .alert(String(localized: "Rename scan"), isPresented: renameAlertBinding) {
                 TextField(String(localized: "New name"), text: $renameText)
                 Button(String(localized: "Save")) {
@@ -388,7 +399,13 @@ struct HomeView: View {
             // Dọn các ý định khác để chúng không nổ chồng lên phiên quét mới.
             meshCapFollowUp = false
             pendingOrderRecord = nil
-            isMeshScanning = true
+            // N5: the save just used room — check again before the camera reopens.
+            if let free = FreeSpace.low() {
+                lowSpaceScanMore = true
+                lowSpace = free
+            } else {
+                isMeshScanning = true
+            }
         } else if meshCapFollowUp {
             // Mô hình chạm trần = bản quét THIẾU dữ liệu. Lời mời quét bù phải đi TRƯỚC việc đưa
             // sang trang đặt hàng, kể cả khi khách đã bấm "Đặt hàng ngay": đặt một bản thiếu
@@ -804,6 +821,18 @@ struct HomeView: View {
             showScanUnsupported = true
             return
         }
+        // N5: too little room to save a scan — say so before the address screen.
+        if let free = FreeSpace.low() {
+            lowSpaceScanMore = false
+            lowSpace = free
+            return
+        }
+        openNewScan()
+    }
+
+    /// The new-scan flow once the checks pass (or "Scan anyway"): the guide the first time,
+    /// else the address screen.
+    private func openNewScan() {
         if !UserDefaults.standard.bool(forKey: ScanGuideView.seenKey) {
             startAfterGuide = false // xem mục "reset ở LỐI VÀO" ở sheet guide bên trên
             showGuide = true
