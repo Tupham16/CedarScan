@@ -38,7 +38,13 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
     /// cho máy trạm, nâng ngưỡng là bắt khách chờ bake màu vô ích.
     static let fastSaveMinShots = 30
 
-    let arSession = ARSession()
+    /// T3 (2.79): nil once Stop & Save has paused it — dropped so ARKit's world map, mesh anchors
+    /// and frame buffers are freed before the save's RAM peak instead of sitting under it.
+    /// PUBLISHED: MeshScanFlowView removes the camera view (the other strong holder) when this
+    /// turns nil — i.e. only after the pause, never while the final frame is still being read.
+    /// Every helper below holds it weakly. Nothing reads it after the pause: the final shot poses
+    /// are read before it, the export works on the builder's own copies.
+    @Published private(set) var arSession: ARSession?
     let qualityMonitor: ScanQualityMonitor
     /// Auto flashlight (26/09) — see AutoTorch.
     let torch: AutoTorch
@@ -72,8 +78,11 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
 
     init(quality: MeshQuality) {
         self.quality = quality
-        qualityMonitor = ScanQualityMonitor(arSession: arSession)
-        torch = AutoTorch(arSession: arSession)
+        let session = ARSession()
+        // The backing store, ✗ the setter: a @Published setter needs `self` (before super.init).
+        _arSession = Published(initialValue: session)
+        qualityMonitor = ScanQualityMonitor(arSession: session)
+        torch = AutoTorch(arSession: session)
         super.init()
         qualityMonitor.torch = torch
     }
@@ -96,7 +105,7 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
     /// Gọi từ onAppear của MeshScanFlowView — makeUIView của ARCameraViewRepresentable đã
     /// chạy trước đó, nên gán arSession.delegate tại đây chắc chắn KHÔNG bị ARSCNView đè.
     func startSession() {
-        guard !hasStarted, isSupported else { return }
+        guard !hasStarted, isSupported, let arSession else { return }
         hasStarted = true
         startedAt = Date()
         arSession.delegate = self
@@ -209,11 +218,14 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
         // pause currentFrame is frozen/may go away). ARKit has applied its map corrections
         // (loop closure) to these; TextureShotRecorder writes them as `m2`.
         var finalShotPoses: [UUID: simd_float4x4] = [:]
-        for anchor in arSession.currentFrame?.anchors ?? []
+        for anchor in arSession?.currentFrame?.anchors ?? []
         where anchor.name == TextureShotRecorder.anchorName {
             finalShotPoses[anchor.identifier] = anchor.transform
         }
-        arSession.pause()
+        arSession?.pause()
+        // T3 (2.79): let the paused session go (see the property). The only other strong holder
+        // is the camera view (ARSCNView.session), which MeshScanFlowView removes on this change.
+        arSession = nil
         // capReached STICKY của builder = "đã từng phải bỏ dữ liệu" → call-site dùng để
         // mời khách quét BẢN BỔ SUNG cho phần còn thiếu (nhà rất lớn chạm trần 2M).
         let hitCap = colorMesh?.capReached ?? false
@@ -227,6 +239,8 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
         let videoStatus = recorder?.finishStatus ?? "noRecorder"
         let videoWriterStatus = recorder?.writerStatus
         let videoError = recorder?.writerError
+        // N7 / T5 (2.79): segments, join, recovered / lost parts, bitrate.
+        let videoFields = recorder?.segmentFields ?? [:]
         recorder = nil
         // Chốt sổ ảnh texture TRƯỚC exportColoredPLY: phần chờ chỉ là nén nốt ≤3 ảnh
         // (~chục ms), xong là nó im — không giành CPU/RAM với đoạn bake màu nặng phía sau.
@@ -289,6 +303,7 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
             ]
             if let videoWriterStatus { save["videoWriterStatus"] = videoWriterStatus }
             if let videoError { save["videoError"] = videoError }
+            save.merge(videoFields) { _, new in new }
             save["exportMs"] = ScanSessionReport.ms(since: saveStart)
             let fields = save
             await Task.detached(priority: .userInitiated) {
@@ -311,7 +326,9 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
         colorMesh = nil
         // BẮT BUỘC pause tường minh: luồng RoomPlan được RoomCaptureSession.stop() pause hộ,
         // ở đây không có ai làm thay — thiếu là camera/LiDAR chạy ngầm sau khi thoát.
-        arSession.pause()
+        // (Kept, not dropped as at Stop & Save: the camera view may still be on screen for the
+        // dismiss animation, and the whole controller goes with the cover anyway.)
+        arSession?.pause()
     }
 
     private func teardownCommon() {
@@ -359,7 +376,7 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
             self.wbLockTimer = nil
             self.wbLockDue = true
             var normal = false
-            if case .some(.normal) = self.arSession.currentFrame?.camera.trackingState {
+            if case .some(.normal) = self.arSession?.currentFrame?.camera.trackingState {
                 normal = true
             }
             self.lockWhiteBalanceIfReady(trackingNormal: normal)
@@ -451,18 +468,26 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
         relocalizeTimer = nil
         colorMesh?.stop()
         qualityMonitor.setActive(false)
+        // N7 (2.79): the camera is gone — close the video segment while its writer is fine; the
+        // first frame after the interruption opens the next one (joined at Stop).
+        recorder?.endSegment()
     }
 
     func sessionInterruptionEnded(_ session: ARSession) {
         guard !isStopped else { return }
         report?.noteInterruptionEnded()
         isInterrupted = false
+        // N6 (2.79): the torch back on its own (the coach stays off until tracking is normal):
+        // in a dark room ARKit cannot relocalize without light, so waiting for `.normal` to
+        // light it meant "Tracking lost" 10 s later. AutoTorch keeps the naming-screen hold and
+        // lights only when the frames say it is dark.
+        torch.setActive(true)
         // Chờ relocalize tối đa 10s; không về normal được → khuyên lưu phần đã quét.
         relocalizeTimer?.invalidate()
         relocalizeTimer = Timer.scheduledTimer(withTimeInterval: 10, repeats: false) { [weak self] _ in
             guard let self, !self.isStopped else { return }
             var normal = false
-            if case .some(.normal) = self.arSession.currentFrame?.camera.trackingState {
+            if case .some(.normal) = self.arSession?.currentFrame?.camera.trackingState {
                 normal = true
             }
             self.report?.noteRelocalizeCheck(normal: normal)

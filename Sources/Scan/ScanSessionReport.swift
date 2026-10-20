@@ -1,6 +1,7 @@
 import Foundation
 import ARKit
 import UIKit
+import os
 
 /// `scan-report.json` — small per-scan diagnostics, packed into model-colored.zip through
 /// `extraFiles` (same road as camera-track.json; ScanUploader.fileKinds untouched).
@@ -337,10 +338,10 @@ final class ScanSessionReport {
         return Int(value.rounded())
     }
 
-    /// Merges `fields` (Int / String values only) into the report's `save` block, and sets
-    /// `totalMs` = `exportMs` + `storeMs` once both are there. Two writers, in order:
-    /// `MeshScanController.stopAndExport` (awaited, off main) and the zip step of
-    /// `ScanStore.saveMeshScan` right before packing (after `PreviewColorJob` wrote
+    /// Merges `fields` (Int / String values, or `[String: Int]` for the memory keys) into the
+    /// report's `save` block, and sets `totalMs` = `exportMs` + `storeMs` once both are there.
+    /// Two writers, in order: `MeshScanController.stopAndExport` (awaited, off main) and the zip
+    /// step of `ScanStore.saveMeshScan` right before packing (after `PreviewColorJob` wrote
     /// `previewColour`). Blocking file I/O — never on main. Atomic rewrite; any failure = the
     /// report stays as it was, the save goes on.
     static func patchSave(_ url: URL?, _ fields: [String: any Sendable]) {
@@ -358,6 +359,9 @@ final class ScanSessionReport {
         object["save"] = save
         if let note = object["note"] as? String, !note.contains(saveNote) {
             object["note"] = note + saveNote
+        }
+        if let note = object["note"] as? String, !note.contains(save279Note) {
+            object["note"] = note + save279Note
         }
         guard JSONSerialization.isValidJSONObject(object),
               let out = try? JSONSerialization.data(
@@ -378,6 +382,28 @@ final class ScanSessionReport {
         "after this file is written and is not included. video = ok / noFrames / notStarted / ",
         "failed / noRecorder (videoWriterStatus = AVAssetWriter.Status raw value, videoError = ",
         "error domain:code, then the underlying one).",
+    ].joined()
+
+    /// 2.79, appended by the `patchSave` that brings these keys (array join, CI type-check time).
+    private static let save279Note: String = [
+        " save (app 2.79+): memMB = peak app memory (phys_footprint, MB) per save stage (stop = ",
+        "closing video + shots, ply = mesh file, preview, objRead / objWrite = reading the mesh + ",
+        "writing the OBJ, again on a zip retry, pack = start of packing incl. the phone-colour ",
+        "wait; sampled at 5 Hz), memAtMB = the same when the stage began (stop = when Save was ",
+        "tapped on the naming screen, camera still on), memPeakMB = peak of those samples, ",
+        "memLifetimePeakMB = the app's exact high-water mark since launch (scan included), ",
+        "memAvailMB = memory iOS said was still available at Save (memAtMB.stop + this ~ the ",
+        "limit). video = partial: the video exists but part of the recording was lost. ",
+        "videoSegments = video files recorded (a new one after the app left the screen, an ARKit ",
+        "interruption, a failed writer or a >1 s gap in frames), videoJoin = none / ok / ",
+        "failed:<domain:code> (then retried:ok = joined without the recovered segments, else the ",
+        "longest segment was kept), videoRecovered = segments whose writer failed but whose movie ",
+        "fragments were readable, videoLost = segments dropped, videoCapped = recording stopped ",
+        "at the segment cap, videoStartFailures = writers that would not start, videoKbps = ",
+        "bitrate used. bgTask = iOS 26 continued-processing task for the save, as at packing: ",
+        "running (iOS launched it) / started (accepted, not launched yet) / unsupported (iOS < 26) ",
+        "/ disabledByConfig / notPermitted / submitFailed:<code> / expired (the system or the ",
+        "customer stopped it; the save went on).",
     ].joined()
 
     // MARK: - Helpers
@@ -422,5 +448,164 @@ final class ScanSessionReport {
         case .critical: return "critical"
         @unknown default: return "unknown"
         }
+    }
+}
+
+/// Diagnostics of ONE Stop & Save (2.79) for the report's `save` block, gathered while it runs.
+/// Memory (T3): the app's `phys_footprint` — the figure jetsam kills by — sampled at 5 Hz on its
+/// own queue from Stop & Save until the zip step packs the report, per save stage (`memAtMB` =
+/// when the stage began, `memMB` = its peak), the overall peak, and what iOS said was still
+/// available at the start. Why: nobody had measured a save's RAM on a phone; T1 (streamed PLY)
+/// and T3 (camera + AR session released while saving) are judged on these numbers, T2 (memory
+/// entitlement) too. Plus plain keys set along the way (`set`: F3's `bgTask`).
+/// Same class of figure as `memoryWarnings` (PRIVACY-NOTES: Other Diagnostic Data — Apple's
+/// Performance Data = launch time, hang rate, energy). Observation only: nothing reads it back.
+final class SaveProbe: @unchecked Sendable {
+    /// The save in flight. `ScanStore.saveMeshScan`'s zip step reads it: its callers (HomeView,
+    /// ProjectView) pass no probe, and a parameter there would only carry this one value. One
+    /// save at a time (one scan cover); `end()` clears it.
+    static var active: SaveProbe? {
+        get {
+            activeLock.lock()
+            defer { activeLock.unlock() }
+            return activeProbe
+        }
+        set {
+            activeLock.lock()
+            activeProbe = newValue
+            activeLock.unlock()
+        }
+    }
+    private static let activeLock = NSLock()
+    private static var activeProbe: SaveProbe?
+
+    private let lock = NSLock()
+    /// Same QoS as the save's work: a `.utility` timer fell behind the colour bake's cores.
+    private let queue = DispatchQueue(label: "cedar.save-memory", qos: .userInitiated)
+    private var timer: DispatchSourceTimer?
+    private var stage: String
+    private var atMB: [String: Int] = [:]
+    private var peakMB: [String: Int] = [:]
+    private var peak = 0
+    private var extra: [String: String] = [:]
+    /// `os_proc_available_memory()` at the start, MB; 0 = not reported.
+    private let availMB: Int
+
+    /// Main thread, when Save is tapped on the naming screen (scan still running, camera on).
+    static func begin() -> SaveProbe {
+        let probe = SaveProbe()
+        active = probe
+        return probe
+    }
+
+    private init() {
+        availMB = Int(os_proc_available_memory() / 1_048_576)
+        stage = Self.key(.finishingCapture)
+        sample(entering: stage)
+        let source = DispatchSource.makeTimerSource(queue: queue)
+        source.schedule(deadline: .now() + 0.2, repeating: 0.2, leeway: .milliseconds(50))
+        source.setEventHandler { [weak self] in
+            self?.sample(entering: nil)
+        }
+        source.resume()
+        timer = source
+    }
+
+    deinit {
+        timer?.cancel()
+    }
+
+    /// From the save's progress reporter (any thread, many calls): a new stage starts with a
+    /// reading of its own.
+    func mark(_ saveStage: SaveStage) {
+        let next = Self.key(saveStage)
+        lock.lock()
+        let moved = next != stage
+        lock.unlock()
+        if moved { sample(entering: next) }
+    }
+
+    /// A plain `save` key reported with the memory figures (any thread).
+    func set(_ key: String, _ value: String) {
+        lock.lock()
+        extra[key] = value
+        lock.unlock()
+    }
+
+    /// The `save` keys so far (Int / String / [String: Int]: JSON as they are).
+    func fields() -> [String: any Sendable] {
+        let reading = Self.footprint()
+        lock.lock()
+        defer { lock.unlock() }
+        var out: [String: any Sendable] = [
+            "memMB": peakMB, "memAtMB": atMB, "memPeakMB": max(peak, reading?.now ?? 0),
+        ]
+        // Samples can miss a short spike; the kernel's own high-water mark cannot.
+        if let lifetime = reading?.lifetimePeak, lifetime > 0 { out["memLifetimePeakMB"] = lifetime }
+        if availMB > 0 { out["memAvailMB"] = availMB }
+        for (key, value) in extra {
+            out[key] = value
+        }
+        return out
+    }
+
+    /// End of the save (every exit). Idempotent.
+    func end() {
+        lock.lock()
+        let source = timer
+        timer = nil
+        lock.unlock()
+        source?.cancel()
+        Self.activeLock.lock()
+        if Self.activeProbe === self { Self.activeProbe = nil }
+        Self.activeLock.unlock()
+    }
+
+    private func sample(entering next: String?) {
+        guard let mb = Self.footprintMB() else { return }
+        lock.lock()
+        defer { lock.unlock() }
+        // The reading also closes the stage it ends.
+        peakMB[stage] = max(peakMB[stage] ?? 0, mb)
+        if let next {
+            stage = next
+            if atMB[next] == nil { atMB[next] = mb }
+            peakMB[next] = max(peakMB[next] ?? 0, mb)
+        }
+        peak = max(peak, mb)
+    }
+
+    /// Short names, aligned with the `save` timing keys.
+    private static func key(_ s: SaveStage) -> String {
+        switch s {
+        case .finishingCapture: return "stop"
+        case .buildingMesh: return "ply"
+        case .previewMesh: return "preview"
+        case .readingMesh: return "objRead"
+        case .writingModel: return "objWrite"
+        case .packaging: return "pack"
+        }
+    }
+
+    /// The app's footprint in MB (`TASK_VM_INFO.phys_footprint`); nil when the call fails.
+    static func footprintMB() -> Int? {
+        footprint()?.now
+    }
+
+    /// `phys_footprint` now and the kernel's lifetime peak of it (`ledger_phys_footprint_peak`,
+    /// TASK_VM_INFO rev 3+; 0 if this kernel did not fill it), MB.
+    private static func footprint() -> (now: Int, lifetimePeak: Int)? {
+        var info = task_vm_info_data_t()
+        var count = mach_msg_type_number_t(
+            MemoryLayout<task_vm_info_data_t>.size / MemoryLayout<integer_t>.size
+        )
+        let result = withUnsafeMutablePointer(to: &info) { pointer in
+            pointer.withMemoryRebound(to: integer_t.self, capacity: Int(count)) { raw in
+                task_info(mach_task_self_, task_flavor_t(TASK_VM_INFO), raw, &count)
+            }
+        }
+        guard result == KERN_SUCCESS else { return nil }
+        let peak = max(info.ledger_phys_footprint_peak, 0)
+        return (Int(info.phys_footprint / 1_048_576), Int(peak / 1_048_576))
     }
 }

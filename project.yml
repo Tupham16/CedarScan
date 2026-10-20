@@ -114,6 +114,14 @@ targets:
         # AND adds `com.apple.developer.in-app-payments`, both only when the repo variable
         # APPLE_PAY_MERCHANT_ID is set (the owner must first create that Merchant ID + certificate).
         CedarApplePayMerchantID: $(CEDAR_APPLE_PAY_MERCHANT_ID)
+        # F3 (2.79): iOS 26 continued-processing task that keeps a save running behind the Lock
+        # Screen (`SaveBackgroundTime`, MeshScanFlowView.swift). Identifiers are
+        # `<RUNNING bundle id>.save.<suffix>`; the wildcard is the bundle id + ".*" because AltStore
+        # re-signs the app as com.cedar247.cedarscan.<TEAMID> — still under this prefix. No
+        # UIBackgroundModes entry: Apple's iOS 26 headers ask for one only for BGProcessingTask
+        # (processing) and BGAppRefreshTask (fetch). Refused on a phone = scan-report `save.bgTask`.
+        BGTaskSchedulerPermittedIdentifiers:
+          - "$(PRODUCT_BUNDLE_IDENTIFIER).*"
         # TIẾNG ANH từ 2026-08-13 (trước là tiếng Việt), CÂU CHỮ DO CHÍNH CHỦ APP CHỌN trong đợt
         # đưa app lên App Store — ✗ tự sửa lại, hỏi ông. Lý do đổi: reviewer của Apple đọc chuỗi
         # này bằng tiếng Anh, purpose string họ không đọc được là dạng dễ ăn từ chối 5.1.1; và

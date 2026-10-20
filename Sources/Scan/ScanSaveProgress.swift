@@ -99,7 +99,10 @@ enum SaveStage: Int, CaseIterable, Sendable {
 /// Vòng lưu có kỷ luật bộ nhớ rất chặt (§Nhả bộ nhớ lúc lưu): kho khung màu phải CHẾT trước
 /// khi cấp phát `Data` của PLY. Một closure giữ builder (hay `pieces`/`keyframes`/
 /// `SamplerStore`) sẽ kéo dài tuổi thọ của chúng qua đúng đỉnh RAM đó — đúng cái bẫy mà
-/// `SamplerStore` sinh ra để tránh. Closure này chỉ giữ MỘT `weak` tới hộp số ~40 byte.
+/// `SamplerStore` sinh ra để tránh. `reporter()` giữ MỘT `weak` tới hộp số ~40 byte; the save's
+/// reporter (2.79, `MeshScanFlowView.saveAndClose`) also holds two small diagnostics objects
+/// (`SaveProbe`, `SaveBackgroundTime`: a few dictionaries, a timer, task handles) — never the
+/// builder, `SamplerStore`, `pieces` or keyframes.
 typealias SaveStageReport = @Sendable (SaveStage, Double) -> Void
 
 /// Hộp số cho thanh %. Sống trong `MeshScanFlowView` (`@StateObject`), chết cùng màn quét.

@@ -19,9 +19,24 @@ import simd
 /// max(0.12, 0.06·z), nearest depth pixel) and facing it (cos > 0.2); weight cos²/max(dist,
 /// 0.6)²; blend the 3 best. Uncoloured vertices: edge diffusion from coloured neighbours, ≤ 60
 /// passes; the rest stays grey 150. #LS-MTR8E4ZI5 (118.6k-vertex preview, 187 shots): 56%
-/// direct, 95% after fill, 3.8 s desktop numpy. Shots decoded at ≤ 720 px (decoder subsample):
+/// direct, 95% after fill, 3.8 s desktop numpy. Shots decoded at ≤ 720 px (until 2.78):
 /// review port of this file vs the sim on MTR8: 56.2% / 95.5%, per vertex mean |Δ| 0.8/255,
 /// p99 7 (01/10).
+///
+/// T6 A/B (2.79, 20/10, four real scans with m2 — MUJN = #LS-MUJNJUQ56, the 19.5 cm correction —
+/// `scratch_texpreview/T6-AB-2026-10-20.md`, numpy port of THIS file =
+/// `scratch_texpreview/ab279/color_ab.py`, which reproduces MTR8 56.2 / 95.5):
+///  - decode at ≤ 360 px (factor 4) since 2.79: coverage identical, colours 0.8–1.8/255 mean
+///    from 720 (p99 7–18; the shots' own spread at a vertex is 15–17), edge detail −3 %, no
+///    visible difference; decode 1.4–1.6× faster, whole run ~1.25× (desktop) — margin under the
+///    10 s valve on big hot scans.
+///  - pose stays `m` (capture), ✗ `m2` (ARKit's final, corrected anchor pose): m2 coloured FEWER
+///    vertices on 3 of 4 scans (−0.3…−7.2 points, MUJN −2.1) and failed the depth test more,
+///    block by block. Fits the handoff note (§RUNG LƯỚI) that ARKit leaves an `ARMeshAnchor`'s
+///    transform where it created it: the mesh keeps the frame it was built in, which is the
+///    capture pose's frame; m2 only wins on blocks re-meshed after a correction. ✗ switch
+///    without a new A/B.
+///  Change the algorithm here = change color_ab.py too and re-run it (Swift ↔ Python mirror).
 ///
 /// VALVES (promised to the owner): phone `.critical` hot, or > 10 s ⇒ stop, keep the grey
 /// preview as today. Any failure = grey, never a failed save: the only output is a separate
@@ -29,8 +44,9 @@ import simd
 /// reports show big hot scans ending "timeout", the lever is: interleave the shot order and
 /// blend what exists at the deadline (a "partial" status) — an owner call, it changes the promise.
 /// Cost (review 01/10, C port of `project` on a desktop): ~3 ns per vertex × shot, decode
-/// ~2 ms per shot at half size ⇒ MTR8 ~1–2 s on an iPhone 12 Pro, 800 shots × 150k ~4–8 s,
-/// more when hot and next to the zip step. RAM ~14 MB (the preview bytes are dropped first).
+/// ~2 ms per shot at half size (~1.3 ms at quarter size, 2.79) ⇒ MTR8 ~1–2 s on an iPhone 12
+/// Pro, 800 shots × 150k ~4–8 s (2.79: ~1.3× less), more when hot and next to the zip step. RAM
+/// ~12 MB (the preview bytes are dropped first; the decode buffer is 0.5 MB at 360 px).
 enum PreviewColorizer {
     /// Outcome for scan-report.json `previewColour` (the owner's device numbers).
     struct Stats {
@@ -59,7 +75,8 @@ enum PreviewColorizer {
     }
 
     static let budgetSeconds: Double = 10
-    static let maxImageSide = 720
+    /// 720 until 2.78; 360 from 2.79 (T6 A/B, see the type comment).
+    static let maxImageSide = 360
     /// The app writes ≤ ~150k-vertex previews; anything far bigger (a foreign or corrupt file)
     /// is not worth the RAM next to the save's own PLY parse.
     static let maxVertices = 300_000
@@ -309,8 +326,8 @@ enum PreviewColorizer {
     }
 
     /// Decoded at 1/2, 1/4… size IN the JPEG decoder (`kCGImageSourceSubsampleFactor`; 1440 ⇒
-    /// 720 px, ~2 ms), the smallest factor that fits `maxImageSide`. Sensor orientation kept
-    /// (no EXIF orientation; intrinsics match stored pixels). Drawn into `pixels` as sRGB
+    /// 360 px since 2.79, factor 4), the smallest factor that fits `maxImageSide`. Sensor
+    /// orientation kept (no EXIF orientation; intrinsics match stored pixels). Drawn into `pixels` as sRGB
     /// RGBA8, row 0 = top.
     private static func decodeShot(_ url: URL, width: Int, height: Int, into pixels: inout [UInt8],
                                    colorSpace: CGColorSpace) -> Thumb? {
@@ -324,7 +341,7 @@ enum PreviewColorizer {
         guard var image = CGImageSourceCreateImageAtIndex(source, 0, options as CFDictionary)
         else { return nil }
         if max(image.width, image.height) > maxImageSide {
-            // Decoder ignored the subsample: the documented thumbnail path (≤ 720 px) instead.
+            // Decoder ignored the subsample: the documented thumbnail path (≤ maxImageSide) instead.
             let thumbOptions: [CFString: Any] = [
                 kCGImageSourceCreateThumbnailFromImageAlways: true,
                 kCGImageSourceThumbnailMaxPixelSize: maxImageSide,

@@ -303,6 +303,9 @@ final class AutoTorch: ObservableObject {
 
     /// Mirrors the coach (ScanQualityMonitor.setActive forwards here): naming overlay,
     /// interruption. Inactive = torch off; back to active re-decides from scratch.
+    /// N6 (2.79): MeshScanController also calls it ALONE (coach still off) when an interruption
+    /// ends: in the dark ARKit cannot relocalize without light, and the coach only comes back on
+    /// normal tracking. The naming hold still wins (`held`).
     func setActive(_ active: Bool) {
         isActive = active && !held
         guard !isActive else { return }
