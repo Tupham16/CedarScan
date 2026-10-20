@@ -94,6 +94,9 @@
 		     stops before ordering") phải nói cùng một điều. Chỉ được bỏ Analytics ở bảy mục này khi
 		     báo cáo đó thôi chạy trên tài khoản app. Năm mục còn lại (Device ID, Photos or Videos,
 		     Environment Scanning, Other Diagnostic Data, Other Data Types) báo cáo không đọc. -->
+		<!-- F6 (2.79): Account > Delivery emails = up to 5 addresses of OTHER people that the customer types in;
+		     the server mails each one the download links at delivery (LegalView "Information you give us").
+		     Same type and purposes as below; the customer report does not read them. -->
 		<dict>
 			<key>NSPrivacyCollectedDataType</key>
 			<string>NSPrivacyCollectedDataTypeEmailAddress</string>
