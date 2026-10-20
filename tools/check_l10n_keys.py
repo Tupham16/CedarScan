@@ -729,12 +729,16 @@ class Callees:
 
     def __init__(self, files):
         self.entries, self.member_ok, self.supers, self.qsupers = {}, set(), {}, {}
+        self.csupers, self.cqsupers = {}, {}   # conditional conformances: may hold, veto only
         declared, top = set(), set()        # our types; those declared at top level
         for fi in files.values():
             for b in fi.blocks:
                 if b.type_name:
                     self.supers.setdefault(b.type_name, set()).update(() if b.cond else b.supers)
                     self.qsupers.setdefault(qual_key(fi, b), set()).update(() if b.cond else b.supers)
+                    if b.cond:
+                        self.csupers.setdefault(b.type_name, set()).update(b.supers)
+                        self.cqsupers.setdefault(qual_key(fi, b), set()).update(b.supers)
                 if b.type_name and re.search(r"\b(?:struct|class|enum|actor)\s", b.head) \
                         and not re.search(r"\b(?:extension|protocol)\s", b.head):
                     declared.add(b.type_name)
@@ -809,7 +813,7 @@ class Callees:
 
     def labels_for(self, name, fi, pos, form, base=None):
         es = self.entries.get(name, [])
-        sel = []
+        sel, veto = [], []
         if form in ("bare", "self"):
             blocks = fi.type_blocks(pos)
             for b in blocks:
@@ -825,6 +829,16 @@ class Callees:
                         supers.add(t)
                         todo.extend(self.supers.get(t, ()))
                 sel = [e[2] for e in es if e[0] in supers]
+                # a conditional conformance declared elsewhere may hold here: its API only vetoes
+                todo = [s for b in blocks for s in self.cqsupers.get(qual_key(fi, b), ())] + \
+                       [s for t in supers for s in self.csupers.get(t, ())]
+                maybe = set()
+                while todo:
+                    t = todo.pop()
+                    if t not in maybe:
+                        maybe.add(t)
+                        todo.extend(self.supers.get(t, ()))
+                veto = [e[2] for e in es if e[0] in maybe - supers]
             if not sel and form == "bare":   # top level: a private func only in its own file
                 sel = [e[2] for e in es if e[0] is None and (not e[3] or e[1] == fi.rel)]
         elif form == "type":
@@ -835,6 +849,10 @@ class Callees:
         for lb in sel:
             for k, v in lb.items():
                 merged.setdefault(k, set()).add(v)
+        for lb in (veto if form in ("bare", "self") and sel else ()):
+            for k, v in lb.items():
+                if k in merged:
+                    merged[k].add(v)
         return {k: vs.pop() for k, vs in merged.items() if len(vs) == 1 and "other" not in vs}
 
 
@@ -984,6 +1002,8 @@ def localizable_literals(fi, callees, types):
                     form, base = "type", parts[-1]   # Type.name(...), Outer.Inner.name(...)
                 else:
                     form = "member"
+            if form in ("bare", "self") and types.resolve(name, fi, m.start(), "self" if form == "self" else "local"):
+                continue                   # a variable / property / parameter of that name: a closure call
             labels = callees.labels_for(name, fi, m.start(), form, base)
             if not labels:
                 continue
@@ -1190,7 +1210,6 @@ class Types:
         self.decls = {}   # name -> [Decl]
         self.funcs = {}   # name -> [(external labels, kind of the declared return type)]
         decl_re = re.compile(r"\b(let|var)\s+([A-Za-z_]\w*)\s*(?::\s*(" + TYPE_RE + r"))?\s*(?:=(?=([^\n;]*)))?")
-        param_re = re.compile(r"[(,]\s*(?:([A-Za-z_]\w*)\s+)?([A-Za-z_]\w*)\s*:\s*(?:inout\s+)?(?:@\w+\s+)*(" + TYPE_RE + r")")
         for fi in files.values():
             masked = fi.masked
             for m in decl_re.finditer(masked):
@@ -1240,10 +1259,18 @@ class Types:
                 if body is None or re.search(r"\b(?:func|var|let|init|case)\b|[;}]", between):
                     body = None                         # no body (protocol requirement)
                 labels = []
-                for pm in param_re.finditer(masked[q:e + 1]):
-                    labels.append(pm.group(1) or pm.group(2))
-                    if body:
-                        self.add(Decl(pm.group(2), fi, q + pm.start(2), pm.group(3), None, body, False))
+                for label, a, b in call_args(masked, q):    # bracket-aware: `toast: (String) -> Void`
+                    if label is not None:
+                        ext, name, typ = label, label, masked[a:b]
+                    else:
+                        mp = re.match(r"\s*(\w+)\s+(\w+)\s*:\s*(.*)$", masked[a:b], re.S)
+                        if not mp:
+                            continue
+                        ext, name, typ = mp.group(1), mp.group(2), mp.group(3)
+                    labels.append(ext)
+                    mt = re.match(r"\s*(?:inout\s+)?(?:@\w+\s+)*(" + TYPE_RE + r")\s*(?:=|$)", typ, re.S)
+                    if body:                            # a function type etc. is recorded untyped
+                        self.add(Decl(name, fi, a, mt.group(1) if mt else None, None, body, False))
                 mr = re.match(r"\s*(?:async\s+)?(?:throws\s+|rethrows\s+)?->\s*(" + TYPE_RE + ")", masked[e + 1:e + 200])
                 if m.group(1) and mr:
                     self.funcs.setdefault(m.group(1), []).append((tuple(labels), type_kind(mr.group(1))))
