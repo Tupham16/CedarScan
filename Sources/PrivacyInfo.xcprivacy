@@ -141,7 +141,8 @@
 		     catalog / orderScan) — khớp câu khai trong LegalView: "when you create your account,
 		     when you view prices and when you place an order". Dùng cho hạn mức suất quét miễn
 		     phí, không dùng cho quảng cáo/theo dõi. Ở bản build có SDK Stripe, form thanh toán
-		     của Stripe cũng gửi chính giá trị này cho Stripe (LegalView "Device identifier"). -->
+		     của Stripe cũng gửi cho Stripe identifierForVendor HIỆN TẠI của iOS (2.79: giá trị của
+		     ta là bản sao trong Keychain, khác nó sau khi cài lại) (LegalView "Device identifier"). -->
 		<dict>
 			<key>NSPrivacyCollectedDataType</key>
 			<string>NSPrivacyCollectedDataTypeDeviceID</string>

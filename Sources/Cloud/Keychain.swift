@@ -21,6 +21,19 @@ enum Keychain {
         SecItemAdd(attributes as CFDictionary, nil)
     }
 
+    /// 2.79 (DeviceID): saves only when `key` holds nothing — ✗ the delete in `save`, which would wipe
+    /// an item a locked phone could not read. Same class as `save`. True = stored now.
+    static func add(_ value: String, for key: String) -> Bool {
+        let attributes: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: key,
+            kSecValueData as String: Data(value.utf8),
+            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
+        ]
+        return SecItemAdd(attributes as CFDictionary, nil) == errSecSuccess
+    }
+
     static func read(_ key: String) -> String? {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
