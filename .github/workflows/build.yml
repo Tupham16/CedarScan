@@ -5,6 +5,10 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# Least privilege (2.79): the job only reads the repo (artifacts use the runner's own token).
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: macos-15
@@ -23,6 +27,12 @@ jobs:
             echo "::error::Localization/ is stale: run tools/build_xcstrings.py from an up-to-date main and commit the result"
             exit 1
           }
+
+      # A customer-facing Swift literal (String(localized:), Text / Button / Label ... "...") with no
+      # key in translations.json shows English in all 7 other languages, CI green (2.79). What
+      # counts, the exemptions and the deliberate-English allow-list: header of the tool.
+      - name: Check Swift strings have translations
+        run: python3 tools/check_l10n_keys.py
 
       # Same Xcode as release.yml, so the AltStore build is the app that ships. See the note there.
       - name: Select Xcode 26.3
