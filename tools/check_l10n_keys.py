@@ -341,7 +341,8 @@ class Block:
         self.type_name = self.type_qual.split(".")[-1] if mt else None
         if mt:                                                 # `: View, Bannering` (inherited API)
             ms = re.match(r"\s*(?:<[^>{]*>)?\s*:\s*([^{]*?)\s*(?:\bwhere\b.*)?$", head[mt.end(1):], re.S)
-            self.supers = [x.strip().split(".")[-1] for x in ms.group(1).split(",") if x.strip()] if ms else []
+            self.supers = [re.sub(r"<.*$", "", x.strip()).split(".")[-1]   # `Base<Int>` -> Base
+                           for x in ms.group(1).split(",") if x.strip()] if ms else []
         self.flow = bool(FLOW_HEAD.search(head)) and not self.type_name
 
 
@@ -715,7 +716,7 @@ class Callees:
                     declared.add(b.type_name)
                     if len(fi.type_blocks(b.open)) == 0:
                         top.add(b.type_name)
-        private_type = lambda tb: bool(re.search(r"\b(?:private|fileprivate)\s", tb.head))
+        private_type = lambda tb: bool(re.search(r"\b(?:private|fileprivate)\s+(?:(?:@\w+(?:\([^)]*\))?|final|indirect|nonisolated|distributed)\s+)*(?:struct|class|enum|actor|extension)\s", tb.head))
         for fi in files.values():
             masked = fi.masked
             for m in re.finditer(r"\b(?:func\s+([A-Za-z_]\w*)|(?<!\.)init[?!]?)\s*(?:<[^>]*>)?\s*\(", masked):
@@ -792,7 +793,7 @@ class Callees:
                 if sel:
                     break
             if not sel:                      # inherited: protocol extensions, superclasses (transitive)
-                todo = [s for b in blocks for s in b.supers]
+                todo = [s for b in blocks for s in self.supers.get(b.type_name, ())]  # incl. `extension X: P`
                 supers = set()
                 while todo:
                     t = todo.pop()
@@ -943,8 +944,8 @@ def localizable_literals(fi, callees, types):
                 left = masked[max(0, m.start() - 200):m.start()].rstrip()
                 # a receiver ends the text before the dot: `x`, `)`, `]`, `}`, `"`, or a postfix ?/!
                 # glued to one (`center?` + line break + `.name(`); `c ? .name(` is a ternary
-                if not left or not (left[-1].isalnum() or left[-1] in "_)]}\"" or re.search(r"[\w)\]}\"][?!]+$", left)) or re.search(
-                        r"(?<![\w.])(?:return|in|throw|try|await|else|case|where|is|as|some|any|if|guard"
+                if not left or not (left[-1].isalnum() or left[-1] in "_)]}\"`" or re.search(r"[\w)\]}\"`][?!]+$", left)) or re.search(
+                        r"(?<![\w.])(?:return|in|throw|try[?!]?|await|else|case|where|is|as|some|any|if|guard"
                         r"|while|switch|do|repeat)$", left):
                     continue               # implicit member: its type is the context's
                 mr = re.search(r"(?<![\w.)\]])((?:[A-Za-z_]\w*[?!]?\.)*[A-Za-z_]\w*[?!]?)$",
@@ -1047,8 +1048,10 @@ def case_values(fi, sw):
     """(start, end) of each case's value inside a `switch` block (labels start a statement, so
     `counts[kind, default: 0]` is not one)."""
     masked, labels, top = fi.masked, [], top_text(fi, sw)
-    for r in re.finditer(r"(?<![.`])\bdefault\s*:|(?<!\bfor )\bcase\b", masked[sw.open + 1:sw.close]):
+    for r in re.finditer(r"(?<![.`])\bdefault\s*:|\bcase\b", masked[sw.open + 1:sw.close]):
         s = sw.open + 1 + r.start()
+        if r.group(0) == "case" and re.search(r"\bfor(?:\s+try)?(?:\s+await)?\s+$", masked[max(0, s - 40):s]):
+            continue                      # `for case` / `for try await case` loops
         seg = top[:s - sw.open - 1]
         if fi.innermost(s) is not sw or sum(map(seg.count, "([")) != sum(map(seg.count, ")]")):
             continue                      # inside ( or [: `counts[kind, default: 0]`, `f(\n default: x)`
