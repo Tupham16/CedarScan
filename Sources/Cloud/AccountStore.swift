@@ -28,6 +28,9 @@ final class AccountStore: ObservableObject {
     /// Server says the Account tab may show "Payment methods" (`GET me` → `paymentMethods`).
     /// Not stored: false until this launch's `refresh()` answers.
     @Published private(set) var paymentMethodsAvailable = false
+    /// F9: the server has My brand (`GET me` → `myBrand`) — the Account row shows only then, so a
+    /// 2.79 build on a server without it shows no broken screen. Same lifetime as the flag above.
+    @Published private(set) var myBrandAvailable = false
     var needsVerification: Bool { customer != nil && !emailVerified }
 
     init() {
@@ -83,6 +86,7 @@ final class AccountStore: ObservableObject {
                 setEmailVerified(verified)
             }
             paymentMethodsAvailable = me.paymentMethods == true
+            myBrandAvailable = me.myBrand == true
         } catch let error as APIError where error.statusCode == 401 {
             signOut()
         } catch {
@@ -139,6 +143,7 @@ final class AccountStore: ObservableObject {
         customer = nil
         emailVerified = false
         paymentMethodsAvailable = false
+        myBrandAvailable = false
         // Link remembers the customer on this phone; the next account must not inherit it.
         PaymentSheet.resetCustomer()
         // Which team messages were shown / left open, per order.

@@ -1,3 +1,4 @@
+import ImageIO
 import PDFKit
 import PhotosUI
 import SwiftUI
@@ -15,13 +16,13 @@ enum BrandStyles {
     static let colorAddonId = "color"
 
     /// Agency styles this phone lists: the server sends the ones the account may see, each with the
-    /// regions it is meant for (AU / NZ); the phone's region setting decides here. No regions = all.
+    /// regions it is meant for (AU / NZ); the phone's region setting decides here. No regions = no
+    /// phone: agency names must never reach a phone outside AU / NZ (App Review is in the US, on a
+    /// test account that sees every agency style).
     static func listed(_ agency: [CatalogTemplate]?) -> [CatalogTemplate] {
-        let region = Locale.current.region?.identifier
+        guard let region = Locale.current.region?.identifier else { return [] }
         return (agency ?? []).filter { style in
-            guard let regions = style.regions, !regions.isEmpty else { return true }
-            guard let region else { return false }
-            return regions.contains(region)
+            style.regions?.contains(region) == true
         }
     }
 
@@ -179,7 +180,7 @@ struct MyBrandView: View {
         Section {
             Group {
                 TemplatePicker(templates: styles, selection: styleBinding)
-                    .disabled(saving)
+                    .disabled(saving || uploading)
                 if !agencyStyles.isEmpty {
                     NavigationLink {
                         AgencyStyleView(styles: agencyStyles, selected: brand.agencyStyleId) { id in
@@ -196,7 +197,7 @@ struct MyBrandView: View {
                             }
                         }
                     }
-                    .disabled(saving)
+                    .disabled(saving || uploading)
                 }
             }
             .listRowBackground(Theme.card)
@@ -213,7 +214,7 @@ struct MyBrandView: View {
     /// Picking an ordinary style ends the agency style.
     private var styleBinding: Binding<String?> {
         Binding(
-            get: { brand.agencyStyleId == nil ? brand.styleId : nil },
+            get: { agencyStyles.contains { $0.id == brand.agencyStyleId } ? nil : brand.styleId },
             set: { id in
                 guard let id, id != brand.styleId || brand.agencyStyleId != nil else { return }
                 save(["styleId": id, "agencyStyleId": NSNull()],
@@ -230,8 +231,11 @@ struct MyBrandView: View {
     }
 
     private func load() async {
+        // `.task` runs again on the way back from Agency style, while that save may be out: one
+        // load per visit (Retry clears `loadError` and comes here with no catalog).
+        guard catalog == nil else { return }
         do {
-            let result = try await APIClient.shared.catalog()
+            let result = try await APIClient.shared.brandCatalog()
             // A server without F9 has no `brand`: nothing here would work.
             guard let saved = result.brand else {
                 loadError = String(localized: "Something went wrong. Please try again.")
@@ -255,7 +259,11 @@ struct MyBrandView: View {
             do {
                 brand = try await APIClient.shared.saveBrand(fields)
             } catch {
-                brand = before
+                var back = brand
+                if fields["addLogo"] != nil { back = back.with(addLogo: before.addLogo) }
+                if fields["styleId"] != nil { back = back.with(styleId: .some(before.styleId)) }
+                if fields["agencyStyleId"] != nil { back = back.with(agencyStyleId: .some(before.agencyStyleId)) }
+                brand = back
                 errorText = message(for: error)
             }
             saving = false
@@ -276,8 +284,11 @@ struct MyBrandView: View {
         errorText = nil
         defer { uploading = false }
         do {
+            let maxBytes = Self.maxLogoBytes
             guard let raw = try await item.loadTransferable(type: Data.self),
-                  let file = LogoImageEncoder.encode(raw, maxBytes: Self.maxLogoBytes) else {
+                  let file = await Task.detached(priority: .userInitiated, operation: {
+                      LogoImageEncoder.encode(raw, maxBytes: maxBytes)
+                  }).value else {
                 errorText = String(localized: "Could not read that photo.")
                 return
             }
@@ -330,6 +341,8 @@ struct MyBrandView: View {
         case "too_large": return String(localized: "This file is larger than 5 MB. Please choose a smaller one.")
         case "unsupported_type": return String(localized: "Please choose a PNG, JPG, SVG or PDF file.")
         case "unknown_style": return String(localized: "This style is no longer available. Please choose another.")
+        // Server-side storage down, or an account the app would not show this screen to.
+        case "storage", "email_unverified": return String(localized: "Something went wrong. Please try again.")
         default: return error.localizedDescription
         }
     }
@@ -452,6 +465,7 @@ struct BrandLogoThumb: View {
                     fileMark(logo)
                 } else {
                     ProgressView()
+                        .tint(Color(white: 0.45))
                 }
             }
         case "application/pdf":
@@ -474,18 +488,32 @@ struct BrandLogoThumb: View {
         .foregroundStyle(Color(white: 0.45))
     }
 
-    /// First page of a PDF logo, drawn small (≤ 5 MB download, once per URL).
+    /// First page of a PDF logo, drawn small: downloaded (≤ 5 MB) once per URL and app run — the
+    /// tile reappears often (the order form's row, every pop back to My brand).
     private func loadPDF() async {
+        guard let logo, logo.contentType == "application/pdf", let url = URL(string: logo.url) else {
+            pdfImage = nil
+            return
+        }
+        if let cached = Self.pdfThumbs.object(forKey: logo.url as NSString) {
+            pdfImage = cached
+            return
+        }
         pdfImage = nil
-        guard let logo, logo.contentType == "application/pdf", let url = URL(string: logo.url),
-              let download = try? await URLSession.shared.data(from: url),
+        guard let download = try? await URLSession.shared.data(from: url),
               let page = PDFDocument(data: download.0)?.page(at: 0) else { return }
-        pdfImage = page.thumbnail(of: CGSize(width: 240, height: 150), for: .mediaBox)
+        let thumb = page.thumbnail(of: CGSize(width: 240, height: 150), for: .mediaBox)
+        Self.pdfThumbs.setObject(thumb, forKey: logo.url as NSString)
+        pdfImage = thumb
     }
+
+    private static let pdfThumbs = NSCache<NSString, UIImage>()
 }
 
-/// A photo from the library as a logo file: at most 2048 px on the long side; PNG when it has
-/// transparency (a logo cut-out), else JPEG; JPEG at a lower quality if still over the limit.
+/// A photo from the library as a logo file: at most 2048 px on the long side, upright (the photo's
+/// orientation applied); PNG when it has transparency (a logo cut-out), else JPEG; a transparent
+/// one too big as PNG goes onto white first (✗ black corners in a JPEG). ImageIO decodes only what
+/// 2048 px needs (a 48 MP photo would be ~200 MB as a full UIImage). Runs off the main thread.
 enum LogoImageEncoder {
     struct File {
         let data: Data
@@ -494,37 +522,44 @@ enum LogoImageEncoder {
     }
 
     static func encode(_ raw: Data, maxBytes: Int) -> File? {
-        guard let source = UIImage(data: raw) else { return nil }
-        let image = scaled(source, maxDimension: 2048)
-        if hasAlpha(image), let png = image.pngData(), png.count <= maxBytes {
+        let options: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceThumbnailMaxPixelSize: 2048,
+            kCGImageSourceShouldCacheImmediately: true,
+        ]
+        guard let source = CGImageSourceCreateWithData(raw as CFData, nil),
+              let cgImage = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else { return nil }
+        let image = UIImage(cgImage: cgImage)
+        let alpha = hasAlpha(cgImage)
+        if alpha, let png = image.pngData(), png.count <= maxBytes {
             return File(data: png, mimeType: "image/png", ext: "png")
         }
+        let opaque = alpha ? onWhite(image) : image
         for quality in [0.9, 0.7, 0.5] as [CGFloat] {
-            if let jpeg = image.jpegData(compressionQuality: quality), jpeg.count <= maxBytes {
+            if let jpeg = opaque.jpegData(compressionQuality: quality), jpeg.count <= maxBytes {
                 return File(data: jpeg, mimeType: "image/jpeg", ext: "jpg")
             }
         }
         return nil
     }
 
-    private static func hasAlpha(_ image: UIImage) -> Bool {
-        switch image.cgImage?.alphaInfo {
+    private static func hasAlpha(_ image: CGImage) -> Bool {
+        switch image.alphaInfo {
         case .first, .last, .premultipliedFirst, .premultipliedLast: return true
         default: return false
         }
     }
 
-    private static func scaled(_ image: UIImage, maxDimension: CGFloat) -> UIImage {
-        let size = image.size
-        let longest = max(size.width, size.height)
-        guard longest > maxDimension else { return image }
-        let scale = maxDimension / longest
-        let newSize = CGSize(width: size.width * scale, height: size.height * scale)
+    private static func onWhite(_ image: UIImage) -> UIImage {
         let format = UIGraphicsImageRendererFormat.default()
         format.scale = 1
-        format.opaque = !hasAlpha(image)
-        return UIGraphicsImageRenderer(size: newSize, format: format).image { _ in
-            image.draw(in: CGRect(origin: .zero, size: newSize))
+        format.opaque = true
+        format.preferredRange = .standard
+        return UIGraphicsImageRenderer(size: image.size, format: format).image { context in
+            UIColor.white.setFill()
+            context.fill(CGRect(origin: .zero, size: image.size))
+            image.draw(at: .zero)
         }
     }
 }

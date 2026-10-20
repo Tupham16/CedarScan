@@ -19,6 +19,8 @@ struct MeResponse: Decodable {
     let emailVerified: Bool?
     /// Account → "Payment methods" row. Absent on older servers = no row.
     let paymentMethods: Bool?
+    /// F9: Account → "My brand" row (the server has the brand routes). Absent = no row.
+    let myBrand: Bool?
 }
 
 struct OKResponse: Decodable {
@@ -973,14 +975,26 @@ final class APIClient {
         let (body, response) = try await URLSession.shared.upload(for: request, from: data)
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
         guard (200...299).contains(status) else {
+            // As `send` (N13): the customer's wording for the answers it knows.
             let error = try? JSONDecoder().decode(ServerError.self, from: body)
             throw APIError(
-                message: error?.error ?? String(localized: "Upload failed. Please try again."),
+                message: error.map { Self.customerWording($0.error, status: status, code: $0.code) }
+                    ?? String(localized: "Upload failed. Please try again."),
                 statusCode: status,
                 code: error?.code
             )
         }
-        return try JSONDecoder().decode(BrandResponse.self, from: body).brand
+        do {
+            return try JSONDecoder().decode(BrandResponse.self, from: body).brand
+        } catch is DecodingError {
+            throw UnreadableResponse()
+        }
+    }
+
+    /// My brand's styles + saved settings: the catalog WITHOUT `deviceId` (N8: the Privacy Policy
+    /// names three moments for it — sign-up, viewing prices, ordering; this screen shows no price).
+    func brandCatalog() async throws -> CatalogResponse {
+        try await send("catalog")
     }
 
     /// No logo, "Add my logo" off; the styles stay.

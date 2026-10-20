@@ -59,13 +59,15 @@ struct AccountView: View {
                             }
                         }
                         // F9 (2.79): saved logo + default style. Its own Section: F6 / F8 add rows here too.
-                        Section {
-                            NavigationLink {
-                                MyBrandView()
-                            } label: {
-                                Label(String(localized: "My brand"), systemImage: "paintpalette")
+                        if account.myBrandAvailable {
+                            Section {
+                                NavigationLink {
+                                    MyBrandView()
+                                } label: {
+                                    Label(String(localized: "My brand"), systemImage: "paintpalette")
+                                }
+                                .listRowBackground(Theme.card)
                             }
-                            .listRowBackground(Theme.card)
                         }
                         Section {
                             Link(destination: URL(string: "https://cedar247.com")!) {
