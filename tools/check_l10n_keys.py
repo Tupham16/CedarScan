@@ -7,16 +7,21 @@
 #
 # Customer-facing = a literal that Swift turns into a localization key:
 #   - String(localized: "..."), AttributedString(localized: "..."), LocalizedStringKey("..."),
-#     LocalizedStringResource("..."), NSLocalizedString("..."), and a literal typed
-#     LocalizedStringKey / LocalizedStringResource / String.LocalizationValue: declared, assigned,
-#     a parameter default, in an array, or returned by a func / computed property of such a type
-#     (return, switch / if expressions);
+#     LocalizedStringResource("..."), NSLocalizedString("..."), `"..." as LocalizedStringKey`, and a
+#     literal typed LocalizedStringKey / LocalizedStringResource / String.LocalizationValue:
+#     declared, assigned, a parameter default, in an array, or returned by a func / computed
+#     property of such a type (return, single-expression body, switch / if expressions);
 #   - the first unlabeled argument of the SwiftUI views / modifiers in VIEW_CALLS / MODIFIERS
 #     (Text, Button, Label, Toggle, Picker, TextField, Section, .navigationTitle, .alert, ...),
-#     `prompt:` of .searchable, `named:` of .accessibilityAction, and the parameters of our own
-#     funcs / inits / memberwise inits declared with one of the three types (or an array of them).
-#   A String VARIABLE in those places is shown verbatim, so only literals count; both branches of
-#   `c ? "A" : "B"` count (nested too).
+#     `prompt:` of .searchable, `named:` of .accessibilityAction;
+#   - arguments of our own funcs / inits / memberwise inits / enum cases declared with one of the
+#     three types (or an array of them), called as name(...), self.name(...) or Type.name(...),
+#     resolved like Swift (enclosing types first, then top level); x.name(...) only for funcs
+#     declared in an extension. Implicit `.name(...)` is never matched (SDK factories share the
+#     names: .custom, .success, .system) - write Type.name(...) there.
+#   Ternaries: in a typed place every literal branch counts (`c ? "A" : other`); in a SwiftUI view /
+#   modifier (it has a String overload) only when every branch is a literal or a localizable value,
+#   else the whole is a String and shown verbatim.
 # Exempt: Text(verbatim:), comments, literals without a letter (emoji, "$\(price)", "\(n)%",
 #   "000000"), and ALLOW below (deliberate English: brand, domain).
 # Key = the literal with each \(x) replaced by %lld (Int) or %@ (String, Text, Date, ...), as Swift
@@ -28,8 +33,9 @@
 #   Inference wrong? Wrap the value: \(String(x)) or \(Int(x)) keeps Swift's key and is read as
 #   sure (or add the code to TYPE_HINTS).
 # Keys no Swift literal uses are listed, not failed (e.g. a key kept for an old build).
-# Not seen (not a key at all): a literal passed to our own `String` parameter is shown verbatim and
-#   never translated; the house rule is String(localized:) at the call site.
+# Not seen: a literal passed to our own `String` parameter (not a key at all: shown verbatim, never
+#   translated; the house rule is String(localized:) at the call site); dictionary values
+#   `[K: LocalizedStringKey]`; a receiver whose type is unknown (`banner.show("...")`).
 # Validated 20/10/2026 against the compiler's own extraction (SWIFT_EMIT_LOC_STRINGS, Xcode 26.3).
 import json, os, re, sys, unicodedata
 
@@ -62,7 +68,7 @@ MODIFIERS = [
 SDK_METHOD_NAMES = {"error", "warning", "info", "debug", "notice", "fault", "log", "trace",
                     "critical", "print", "append", "insert", "contains", "send", "write"}
 LOC_TYPES = r"(?:LocalizedStringKey|LocalizedStringResource|String\.LocalizationValue)"
-TYPE_RE = r"[A-Za-z_][\w.<>?!]*"
+TYPE_RE = r"(?:\[[^\]\n=]*\]\??|[A-Za-z_][\w.<>?!]*)"
 SPEC = re.compile(r"%(@|lld)")
 SHAPE = "{}"  # an interpolation in a literal's shape (keys: %@ / %lld)
 
@@ -172,10 +178,12 @@ def scan_code(src, i, lits, masked, nocomment, interp):
             continue
         if c == "#":
             mr = re.match(r"(#+)/", src[i:i + 8])
-            if mr:                      # extended regex literal #/ ... /#
+            if mr:                      # extended regex literal #/ ... /#  (\x escapes skipped)
                 close = "/" + mr.group(1)
-                j = src.find(close, i + mr.end())
-                if j < 0:
+                j = i + mr.end()
+                while j < n and not src.startswith(close, j):
+                    j += 2 if src[j] == "\\" else 1
+                if j >= n:
                     raise SwiftSyntax("unterminated regex literal")
                 blank(masked, i, j + len(close))
                 i = j + len(close)
@@ -200,6 +208,9 @@ def read_literal(src, i, lits, masked, nocomment):
     close = m.group(2) + hashes
     esc = "\\" + hashes
     j = m.end()
+    if multiline and hashes and src[j:src.find("\n", j) if "\n" in src[j:] else len(src)].strip():
+        # `#"""#` / `#"""Hi"""#`: a raw ONE-line string whose text starts with quotes
+        multiline, close, j = False, '"' + hashes, i + len(hashes) + 1
     if multiline:
         nl = src.find("\n", j)
         if nl < 0 or src[j:nl].strip():
@@ -311,29 +322,59 @@ CLOSURE_PARAMS = re.compile(r"\s*(?:\[[^\]]*\]\s*)?(\([^()]*\)|[A-Za-z_][\w]*(?:
 
 
 class Block:
-    __slots__ = ("open", "close", "head", "type_name", "flow")
+    __slots__ = ("open", "close", "head", "type_name", "flow", "inline")
 
-    def __init__(self, open_, head):
-        self.open, self.close, self.head = open_, None, head
+    def __init__(self, open_, inline):
+        self.open, self.close, self.inline = open_, None, inline
+        self.head, self.type_name, self.flow = "", None, False
+
+    def set_head(self, head):
+        self.head = head
         mt = TYPE_HEAD.search(head)
         self.type_name = mt.group(1).split(".")[-1] if mt else None
         self.flow = bool(FLOW_HEAD.search(head)) and not self.type_name
 
 
 def build_blocks(masked):
-    blocks, stack, boundary = [], [], 0
+    """Brace blocks and their heads (the statement text before `{`). A `{` inside an unclosed
+    ( or [ of its statement is an inline closure (`contains(where: { ... })`): it neither ends
+    nor shows in the head of the statement around it."""
+    blocks, stack, heads = [], [], []
+    frames = [[0, 0]]                  # per open block: [unclosed ( and [, statement start]
     for k, c in enumerate(masked):
-        if c == "{":
-            b = Block(k, masked[boundary:k])
+        f = frames[-1]
+        if c in "([":
+            f[0] += 1
+        elif c in ")]":
+            f[0] = max(0, f[0] - 1)
+        elif c == "{":
+            b = Block(k, f[0] > 0)
             blocks.append(b)
             stack.append(b)
-            boundary = k + 1
+            heads.append((b, f[1]))
+            frames.append([0, k + 1])
         elif c == "}":
             if stack:
-                stack.pop().close = k
-            boundary = k + 1
+                b = stack.pop()
+                b.close = k
+                frames.pop()
+                if not b.inline:
+                    frames[-1][1] = k + 1
+            else:
+                frames[-1][1] = k + 1
     for b in stack:
         b.close = len(masked)
+    inline = [b for b in blocks if b.inline]
+    for b, start in heads:
+        if b.inline:
+            continue
+        text = list(masked[start:b.open])
+        for ib in inline:
+            if start <= ib.open and ib.close < b.open:
+                for i in range(ib.open - start, ib.close - start + 1):
+                    if text[i] != "\n":
+                        text[i] = " "
+        b.set_head("".join(text))
     return blocks
 
 
@@ -352,7 +393,13 @@ class FileInfo:
         return best
 
     def next_block(self, pos):
-        return next((b for b in self.blocks if b.open > pos), None)
+        """The next statement block after pos (inline closures skipped)."""
+        return next((b for b in self.blocks if b.open > pos and not b.inline), None)
+
+    def type_chain(self, pos):
+        """Names of the types (and extensions) around pos, innermost first."""
+        ts = [b for b in self.blocks if b.type_name and b.open < pos < b.close]
+        return [b.type_name for b in sorted(ts, key=lambda b: -b.open)]
 
     def line_of(self, pos):
         return self.src.count("\n", 0, pos) + 1
@@ -405,34 +452,45 @@ def balanced_end(s, i):
     return -1
 
 
-def branch_literals(fi, a, b):
-    """The literals that ARE the expression [a, b): one literal, or the leaves of `c ? x : y`
-    (nested too; the condition is ignored, outer parentheses stripped) when EVERY leaf is a
-    literal. One non-literal leaf (`c ? "" : route.title`) makes it a String: shown verbatim."""
-    return leaf_literals(fi, a, b) or []
+def is_ternary_q(s, k):
+    """`?` of a ternary: whitespace on its left (`a?.b`, `as?`, `try?` have none), not `??`."""
+    return s[k] == "?" and k > 0 and s[k - 1].isspace() and s[k + 1:k + 2] != "?"
 
 
-def leaf_literals(fi, a, b):
+def branch_literals(fi, a, b, typed=False, types=None):
+    """The literals that ARE the value [a, b): one literal, or the leaves of `c ? x : y` (nested
+    too; the condition is ignored, outer parentheses stripped). Untyped (a SwiftUI view or
+    modifier with a String overload): every leaf must be a literal or a localizable value, else
+    the whole is a String, shown verbatim (`c ? "" : route.title`). Typed (the place only takes
+    LocalizedStringKey & co.): every literal leaf is a key, also the right side of `??`."""
+    return leaf_literals(fi, a, b, typed, types) or []
+
+
+def leaf_literals(fi, a, b, typed, types):
     masked, by_start = fi.masked, fi.by_start
     while a < b and masked[a].isspace():
         a += 1
     while b > a and masked[b - 1].isspace():
         b -= 1
     if a >= b:
-        return None
+        return [] if typed else None
     lit = by_start.get(a)
     if lit and lit.end >= b:
-        return [lit] if masked[lit.end:b].strip() == "" else None
-    if lit and re.fullmatch(r"\s+as\s+" + LOC_TYPES, masked[lit.end:b]):
+        return [lit] if masked[lit.end:b].strip() == "" else ([] if typed else None)
+    if lit and re.fullmatch(r"\s+as\s+" + LOC_TYPES + r"\??", masked[lit.end:b]):
         return [lit]                      # "..." as LocalizedStringKey
     if masked[a] == "(" and balanced_end(masked, a) == b - 1:
-        return leaf_literals(fi, a + 1, b - 1)
+        return leaf_literals(fi, a + 1, b - 1, typed, types)
+    mas = re.search(r"\s+as\s+" + LOC_TYPES + r"\??$", masked[a:b])
+    if mas:                               # (c ? "A" : "B") as LocalizedStringKey
+        return leaf_literals(fi, a, a + mas.start(), True, types)
     mi = re.match(r"\.init\s*\(", masked[a:b])
     if mi and balanced_end(masked, a + mi.end() - 1) == b - 1:
         args = call_args(masked, a + mi.end() - 1)   # Text(.init("...")) = LocalizedStringKey(...)
-        return leaf_literals(fi, args[0][1], args[0][2]) if len(args) == 1 and args[0][0] is None else None
-    # top-level ternary: `?` with spaces around, then its `:` (nested ternaries counted)
-    k, depth, q = a, 0, None
+        if len(args) == 1 and args[0][0] is None:
+            return leaf_literals(fi, args[0][1], args[0][2], True, types)
+        return [] if typed else None
+    k, depth, q, qq = a, 0, None, None
     while k < b:
         lit = by_start.get(k)
         if lit:
@@ -443,12 +501,20 @@ def leaf_literals(fi, a, b):
             depth += 1
         elif c in ")]}":
             depth -= 1
-        elif depth == 0 and c == "?" and masked[k - 1:k] == " " and masked[k + 1:k + 2] == " ":
+        elif depth == 0 and masked.startswith("??", k) and qq is None:
+            qq = k
+            k += 2
+            continue
+        elif depth == 0 and is_ternary_q(masked, k):
             q = k
             break
         k += 1
     if q is None:
-        return None
+        if qq is not None and (typed or is_loc_value(fi, a, qq, types)):
+            return leaf_literals(fi, qq + 2, b, True, types)     # x ?? "Default"
+        return [] if typed or is_loc_value(fi, a, b, types) else None
+    if assigns(masked, a, q):
+        return [] if typed else None      # `plan = isTeam ? "Team" : "Pro"`: a statement
     k, depth, nest = q + 1, 0, 0
     while k < b:
         lit = by_start.get(k)
@@ -460,20 +526,55 @@ def leaf_literals(fi, a, b):
             depth += 1
         elif c in ")]}":
             depth -= 1
-        elif depth == 0 and c == "?" and masked[k - 1:k] == " " and masked[k + 1:k + 2] == " ":
+        elif depth == 0 and is_ternary_q(masked, k):
             nest += 1
         elif depth == 0 and c == ":":
             if nest == 0:
-                yes, no = leaf_literals(fi, q + 1, k), leaf_literals(fi, k + 1, b)
+                yes = leaf_literals(fi, q + 1, k, typed, types)
+                no = leaf_literals(fi, k + 1, b, typed, types)
                 return yes + no if yes is not None and no is not None else None
             nest -= 1
         k += 1
-    return None
+    return [] if typed else None
+
+
+def assigns(masked, a, b):
+    """[a, b) holds a top-level assignment or starts with a statement keyword."""
+    if re.match(r"\s*(?:let|var|return|if|guard|case)\b", masked[a:b]):
+        return True
+    depth = 0
+    for k in range(a, b):
+        c = masked[k]
+        if c in "([{":
+            depth += 1
+        elif c in ")]}":
+            depth -= 1
+        elif depth == 0 and c == "=" and masked[k + 1:k + 2] != "=" and k > 0 and masked[k - 1] not in "=!<>":
+            return True
+    return False
+
+
+def is_loc_value(fi, a, b, types):
+    """A non-literal value of a localizable type: `x as LocalizedStringKey`, LocalizedStringKey(...),
+    or a name / self.name declared LocalizedStringKey & co. (in scope)."""
+    e = fi.masked[a:b].strip()
+    if re.search(r"\bas\s+" + LOC_TYPES + r"\??$", e) or re.match(LOC_TYPES + r"(?:\.init)?\s*\(", e):
+        return True
+    m = re.fullmatch(r"(self\.)?([A-Za-z_]\w*)", e)
+    if not m or types is None:
+        return False
+    d = types.resolve(m.group(2), fi, a, "self" if m.group(1) else "local")
+    return bool(d and d.typ and param_kind(d.typ) == "loc")
+
+
+CONT_LINE = re.compile(r"\n[ \t]*(?:\?\?|[?:.+\-*/]|&&|\|\|)")
+OP_END = re.compile(r"(?:[?:=+\-*/(\[,]|&&|\|\|)[ \t]*$")
 
 
 def statement_end(masked, p, limit):
-    """From p (after `return` / `case x:` / `=`): to the end of the line that holds the expression
-    (the next line when the rest of this one is blank)."""
+    """From p (after `return` / `case x:` / `=`): to the end of the statement's expression: the
+    rest of the line (the next line when that is blank), continued while a line ends with an
+    operator or the next one starts with one (`?`, `:`, `.`, `??`, `+`, ...)."""
     q = p
     while q < limit and masked[q] in " \t":
         q += 1
@@ -481,14 +582,21 @@ def statement_end(masked, p, limit):
         q += 1
         while q < limit and masked[q] in " \t\n":
             q += 1
-    while q < limit and masked[q] not in "\n;}":
-        q += 1
-    return q
+    start = q
+    while True:
+        while q < limit and masked[q] not in "\n;}":
+            q += 1
+        if q < limit and masked[q] == "\n" and (CONT_LINE.match(masked, q) or OP_END.search(masked[start:q])):
+            q += 1
+            start = q
+            continue
+        return q
 
 
 def typed_end(masked, p):
-    """End of `x: T = <value>` from p: a top-level `,` `)` `]` `}` `{` (observers) `;` or line end."""
-    q, depth = p, 0
+    """End of `x: T = <value>` from p: a top-level `,` `)` `]` `}` `{` (observers) `;`, or the line
+    end unless the value goes on (see statement_end)."""
+    q, depth, start = p, 0, p
     while q < len(masked):
         c = masked[q]
         if c in "([":
@@ -497,61 +605,60 @@ def typed_end(masked, p):
             if depth == 0:
                 break
             depth -= 1
-        elif depth == 0 and c in ",{};\n":
+        elif depth == 0 and c == "\n":
+            if CONT_LINE.match(masked, q) or OP_END.search(masked[start:q]):
+                start = q + 1
+            else:
+                break
+        elif depth == 0 and c in ",{};":
             break
         q += 1
     return q
 
 
-class Callees:
-    """Our own funcs / inits / memberwise inits with a localizable parameter.
-    name -> {label: "loc" | "array"}; a label typed differently in another declaration of the
-    same name (another type's `Row(title: String)`) is dropped. '_' = first unlabeled argument."""
+def label_ends(masked, a, b):
+    """Positions right after `return`, `default:` and `case ...:` (its `:` at bracket depth 0,
+    so `case .running(progress: let p):` works; `if case .x = y` is not a label) in [a, b)."""
+    out = []
+    for r in re.finditer(r"\breturn\b|\bdefault\s*:|\bcase\b", masked[a:b]):
+        p = a + r.end()
+        if r.group(0) == "case":
+            k, depth = p, 0
+            while k < b:
+                c = masked[k]
+                if c in "([":
+                    depth += 1
+                elif c in ")]":
+                    depth -= 1
+                elif c in "{}" or (c == "=" and masked[k + 1:k + 2] != "=" and masked[k - 1:k] not in "=!<>"):
+                    k = b
+                    break
+                elif c == ":" and depth == 0:
+                    break
+                k += 1
+            if k >= b:
+                continue
+            p = k + 1
+        out.append(p)
+    return out
 
-    def __init__(self, files):
-        seen, self.member_ok = {}, set()
-        for fi in files.values():
-            masked = fi.masked
-            for m in re.finditer(r"\b(?:func\s+([A-Za-z_]\w*)|init)\s*(?:<[^>]*>)?\s*\(", masked):
-                name = m.group(1)
-                blk = fi.innermost(m.start())
-                owner = enclosing_type(fi, m.start())
-                if not name:
-                    name = owner
-                if not name:
-                    continue
-                if m.group(1) and blk is not None and blk.type_name and re.search(r"\bextension\s", blk.head):
-                    self.member_ok.add(name)   # declared in an extension: called as `x.name(...)`
-                for label, a, b in call_args(masked, m.end() - 1):
-                    text = masked[a:b] if label is not None else masked[a:b]
-                    if label is None:
-                        mp = re.match(r"\s*(\w+)\s+\w+\s*:\s*(.*)$", text, re.S)
-                        if not mp:
-                            continue
-                        label, text = mp.group(1), mp.group(2)
-                    seen.setdefault((name, label), set()).add(param_kind(text))
-            for m in re.finditer(r"\bcase\s+([a-z_]\w*)\s*\(", masked):   # enum case payloads
-                blk = fi.innermost(m.start())
-                if blk is None or not re.search(r"\benum\s", blk.head):
-                    continue
-                for idx, (label, a, b) in enumerate(call_args(masked, m.end() - 1)):
-                    text = masked[a:b]
-                    if label is None:
-                        mp = re.match(r"\s*(\w+)\s+\w+\s*:\s*(.*)$", text, re.S)
-                        label, text = (mp.group(1), mp.group(2)) if mp else ("_" if idx == 0 else "#%d" % idx, text)
-                    seen.setdefault((m.group(1), label), set()).add(param_kind(text))
-            for m in re.finditer(r"\b(let|var)\s+(\w+)\s*:\s*([^\n;{=]*?)[ \t]*(=[^\n;{]*)?(?:\n|;|$)", masked):
-                t = enclosing_type(fi, m.start())
-                blk = fi.innermost(m.start())
-                if not t or blk is None or blk.type_name != t:
-                    continue                  # only stored properties of a type body
-                if m.group(1) == "let" and m.group(4):
-                    continue                  # `let x: T = v` is not a memberwise-init label
-                seen.setdefault((t, m.group(2)), set()).add(param_kind(m.group(3)))
-        self.labels = {}
-        for (name, label), kinds in seen.items():
-            if kinds in ({"loc"}, {"array"}):
-                self.labels.setdefault(name, {})[label] = kinds.pop()
+
+def signature_labels(masked, open_paren, payload=False):
+    """{label: param kind} of a func / init signature or an enum case payload; unlabeled
+    parameters by position: '_0', '_1', ..."""
+    labels = {}
+    for idx, (label, a, b) in enumerate(call_args(masked, open_paren)):
+        text = masked[a:b]
+        if label is None:
+            mp = re.match(r"\s*(\w+)\s+\w+\s*:\s*(.*)$", text, re.S)
+            if mp:
+                label, text = mp.group(1), mp.group(2)
+            elif payload:
+                label = "_"
+            else:
+                continue
+        labels["_%d" % idx if label == "_" else label] = param_kind(text)
+    return labels
 
 
 def param_kind(type_text):
@@ -563,121 +670,314 @@ def param_kind(type_text):
     return "other"
 
 
-def enclosing_type(fi, pos):
-    best = None
-    for b in fi.blocks:
-        if b.type_name and b.open < pos < b.close and (best is None or b.open > best.open):
-            best = b
-    return best.type_name if best else None
+class Callees:
+    """Our own funcs / inits / memberwise inits / enum cases and their parameter kinds.
+    entries[name] = [(owner, file, {label: "loc" | "array" | "other"})]: owner = the type a func
+    or enum case belongs to, the PARENT type of a type for its inits (None at top level). A call
+    resolves like Swift: enclosing types first, then top-level (same file first); labels whose
+    declarations disagree are dropped (overloads: String wins for a literal)."""
+
+    def __init__(self, files):
+        self.entries, self.member_ok = {}, set()
+        for fi in files.values():
+            masked = fi.masked
+            for m in re.finditer(r"\b(?:func\s+([A-Za-z_]\w*)|init)\s*(?:<[^>]*>)?\s*\(", masked):
+                chain = fi.type_chain(m.start())
+                if m.group(1):
+                    name, owner = m.group(1), (chain[0] if chain else None)
+                    blk = fi.innermost(m.start())
+                    if blk is not None and blk.type_name and re.search(r"\bextension\s", blk.head):
+                        self.member_ok.add(name)   # declared in an extension: called as `x.name(...)`
+                elif chain:
+                    name, owner = chain[0], (chain[1] if len(chain) > 1 else None)
+                else:
+                    continue
+                self.add(name, owner, fi.rel, signature_labels(masked, m.end() - 1))
+            for blk in fi.blocks:                   # enum cases: `case a(T), b(label: T)`
+                if not (blk.type_name and re.search(r"\benum\s", blk.head)):
+                    continue
+                for mc in re.finditer(r"\bcase\b", masked[blk.open + 1:blk.close]):
+                    k = blk.open + 1 + mc.end()
+                    if fi.innermost(k) is not blk:
+                        continue                    # a `case` of a switch or of a nested type
+                    while True:
+                        mn = re.compile(r"\s*([A-Za-z_]\w*)\s*").match(masked, k)
+                        if not mn:
+                            break
+                        k = mn.end()
+                        labels = {}
+                        if masked[k:k + 1] == "(":
+                            labels = signature_labels(masked, k, payload=True)
+                            k = balanced_end(masked, k) + 1
+                        self.add(mn.group(1), blk.type_name, fi.rel, labels)
+                        mr = re.compile(r"\s*=[^,\n]*").match(masked, k)
+                        if mr:
+                            k = mr.end()
+                        mcomma = re.compile(r"\s*,").match(masked, k)
+                        if not mcomma:
+                            break
+                        k = mcomma.end()
+            for m in re.finditer(r"\b(let|var)\s+(\w+)\s*:\s*([^\n;{=]*?)[ \t]*(=[^\n;{]*)?(?:\n|;|$)", masked):
+                blk = fi.innermost(m.start())
+                if blk is None or not blk.type_name or not re.search(r"\bstruct\s", blk.head):
+                    continue                        # memberwise init: stored properties of a struct
+                if m.group(1) == "let" and m.group(4):
+                    continue                        # `let x: T = v` is not a memberwise-init label
+                chain = fi.type_chain(m.start())
+                self.add(blk.type_name, chain[1] if len(chain) > 1 else None, fi.rel,
+                         {m.group(2): param_kind(m.group(3))})
+        self.localizable = {n for n, es in self.entries.items()
+                            if any(k != "other" for _, _, lb in es for k in lb.values())}
+
+    def add(self, name, owner, rel, labels):
+        self.entries.setdefault(name, []).append((owner, rel, labels))
+
+    def labels_for(self, name, fi, pos, form, base=None):
+        es = self.entries.get(name, [])
+        sel = []
+        if form in ("bare", "self"):
+            for t in fi.type_chain(pos):
+                sel = [lb for o, _, lb in es if o == t]
+                if sel:
+                    break
+            if not sel and form == "bare":
+                sel = [lb for o, r, lb in es if o is None and r == fi.rel] or \
+                      [lb for o, _, lb in es if o is None]
+        elif form == "type":
+            sel = [lb for o, _, lb in es if o == base]
+        elif form == "implicit":
+            sel = [lb for o, _, lb in es if o is not None]
+        elif form == "member" and name in self.member_ok and name not in SDK_METHOD_NAMES:
+            sel = [lb for _, _, lb in es]
+        merged = {}
+        for lb in sel:
+            for k, v in lb.items():
+                merged.setdefault(k, set()).add(v)
+        return {k: vs.pop() for k, vs in merged.items() if len(vs) == 1 and "other" not in vs}
 
 
 def localizable_literals(fi, callees, types):
     masked = fi.masked
     hits = {}
 
-    def take(a, b, why):
-        for lit in branch_literals(fi, a, b):
+    def keep(lits, why):
+        for lit in lits:
             hits.setdefault(lit.start, (lit, why))
 
-    def take_array(a, b, why):
+    def take(a, b, why, typed=False):
+        keep(branch_literals(fi, a, b, typed, types), why)
+
+    def take_array(a, b, why, typed=True):
+        """Elements of an array literal. Untyped (an overload takes [String] too): only when every
+        element is a literal or a localizable value, else the whole array is a [String]."""
         while a < b and masked[a].isspace():
             a += 1
         if masked[a:a + 1] != "[":
-            take(a, b, why)
+            take(a, b, why, typed)
             return
         end = balanced_end(masked, a)
-        k = a + 1
+        found, k = [], a + 1
         while 0 < end and k < end:
             e = min(arg_end(masked, k), end)
-            take(k, e, why)
+            leaves = leaf_literals(fi, k, e, typed, types)
+            if leaves is None:
+                return
+            found += leaves
             k = e + 1
+        keep(found, why)
 
-    def first_unlabeled(open_paren, why, array=False):
+    def take_value(p, limit, why, array=False, end=None):
+        """A value of a localizable type from p: a literal / ternary up to the end of the statement,
+        or an `if` / `switch` expression (the value of each branch)."""
+        q = p
+        while q < limit and masked[q].isspace():
+            q += 1
+        mk = re.match(r"(if|switch)\b", masked[q:limit])
+        if not mk:
+            e = statement_end(masked, p, limit) if end is None else end(masked, p)
+            if array:
+                take_array(p, e, why)
+            else:
+                take(p, e, why, True)
+            return
+        blk = fi.next_block(q)
+        if blk is None or blk.open >= limit:
+            return
+        if mk.group(1) == "switch":
+            for a, b in case_values(fi, blk):
+                take_value(a, b, why, array)
+        else:
+            for b in if_chain(fi, blk):
+                take_value(b.open + 1, b.close, why, array)
+
+    def first_unlabeled(open_paren, why, array=False, typed=False):
         args = call_args(masked, open_paren)
         if args and args[0][0] is None:
-            (take_array if array else take)(args[0][1], args[0][2], why)
+            if array:
+                take_array(args[0][1], args[0][2], why, typed)
+            else:
+                take(args[0][1], args[0][2], why, typed)
 
-    def labeled(open_paren, wanted, why):
+    def labeled(open_paren, wanted, why, typed=False):
         for label, a, b in call_args(masked, open_paren):
             if label == wanted:
-                take(a, b, why)
+                take(a, b, why, typed)
 
     for m in re.finditer(r"(?<![\w.])(" + "|".join(VIEW_CALLS) + r")(?:\.init)?\s*\(", masked):
         first_unlabeled(m.end() - 1, m.group(1))
     for m in re.finditer(r"\.(" + "|".join(MODIFIERS) + r")\s*\(", masked):
         first_unlabeled(m.end() - 1, "." + m.group(1), array=m.group(1) == "accessibilityInputLabels")
     for m in re.finditer(r"(?<![\w.])(LocalizedStringKey|LocalizedStringResource|NSLocalizedString)(?:\.init)?\s*\(", masked):
-        first_unlabeled(m.end() - 1, m.group(1))
+        first_unlabeled(m.end() - 1, m.group(1), typed=True)
     for m in re.finditer(r"(?<![\w.])(?:String|AttributedString)(?:\.init)?\s*\(", masked):
-        labeled(m.end() - 1, "localized", "String(localized:)")
+        labeled(m.end() - 1, "localized", "String(localized:)", typed=True)
     for m in re.finditer(r"\.searchable\s*\(", masked):
         labeled(m.end() - 1, "prompt", ".searchable(prompt:)")
     for m in re.finditer(r"\.accessibilityAction\s*\(", masked):
         labeled(m.end() - 1, "named", ".accessibilityAction(named:)")
+    # a cast anywhere: `"..." as LocalizedStringKey`, `(c ? "A" : "B") as LocalizedStringKey`
+    for m in re.finditer(r'([")])\s*as\s+' + LOC_TYPES + r"\b", masked):
+        if m.group(1) == '"':
+            lit = next((l for l in fi.lits if l.end == m.start() + 1), None)
+            if lit:
+                keep([lit], "cast")
+        else:
+            o = balanced_start(masked, m.start())
+            if o >= 0:
+                take(o + 1, m.start(), "cast", True)
     # declared / parameter default: `x: LocalizedStringKey = "..."`, `xs: [LocalizedStringResource] = [...]`
     for m in re.finditer(r":\s*(\[\s*)?" + LOC_TYPES + r"\s*(\])?\??\s*=(?!=)\s*", masked):
         p = m.end()
-        eol = masked.find("\n", p)
-        eol = len(masked) if eol < 0 else eol
         if m.group(1):
-            take_array(p, balanced_end(masked, p) + 1 if masked[p:p + 1] == "[" else eol, "typed array")
+            take_value(p, len(masked), "typed array", True,
+                       end=lambda s, a: balanced_end(s, a) + 1 if s[a:a + 1] == "[" else typed_end(s, a))
         else:
-            take(p, typed_end(masked, p), "typed literal")
+            take_value(p, len(masked), "typed literal", end=typed_end)
     # assigned later: `title = "..."` / `self.title = "..."` where the declaration in scope is
-    # typed LocalizedStringKey & co.
+    # typed LocalizedStringKey & co. (not a `let` / `var` / `case` statement)
     for m in re.finditer(r"(?<![\w.])(self\.)?([A-Za-z_]\w*)\s*=(?!=)\s*", masked):
-        name = m.group(2)
-        if name in ("let", "var", "case") or re.search(r"\b(?:let|var|case)\s+$", masked[max(0, m.start() - 8):m.start()]):
-            continue
-        d = types.resolve(name, fi, m.start(), "self" if m.group(1) else "local")
-        if d is not None and d.typ and param_kind(d.typ) in ("loc", "array"):
-            p = m.end()
-            if param_kind(d.typ) == "array":
-                take_array(p, statement_end(masked, p, len(masked)), "assigned")
-            else:
-                take(p, statement_end(masked, p, len(masked)), "assigned")
-    # our own APIs: `name(...)`, `.name(...)` (implicit member), `self.name(...)`, `Type.name(...)`;
-    # `x.name(...)` only for funcs declared in an extension (view modifiers), never os.Logger-like names
-    for name, labels in callees.labels.items():
+        line = masked[masked.rfind("\n", 0, m.start()) + 1:m.start()]
+        mk = re.match(r"\s*(?:@\w+(?:\([^)]*\))?\s+|(?:private|fileprivate|public|internal|static|final|lazy"
+                      r"|weak|unowned|override|nonisolated)\s+)*(?:case|let|var)\b", line)
+        if mk and not re.search(r"[{;]", line[mk.end():]):
+            continue                      # part of a declaration / enum case statement, not an assignment
+        d = types.resolve(m.group(2), fi, m.start(), "self" if m.group(1) else "local")
+        kind = param_kind(d.typ) if d is not None and d.typ else "other"
+        if kind in ("loc", "array"):
+            take_value(m.end(), len(masked), "assigned", kind == "array")
+    # our own APIs: `name(...)`, `self.name(...)`, `Type.name(...)` (Type = the declaring type);
+    # `x.name(...)` only for funcs declared in an extension (view modifiers), never os.Logger-like
+    # names; implicit `.name(...)` never (SDK factories: .custom, .success, .system, ...)
+    for name in callees.localizable:
         for m in re.finditer(r"(\.)?\b" + re.escape(name) + r"\s*\(", masked):
-            if re.search(r"\b(?:func|init)\s*$", masked[max(0, m.start() - 6):m.start()]):
+            if re.search(r"\b(?:func|init|case)\s*$", masked[max(0, m.start() - 6):m.start()]):
                 continue
+            form, base = "bare", None
             if m.group(1):
                 left = masked[:m.start()].rstrip()
-                if left and (left[-1].isalnum() or left[-1] in "_)]}\""):
-                    base = re.search(r"([A-Za-z_]\w*)$", masked[max(0, m.start() - 40):m.start()])
-                    typed = base and (base.group(1) in ("self", "Self") or base.group(1)[:1].isupper())
-                    if not typed and not (name in callees.member_ok and name not in SDK_METHOD_NAMES):
-                        continue           # x.name(...): x's type unknown
-            elif m.start() > 0 and (masked[m.start() - 1].isalnum() or masked[m.start() - 1] == "_"):
+                if not left or not (left[-1].isalnum() or left[-1] in "_)]}\""):
+                    continue               # implicit member: its type is the context's
+                mb = re.search(r"(\.?)([A-Za-z_]\w*)$", masked[max(0, m.start() - 40):m.start()])
+                if mb and not mb.group(1) and mb.group(2) == "self":
+                    form = "self"
+                elif mb and not mb.group(1) and mb.group(2) == "Self":
+                    chain = fi.type_chain(m.start())
+                    form, base = "type", chain[0] if chain else None
+                elif mb and not mb.group(1) and mb.group(2)[:1].isupper():
+                    form, base = "type", mb.group(2)
+                else:
+                    form = "member"
+            labels = callees.labels_for(name, fi, m.start(), form, base)
+            if not labels:
                 continue
             for idx, (label, a, b) in enumerate(call_args(masked, m.end() - 1)):
-                kind = labels.get(label) if label is not None else (labels.get("_") if idx == 0 else None)
+                kind = labels.get(label if label is not None else "_%d" % idx)
                 if kind == "loc":
-                    take(a, b, name + "(" + (label or "_") + ":)")
+                    take(a, b, name + "(" + (label or "_") + ":)", True)
                 elif kind == "array":
                     take_array(a, b, name + "(" + (label or "_") + ":)")
-    # returned: `var t: LocalizedStringKey { ... }`, `func t() -> LocalizedStringKey { ... }`, `get { ... }`
-    for m in re.finditer(r"(?::|->)\s*" + LOC_TYPES + r"\??\s*\{", masked):
+    # returned: `var t: LocalizedStringKey { ... }`, `func t() -> [LocalizedStringKey] { ... }`, its
+    # `get { ... }`: the single-expression body (if / switch expressions too) and every `return`
+    for m in re.finditer(r"(?::|->)\s*(\[\s*)?" + LOC_TYPES + r"\s*(\])?\??\s*\{", masked):
         body = fi.next_block(m.end() - 2)
         if body is None or body.open != m.end() - 1:
             continue
-        bodies = [body]
-        for b in fi.blocks:            # `get { ... }` inside the property
-            if body.open < b.open < body.close and re.search(r"\bget\s*$", b.head):
-                bodies.append(b)
+        array = bool(m.group(1))
+        bodies = [body] + [b for b in fi.blocks if body.open < b.open < body.close and not b.inline
+                           and re.search(r"\bget\s*$", b.head) and fi.innermost(b.open) is body]
         for blk in bodies:
-            take(blk.open + 1, blk.close, "returned")
-            for r in re.finditer(r"\breturn\b|\b(?:case\b[^:\n]*|default\s*):", masked[blk.open + 1:blk.close]):
+            if not re.search(r"\b(?:return|let|var|func|get|set)\b", top_text(fi, blk)):
+                take_value(blk.open + 1, blk.close, "returned", array)
+            for r in re.finditer(r"\breturn\b", masked[blk.open + 1:blk.close]):
                 p = blk.open + 1 + r.end()
-                if not returns_to(fi, p, blk):
-                    continue
-                take(p, statement_end(masked, p, blk.close), "returned")
-            for b in fi.blocks:        # `if c { "A" } else { "B" }` expression branches
-                if blk.open < b.open < blk.close and re.search(r"\b(?:else|if\b[^{}\n]*)\s*$", b.head) \
-                        and returns_to(fi, b.open, blk):
-                    take(b.open + 1, b.close, "returned")
+                if returns_to(fi, p, blk):
+                    take_value(p, blk.close, "returned", array)
     return list(hits.values())
+
+
+def balanced_start(s, i):
+    """Index of the bracket opening the one closed at s[i], or -1."""
+    depth = 0
+    for k in range(i, -1, -1):
+        depth += s[k] in ")]}"
+        depth -= s[k] in "([{"
+        if depth == 0:
+            return k
+    return -1
+
+
+def top_text(fi, blk):
+    """The block's own text, nested blocks blanked."""
+    t = list(fi.masked[blk.open + 1:blk.close])
+    for b in fi.blocks:
+        if blk.open < b.open and b.close < blk.close:
+            for i in range(b.open - blk.open - 1, b.close - blk.open):
+                t[i] = " "
+    return "".join(t)
+
+
+def if_chain(fi, blk):
+    """The branch blocks of `if c { } else if d { } else { }`, from the first one."""
+    out = [blk]
+    while True:
+        m = re.compile(r"\s*else\b").match(fi.masked, blk.close + 1)
+        if not m:
+            return out
+        blk = fi.next_block(m.end() - 1)
+        if blk is None:
+            return out
+        out.append(blk)
+
+
+def label_end(masked, p, b):
+    """After `case`: the position right after its `:` (bracket depth 0), or None when this is not
+    a label (`if case .x = y {`)."""
+    k, depth = p, 0
+    while k < b:
+        c = masked[k]
+        if c in "([":
+            depth += 1
+        elif c in ")]":
+            depth -= 1
+        elif c in "{}" or (c == "=" and masked[k + 1:k + 2] != "=" and masked[k - 1:k] not in "=!<>"):
+            return None
+        elif c == ":" and depth == 0:
+            return k + 1
+        k += 1
+    return None
+
+
+def case_values(fi, sw):
+    """(start, end) of each case's value inside a `switch` block."""
+    masked, labels = fi.masked, []
+    for r in re.finditer(r"\bdefault\s*:|\bcase\b", masked[sw.open + 1:sw.close]):
+        s = sw.open + 1 + r.start()
+        if fi.innermost(s) is not sw:
+            continue
+        e = label_end(masked, sw.open + 1 + r.end(), sw.close) if r.group(0) == "case" else sw.open + 1 + r.end()
+        if e is not None:
+            labels.append((s, e))
+    return [(e, labels[i + 1][0] if i + 1 < len(labels) else sw.close) for i, (s, e) in enumerate(labels)]
 
 
 def returns_to(fi, pos, body):
@@ -744,11 +1044,28 @@ def cut_expr(e):
 
 
 class Decl:
-    __slots__ = ("name", "fi", "off", "typ", "init", "scope", "prop")
+    __slots__ = ("name", "fi", "off", "typ", "init", "scope", "prop", "lo", "hi")
 
-    def __init__(self, name, fi, off, typ, init, scope, prop):
+    def __init__(self, name, fi, off, typ, init, scope, prop, lo=None, hi=None):
         self.name, self.fi, self.off, self.typ, self.init = name, fi, off, typ, init
         self.scope, self.prop = scope, prop
+        self.lo = scope.open if lo is None and scope is not None else lo
+        self.hi = scope.close if hi is None and scope is not None else hi
+
+
+def scope_of(fi, d):
+    """(block, lo, hi) where a declaration at d is visible: the if / while body for its
+    condition bindings, its own case inside a switch, else the innermost block."""
+    prefix = fi.masked[fi.masked.rfind("\n", 0, d) + 1:d]
+    if re.search(r"\b(?:if|while)\b", prefix) and not re.search(r"\bguard\b", prefix):
+        b = fi.next_block(d)
+        return b, None, None
+    b = fi.innermost(d)
+    if b is not None and not b.type_name and re.search(r"\bswitch\b", b.head):
+        for lo, hi in case_values(fi, b):
+            if lo <= d < hi:
+                return b, lo, hi
+    return b, None, None
 
 
 class Types:
@@ -763,16 +1080,35 @@ class Types:
             for m in decl_re.finditer(masked):
                 d = m.start()
                 prefix = masked[masked.rfind("\n", 0, d) + 1:d]
-                scope = fi.innermost(d)
-                if re.search(r"\b(?:if|while)\b", prefix) and not re.search(r"\bguard\b", prefix):
-                    scope = fi.next_block(d)            # `if let x = ...` lives in the if body
+                scope, lo, hi = scope_of(fi, d)
                 typ, init = m.group(3), None
                 if re.search(r"\b(?:case|catch)\b", prefix) or re.search(r"\(\s*$", prefix):
                     typ = None                          # pattern binding: type unknown
                 elif m.group(4) is not None:
                     init = init_expr(fi, m.start(4), m.end(4))
                 prop = bool(scope and scope.type_name and fi.innermost(d) is scope)
-                self.add(Decl(m.group(2), fi, d, typ, init, scope, prop))
+                self.add(Decl(m.group(2), fi, d, typ, init, scope, prop, lo, hi))
+                if re.search(r"\b(?:if|while|guard|case|for)\b", prefix):
+                    continue
+                eol = masked.find("\n", m.end())
+                eol = len(masked) if eol < 0 else eol
+                depth, k = 0, m.end()
+                while k < eol:                          # `var a = 0, b: String = ""`
+                    c = masked[k]
+                    if c in "([{":
+                        depth += 1
+                    elif c in ")]}":
+                        depth -= 1
+                    elif c == "," and depth == 0:
+                        mc = re.compile(r"\s*([A-Za-z_]\w*)\s*(?::\s*(" + TYPE_RE + r"))?\s*(=(?!=))?").match(masked, k + 1)
+                        if mc and (mc.group(2) or mc.group(3)) and mc.group(1) not in ("let", "var", "case"):
+                            self.add(Decl(mc.group(1), fi, k + 1, mc.group(2), None, scope, prop, lo, hi))
+                    k += 1
+            for m in re.finditer(r"\b(?:let|var)\s*\(([^()]*)\)", masked):   # let (a, b) = ...
+                scope, lo, hi = scope_of(fi, m.start())
+                for name in re.findall(r"[A-Za-z_]\w*", m.group(1)):
+                    if name not in ("let", "var", "_"):
+                        self.add(Decl(name, fi, m.start(), None, None, scope, False, lo, hi))
             for m in re.finditer(r"\b(?:func\s+(\w+)|init)\s*(?:<[^>]*>)?\s*\(", masked):
                 q = m.end() - 1
                 e = balanced_end(masked, q)
@@ -907,9 +1243,18 @@ class Types:
         """The declaration `name` means at pos. local: the innermost one in scope (locals,
         parameters, closure / loop variables declared before pos; properties of an enclosing
         type). self: a property of the enclosing type."""
-        cands = [d for d in self.decls.get(name, []) if d.fi is fi and d.scope.open < pos < d.scope.close
-                 and (d.prop or d.off < pos) and (mode == "local" or d.prop)]
-        return max(cands, key=lambda d: (d.scope.open, d.off)) if cands else None
+        types_here = [b for b in fi.blocks if b.type_name and b.open < pos < b.close]
+        tblk = max(types_here, key=lambda b: b.open) if types_here else None
+        cands = [d for d in self.decls.get(name, []) if d.fi is fi and d.lo < pos < d.hi
+                 and (d.prop or d.off < pos) and (mode == "local" or d.prop)
+                 and (not d.prop or d.scope is tblk)]   # an outer type's instance property is not visible
+        if cands:
+            return max(cands, key=lambda d: (d.lo, d.off))
+        if tblk is not None:                  # declared in the type's body elsewhere (extensions)
+            props = [d for d in self.decls.get(name, []) if d.prop and d.scope.type_name == tblk.type_name]
+            if len(props) == 1:
+                return props[0]
+        return None
 
     def lookup(self, name, fi, pos, trace, depth, mode, type_name=None):
         """local / self: see resolve(). type: a static property of TypeName (any file)."""
@@ -957,12 +1302,12 @@ def top_operators(s):
         elif c in ")]}":
             depth -= 1
         elif depth == 0:
-            spaced = k > 0 and s[k - 1] == " " and s[k + 1:k + 2] == " "
+            spaced = k > 0 and s[k - 1].isspace() and s[k + 1:k + 2].isspace()
             if s.startswith("??", k):
                 out.setdefault("??", k)
                 k += 2
                 continue
-            if c == "?" and spaced:
+            if is_ternary_q(s, k):
                 out.setdefault("?", k)
             elif c == ":" and "?" in out and ":" not in out:
                 out[":"] = k
