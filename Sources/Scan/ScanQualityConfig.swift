@@ -64,6 +64,14 @@ struct ScanQualityConfig: Codable {
     // rewrite line in load().
     var exposureCap: String
 
+    // Scan video bitrate (T5, 2.79), kbps, H.264 360×480 ~8 fps. 700 = every build before 2.79
+    // (≈ 157 MB per 30-min scan). Remote so the owner can lower it ONLY after the drafting team
+    // has checked sample clips at the lower value: `{"videoBitrateKbps": 450}` (same delivery as
+    // above; applies from the next scan). Out of 150…4000 or not a number = default.
+    // 🔴 Frozen-default trap (see load()): the blob stores 700 — a changed default needs a
+    // rewrite line in load().
+    var videoBitrateKbps: Double
+
     /// The server switched the exposure cap off for everyone (debug picker aside).
     var exposureCapOff: Bool { exposureCap == Self.exposureCapOffValue }
 
@@ -90,7 +98,8 @@ struct ScanQualityConfig: Codable {
         torchOnBelowBV: -2.5,
         torchOffAboveBV: -1.0,
         torchShareK: 1.0,
-        exposureCap: exposureCapAdaptiveValue
+        exposureCap: exposureCapAdaptiveValue,
+        videoBitrateKbps: 700
     )
 
     // Decode "khoan dung": server chỉ cần gửi field muốn đổi, thiếu field nào dùng mặc định.
@@ -128,6 +137,8 @@ struct ScanQualityConfig: Codable {
         } else {
             exposureCap = d.exposureCap
         }
+        let kbps = (try? c.decodeIfPresent(Double.self, forKey: .videoBitrateKbps)) ?? d.videoBitrateKbps
+        videoBitrateKbps = (kbps.isFinite && kbps >= 150 && kbps <= 4000) ? kbps : d.videoBitrateKbps
     }
 
     /// A hand-edited row that clearly means "off" must not fail open to adaptive.
@@ -148,7 +159,7 @@ struct ScanQualityConfig: Codable {
         lockWhiteBalance: Bool, whiteBalanceLockDelaySec: Double,
         autoTorch: Bool, torchLevel: Double,
         torchOnBelowBV: Double, torchOffAboveBV: Double, torchShareK: Double,
-        exposureCap: String
+        exposureCap: String, videoBitrateKbps: Double
     ) {
         self.enabled = enabled
         self.maxSpeedSoft = maxSpeedSoft
@@ -166,6 +177,7 @@ struct ScanQualityConfig: Codable {
         self.torchOffAboveBV = torchOffAboveBV
         self.torchShareK = torchShareK
         self.exposureCap = exposureCap
+        self.videoBitrateKbps = videoBitrateKbps
     }
 
     // MARK: - Bản đang dùng (cache UserDefaults, server ghi đè qua /catalog)

@@ -1,5 +1,6 @@
 import SwiftUI
 import ARKit
+import BackgroundTasks // F3 (2.79): the iOS 26 continued-processing task for the save
 import AVFoundation // AVCaptureDevice.authorizationStatus — kiểm quyền camera trước khi vào phiên quét
 
 /// Kết quả một lần quét Mesh 3D — gói lại cho gọn chữ ký onFinish.
@@ -166,30 +167,37 @@ struct MeshScanFlowView: View {
             // ✗ nối lại khi chưa sửa GỐC sổ-theo-anchor và chưa hỏi chủ app.
             // Tắt lưới khi đã sang màn preview: nhịp cập nhật dừng hẳn nên CADisplayLink 30Hz
             // không quay không tải suốt lúc khách ngồi xem lại video.
-            ARCameraViewRepresentable(
-                arSession: controller.arSession,
-                sessionDelegate: controller,
-                meshMaxVerts: 600_000,
-                // 🔴 `!isSaving` KHÔNG PHẢI THỪA. `savedRecord` chỉ được gán SAU khi
-                // `stopAndExport()` + `onFinish()` chạy xong, tức sau vài chục giây tới vài
-                // phút dựng mesh + bake màu + nén zip. Thiếu vế này thì lớp phủ giữ nguyên
-                // ~70MB hình học (`wireGeos` + node) xuyên qua ĐÚNG đỉnh RAM của cả app — chỗ
-                // bị iOS giết thì mất trắng buổi quét 10–30 phút. Chỉ gác `isSaving` (không
-                // gác `showNaming`): từ lúc đang lưu là không còn đường quay lại quét tiếp,
-                // nên giải phóng rồi không phải dựng lại; còn ở màn đặt tên thì khách vẫn bấm
-                // "Quay lại" để quét thêm được.
-                showMesh: showScanMesh && savedRecord == nil && !isSaving,
-                recordedCounts: { [weak controller] in controller?.recordedAnchorCounts ?? [:] }
-                // photoCoverage CỐ Ý không truyền (default nil) — đọc chú thích 🔴 ở trên.
-                // Reconnecting also needs a MeshScanController accessor for the recorder's
-                // `coverage` (`texShots` is private; the unused one was removed in 2.78).
-            )
-            .ignoresSafeArea()
+            // 🔴 `!isSaving` KHÔNG PHẢI THỪA. `savedRecord` chỉ được gán SAU khi `stopAndExport()`
+            // + `onFinish()` chạy xong, tức sau vài chục giây tới vài phút dựng mesh + nén zip.
+            // Thiếu vế này thì lớp phủ giữ nguyên ~70MB hình học (`wireGeos` + node) xuyên qua
+            // ĐÚNG đỉnh RAM của cả app — chỗ bị iOS giết thì mất trắng buổi quét 10–30 phút. Chỉ
+            // gác `isSaving` (không gác `showNaming`): từ lúc đang lưu là không còn đường quay lại
+            // quét tiếp, nên giải phóng rồi không phải dựng lại; còn ở màn đặt tên thì khách vẫn
+            // bấm "Quay lại" để quét thêm được.
+            // T3 (2.79): the WHOLE camera view goes at that moment (was: only the mesh layer), and
+            // with it ARSCNView's hold on the session — `stopAndExport` drops the controller's own
+            // right after `pause()`. The scan itself is unchanged: mesh and camera image still
+            // come from ONE view while scanning (§RUNG LƯỚI). Black behind the saving card.
+            if let session = controller.arSession, !isSaving, savedRecord == nil {
+                ARCameraViewRepresentable(
+                    arSession: session,
+                    sessionDelegate: controller,
+                    meshMaxVerts: 600_000,
+                    showMesh: showScanMesh,
+                    recordedCounts: { [weak controller] in controller?.recordedAnchorCounts ?? [:] }
+                    // photoCoverage CỐ Ý không truyền (default nil) — đọc chú thích 🔴 ở trên.
+                    // Reconnecting also needs a MeshScanController accessor for the recorder's
+                    // `coverage` (`texShots` is private; the unused one was removed in 2.78).
+                )
+                .ignoresSafeArea()
+            } else {
+                Color.black.ignoresSafeArea()
+            }
 
-            if !isSaving && !showNaming && savedRecord == nil {
+            if !isSaving && !showNaming && savedRecord == nil, let session = controller.arSession {
                 // Yellow "TOO CLOSE" sheet where the LiDAR sees < 0.5 m (owner 28/09). Under the
                 // HUD; torn down with it, so its display link stops while naming/saving.
-                TooCloseSheetView(arSession: controller.arSession)
+                TooCloseSheetView(arSession: session)
                     .ignoresSafeArea()
                     .allowsHitTesting(false)
                     .accessibilityHidden(true)
@@ -682,22 +690,36 @@ struct MeshScanFlowView: View {
         guard !isSaving else { return } // chống double-tap nút Lưu
         isSaving = true
         saveProgress.reset()
+        // T3 (2.79): RAM of this save for scan-report.json — started before the camera goes.
+        let probe = SaveProbe.begin()
+        // Giữ app sống nếu bị background đúng lúc export/lưu (cuộc gọi đến ở giây cuối) —
+        // không thì buổi quét 30 phút có thể mất trắng vì chưa ghi record.
+        // 2.78 (L1): with an expiration handler that ENDS the task; 2.79 (F3): plus, on iOS 26,
+        // a continued-processing task (progress on the Lock Screen) — see `SaveBackgroundTime`.
+        // Begun HERE, in the Save tap itself: iOS 26 accepts that task only from a user action.
+        let background = SaveBackgroundTime(probe: probe)
+        background.begin()
         // MỘT đầu thu dùng chung cho cả hai nửa (xuất trong controller + nén trong ScanStore):
-        // thang % là một dải liền, hai nửa chỉ khác nhau ở chặng nào đang chạy.
-        let report = saveProgress.reporter()
+        // thang % là một dải liền, hai nửa chỉ khác nhau ở chặng nào đang chạy. It also feeds
+        // the probe (stage marks) and the Lock Screen progress.
+        let toBar = saveProgress.reporter()
+        let report: SaveStageReport = { stage, value in
+            probe.mark(stage)
+            toBar(stage, value)
+            Task { @MainActor in
+                background.report(stage, value)
+            }
+        }
         let name = scanName.trimmingCharacters(in: .whitespacesAndNewlines)
         Task {
-            // Giữ app sống nếu bị background đúng lúc export/lưu (cuộc gọi đến ở giây
-            // cuối) — không thì buổi quét 30 phút có thể mất trắng vì chưa ghi record.
-            // 2.78 (L1): with an expiration handler that ENDS the task — see `SaveBackgroundTime`.
-            let background = SaveBackgroundTime()
-            background.begin()
+            var success = false
             defer {
                 // Trả lại auto-lock CHỈ khi đã lưu xong hẳn (stopAndExport giữ màn hình
                 // thức qua cả export lẫn giai đoạn nén zip trong onFinish). Từ đây trở đi
                 // khách chỉ ngồi xem video ở màn preview — khoá máy lúc đó là chuyện thường.
                 UIApplication.shared.isIdleTimerDisabled = false
-                background.end()
+                background.end(success: success)
+                probe.end()
             }
             let exported = await controller.stopAndExport(progress: report)
             let result = MeshScanResult(
@@ -727,6 +749,7 @@ struct MeshScanFlowView: View {
                 dismiss()
                 return
             }
+            success = true
             // 100% CHỈ ở đây, trong cùng một nhịp main với việc chuyển sang màn preview: mọi
             // việc đã xong thật. SwiftUI gộp ba phép gán này thành MỘT lượt dựng lại, nên
             // khung 100% gần như không bao giờ được vẽ — đúng yêu cầu "✗ chạm 100% trước khi
@@ -745,31 +768,179 @@ struct MeshScanFlowView: View {
 /// scan, gone). So the expiration handler ENDS the task: iOS suspends the app instead and the
 /// save carries on when the customer comes back. Back on screen = renewed, so the next lock or
 /// call gets its own ~30 s. Same pattern as `UploadKeepAlive.renew/expire`. Main thread only.
+///
+/// F3 (2.79), iOS 26+: ALSO a `BGContinuedProcessingTask` — the system keeps the app running in
+/// the background for the whole save and shows its progress (title "Building 3D model…", the
+/// stage label, the save's own percent) in a Live Activity on the Lock Screen, so a lock or a
+/// call no longer pauses the save. The 2.78 task stays underneath as the fallback (iOS < 26,
+/// submission refused, or the task ended early). Rules from Apple's docs (20/10):
+///  - submitted from the Save tap (a user action), strategy `.fail`: it starts now or not at all;
+///  - identifier = bundle id + ".save." + a fresh suffix, registered just before the submit
+///    (once per identifier — a second registration kills the app; submitting an identifier with
+///    no handler raises), permitted by the Info.plist wildcard `$(PRODUCT_BUNDLE_IDENTIFIER).*`
+///    (project.yml). The runtime bundle id is used ON PURPOSE: AltStore re-signs the app as
+///    `com.cedar247.cedarscan.<TEAMID>` and the identifier must begin with the RUNNING bundle id;
+///    the plist pattern still covers it. Not covered = no submission (2.78 path only);
+///  - progress = completed units of 100 (the system UI reads units; a task that stops reporting
+///    may be expired — the save's dumb stages, zip above all, report nothing for a while);
+///  - CPU only (no GPU resource requested: nothing in the save needs one in the background).
+/// Expiration (the system, or the customer stopping it in the Live Activity) = the task ends
+/// at once and the SAVE GOES ON: cancelling a save would delete the scan, which no one means by
+/// it. In the background the app is then suspended like 2.78 and finishes on return.
 @MainActor
 private final class SaveBackgroundTime {
     private var task: UIBackgroundTaskIdentifier = .invalid
     private var activeObserver: NSObjectProtocol?
+    private let probe: SaveProbe
+    /// The running continued-processing task (`BGContinuedProcessingTask`, iOS 26; typed
+    /// `AnyObject` so the class needs no availability). nil = not started / over.
+    private var continued: AnyObject?
+    private var continuedId: String?
+    private var ended = false
+    /// What the save's reporter last said, on the bar's 0…1 scale (`SaveStage.start/end`).
+    private var fraction = 0.0
+    private var stage: SaveStage?
+
+    init(probe: SaveProbe) {
+        self.probe = probe
+    }
 
     func begin() {
         renew()
-        guard activeObserver == nil else { return }
-        activeObserver = NotificationCenter.default.addObserver(
-            forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main
-        ) { [weak self] _ in
-            MainActor.assumeIsolated {
-                guard let self else { return }
-                self.renew()
+        if activeObserver == nil {
+            activeObserver = NotificationCenter.default.addObserver(
+                forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main
+            ) { [weak self] _ in
+                MainActor.assumeIsolated {
+                    guard let self else { return }
+                    self.renew()
+                }
             }
+        }
+        if #available(iOS 26.0, *) {
+            submitContinued()
+        } else {
+            probe.set("bgTask", "unsupported")
         }
     }
 
     /// End of the save (every exit). Idempotent.
-    func end() {
+    func end(success: Bool) {
         if let activeObserver {
             NotificationCenter.default.removeObserver(activeObserver)
         }
         activeObserver = nil
         expire()
+        guard !ended else { return }
+        ended = true
+        if #available(iOS 26.0, *) {
+            if let running = continued as? BGContinuedProcessingTask {
+                if success {
+                    running.progress.completedUnitCount = running.progress.totalUnitCount
+                }
+                running.setTaskCompleted(success: success)
+            } else if let continuedId {
+                // Submitted but never launched: nothing must start after the save.
+                BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: continuedId)
+            }
+        }
+        continued = nil
+    }
+
+    /// The save's progress (main): Lock Screen percent + stage label. Same scale and the same
+    /// never-backwards rule as `ScanSaveProgress`.
+    func report(_ reported: SaveStage, _ localFraction: Double) {
+        let clamped = min(max(localFraction, 0), 1)
+        let value = min(reported.end, reported.start + clamped * (reported.end - reported.start))
+        let movedOn = stage.map { reported.rawValue > $0.rawValue } ?? true
+        if movedOn { stage = reported }
+        fraction = max(fraction, value)
+        guard #available(iOS 26.0, *), let running = continued as? BGContinuedProcessingTask else { return }
+        show(on: running, newStage: movedOn)
+    }
+
+    @available(iOS 26.0, *)
+    private func show(on running: BGContinuedProcessingTask, newStage: Bool) {
+        let units = Int64((fraction * 100).rounded(.down))
+        if units > running.progress.completedUnitCount {
+            running.progress.completedUnitCount = units
+        }
+        if newStage, let stage {
+            running.updateTitle(running.title, subtitle: stage.label)
+        }
+    }
+
+    @available(iOS 26.0, *)
+    private func submitContinued() {
+        guard let bundleId = Bundle.main.bundleIdentifier, !bundleId.isEmpty else {
+            probe.set("bgTask", "notPermitted")
+            return
+        }
+        let prefix = bundleId + ".save."
+        let permitted = Bundle.main.object(forInfoDictionaryKey: "BGTaskSchedulerPermittedIdentifiers")
+            as? [String] ?? []
+        let covered = permitted.contains { pattern in
+            pattern.hasSuffix(".*") && prefix.hasPrefix(String(pattern.dropLast()))
+        }
+        guard covered else {
+            probe.set("bgTask", "notPermitted")
+            return
+        }
+        let identifier = prefix + UUID().uuidString.replacingOccurrences(of: "-", with: "")
+        let registered = BGTaskScheduler.shared.register(
+            forTaskWithIdentifier: identifier, using: .main
+        ) { [weak self] launched in
+            MainActor.assumeIsolated {
+                guard let running = launched as? BGContinuedProcessingTask else {
+                    launched.setTaskCompleted(success: false)
+                    return
+                }
+                guard let self, !self.ended else {
+                    // The save is over already (or the screen is gone).
+                    running.setTaskCompleted(success: true)
+                    return
+                }
+                self.adopt(running)
+            }
+        }
+        guard registered else {
+            probe.set("bgTask", "notPermitted")
+            return
+        }
+        let request = BGContinuedProcessingTaskRequest(
+            identifier: identifier,
+            title: String(localized: "Building 3D model…"),
+            subtitle: (stage ?? .finishingCapture).label
+        )
+        request.strategy = .fail
+        do {
+            try BGTaskScheduler.shared.submit(request)
+            continuedId = identifier
+            probe.set("bgTask", "started")
+        } catch {
+            probe.set("bgTask", "submitFailed:\((error as NSError).code)")
+        }
+    }
+
+    @available(iOS 26.0, *)
+    private func adopt(_ running: BGContinuedProcessingTask) {
+        continued = running
+        running.progress.totalUnitCount = 100
+        show(on: running, newStage: true)
+        // Called by the system on its own queue; the work goes on (see the class comment).
+        running.expirationHandler = { @Sendable [weak self] in
+            Task { @MainActor in
+                self?.expireContinued()
+            }
+        }
+    }
+
+    @available(iOS 26.0, *)
+    private func expireContinued() {
+        guard let running = continued as? BGContinuedProcessingTask else { return }
+        continued = nil
+        probe.set("bgTask", "expired")
+        running.setTaskCompleted(success: false)
     }
 
     /// No-op while a task is held. One at a time ⇒ the handler always ends the held one.

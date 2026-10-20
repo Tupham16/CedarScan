@@ -497,7 +497,8 @@ final class ColorMeshBuilder {
     /// tam giác, bake màu (~150 TRIỆU vòng lọc: 2,5 triệu đỉnh × 60 khung), vá đỉnh xám. Đỉnh vẫn có màu XÁM HẰNG SỐ
     /// chứ không phải mảng rỗng — xem `uncoloredGrey`.
     /// Bonus RAM: không cần kho khung màu nên nó chết NGAY (~67MB — trước đợt bỏ picker là 179/358MB)
-    /// trước khi cấp phát `Data` của PLY.
+    /// trước khi ghi PLY; from 2.79 (T1) this path streams the pieces to the file without a
+    /// merged copy (`streamPiecesPLY`).
     ///
     /// `progress`: đầu thu % (xem `ScanSaveProgress`). 🔴 PHẢI là closure `@Sendable` TRẦN, ✗
     /// một tham chiếu tới builder/`SamplerStore`: closure này bị `queue.async` giữ suốt thời
@@ -517,8 +518,8 @@ final class ColorMeshBuilder {
         // Dựng sampler NGAY TẠI ĐÂY (rẻ: O(K), một phép nghịch đảo 4×4 mỗi khung) rồi THẢ
         // `self.keyframes`. Mảng `ColorFrame` chết đi, còn bộ nhớ ảnh thật (rgb/depth) vẫn
         // sống vì sampler giữ tham chiếu — đó là thứ vòng bake cần. Kho ảnh này ~67MB (trước
-        // đợt bỏ picker là 179/358MB) nên nó phải chết TRƯỚC khi cấp phát vùng `Data` của file
-        // PLY — xem `SamplerStore` và `buildPLY`.
+        // đợt bỏ picker là 179/358MB) nên nó phải chết TRƯỚC khi ghi file PLY — xem
+        // `SamplerStore` và `buildPLY`.
         let store = geometryOnly
             ? SamplerStore(geos: [], samplers: [])
             : SamplerStore(
@@ -832,16 +833,6 @@ final class ColorMeshBuilder {
         refineLargeTriangles: Bool, fillUncoloredVertices: Bool,
         geometryOnly: Bool = false, progress: @escaping SaveStageReport
     ) -> URL? {
-        // Mốc con TRONG chặng `.buildingMesh` (thang 0…1 của riêng chặng này). ƯỚC LƯỢNG THEO
-        // CẤU TRÚC, chưa ai bấm giờ trên máy thật — xem bảng `SaveStage.weight`.
-        // Hai đường rất khác nhau: LƯU NHANH bỏ hẳn chia tam giác + bake màu nên gần hết thời
-        // gian nằm ở gộp mảnh và ghi byte; đường cũ thì bake màu nuốt phần lớn.
-        let mergeShare = 0.25
-        let colorShare = geometryOnly ? 0.35 : 0.70
-        let vertexShare = geometryOnly ? 0.80 : 0.88
-        let faceShare = 0.97
-        // Gộp lưới thành 1 mảng đỉnh + mặt (dời chỉ số).
-        //
         // Duyệt theo THỨ TỰ ĐÃ SẮP của khoá thay vì `pieces.values`: thứ tự Dictionary của
         // Swift không xác định, nên lưu hai lần cùng một bản quét cho ra hai file khác nhau về
         // thứ tự đỉnh. Sắp vài trăm–vài nghìn UUID tốn dưới 1ms, đổi lại khi so hai bản export
@@ -849,10 +840,26 @@ final class ColorMeshBuilder {
         // thu màu của đợt này. (Thứ tự này cũng quyết định mặt nào được chia trước khi
         // `refineVertexCeiling` chạm trần — hôm nay trần đang ngủ, nhưng ai hạ
         // `refineEdgeThreshold` trong tương lai thì nợ luôn phần ưu tiên chia theo cạnh dài.)
+        // 🔴 The workstation harness (`tools/preview-harness/load_cache.py`) recovers the pieces
+        // from this order: every piece = one contiguous vertex range + one contiguous face range.
+        let sortedKeys = pieces.keys.sorted(by: { $0.uuidString < $1.uuidString })
+
+        // LƯU NHANH (T1, 2.79): nothing to subdivide or paint, so the pieces go STRAIGHT to the
+        // file — no merged copy of the mesh, no colour array, no whole-file buffer.
+        if geometryOnly {
+            return streamPiecesPLY(pieces: pieces, sortedKeys: sortedKeys, progress: progress)
+        }
+
+        // Mốc con TRONG chặng `.buildingMesh` (thang 0…1 của riêng chặng này). ƯỚC LƯỢNG THEO
+        // CẤU TRÚC, chưa ai bấm giờ trên máy thật — xem bảng `SaveStage.weight`. Đây là đường
+        // KHÔNG lưu-nhanh: bake màu nuốt phần lớn thời gian.
+        let mergeShare = 0.25
+        let colorShare = 0.70
+        let faceShare = 0.97
+        // Gộp lưới thành 1 mảng đỉnh + mặt (dời chỉ số) — cần cho chia tam giác + bake màu.
         var vertices: [SIMD3<Float>] = []
         var normals: [SIMD3<Float>] = []
         var faces: [(UInt32, UInt32, UInt32)] = []
-        let sortedKeys = pieces.keys.sorted(by: { $0.uuidString < $1.uuidString })
         // Báo tối đa ~25 nhịp cho cả vòng gộp (mảnh = anchor ARKit, hàng trăm tới hàng nghìn).
         let mergeReportEvery = max(1, sortedKeys.count / 25)
         for (n, key) in sortedKeys.enumerated() {
@@ -880,8 +887,7 @@ final class ColorMeshBuilder {
         }
 
         // Đầu thu con cho vòng bake màu: nó chỉ biết mình chạy tới đâu (0…1), việc quy về thang
-        // chung nằm ở đây. CHỈ đường KHÔNG lưu-nhanh gọi tới. Khai TRƯỚC khối chú thích dưới để
-        // khối đó dính liền với `let colors` như cũ.
+        // chung nằm ở đây. Khai TRƯỚC khối chú thích dưới để khối đó dính liền với `let colors`.
         // 🔴 Nó sống tới cuối hàm, tức vắt qua chỗ `store.samplers = []` — nên nó KHÔNG ĐƯỢC
         // capture `store`/`vertices`/bất cứ thứ gì của kho khung màu. Hôm nay nó giữ đúng hai
         // thứ: `progress` (weak tới hộp số) và một Double.
@@ -893,90 +899,217 @@ final class ColorMeshBuilder {
         // chiếu TẠM tới kho khung màu chỉ sống trong khung ngăn xếp của `paintColors`, nên khi
         // nó trả về thì `store` là nơi DUY NHẤT còn giữ kho — dọn hai trường ngay sau đó mới
         // thật sự trả bộ nhớ về hệ điều hành.
-        // 🔴 ĐƯỜNG LƯU NHANH vẫn phải cấp mảng màu ĐỦ ĐỘ DÀI, không được để rỗng: PLY dưới
-        // đây ghi 15 byte/đỉnh (12 vị trí + 3 RGB) và `ColoredMeshPLY.parse` ĐÒI đúng bố cục
-        // đó; `ColoredOBJExporter.writeOBJ` thì đọc `mesh.colors[k]` cho MỌI đỉnh → mảng rỗng
-        // là CRASH ngoài tầm do/catch, ngay sau buổi quét 10–30 phút. Màu hằng số nén rất tốt
-        // nên zip vẫn nhẹ đi nhiều dù OBJ vẫn ghi 6 số mỗi đỉnh.
-        let colors = geometryOnly
-            ? [SIMD3<UInt8>](repeating: uncoloredGrey, count: vertices.count)
-            : paintColors(
-                vertices: vertices, normals: normals, faces: faces,
-                geos: store.geos, samplers: store.samplers,
-                fillUncoloredVertices: fillUncoloredVertices,
-                report: paintReport
-            )
+        // (Đường LƯU NHANH không tới đây: nó ghi xám `uncoloredGrey` cho MỌI đỉnh ngay trong
+        // `PLYStreamWriter` — vẫn đủ 15 byte/đỉnh, xem ở đó.)
+        let colors = paintColors(
+            vertices: vertices, normals: normals, faces: faces,
+            geos: store.geos, samplers: store.samplers,
+            fillUncoloredVertices: fillUncoloredVertices,
+            report: paintReport
+        )
         progress(.buildingMesh, colorShare)
 
-        // 🔴 NHẢ KHO KHUNG MÀU NGAY TẠI ĐÂY — TRƯỚC khi cấp phát `Data` của PLY (~102MB ở 2,5
-        // triệu đỉnh). Đây là đỉnh RAM của cả quy trình lưu; kho khung (~67MB) cộng thêm vào
-        // đúng đỉnh đó nếu không thả.
+        // 🔴 NHẢ KHO KHUNG MÀU NGAY TẠI ĐÂY — TRƯỚC khi ghi file PLY (~102MB ở 2,5 triệu đỉnh).
+        // Kho khung (~67MB) cộng thêm vào đúng đỉnh RAM của quy trình lưu nếu không thả.
         // ⚠ ĐỪNG đưa hai dòng này vào TRONG `paintColors`: ở đó chúng lại chỉ hạ số đếm tham
         // chiếu chứ không giải phóng, đúng cái bẫy đã tả ở `SamplerStore`.
         store.samplers = []
         store.geos = []
+        // T1 (2.79): normals only fed the subdivision + bake; the file has none. A local of
+        // THIS function (no closure holds it), so this frees ~16 bytes per vertex for real.
+        normals = []
 
-        // Ghi PLY nhị phân little-endian (KHÔNG dùng ModelIO — lỗi màu trên iOS)
-        var header = "ply\n"
-        header += "format binary_little_endian 1.0\n"
-        header += "comment CedarScan colored LiDAR mesh\n"
-        header += "element vertex \(vertices.count)\n"
-        header += "property float x\nproperty float y\nproperty float z\n"
-        header += "property uchar red\nproperty uchar green\nproperty uchar blue\n"
-        header += "element face \(faces.count)\n"
-        header += "property list uchar uint vertex_indices\n"
-        header += "end_header\n"
-
-        var data = Data(header.utf8)
-        data.reserveCapacity(header.count + vertices.count * 15 + faces.count * 13)
-        // Nhịp báo: ~50 lần cho cả vòng đỉnh (2,5 triệu đỉnh ⇒ mỗi 50k bước, đúng mức trần
-        // "≤1% hoặc ≤ mỗi 50k vòng"). Mỗi lần báo là một `Task` nhảy về main — báo theo từng
-        // đỉnh sẽ tốn hơn chính công việc đang đo.
-        let vertexReportEvery = max(1, vertices.count / 50)
-        var nextVertexReport = vertexReportEvery
-        for i in vertices.indices {
-            var x = vertices[i].x, y = vertices[i].y, z = vertices[i].z
-            withUnsafeBytes(of: &x) { data.append(contentsOf: $0) }
-            withUnsafeBytes(of: &y) { data.append(contentsOf: $0) }
-            withUnsafeBytes(of: &z) { data.append(contentsOf: $0) }
-            data.append(colors[i].x); data.append(colors[i].y); data.append(colors[i].z)
-            if i >= nextVertexReport {
-                nextVertexReport += vertexReportEvery
-                progress(
-                    .buildingMesh,
-                    colorShare + (vertexShare - colorShare) * Double(i) / Double(vertices.count)
-                )
-            }
+        let writeShare = faceShare - colorShare
+        return writePLY(
+            vertexCount: vertices.count, faceCount: faces.count,
+            report: { f in progress(.buildingMesh, colorShare + writeShare * f) }
+        ) { writer in
+            try writer.appendVertices(vertices, colors: colors)
+            try writer.appendFaces(faces, base: 0)
+        }.map { (url: URL) -> URL in
+            progress(.buildingMesh, 1)
+            return url
         }
-        progress(.buildingMesh, vertexShare)
-        let faceReportEvery = max(1, faces.count / 30)
-        var nextFaceReport = faceReportEvery
-        var faceIndex = 0
-        for f in faces {
-            data.append(3)
-            var a = f.0, b = f.1, c = f.2
-            withUnsafeBytes(of: &a) { data.append(contentsOf: $0) }
-            withUnsafeBytes(of: &b) { data.append(contentsOf: $0) }
-            withUnsafeBytes(of: &c) { data.append(contentsOf: $0) }
-            faceIndex += 1
-            if faceIndex >= nextFaceReport {
-                nextFaceReport += faceReportEvery
-                progress(
-                    .buildingMesh,
-                    vertexShare + (faceShare - vertexShare) * Double(faceIndex) / Double(faces.count)
-                )
-            }
-        }
-        progress(.buildingMesh, faceShare)
+    }
 
+    /// LƯU NHANH (T1, 2.79): the file `buildPLY` used to make by merging every piece into new
+    /// arrays and then into one ~70–100MB `Data` — the RAM peak of the whole save — now streamed
+    /// piece by piece in the same sorted-key order. Bytes identical to the merged writer: all
+    /// vertices of every piece (grey, `uncoloredGrey`), then all faces with a running index base.
+    private static func streamPiecesPLY(
+        pieces: [UUID: MeshPiece], sortedKeys: [UUID], progress: @escaping SaveStageReport
+    ) -> URL? {
+        var vertexCount = 0
+        var faceCount = 0
+        for key in sortedKeys {
+            guard let piece = pieces[key] else { continue }
+            vertexCount += piece.worldVertices.count
+            faceCount += piece.faces.count
+        }
+        // Same "nothing to save" rule as the merged path; UInt32 indices (the cap is 2M).
+        guard vertexCount > 0, faceCount > 0, vertexCount <= Int(UInt32.max) else { return nil }
+        progress(.buildingMesh, 0)
+        return writePLY(
+            vertexCount: vertexCount, faceCount: faceCount,
+            report: { f in progress(.buildingMesh, 0.97 * f) }
+        ) { writer in
+            for key in sortedKeys {
+                guard let piece = pieces[key] else { continue }
+                try writer.appendVertices(piece.worldVertices, colors: nil)
+            }
+            var base: UInt32 = 0
+            for key in sortedKeys {
+                guard let piece = pieces[key] else { continue }
+                try writer.appendFaces(piece.faces, base: base)
+                base &+= UInt32(piece.worldVertices.count)
+            }
+        }.map { (url: URL) -> URL in
+            progress(.buildingMesh, 1)
+            return url
+        }
+    }
+
+    /// One PLY in tmp through `PLYStreamWriter`: header, `body` writes the elements, then the
+    /// byte count is checked against the header. nil (and no file left) on any failure — the
+    /// caller then saves without a mesh, as a failed `Data.write` did.
+    private static func writePLY(
+        vertexCount: Int, faceCount: Int, report: @escaping (Double) -> Void,
+        body: (PLYStreamWriter) throws -> Void
+    ) -> URL? {
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("colored-mesh-\(UUID().uuidString.prefix(8)).ply")
         do {
-            try data.write(to: url)
-            progress(.buildingMesh, 1)
+            let writer = try PLYStreamWriter(
+                url: url, vertexCount: vertexCount, faceCount: faceCount, report: report
+            )
+            try body(writer)
+            try writer.finish()
             return url
         } catch {
+            try? FileManager.default.removeItem(at: url)
             return nil
+        }
+    }
+
+    /// Writes the PLY that `ColoredMeshPLY.parse` reads, byte for byte the layout of the old
+    /// `Data` writer (T1, 2.79): the ASCII header below, then 15 bytes per vertex (x y z Float32
+    /// little-endian + r g b), then 13 bytes per face (count byte 3 + three UInt32
+    /// little-endian). 🔴 ✗ change the layout: `ColoredMeshPLY.parse` demands exactly this
+    /// header and these strides (handoff §Lưu nhanh), and the workstation harness reads it.
+    /// Proof 20/10 on two real fast-save scans (`scratch_279engine\ply_mirror.py` + `ply_check.py`,
+    /// Python ports): streamed bytes == merged bytes (2MB and 4KB buffers), and they parse back
+    /// into the phone's own model.obj byte for byte.
+    ///
+    /// ONE reusable 2MB `[UInt8]` (the `ColoredOBJExporter.writeOBJ` reason: ✗ `Data` appends)
+    /// filled with raw stores and handed to the file when full — RAM stays ~2MB at any size.
+    /// arm64 is little-endian, like the `withUnsafeBytes` appends this replaces.
+    private final class PLYStreamWriter {
+        private let handle: FileHandle
+        private var buffer: [UInt8]
+        private var used = 0
+        private var written = 0
+        private let expected: Int
+        private let report: (Double) -> Void
+        private var closed = false
+        private static let capacity = 2 << 20
+
+        init(url: URL, vertexCount: Int, faceCount: Int, report: @escaping (Double) -> Void) throws {
+            guard FileManager.default.createFile(atPath: url.path, contents: nil) else {
+                throw CocoaError(.fileWriteUnknown)
+            }
+            handle = try FileHandle(forWritingTo: url)
+            buffer = [UInt8](repeating: 0, count: Self.capacity)
+            // Ghi PLY nhị phân little-endian (KHÔNG dùng ModelIO — lỗi màu trên iOS)
+            var header = "ply\n"
+            header += "format binary_little_endian 1.0\n"
+            header += "comment CedarScan colored LiDAR mesh\n"
+            header += "element vertex \(vertexCount)\n"
+            header += "property float x\nproperty float y\nproperty float z\n"
+            header += "property uchar red\nproperty uchar green\nproperty uchar blue\n"
+            header += "element face \(faceCount)\n"
+            header += "property list uchar uint vertex_indices\n"
+            header += "end_header\n"
+            let headerBytes = Array(header.utf8)
+            expected = headerBytes.count + vertexCount * 15 + faceCount * 13
+            self.report = report
+            buffer.replaceSubrange(0..<headerBytes.count, with: headerBytes)
+            used = headerBytes.count
+        }
+
+        deinit {
+            if !closed { try? handle.close() }
+        }
+
+        /// `colors` nil = every vertex `uncoloredGrey` (fast save); else one per point.
+        func appendVertices(_ points: [SIMD3<Float>], colors: [SIMD3<UInt8>]?) throws {
+            let grey = ColorMeshBuilder.uncoloredGrey
+            var i = 0
+            while i < points.count {
+                if Self.capacity - used < 15 { try flush() }
+                let end = min(points.count, i + (Self.capacity - used) / 15)
+                let start = i
+                let offset = used
+                used = buffer.withUnsafeMutableBytes { raw -> Int in
+                    var o = offset
+                    for k in start..<end {
+                        let p = points[k]
+                        let c = colors?[k] ?? grey
+                        raw.storeBytes(of: p.x, toByteOffset: o, as: Float.self)
+                        raw.storeBytes(of: p.y, toByteOffset: o + 4, as: Float.self)
+                        raw.storeBytes(of: p.z, toByteOffset: o + 8, as: Float.self)
+                        raw[o + 12] = c.x
+                        raw[o + 13] = c.y
+                        raw[o + 14] = c.z
+                        o += 15
+                    }
+                    return o
+                }
+                i = end
+            }
+        }
+
+        /// Each face + `base` (wrapping: a corrupt index must not trap mid-save).
+        func appendFaces(_ faces: [(UInt32, UInt32, UInt32)], base: UInt32) throws {
+            var i = 0
+            while i < faces.count {
+                if Self.capacity - used < 13 { try flush() }
+                let end = min(faces.count, i + (Self.capacity - used) / 13)
+                let start = i
+                let offset = used
+                used = buffer.withUnsafeMutableBytes { raw -> Int in
+                    var o = offset
+                    for k in start..<end {
+                        let f = faces[k]
+                        raw[o] = 3
+                        raw.storeBytes(of: f.0 &+ base, toByteOffset: o + 1, as: UInt32.self)
+                        raw.storeBytes(of: f.1 &+ base, toByteOffset: o + 5, as: UInt32.self)
+                        raw.storeBytes(of: f.2 &+ base, toByteOffset: o + 9, as: UInt32.self)
+                        o += 13
+                    }
+                    return o
+                }
+                i = end
+            }
+        }
+
+        /// Last bytes out, then the length must be exactly what the header announced.
+        func finish() throws {
+            try flush()
+            guard written == expected, try handle.offset() == UInt64(expected) else {
+                throw CocoaError(.fileWriteUnknown)
+            }
+            closed = true
+            try handle.close()
+        }
+
+        /// ~50 calls for a 100MB file: also the progress beat (fraction of the file written).
+        private func flush() throws {
+            guard used > 0 else { return }
+            // `Data(...)` explicit, as `ColoredOBJExporter.writeOBJ` (one ≤2MB copy per flush).
+            try handle.write(contentsOf: Data(buffer[0..<used]))
+            written += used
+            used = 0
+            report(Double(written) / Double(max(expected, 1)))
         }
     }
 
@@ -1327,7 +1460,7 @@ final class ColorMeshBuilder {
     /// `samplers` được truyền theo kiểu MƯỢN, nên mọi tham chiếu tạm tới kho khung màu chết
     /// đúng lúc hàm này trả về. Nhờ vậy `buildPLY` dọn `store` ngay sau đó là giải phóng THẬT.
     /// Viết thẳng vào `buildPLY` thì các biến cục bộ sống tới cuối hàm và kho khung màu
-    /// nằm lì qua bước cấp phát `Data` của PLY — đúng đỉnh RAM mà cả đợt này muốn hạ.
+    /// nằm lì qua bước ghi PLY — đúng đỉnh RAM mà cả đợt này muốn hạ.
     ///
     /// `report`: 0…1 của RIÊNG hàm này (bao gồm cả 2 lượt vá bên dưới). Gọi từ TRONG
     /// `concurrentPerform` nên nó phải chịu được lời gọi từ nhiều luồng — `SaveStageReport`

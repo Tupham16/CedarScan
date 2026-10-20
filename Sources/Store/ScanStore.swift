@@ -519,13 +519,19 @@ final class ScanStore: ObservableObject {
             // taken before the colour join; `storeMs` after it).
             let job = colourJob
             let reportForJob = savedReportURL
+            // 2.79: + the save's memory figures (T3) and background-task status (F3) so far —
+            // `SaveProbe.active`, started by MeshScanFlowView (no parameter: the two call sites
+            // would only pass it through).
+            let probe = SaveProbe.active
             let packHook: @Sendable (Int, Double) -> Void = { attempt, attemptStart in
                 let objMs = ScanSessionReport.ms(since: attemptStart)
                 job?.finishAndReport(to: reportForJob)
-                ScanSessionReport.patchSave(reportForJob, [
+                var fields: [String: any Sendable] = [
                     "objMs": objMs, "zipAttempts": attempt,
                     "storeMs": ScanSessionReport.ms(since: storeStart),
-                ])
+                ]
+                fields.merge(probe?.fields() ?? [:]) { old, _ in old }
+                ScanSessionReport.patchSave(reportForJob, fields)
             }
             let converted = await Task.detached(priority: .userInitiated) { () -> Bool in
                 let firstStart = ScanSessionReport.clock()
