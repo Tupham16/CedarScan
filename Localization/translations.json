@@ -5172,6 +5172,18 @@
     "es": "Vuelve a escanear esa zona, por favor — solo con el video no podemos dibujar un plano de planta. ¿Ya hiciste el pedido? Envía el nuevo escaneo con \"Enviar escaneo adicional\" — sin costo adicional.",
     "nl": "Scan dat gebied opnieuw — van alleen video kunnen we geen plattegrond tekenen. Al besteld? Stuur de nieuwe scan met \"Extra scan versturen\" — zonder extra kosten."
    }
+  },
+  {
+   "key": "This property already has order %@ — add this scan with \"Send extra scan\". There is no extra charge.",
+   "translations": {
+    "vi": "Căn nhà này đã có đơn %@ — thêm bản quét này bằng nút \"Gửi bổ sung bản quét\". Không mất thêm phí.",
+    "fr": "Il y a déjà la commande %@ pour cette propriété — ajoutez cette numérisation avec \"Envoyer une numérisation supplémentaire\". Sans frais supplémentaires.",
+    "de": "Für dieses Objekt gibt es bereits die Bestellung %@ — fügen Sie diesen Scan mit \"Zusatz-Scan senden\" hinzu. Es fällt kein Aufpreis an.",
+    "cs": "Tato nemovitost už má objednávku %@ — přidejte tento sken tlačítkem \"Odeslat doplňující sken\". Nic navíc se neplatí.",
+    "sk": "Táto nehnuteľnosť už má objednávku %@ — pridajte tento sken tlačidlom \"Poslať ďalší sken\". Neplatíte nič navyše.",
+    "es": "Esta propiedad ya tiene el pedido %@ — añade este escaneo con \"Enviar escaneo adicional\". No tiene costo adicional.",
+    "nl": "Deze woning heeft al bestelling %@ — voeg deze scan toe met \"Extra scan versturen\". Dat kost niets extra."
+   }
   }
  ],
  "infoplist": {

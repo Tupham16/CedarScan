@@ -725,7 +725,8 @@ struct ScanDetailView: View {
     /// chỉ tồn tại cho bản quét ĐÃ ĐẶT ĐƠN nên không cần endpoint mới.
     /// Ba cửa thoát TRƯỚC khi đụng mạng, theo thứ tự rẻ dần:
     ///  1. đã hỏi XONG rồi (`.task` chạy lại mỗi lần view hiện lại);
-    ///  2. bản quét chưa lên server (`cloudScanId == nil`) → chắc chắn chưa có texture;
+    ///  2. bản quét chưa lên server (`cloudScanId == nil`) → chắc chắn chưa có texture (2.78
+    ///     review: a scan in a property still syncs the order list — see there);
     ///  3. file đã nằm trong cache → hiện nút ngay, khỏi chờ mạng (offline vẫn xem được).
     ///
     /// 🔴 Cờ `texturedAsked` chỉ đóng khi đã TÌM RA texture. Đóng nó sớm hơn — trước các
@@ -738,7 +739,18 @@ struct ScanDetailView: View {
     /// ⚠ Còn tồn: bake LẠI (admin bấm "Bake lại") đổi `?v=` trên link, nhưng màn đang mở đã
     /// có URL cũ và không hỏi lại nữa → vẫn xem bản cũ tới khi thoát ra vào lại màn này.
     private func loadTexturedURL() async {
-        guard !texturedAsked, let cloudId = current.cloudScanId else { return }
+        guard !texturedAsked else { return }
+        guard let cloudId = current.cloudScanId else {
+            // No texture to look for, but the list still heals this house's order state: an earlier
+            // floor's lost Place order answer (→ "Send extra scan", ✗ "Order Floor Plan" = a second
+            // paid order for the house), or a binding to a cancelled / refunded order (→ "Order
+            // Floor Plan" again). Only a scan in a property can change that way.
+            if account.isSignedIn, current.projectId != nil,
+               let response = try? await APIClient.shared.listOrders() {
+                store.syncOrders(response.orders)
+            }
+            return
+        }
         if let cached = TexturedModelCache.anyCached(scanId: cloudId) {
             // Đã tải bản nào rồi thì nút phải hiện NGAY, kể cả đang mất mạng. Trỏ vào file
             // cục bộ; nếu server trả về link (có thể là bản BAKE LẠI mới hơn) thì ghi đè bên
@@ -1048,9 +1060,9 @@ struct OrderSheet: View {
     @ObservedObject private var flow = PaymentFlow.shared
     /// The server said this order is paid (a browser payment: `PaymentFlow` never hears of it).
     @State private var serverPaid = false
-    /// The placed screen shows an order found after a 409 (`adoptExistingOrder`), ✗ one this tap
-    /// made: its card sheet does not open by itself — its price may not be the one this form showed
-    /// (rule 3 of `AddToOrderSheet`). Pay Now is there to tap.
+    /// The placed screen shows an order found in the list (`showAdoptedOrder`: before placing, or
+    /// after a 409), ✗ one this tap made: its card sheet does not open by itself — its price may
+    /// not be the one this form showed (rule 3 of `AddToOrderSheet`). Pay Now is there to tap.
     @State private var recoveredOrder = false
     @Environment(\.scenePhase) private var scenePhase
 
@@ -1959,11 +1971,28 @@ struct OrderSheet: View {
                 return
             }
             let extraCloudIds = extras.compactMap { cloudIds[$0.id] }
+            // Every floor this tap sends: an order found below reads "placed" only if it holds them all.
+            let tickedCloudIds = [primaryCloudId] + extraCloudIds
 
             // Uploads can finish while the phone is locked. The order is placed with the app on
             // screen: a request cut by suspension after the server created the order = half-state
             // (#26). Cancel while waiting → the [3] checkpoint below stops it.
             await UploadKeepAlive.untilActive()
+
+            // 2.78 review: the house may already have its order on the server with the Place order
+            // answer lost (nothing stamped here) — for this scan, or a floor scanned before it.
+            // Placing now = a SECOND paid order for the same house, or a 409 naming no order. A
+            // fresh list stamps what the server holds, then this tap stops on that order. Before
+            // the free-slot re-check: a lost FREE order used the slot, and its retry must find
+            // that order, ✗ "slots used up". No list = carry on (the server's guards still apply).
+            if let list = try? await APIClient.shared.listOrders() {
+                store.syncOrders(list.orders)
+                if stopForExistingOrder(list.orders, primaryCloudId: primaryCloudId, ticked: tickedCloudIds) {
+                    isBusy = false
+                    busyLabel = nil
+                    return
+                }
+            }
 
             // [20] Làm tươi suất miễn phí NGAY TRƯỚC khi đặt. Nút vừa bấm chốt `isFreePromo` theo
             // catalog tải lúc MỞ sheet, mà giữa đó là cả quãng điền form + upload 40–200MB × số tầng
@@ -2041,11 +2070,12 @@ struct OrderSheet: View {
                 // is not placed — they read "Awaiting payment" until it is paid or cancelled.
                 store.noteOrderStatus(orderNumber: result.orderNumber, status: result.status)
             } catch {
-                // 2.78: a 409 naming an order = this scan is in one already — mostly the answer to
-                // an earlier tap, lost on a weak connection. ✗ just print it: nothing gets stamped
-                // and the house offers a second PAID order. Still inside `placingOrder` (#26).
-                if let api = error as? APIError, api.statusCode == 409, let number = api.orderNumber {
-                    await adoptExistingOrder(api, number: number, primaryCloudId: primaryCloudId)
+                // 2.78: a 409 = this scan, or a floor ticked here, is in an order already — mostly
+                // the answer to an earlier tap, lost on a weak connection. ✗ just print it: nothing
+                // gets stamped and the house offers a second PAID order. Still inside
+                // `placingOrder` (#26).
+                if let api = error as? APIError, api.statusCode == 409 {
+                    await adoptExistingOrder(api, primaryCloudId: primaryCloudId, ticked: tickedCloudIds)
                 } else {
                     errorMessage = error.localizedDescription
                 }
@@ -2056,21 +2086,30 @@ struct OrderSheet: View {
         }
     }
 
-    /// Place order answered 409 "already ordered" with the order named (server `scans/{id}/order`).
-    /// Stamps only what the server confirms — the scans its list puts in that order, or without the
-    /// list the primary scan the 409 is about — ✗ the floors ticked here (that order may hold other
-    /// ones; trap #28). Then that order's placed screen, or one line.
-    private func adoptExistingOrder(_ api: APIError, number: String, primaryCloudId: String) async {
-        if let list = try? await APIClient.shared.listOrders() {
-            // Stamps, awaiting states and releases, as for every fresh list (the stamps of that
-            // order included: `ScanStore.adoptListedStamps`).
-            store.syncOrders(list.orders)
+    /// Place order answered 409: this scan is in an order already, the order named (server
+    /// `scans/{id}/order`) — or a floor ticked here is, no order named. Stamps only what the server
+    /// confirms — the scans its list puts in an order, or without the list the primary scan a named
+    /// 409 is about — ✗ the floors ticked here (that order may hold other ones; trap #28). Then
+    /// that order's placed screen, or one line.
+    private func adoptExistingOrder(_ api: APIError, primaryCloudId: String, ticked: [String]) async {
+        let list = try? await APIClient.shared.listOrders()
+        // Stamps, awaiting states and releases, as for every fresh list (the stamps of that order
+        // included: `ScanStore.adoptListedStamps`).
+        if let list { store.syncOrders(list.orders) }
+        guard let number = api.orderNumber else {
+            // No order named: the list may show the house's order (the answer to a floor ticked
+            // here was lost) → the line saying where this scan goes. Else the server's words.
+            if let list, stopForExistingOrder(list.orders, primaryCloudId: primaryCloudId, ticked: ticked) { return }
+            errorMessage = api.localizedDescription
+            return
+        }
+        if let list {
             let match = list.orders.first { order in
                 if let id = api.orderId { return order.orderId == id }
                 return order.orderNumber == number
             }
             if let match {
-                showAdoptedOrder(match)
+                showAdoptedOrder(match, ticked: ticked)
                 return
             }
         }
@@ -2087,15 +2126,36 @@ struct OrderSheet: View {
         errorMessage = String(localized: "This scan is already in order \(number) — see the Orders tab.")
     }
 
+    /// After a fresh order list was synced: true = this tap must not place an order. The primary
+    /// scan sits in a live order → that order (`showAdoptedOrder`). Or its property has an order
+    /// (`ScanStore.orderNumber(ofProject:)`, owner 11/08 "1 dự án chỉ có 1 đơn") → one line: this
+    /// scan joins it through "Send extra scan" at no charge, ✗ a second order for the house.
+    private func stopForExistingOrder(_ orders: [OrderDTO], primaryCloudId: String, ticked: [String]) -> Bool {
+        if let match = orders.first(where: { !$0.isCancelled && $0.allScanIds.contains(primaryCloudId) }) {
+            showAdoptedOrder(match, ticked: ticked)
+            return true
+        }
+        guard let number = store.orderNumber(ofProject: record.projectId) else { return false }
+        errorMessage = String(localized: "This property already has order \(number) — add this scan with \"Send extra scan\". There is no extra charge.")
+        return true
+    }
+
     /// The listed order: its placed screen while it is new (awaiting payment / received), else one
-    /// line — "Order placed!" would be false for one in production, delivered or refunded.
-    private func showAdoptedOrder(_ order: OrderDTO) {
+    /// line — "Order placed!" would be false for one in production, delivered or refunded. One line
+    /// too when that order lacks a floor ticked here (the screen would say all were ordered; the
+    /// stamps stay the server's), or awaits payment with no pay link yet (the server commits the
+    /// order before WordPress sets it): ✗ "We will email you a payment link" — nobody sends one,
+    /// the Orders tab offers Pay once the link is there.
+    private func showAdoptedOrder(_ order: OrderDTO, ticked: [String]) {
         if order.isCancelled {
             // Released meanwhile (`syncOrders` above cleared its stamps): Place order works again.
             errorMessage = String(localized: "Something went wrong. Please try again.")
             return
         }
-        guard order.status == "awaiting_payment" || order.status == "received" else {
+        let isNew = order.status == "awaiting_payment" || order.status == "received"
+        let holdsTicked = Set(ticked).isSubset(of: order.allScanIds)
+        let payLinkReady = !order.isAwaitingPayment || httpsURL(order.paymentUrl) != nil
+        guard isNew, holdsTicked, payLinkReady else {
             errorMessage = String(localized: "This scan is already in order \(order.orderNumber) — see the Orders tab.")
             return
         }

@@ -17,6 +17,12 @@ final class ScanStore: ObservableObject {
     /// second Cancel, and a reload that fails after a 200 must not bring them back. Not persisted.
     @Published private(set) var cancellingOrderIds: Set<String> = []
     @Published private(set) var cancelledOrderIds: Set<String> = []
+    /// Order IDs any order list showed cancelled (`releaseCancelledStamps`): an older list that
+    /// still reads one live must not stamp its released scans back (`adoptListedStamps`). Apart
+    /// from `cancelledOrderIds`, ✗ merged: that set also labels an order "Cancelled" in its detail,
+    /// wrong for one cancelled, paid late and refunded. Not persisted: a cancel is final, and no
+    /// list outlives the run.
+    private var seenCancelledOrderIds: Set<String> = []
 
     /// Số việc đang "đụng vào" dữ liệu bản quét: phiên quét đang mở, hoặc đang lưu.
     /// `purgeDelivered` phải đứng NGOÀI cửa sổ này.
@@ -222,7 +228,7 @@ final class ScanStore: ObservableObject {
     /// scan would offer "Order" = a second paid order for the same house (owner 11/08: "1 dự án
     /// chỉ có 1 đơn"). The property keeps that order as its own binding (`ScanProject.orderNumber`,
     /// as "Add a scan" sets it), only if it has none. Cleared like any binding when that order is
-    /// cancelled unpaid (`releaseBinding`).
+    /// cancelled unpaid or refunded (`releaseBinding`).
     private func keepOrderBinding(leaving record: ScanRecord) {
         guard let number = record.cloudOrderNumber,
               let projectId = record.projectId,
@@ -773,11 +779,16 @@ final class ScanStore: ObservableObject {
         return awaitingOrderNumbers.contains(number)
     }
 
-    /// Some scan on this device is stamped with an order known to be unpaid — the only case in
-    /// which a cancel or the 7-day expiry can change something here (`RootView` asks the server).
+    /// Some scan on this device is stamped with an order known to be unpaid, or some property is
+    /// bound to one (L6: its ordered scans deleted, `keepOrderBinding`) — the only cases in which a
+    /// cancel or the 7-day expiry can change something here (`RootView` asks the server).
     var hasAwaitingStamps: Bool {
         guard !awaitingOrderNumbers.isEmpty else { return false }
-        return records.contains { isAwaitingPayment($0) }
+        if records.contains(where: { isAwaitingPayment($0) }) { return true }
+        return projects.contains { project in
+            guard let number = project.orderNumber else { return false }
+            return awaitingOrderNumbers.contains(number)
+        }
     }
 
     /// Place order / supplement reply: the server's status for that order number.
@@ -818,12 +829,13 @@ final class ScanStore: ObservableObject {
     /// Self-heal (2.78): the Place order answer was lost on a weak connection (the server made the
     /// order, nothing was stamped here), or the scan was ordered from another device. Unstamped, its
     /// house offers a second PAID order instead of "Send extra scan" (`orderNumber(ofProject:)`).
-    /// ✗ an order this run is cancelling or saw cancelled: a list fetched before that cancel would
-    /// stamp its released scans back.
+    /// ✗ an order this run is cancelling or saw cancelled (its own Cancel, or in any list): a list
+    /// fetched before that cancel would stamp its released scans back.
     private func adoptListedStamps(_ orders: [OrderDTO]) {
         for order in orders where !order.isCancelled {
             guard !cancellingOrderIds.contains(order.orderId),
-                  !cancelledOrderIds.contains(order.orderId) else { continue }
+                  !cancelledOrderIds.contains(order.orderId),
+                  !seenCancelledOrderIds.contains(order.orderId) else { continue }
             // `allScanIds`: for a live order its `scanId` fallback (old server) is in it too.
             adoptStamps(orderNumber: order.orderNumber, scanIds: order.allScanIds)
         }
@@ -849,14 +861,22 @@ final class ScanStore: ObservableObject {
     /// upload): its awaiting states may be out of date, a cancel never is (a cancelled order stays
     /// cancelled).
     func releaseCancelledStamps(_ orders: [OrderDTO]) {
-        for order in orders where order.isCancelled {
-            // `scanIds` of a cancelled order = the scans released at the cancel. Absent = old
-            // server: nothing is released (✗ `allScanIds`, whose `scanId` fallback is not that list).
-            var numbers = awaitingOrderNumbers
-            numbers.remove(order.orderNumber)
-            setAwaiting(numbers)
-            releaseStamps(orderNumber: order.orderNumber, scanIds: order.scanIds ?? [])
-            releaseBinding(orderNumber: order.orderNumber)
+        for order in orders {
+            if order.isCancelled {
+                seenCancelledOrderIds.insert(order.orderId)
+                // `scanIds` of a cancelled order = the scans released at the cancel. Absent = old
+                // server: nothing is released (✗ `allScanIds`, whose `scanId` fallback is not that list).
+                var numbers = awaitingOrderNumbers
+                numbers.remove(order.orderNumber)
+                setAwaiting(numbers)
+                releaseStamps(orderNumber: order.orderNumber, scanIds: order.scanIds ?? [])
+                releaseBinding(orderNumber: order.orderNumber)
+            } else if order.status == "refunded" {
+                // Refunded by the team (no cancel): closed to extra scans (`order_closed`), so a
+                // property bound to it (L6) is free again, as deleting its scans freed it before L6.
+                // The binding only: its scans keep their stamps — they are in that order.
+                releaseBinding(orderNumber: order.orderNumber)
+            }
         }
     }
 
@@ -907,7 +927,7 @@ final class ScanStore: ObservableObject {
     /// A cancelled order also unbinds a property recreated for it (`ScanProject.orderNumber`):
     /// its scans are "New" like the released ones, ✗ "Send extra scan" into a closed order
     /// (`order_closed`) forever. Same positive signal as `releaseStamps`; no scanIds needed (the
-    /// binding is to the number itself).
+    /// binding is to the number itself). A refunded order unbinds too (`releaseCancelledStamps`).
     private func releaseBinding(orderNumber: String) {
         guard projects.contains(where: { $0.orderNumber == orderNumber }) else { return }
         for index in projects.indices where projects[index].orderNumber == orderNumber {

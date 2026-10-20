@@ -43,9 +43,11 @@ struct OrdersView: View {
             Group {
                 if !account.isSignedIn {
                     signedOutState
-                } else if ownOrders.isEmpty && (!isLoading || loadedAt != nil) {
+                } else if ownOrders.isEmpty && (!isLoading || loadedAt != nil || errorMessage != nil) {
                     // Once loaded, a reload keeps this screen (a pull here, the return-to-app
                     // refresh): ✗ swap to the list's "Loading…" row under the customer's finger.
+                    // Same after a failed first load: its error screen stays while Retry or a pull
+                    // reloads (Retry greys out meanwhile).
                     emptyState
                 } else {
                     ordersList
@@ -316,6 +318,8 @@ struct OrdersView: View {
                         .padding(.vertical, 9)
                 }
                 .buttonStyle(FogTint(radius: 12))
+                // This screen now stays during the reload: grey = it is trying.
+                .disabled(isLoading)
             } else {
                 Image(systemName: "shippingbox")
                     .font(.system(size: 44))
@@ -625,17 +629,20 @@ struct RevisionSheet: View {
             .fogScreen()
             .navigationTitle(String(localized: "Request a revision"))
             .navigationBarTitleDisplayMode(.inline)
-            // Vuốt xuống lúc ĐANG GỬI / ĐANG TẢI FILE thì sheet đóng mà request vẫn bay tiếp:
-            // khách tin là đã hủy, thực tế đội vẽ vẫn nhận yêu cầu (và `onSent` không chạy nên
-            // danh sách đơn không được làm tươi). Cùng bài học với [3] ở `OrderSheet`: cửa "đang
-            // gửi" KHÔNG hủy an toàn được, nên khoá đường đóng thay vì giả vờ hủy.
-            .interactiveDismissDisabled(isBusy || uploadingFile)
+            // Vuốt xuống lúc ĐANG GỬI thì sheet đóng mà request vẫn bay tiếp: khách tin là đã
+            // hủy, thực tế đội vẽ vẫn nhận yêu cầu (và `onSent` không chạy nên danh sách đơn không
+            // được làm tươi). Cùng bài học với [3] ở `OrderSheet`: cửa "đang gửi" KHÔNG hủy an
+            // toàn được, nên khoá đường đóng thay vì giả vờ hủy.
+            // 2.78 review: ✗ also locked during an attachment upload (up to an hour on a slow
+            // line): the file reaches the team only with Send, so leaving then changes nothing on
+            // the server. The upload's task just ends writing this closed sheet's own state.
+            .interactiveDismissDisabled(isBusy)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     // Locked like the swipe above (and the other sheets' Cancel): a tap here while
                     // sending closed the sheet with the request still in flight.
                     Button(sent ? String(localized: "Close") : String(localized: "Cancel")) { dismiss() }
-                        .disabled(isBusy || uploadingFile)
+                        .disabled(isBusy)
                 }
                 if !sent {
                     ToolbarItem(placement: .topBarTrailing) {

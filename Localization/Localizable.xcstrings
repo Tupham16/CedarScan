@@ -16551,6 +16551,53 @@
         }
       }
     },
+    "This property already has order %@ — add this scan with \"Send extra scan\". There is no extra charge.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tato nemovitost už má objednávku %@ — přidejte tento sken tlačítkem \"Odeslat doplňující sken\". Nic navíc se neplatí."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Für dieses Objekt gibt es bereits die Bestellung %@ — fügen Sie diesen Scan mit \"Zusatz-Scan senden\" hinzu. Es fällt kein Aufpreis an."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esta propiedad ya tiene el pedido %@ — añade este escaneo con \"Enviar escaneo adicional\". No tiene costo adicional."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Il y a déjà la commande %@ pour cette propriété — ajoutez cette numérisation avec \"Envoyer une numérisation supplémentaire\". Sans frais supplémentaires."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deze woning heeft al bestelling %@ — voeg deze scan toe met \"Extra scan versturen\". Dat kost niets extra."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Táto nehnuteľnosť už má objednávku %@ — pridajte tento sken tlačidlom \"Poslať ďalší sken\". Neplatíte nič navyše."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Căn nhà này đã có đơn %@ — thêm bản quét này bằng nút \"Gửi bổ sung bản quét\". Không mất thêm phí."
+          }
+        }
+      }
+    },
     "This property has no scans on this iPhone.": {
       "extractionState": "manual",
       "localizations": {
