@@ -11,6 +11,12 @@ on:
         type: choice
         options: [list, revoke-all]
         default: list
+  # TEMPORARY (21/10/2026): GitHub dispatches only workflows it knows from the default branch.
+  # This push trigger (this file, this branch) registers it before 2.79 reaches main; a push run
+  # has no input, so it only LISTS. Remove once the file is on main.
+  push:
+    branches: [claude/2.79]
+    paths: [.github/workflows/apple-certs.yml]
 
 permissions:
   contents: read
