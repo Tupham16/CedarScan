@@ -72,8 +72,6 @@ struct OrderScanResponse: Decodable {
     /// until paid, or `"received"` = placed at once (free / 100% coupon). `payBy` = when an unpaid
     /// order cancels itself; nil when there is nothing to pay, and for test accounts (never expire).
     let payBy: String?
-    /// F8: the invite-a-friend credit paid this order's 2D package (`useReferralCredit` was sent).
-    let referralCreditUsed: Bool?
 }
 
 /// Kết quả "gửi bổ sung bản quét" (`POST orders/{id}/supplement-scan`).
