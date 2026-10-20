@@ -7,6 +7,8 @@ name: Probe Xcode 27 (not shipping)
 # SDK). It SHIPS NOTHING: no IPA artifact, only logs, a bundle file list and a screenshot.
 # build.yml / release.yml stay pinned to Xcode 26.3 on macos-15 (trap #40) until the planned
 # switch in Feb-Mar 2027 (checklist: PLAN-RA-SOAT-2026-10-20.md, C1).
+# Run: Actions -> this workflow -> Run workflow (GitHub finds a dispatch-only workflow only once the
+# file is on main; before that, a temporary `push:` trigger limited to the branch and this file).
 on:
   workflow_dispatch:
     inputs:
@@ -70,6 +72,9 @@ jobs:
       # The build.yml command (the App Store build only adds signing + APPSTORE).
       - name: Archive for device (unsigned)
         run: |
+          # The default shell is `bash -e` WITHOUT pipefail: without this line a failed xcodebuild
+          # exits through tee with 0 and the step goes green.
+          set -o pipefail
           xcodebuild \
             -project CedarScan.xcodeproj \
             -scheme CedarScan \
@@ -99,11 +104,14 @@ jobs:
           open(os.path.join(out, "app-files.txt"), "w").write("\n".join(sorted(rows)) + "\n")
           print(len(rows), "files in the app bundle")
           PY
+          # Also in the log: the artifact upload can fail on the preview image (ENOTFOUND, 20/10).
+          echo "::group::app-files.txt"; cat "$OUT/app-files.txt"; echo "::endgroup::"
 
       - name: Build for the iOS 27 simulator
         id: sim
         if: ${{ !cancelled() }}
         run: |
+          set -o pipefail
           xcodebuild \
             -project CedarScan.xcodeproj \
             -scheme CedarScan \
@@ -122,6 +130,7 @@ jobs:
       - name: Launch on the iOS 27 simulator
         if: ${{ !cancelled() && steps.sim.outcome == 'success' }}
         run: |
+          set -o pipefail
           UDID=$(xcrun simctl list devices available -j | python3 -c '
           import json, sys
           best = None
@@ -139,13 +148,16 @@ jobs:
           xcrun simctl boot "$UDID" || true
           xcrun simctl bootstatus "$UDID" -b
           xcrun simctl install "$UDID" build/sim/Build/Products/Release-iphonesimulator/CedarScan.app
-          xcrun simctl launch "$UDID" com.cedar247.cedarscan | tee "$OUT/launch.txt"
+          # A failed launch must still collect the screenshot, log and crash report below: the
+          # launchctl check at the end gives the verdict.
+          xcrun simctl launch "$UDID" com.cedar247.cedarscan 2>&1 | tee "$OUT/launch.txt" || true
           sleep 30
           xcrun simctl io "$UDID" screenshot "$OUT/launch-ios27.png"
           xcrun simctl spawn "$UDID" log show --last 5m --style compact \
             --predicate 'process == "CedarScan"' > "$OUT/app-log.txt" 2>&1 || true
-          echo "--- scene / assert lines in the app log:"
-          grep -i -E 'uiscene|scene life|lifecycle|assert' "$OUT/app-log.txt" | head -40 || true
+          # TN3187's message for apps without scenes vs SwiftUI's scene being connected.
+          echo "--- scene lines in the app log:"
+          grep -i -E 'UIScene lifecycle|will soon be required|Failure to adopt|sceneOfRecord' "$OUT/app-log.txt" | head -20 || true
           cp ~/Library/Logs/DiagnosticReports/CedarScan* "$OUT/" 2>/dev/null || true
           if xcrun simctl spawn "$UDID" launchctl list | grep -E '^[0-9]+[[:space:]].*UIKitApplication:com\.cedar247\.cedarscan'; then
             echo "CedarScan is running 30 s after launch"
@@ -170,9 +182,12 @@ jobs:
             done
           } >> "$GITHUB_STEP_SUMMARY"
 
-      # Logs only — never an IPA from this workflow.
+      # Logs only — never an IPA from this workflow. The run's colour is the probe's verdict, so an
+      # artifact-service failure (DNS ENOTFOUND on the preview image, 20/10) does not turn it red:
+      # the job log carries the file list, the launch result and the warnings.
       - name: Upload probe logs
         if: ${{ always() }}
+        continue-on-error: true
         uses: actions/upload-artifact@v7
         with:
           name: probe-xcode27

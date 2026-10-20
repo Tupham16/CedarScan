@@ -128,13 +128,15 @@ jobs:
             Sources/CedarScan.entitlements
           plutil -p Sources/CedarScan.entitlements
 
-      # App Store builds only (2.79); build.yml stays unsigned, so the AltStore build carries neither
-      # (a free AltStore team could not sign them anyway).
+      # App Store builds only (2.79); build.yml stays unsigned, so the AltStore build carries neither.
       # - Increased Memory Limit (T2): a long scan's save peaks near iOS's default app memory limit.
       # - Associated Domains `webcredentials:` (C9): Password AutoFill offers / saves the
       #   app.cedar247.com account in the sign-in fields; that site serves the
       #   /.well-known/apple-app-site-association file that names this app.
-      # Both need the capability on the App ID; "Kiểm entitlements" below fails if either is missing.
+      # Both need the capability on the App ID: automatic signing (API key, -allowProvisioningUpdates)
+      # turned both on by itself in the first run with them (run 12, 20/10/2026: its App Store profile,
+      # created during that run, allows both; run 11's, two hours earlier, allowed neither).
+      # "Kiểm entitlements" below fails without them.
       - name: App Store entitlements
         run: |
           /usr/libexec/PlistBuddy \
