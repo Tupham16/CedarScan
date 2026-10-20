@@ -76,8 +76,19 @@ struct ScanNameOverlay: View {
                 }
                 .buttonStyle(FogPrimary())
 
-                Button(String(localized: "Back"), action: onBack)
-                    .font(.subheadline)
+                // N17 (2.79): a ≥ 44pt target (the text alone is ~20pt tall) with the card's
+                // layout unchanged — the hit shape reaches into the gap above and the card's
+                // padding below (negative padding gives the space back). ✗ a taller card: it
+                // sits between the middle of the screen and the open keyboard.
+                Button(action: onBack) {
+                    Text(String(localized: "Back"))
+                        .font(.subheadline)
+                        .padding(.vertical, 12)
+                        .padding(.horizontal, 24)
+                        .contentShape(Rectangle())
+                        .padding(.vertical, -12)
+                        .padding(.horizontal, -24)
+                }
             }
             .padding(20)
             .background(card.fill(Theme.card))
@@ -149,5 +160,7 @@ private struct SuggestionChip: View {
                 .background(background, in: Capsule())
         }
         .buttonStyle(.plain)
+        // N17: the picked name was shown by colour only.
+        .accessibilityAddTraits(isSelected ? AccessibilityTraits.isSelected : AccessibilityTraits())
     }
 }

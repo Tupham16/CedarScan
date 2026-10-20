@@ -26,6 +26,8 @@ struct VerifyEmailView: View {
 
             TextField("000000", text: $code)
                 .keyboardType(.numberPad)
+                // C9 (2.79): the keyboard offers the code from Mail / Messages.
+                .textContentType(.oneTimeCode)
                 .multilineTextAlignment(.center)
                 .font(.system(size: 30, weight: .bold, design: .monospaced))
                 .fogField($focused, true)

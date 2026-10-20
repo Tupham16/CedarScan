@@ -45,7 +45,9 @@ struct ScanProject: Identifiable, Codable, Hashable {
     /// 26/09 "cách 1"). An empty property has no stamped scan to derive its order from, so without
     /// this its first scan would offer "Order" = a second paid order for the same house.
     /// 2.78: also written when the property's last ordered scan is deleted or moved out
-    /// (`ScanStore.keepOrderBinding`, same reason).
+    /// (`ScanStore.keepOrderBinding`, same reason). 2.79 (Q1): also at every stamp (not for a
+    /// refunded order) and once for houses stamped before 2.79 (`ScanStore.bindProperty`,
+    /// `backfillOrderBindings`) — scan folders are out of the iCloud backup, projects.json is not.
     /// Read ONLY through `ScanStore.orderNumber(ofProject:)` / `project(withOrderNumber:)`; cleared
     /// with the stamps when that order is cancelled unpaid, and (2.78) when a list shows it
     /// refunded — the binding only, stamps stay. nil = every other property (and every

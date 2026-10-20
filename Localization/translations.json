@@ -5184,6 +5184,522 @@
     "es": "Esta propiedad ya tiene el pedido %@ — añade este escaneo con \"Enviar escaneo adicional\". No tiene costo adicional.",
     "nl": "Deze woning heeft al bestelling %@ — voeg deze scan toe met \"Extra scan versturen\". Dat kost niets extra."
    }
+  },
+  {
+   "key": "Incorrect email or password.",
+   "translations": {
+    "vi": "Email hoặc mật khẩu không đúng.",
+    "fr": "Courriel ou mot de passe incorrect.",
+    "de": "E-Mail-Adresse oder Passwort ist falsch.",
+    "cs": "Nesprávný e-mail nebo heslo.",
+    "sk": "Nesprávny e-mail alebo heslo.",
+    "es": "Correo o contraseña incorrectos.",
+    "nl": "Onjuist e-mailadres of wachtwoord."
+   }
+  },
+  {
+   "key": "An account with this email already exists. Please sign in.",
+   "translations": {
+    "vi": "Email này đã có tài khoản. Vui lòng đăng nhập.",
+    "fr": "Un compte existe déjà avec ce courriel. Veuillez vous connecter.",
+    "de": "Für diese E-Mail-Adresse gibt es bereits ein Konto. Bitte melden Sie sich an.",
+    "cs": "Účet s tímto e-mailem už existuje. Přihlaste se prosím.",
+    "sk": "Účet s týmto e-mailom už existuje. Prihláste sa, prosím.",
+    "es": "Ya existe una cuenta con este correo. Inicia sesión.",
+    "nl": "Er bestaat al een account met dit e-mailadres. Log in."
+   }
+  },
+  {
+   "key": "Please enter a valid email address.",
+   "translations": {
+    "vi": "Vui lòng nhập địa chỉ email hợp lệ.",
+    "fr": "Veuillez saisir une adresse courriel valide.",
+    "de": "Bitte geben Sie eine gültige E-Mail-Adresse ein.",
+    "cs": "Zadejte prosím platnou e-mailovou adresu.",
+    "sk": "Zadajte, prosím, platnú e-mailovú adresu.",
+    "es": "Escribe un correo electrónico válido.",
+    "nl": "Voer een geldig e-mailadres in."
+   }
+  },
+  {
+   "key": "Password must be at least 8 characters.",
+   "translations": {
+    "vi": "Mật khẩu phải có ít nhất 8 ký tự.",
+    "fr": "Le mot de passe doit contenir au moins 8 caractères.",
+    "de": "Das Passwort muss mindestens 8 Zeichen lang sein.",
+    "cs": "Heslo musí mít alespoň 8 znaků.",
+    "sk": "Heslo musí mať aspoň 8 znakov.",
+    "es": "La contraseña debe tener al menos 8 caracteres.",
+    "nl": "Het wachtwoord moet minstens 8 tekens hebben."
+   }
+  },
+  {
+   "key": "Please enter your name.",
+   "translations": {
+    "vi": "Vui lòng nhập tên của bạn.",
+    "fr": "Veuillez saisir votre nom.",
+    "de": "Bitte geben Sie Ihren Namen ein.",
+    "cs": "Zadejte prosím své jméno.",
+    "sk": "Zadajte, prosím, svoje meno.",
+    "es": "Escribe tu nombre.",
+    "nl": "Voer je naam in."
+   }
+  },
+  {
+   "key": "Incorrect code. Please try again.",
+   "translations": {
+    "vi": "Mã không đúng. Vui lòng thử lại.",
+    "fr": "Code incorrect. Veuillez réessayer.",
+    "de": "Falscher Code. Bitte versuchen Sie es erneut.",
+    "cs": "Nesprávný kód. Zkuste to prosím znovu.",
+    "sk": "Nesprávny kód. Skúste to znova, prosím.",
+    "es": "Código incorrecto. Inténtalo de nuevo.",
+    "nl": "Onjuiste code. Probeer het opnieuw."
+   }
+  },
+  {
+   "key": "The code has expired. Please request a new one.",
+   "translations": {
+    "vi": "Mã đã hết hạn. Vui lòng yêu cầu mã mới.",
+    "fr": "Le code a expiré. Veuillez en demander un nouveau.",
+    "de": "Der Code ist abgelaufen. Bitte fordern Sie einen neuen an.",
+    "cs": "Platnost kódu vypršela. Požádejte prosím o nový.",
+    "sk": "Platnosť kódu vypršala. Požiadajte, prosím, o nový.",
+    "es": "El código expiró. Solicita uno nuevo.",
+    "nl": "De code is verlopen. Vraag een nieuwe aan."
+   }
+  },
+  {
+   "key": "Invalid or expired code.",
+   "translations": {
+    "vi": "Mã không hợp lệ hoặc đã hết hạn.",
+    "fr": "Code invalide ou expiré.",
+    "de": "Ungültiger oder abgelaufener Code.",
+    "cs": "Kód je neplatný nebo vypršel.",
+    "sk": "Kód je neplatný alebo vypršal.",
+    "es": "Código no válido o expirado.",
+    "nl": "Ongeldige of verlopen code."
+   }
+  },
+  {
+   "key": "Too many attempts. Please request a new code.",
+   "translations": {
+    "vi": "Thử quá nhiều lần. Vui lòng yêu cầu mã mới.",
+    "fr": "Trop de tentatives. Veuillez demander un nouveau code.",
+    "de": "Zu viele Versuche. Bitte fordern Sie einen neuen Code an.",
+    "cs": "Příliš mnoho pokusů. Požádejte prosím o nový kód.",
+    "sk": "Príliš veľa pokusov. Požiadajte, prosím, o nový kód.",
+    "es": "Demasiados intentos. Solicita un código nuevo.",
+    "nl": "Te veel pogingen. Vraag een nieuwe code aan."
+   }
+  },
+  {
+   "key": "Could not send the email right now. Please try again.",
+   "translations": {
+    "vi": "Hiện chưa gửi được email. Vui lòng thử lại.",
+    "fr": "Impossible d'envoyer le courriel pour le moment. Veuillez réessayer.",
+    "de": "Die E-Mail konnte gerade nicht gesendet werden. Bitte versuchen Sie es erneut.",
+    "cs": "E-mail se teď nepodařilo odeslat. Zkuste to prosím znovu.",
+    "sk": "E-mail sa teraz nepodarilo odoslať. Skúste to znova, prosím.",
+    "es": "No se pudo enviar el correo ahora. Inténtalo de nuevo.",
+    "nl": "De e-mail kon nu niet worden verstuurd. Probeer het opnieuw."
+   }
+  },
+  {
+   "key": "Incorrect password.",
+   "translations": {
+    "vi": "Mật khẩu không đúng.",
+    "fr": "Mot de passe incorrect.",
+    "de": "Falsches Passwort.",
+    "cs": "Nesprávné heslo.",
+    "sk": "Nesprávne heslo.",
+    "es": "Contraseña incorrecta.",
+    "nl": "Onjuist wachtwoord."
+   }
+  },
+  {
+   "key": "Please sign in to continue.",
+   "translations": {
+    "vi": "Vui lòng đăng nhập để tiếp tục.",
+    "fr": "Veuillez vous connecter pour continuer.",
+    "de": "Bitte melden Sie sich an, um fortzufahren.",
+    "cs": "Pro pokračování se prosím přihlaste.",
+    "sk": "Ak chcete pokračovať, prihláste sa, prosím.",
+    "es": "Inicia sesión para continuar.",
+    "nl": "Log in om verder te gaan."
+   }
+  },
+  {
+   "key": "Please verify your email before placing an order.",
+   "translations": {
+    "vi": "Vui lòng xác minh email trước khi đặt hàng.",
+    "fr": "Veuillez vérifier votre courriel avant de passer une commande.",
+    "de": "Bitte bestätigen Sie Ihre E-Mail, bevor Sie eine Bestellung aufgeben.",
+    "cs": "Před odesláním objednávky prosím ověřte svůj e-mail.",
+    "sk": "Pred odoslaním objednávky si, prosím, overte e-mail.",
+    "es": "Verifica tu correo antes de realizar un pedido.",
+    "nl": "Verifieer je e-mailadres voordat je een bestelling plaatst."
+   }
+  },
+  {
+   "key": "One of the selected scans is already part of another order.",
+   "translations": {
+    "vi": "Một trong các bản quét đã chọn đã nằm trong một đơn khác.",
+    "fr": "L'une des numérisations sélectionnées fait déjà partie d'une autre commande.",
+    "de": "Einer der ausgewählten Scans gehört bereits zu einer anderen Bestellung.",
+    "cs": "Jeden z vybraných skenů už je součástí jiné objednávky.",
+    "sk": "Jeden z vybraných skenov je už súčasťou inej objednávky.",
+    "es": "Uno de los escaneos seleccionados ya forma parte de otro pedido.",
+    "nl": "Een van de geselecteerde scans hoort al bij een andere bestelling."
+   }
+  },
+  {
+   "key": "Too many failed attempts. Please try again in %lld minute(s).",
+   "translations": {
+    "vi": "Sai quá nhiều lần. Vui lòng thử lại sau %lld phút.",
+    "fr": "Trop de tentatives infructueuses. Réessayez dans %lld minute(s).",
+    "de": "Zu viele Fehlversuche. Bitte versuchen Sie es in %lld Minute(n) erneut.",
+    "cs": "Příliš mnoho neúspěšných pokusů. Zkuste to prosím znovu za %lld min.",
+    "sk": "Príliš veľa neúspešných pokusov. Skúste to znova o %lld min.",
+    "es": "Demasiados intentos fallidos. Inténtalo de nuevo en %lld minuto(s).",
+    "nl": "Te veel mislukte pogingen. Probeer het over %lld min. opnieuw."
+   }
+  },
+  {
+   "key": "Please wait %lld s before requesting another code.",
+   "translations": {
+    "vi": "Vui lòng đợi %lld giây trước khi yêu cầu mã khác.",
+    "fr": "Veuillez patienter %lld s avant de demander un autre code.",
+    "de": "Bitte warten Sie %lld s, bevor Sie einen neuen Code anfordern.",
+    "cs": "Před vyžádáním dalšího kódu prosím počkejte %lld s.",
+    "sk": "Pred vyžiadaním ďalšieho kódu počkajte, prosím, %lld s.",
+    "es": "Espera %lld s antes de pedir otro código.",
+    "nl": "Wacht %lld s voordat je een nieuwe code aanvraagt."
+   }
+  },
+  {
+   "key": "Too many attempts. Please try again later.",
+   "translations": {
+    "vi": "Thử quá nhiều lần. Vui lòng thử lại sau.",
+    "fr": "Trop de tentatives. Veuillez réessayer plus tard.",
+    "de": "Zu viele Versuche. Bitte versuchen Sie es später erneut.",
+    "cs": "Příliš mnoho pokusů. Zkuste to prosím později.",
+    "sk": "Príliš veľa pokusov. Skúste to, prosím, neskôr.",
+    "es": "Demasiados intentos. Inténtalo más tarde.",
+    "nl": "Te veel pogingen. Probeer het later opnieuw."
+   }
+  },
+  {
+   "key": "Scan files uploaded",
+   "translations": {
+    "vi": "Đã tải lên tệp bản quét",
+    "fr": "Fichiers de numérisation téléversés",
+    "de": "Scan-Dateien hochgeladen",
+    "cs": "Soubory skenu nahrány",
+    "sk": "Súbory skenu nahrané",
+    "es": "Archivos del escaneo subidos",
+    "nl": "Scanbestanden geüpload"
+   }
+  },
+  {
+   "key": "Remove attachment",
+   "translations": {
+    "vi": "Bỏ tệp đính kèm",
+    "fr": "Retirer la pièce jointe",
+    "de": "Anhang entfernen",
+    "cs": "Odebrat přílohu",
+    "sk": "Odobrať prílohu",
+    "es": "Quitar el archivo adjunto",
+    "nl": "Bijlage verwijderen"
+   }
+  },
+  {
+   "key": "Delete photo",
+   "translations": {
+    "vi": "Xóa ảnh",
+    "fr": "Supprimer la photo",
+    "de": "Foto löschen",
+    "cs": "Smazat fotku",
+    "sk": "Vymazať fotku",
+    "es": "Eliminar foto",
+    "nl": "Foto verwijderen"
+   }
+  },
+  {
+   "key": "Delete this photo?",
+   "translations": {
+    "vi": "Xóa ảnh này?",
+    "fr": "Supprimer cette photo?",
+    "de": "Dieses Foto löschen?",
+    "cs": "Smazat tuto fotku?",
+    "sk": "Vymazať túto fotku?",
+    "es": "¿Eliminar esta foto?",
+    "nl": "Deze foto verwijderen?"
+   }
+  },
+  {
+   "key": "Your scan of %@ hasn't been sent yet.",
+   "translations": {
+    "vi": "Bản quét %@ chưa được gửi.",
+    "fr": "Votre numérisation de %@ n'a pas encore été envoyée.",
+    "de": "Ihr Scan von %@ wurde noch nicht gesendet.",
+    "cs": "Váš sken %@ zatím nebyl odeslán.",
+    "sk": "Váš sken %@ zatiaľ nebol odoslaný.",
+    "es": "Tu escaneo de %@ aún no se ha enviado.",
+    "nl": "Je scan van %@ is nog niet verstuurd."
+   }
+  },
+  {
+   "key": "This request is too large. Please shorten your text and try again.",
+   "translations": {
+    "vi": "Yêu cầu quá lớn. Vui lòng rút ngắn nội dung rồi thử lại.",
+    "fr": "Cette demande est trop volumineuse. Raccourcissez votre texte et réessayez.",
+    "de": "Diese Anfrage ist zu groß. Bitte kürzen Sie Ihren Text und versuchen Sie es erneut.",
+    "cs": "Tento požadavek je příliš velký. Zkraťte prosím text a zkuste to znovu.",
+    "sk": "Táto požiadavka je príliš veľká. Skráťte, prosím, text a skúste to znova.",
+    "es": "Esta solicitud es demasiado grande. Acorta tu texto e inténtalo de nuevo.",
+    "nl": "Dit verzoek is te groot. Maak je tekst korter en probeer het opnieuw."
+   }
+  },
+  {
+   "key": "%lld of %lld",
+   "translations": {
+    "vi": "%lld trên %lld",
+    "fr": "%lld sur %lld",
+    "de": "%lld von %lld",
+    "cs": "%lld z %lld",
+    "sk": "%lld z %lld",
+    "es": "%lld de %lld",
+    "nl": "%lld van %lld"
+   }
+  },
+  {
+   "key": "My brand",
+   "translations": {
+    "vi": "Thương hiệu của tôi",
+    "fr": "Ma marque",
+    "de": "Meine Marke",
+    "cs": "Moje značka",
+    "sk": "Moja značka",
+    "es": "Mi marca",
+    "nl": "Mijn merk"
+   }
+  },
+  {
+   "key": "Your logo",
+   "translations": {
+    "vi": "Logo của bạn",
+    "fr": "Votre logo",
+    "de": "Ihr Logo",
+    "cs": "Vaše logo",
+    "sk": "Vaše logo",
+    "es": "Tu logotipo",
+    "nl": "Je logo"
+   }
+  },
+  {
+   "key": "Add your logo",
+   "translations": {
+    "vi": "Thêm logo của bạn",
+    "fr": "Ajouter votre logo",
+    "de": "Ihr Logo hinzufügen",
+    "cs": "Přidat vaše logo",
+    "sk": "Pridať vaše logo",
+    "es": "Añadir tu logotipo",
+    "nl": "Je logo toevoegen"
+   }
+  },
+  {
+   "key": "Change logo",
+   "translations": {
+    "vi": "Đổi logo",
+    "fr": "Changer de logo",
+    "de": "Logo ändern",
+    "cs": "Změnit logo",
+    "sk": "Zmeniť logo",
+    "es": "Cambiar logotipo",
+    "nl": "Logo wijzigen"
+   }
+  },
+  {
+   "key": "Add my logo to every plan",
+   "translations": {
+    "vi": "Gắn logo của tôi vào mọi bản vẽ",
+    "fr": "Ajouter mon logo à chaque plan",
+    "de": "Mein Logo auf jeden Grundriss setzen",
+    "cs": "Přidat moje logo na každý půdorys",
+    "sk": "Pridať moje logo na každý pôdorys",
+    "es": "Añadir mi logotipo a cada plano",
+    "nl": "Mijn logo op elke plattegrond zetten"
+   }
+  },
+  {
+   "key": "PNG, JPG, SVG or PDF, up to 5 MB.",
+   "translations": {
+    "vi": "PNG, JPG, SVG hoặc PDF, tối đa 5 MB.",
+    "fr": "PNG, JPG, SVG ou PDF, jusqu'à 5 Mo.",
+    "de": "PNG, JPG, SVG oder PDF, bis 5 MB.",
+    "cs": "PNG, JPG, SVG nebo PDF, nejvýše 5 MB.",
+    "sk": "PNG, JPG, SVG alebo PDF, najviac 5 MB.",
+    "es": "PNG, JPG, SVG o PDF, hasta 5 MB.",
+    "nl": "PNG, JPG, SVG of PDF, maximaal 5 MB."
+   }
+  },
+  {
+   "key": "You can still turn it off on each order.",
+   "translations": {
+    "vi": "Bạn vẫn tắt được ở từng đơn.",
+    "fr": "Vous pouvez quand même le désactiver pour chaque commande.",
+    "de": "Sie können es bei jeder Bestellung trotzdem ausschalten.",
+    "cs": "U každé objednávky ho můžete i tak vypnout.",
+    "sk": "Pri každej objednávke ho môžete aj tak vypnúť.",
+    "es": "Aun así puedes desactivarlo en cada pedido.",
+    "nl": "Je kunt het per bestelling nog steeds uitzetten."
+   }
+  },
+  {
+   "key": "Choose from Photos",
+   "translations": {
+    "vi": "Chọn từ Ảnh",
+    "fr": "Choisir dans Photos",
+    "de": "Aus Fotos auswählen",
+    "cs": "Vybrat z Fotek",
+    "sk": "Vybrať z Fotiek",
+    "es": "Elegir de Fotos",
+    "nl": "Kiezen uit Foto's"
+   }
+  },
+  {
+   "key": "Choose from Files",
+   "translations": {
+    "vi": "Chọn từ Tệp",
+    "fr": "Choisir dans Fichiers",
+    "de": "Aus Dateien auswählen",
+    "cs": "Vybrat ze Souborů",
+    "sk": "Vybrať zo Súborov",
+    "es": "Elegir de Archivos",
+    "nl": "Kiezen uit Bestanden"
+   }
+  },
+  {
+   "key": "Remove logo",
+   "translations": {
+    "vi": "Gỡ logo",
+    "fr": "Retirer le logo",
+    "de": "Logo entfernen",
+    "cs": "Odebrat logo",
+    "sk": "Odstrániť logo",
+    "es": "Quitar logotipo",
+    "nl": "Logo verwijderen"
+   }
+  },
+  {
+   "key": "Default style",
+   "translations": {
+    "vi": "Kiểu mặc định",
+    "fr": "Style par défaut",
+    "de": "Standardstil",
+    "cs": "Výchozí styl",
+    "sk": "Predvolený štýl",
+    "es": "Estilo predeterminado",
+    "nl": "Standaardstijl"
+   }
+  },
+  {
+   "key": "Agency style",
+   "translations": {
+    "vi": "Kiểu theo hãng môi giới",
+    "fr": "Style d'agence",
+    "de": "Maklerstil",
+    "cs": "Styl realitní kanceláře",
+    "sk": "Štýl realitnej kancelárie",
+    "es": "Estilo de agencia",
+    "nl": "Makelaarsstijl"
+   }
+  },
+  {
+   "key": "No agency style",
+   "translations": {
+    "vi": "Không theo hãng nào",
+    "fr": "Aucun style d'agence",
+    "de": "Kein Maklerstil",
+    "cs": "Bez stylu kanceláře",
+    "sk": "Bez štýlu kancelárie",
+    "es": "Sin estilo de agencia",
+    "nl": "Geen makelaarsstijl"
+   }
+  },
+  {
+   "key": "Used when you order a color floor plan. You can still change it on each order.",
+   "translations": {
+    "vi": "Dùng khi bạn đặt mặt bằng màu. Bạn vẫn đổi được ở từng đơn.",
+    "fr": "Utilisé quand vous commandez un plan d'étage en couleur. Vous pouvez quand même le changer pour chaque commande.",
+    "de": "Gilt, wenn Sie einen farbigen Grundriss bestellen. Sie können ihn bei jeder Bestellung trotzdem ändern.",
+    "cs": "Použije se, když objednáte barevný půdorys. U každé objednávky ho můžete i tak změnit.",
+    "sk": "Použije sa, keď objednáte farebný pôdorys. Pri každej objednávke ho môžete aj tak zmeniť.",
+    "es": "Se usa cuando pides un plano de planta en color. Aun así puedes cambiarlo en cada pedido.",
+    "nl": "Gebruikt wanneer je een kleurenplattegrond bestelt. Je kunt hem per bestelling nog steeds wijzigen."
+   }
+  },
+  {
+   "key": "Follows the look of each agency's floor plans. Cedar247 is not affiliated with these agencies.",
+   "translations": {
+    "vi": "Theo phong cách mặt bằng của từng hãng. Cedar247 không liên kết với các hãng này.",
+    "fr": "Reprend l'apparence des plans d'étage de chaque agence. Cedar247 n'est pas affiliée à ces agences.",
+    "de": "Folgt dem Stil der Grundrisse des jeweiligen Maklerbüros. Cedar247 ist mit diesen Maklerbüros nicht verbunden.",
+    "cs": "Odpovídá vzhledu půdorysů dané realitní kanceláře. Cedar247 není s těmito kancelářemi nijak spojena.",
+    "sk": "Zodpovedá vzhľadu pôdorysov danej realitnej kancelárie. Cedar247 nie je s týmito kanceláriami nijako spojená.",
+    "es": "Sigue el estilo de los planos de cada agencia. Cedar247 no está afiliada a estas agencias.",
+    "nl": "Volgt de stijl van de plattegronden van elk makelaarskantoor. Cedar247 is niet verbonden aan deze kantoren."
+   }
+  },
+  {
+   "key": "Add my logo",
+   "translations": {
+    "vi": "Gắn logo của tôi",
+    "fr": "Ajouter mon logo",
+    "de": "Mein Logo hinzufügen",
+    "cs": "Přidat moje logo",
+    "sk": "Pridať moje logo",
+    "es": "Añadir mi logotipo",
+    "nl": "Mijn logo toevoegen"
+   }
+  },
+  {
+   "key": "This file is larger than 5 MB. Please choose a smaller one.",
+   "translations": {
+    "vi": "File này lớn hơn 5 MB. Bạn chọn file nhỏ hơn nhé.",
+    "fr": "Ce fichier dépasse 5 Mo. Choisissez-en un plus petit.",
+    "de": "Diese Datei ist größer als 5 MB. Bitte wählen Sie eine kleinere.",
+    "cs": "Tento soubor je větší než 5 MB. Vyberte prosím menší.",
+    "sk": "Tento súbor je väčší ako 5 MB. Vyberte prosím menší.",
+    "es": "Este archivo supera los 5 MB. Elige uno más pequeño.",
+    "nl": "Dit bestand is groter dan 5 MB. Kies een kleiner bestand."
+   }
+  },
+  {
+   "key": "Please choose a PNG, JPG, SVG or PDF file.",
+   "translations": {
+    "vi": "Bạn chọn file PNG, JPG, SVG hoặc PDF nhé.",
+    "fr": "Choisissez un fichier PNG, JPG, SVG ou PDF.",
+    "de": "Bitte wählen Sie eine PNG-, JPG-, SVG- oder PDF-Datei.",
+    "cs": "Vyberte prosím soubor PNG, JPG, SVG nebo PDF.",
+    "sk": "Vyberte prosím súbor PNG, JPG, SVG alebo PDF.",
+    "es": "Elige un archivo PNG, JPG, SVG o PDF.",
+    "nl": "Kies een PNG-, JPG-, SVG- of PDF-bestand."
+   }
+  },
+  {
+   "key": "This style is no longer available. Please choose another.",
+   "translations": {
+    "vi": "Kiểu này không còn nữa. Bạn chọn kiểu khác nhé.",
+    "fr": "Ce style n'est plus disponible. Choisissez-en un autre.",
+    "de": "Dieser Stil ist nicht mehr verfügbar. Bitte wählen Sie einen anderen.",
+    "cs": "Tento styl už není k dispozici. Vyberte prosím jiný.",
+    "sk": "Tento štýl už nie je k dispozícii. Vyberte prosím iný.",
+    "es": "Este estilo ya no está disponible. Elige otro.",
+    "nl": "Deze stijl is niet meer beschikbaar. Kies een andere."
+   }
   }
  ],
  "infoplist": {

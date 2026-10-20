@@ -7,11 +7,14 @@ struct TemplatePicker: View {
     let templates: [CatalogTemplate]
     /// The picked template id (nil = none yet).
     @Binding var selection: String?
+    /// F9: a style picked before the row appeared (My brand's, the last order's) can sit past the
+    /// screen edge — the row opens scrolled to it.
+    @State private var scrolledTo: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 10) {
+                HStack(alignment: .top, spacing: 10) {
                     ForEach(templates) { tpl in
                         Button {
                             selection = tpl.id
@@ -28,14 +31,24 @@ struct TemplatePicker: View {
                                     .font(.caption2)
                                     .fontWeight(selection == tpl.id ? .semibold : .regular)
                                     .foregroundStyle(selection == tpl.id ? Theme.accentText : Color.secondary)
-                                    .lineLimit(1)
+                                    // Two lines in the column: agency names (F9) are longer than "Style 12".
+                                    .lineLimit(2)
+                                    .multilineTextAlignment(.center)
+                                    .frame(width: 72)
                             }
                         }
                         .buttonStyle(.plain)
+                        // N17: the template's name (the thumbnail has none) and which one is
+                        // chosen — the blue ring alone said it to nobody using VoiceOver.
+                        .accessibilityLabel(tpl.name)
+                        .accessibilityAddTraits(selection == tpl.id ? AccessibilityTraits.isSelected : AccessibilityTraits())
                     }
                 }
+                .scrollTargetLayout()
                 .padding(.vertical, 4)
             }
+            .scrollPosition(id: $scrolledTo, anchor: .center)
+            .onAppear { scrolledTo = selection }
             if let selId = selection, let sel = templates.first(where: { $0.id == selId }) {
                 templateLargePreview(sel)
             }

@@ -371,6 +371,7 @@ struct AddToOrderSheet: View {
                 HStack {
                     Image(systemName: selectedPackages.contains(item.id) ? "checkmark.circle.fill" : "circle")
                         .foregroundStyle(.tint)
+                        .accessibilityHidden(true)
                     // Concrete colours in a Button label (trap #45).
                     Text(item.name)
                         .foregroundStyle(Color.primary)
@@ -380,6 +381,8 @@ struct AddToOrderSheet: View {
                 }
             }
             .disabled(locked)
+            // N17: chosen = the trait, ✗ only the tick's colour (the tick is hidden from VoiceOver).
+            .accessibilityAddTraits(selectedPackages.contains(item.id) ? AccessibilityTraits.isSelected : AccessibilityTraits())
         }
     }
 
@@ -389,6 +392,8 @@ struct AddToOrderSheet: View {
             if check {
                 Image(systemName: "checkmark.circle.fill")
                     .foregroundStyle(Theme.inactive)
+                    // N17: "Included" says it (combined row below).
+                    .accessibilityHidden(true)
             }
             Text(name)
                 .foregroundStyle(Color.secondary)
@@ -434,22 +439,39 @@ struct AddToOrderSheet: View {
             }
             .disabled(locked)
             // An add-on with styles (colour, site plan) + switched on → its picker, as in the order form.
-            if selectedAddons.contains(item.id), let templates = item.templates, !templates.isEmpty {
-                TemplatePicker(templates: templates, selection: templateBinding(item.id))
-                    .disabled(locked)
+            if selectedAddons.contains(item.id) {
+                stylePicker(item)
             }
         }
     }
 
-    /// Switching on an add-on with styles picks its first style (the server records "no template
-    /// chosen" otherwise) — as `OrderSheet.addonBinding`.
+    @ViewBuilder
+    private func stylePicker(_ item: ExtrasOfferItem) -> some View {
+        let templates = styles(of: item)
+        if !templates.isEmpty {
+            TemplatePicker(templates: templates, selection: templateBinding(item.id))
+                .disabled(locked)
+        }
+    }
+
+    /// F9: the colour add-on also offers the AU / NZ agency styles this phone lists.
+    private func styles(of item: ExtrasOfferItem) -> [CatalogTemplate] {
+        item.id == BrandStyles.colorAddonId
+            ? BrandStyles.styles(templates: item.templates, agency: item.agencyTemplates)
+            : (item.templates ?? [])
+    }
+
+    /// Switching on an add-on with styles picks the My brand style (colour, F9), else its first style
+    /// (the server records "no template chosen" otherwise) — as `OrderSheet.addonBinding`.
     private func addonBinding(_ item: ExtrasOfferItem) -> Binding<Bool> {
         Binding(
             get: { selectedAddons.contains(item.id) },
             set: { on in
                 if on {
                     selectedAddons.insert(item.id)
-                    if selectedTemplates[item.id] == nil, let first = item.templates?.first?.id {
+                    let templates = styles(of: item)
+                    let saved = item.id == BrandStyles.colorAddonId ? BrandStyles.preferred(offer?.brand, in: templates) : nil
+                    if selectedTemplates[item.id] == nil, let first = saved ?? templates.first?.id {
                         selectedTemplates[item.id] = first
                     }
                 } else {

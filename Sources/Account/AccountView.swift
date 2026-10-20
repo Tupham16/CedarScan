@@ -58,6 +58,17 @@ struct AccountView: View {
                                     .listRowBackground(Theme.card)
                             }
                         }
+                        // F9 (2.79): saved logo + default style. Its own Section: F6 / F8 add rows here too.
+                        if account.myBrandAvailable {
+                            Section {
+                                NavigationLink {
+                                    MyBrandView()
+                                } label: {
+                                    Label(String(localized: "My brand"), systemImage: "paintpalette")
+                                }
+                                .listRowBackground(Theme.card)
+                            }
+                        }
                         Section {
                             Link(destination: URL(string: "https://cedar247.com")!) {
                                 Label("cedar247.com", systemImage: "globe")
@@ -374,7 +385,13 @@ struct DeleteAccountView: View {
     private func submit() {
         isBusy = true
         errorMessage = nil
+        // N8 (2.79): scan files still uploading in the background (an order cancelled mid-upload
+        // keeps transferring) stop BEFORE the request (awaited) — one finishing after the server
+        // removed this account's files would land on our storage again. Refused (wrong password):
+        // the journal stays, a later order resumes; done: `signOut` clears it.
+        let stopping = BackgroundUploads.shared.cancelTransfers()
         Task {
+            await stopping.value
             do {
                 _ = try await APIClient.shared.deleteAccount(password: password)
                 // Its unpaid orders were cancelled and their list is gone for good: ✗ leave

@@ -37,7 +37,10 @@ struct AuthView: View {
                 }
                 TextField("Email", text: $email)
                     .keyboardType(.emailAddress)
-                    .textContentType(.emailAddress)
+                    // C9 (2.79): `.username`, ✗ `.emailAddress` — Password AutoFill pairs the
+                    // account field with the password below (saved / suggested passwords; with
+                    // the webcredentials entitlement, the ones saved on cedar247.com too).
+                    .textContentType(.username)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .fogField($focused, .email)

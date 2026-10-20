@@ -692,6 +692,8 @@ struct OrderDetailView: View {
         HStack(spacing: 10) {
             Image(systemName: "checkmark.circle")
                 .foregroundStyle(Theme.Badge.ok.fg)
+                // N17: a bullet beside each ordered item, ✗ read aloud.
+                .accessibilityHidden(true)
             Text(Self.itemText(item))
                 .font(.subheadline)
             Spacer(minLength: 0)

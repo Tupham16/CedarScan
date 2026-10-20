@@ -442,9 +442,21 @@ struct ScanAddressView: View {
                 .font(.footnote)
                 .foregroundStyle(.tint)
                 Spacer(minLength: 8)
-                Button(String(localized: "Clear")) { pickedProjectId = nil }
-                    .font(.footnote)
-                    .buttonStyle(.borderless)
+                // N17 (2.79): a ≥ 44pt target (the footnote text alone is ~16pt) inside the row's
+                // own height — negative padding keeps the row exactly as tall as before (a taller
+                // row appearing here = more of the jump of trap #2).
+                Button {
+                    pickedProjectId = nil
+                } label: {
+                    Text(String(localized: "Clear"))
+                        .font(.footnote)
+                        .padding(.vertical, 14)
+                        .padding(.horizontal, 8)
+                        .contentShape(Rectangle())
+                        .padding(.vertical, -14)
+                        .padding(.horizontal, -8)
+                }
+                .buttonStyle(.borderless)
             }
         }
     }
