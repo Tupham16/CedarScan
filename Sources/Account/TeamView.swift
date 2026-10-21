@@ -114,6 +114,7 @@ struct TeamView: View {
                 HStack(alignment: .top, spacing: 12) {
                     Image(systemName: "building.2")
                         .foregroundStyle(Theme.accentText)
+                        .accessibilityHidden(true)
                     WrappedText(Self.billingLine(company: billing.account?.company), style: .subheadline)
                 }
                 .listRowBackground(Theme.card)

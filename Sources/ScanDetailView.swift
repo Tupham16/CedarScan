@@ -1945,6 +1945,7 @@ struct OrderSheet: View {
                     // HStack, ✗ Label: the icon stays by the first line (WrappedText may report no baseline).
                     HStack(alignment: .top, spacing: 6) {
                         Image(systemName: "building.2")
+                            .accessibilityHidden(true)
                         WrappedText(String(localized: "Charged to your company's cedar247.com account"), style: .footnote, color: .secondaryLabel)
                     }
                 } else if let card = account.team?.card {
@@ -1953,6 +1954,7 @@ struct OrderSheet: View {
                     // WrappedText: wrapped in German, a plain footer Text lost its last line (trap #44).
                     HStack(alignment: .top, spacing: 6) {
                         Image(systemName: "creditcard")
+                            .accessibilityHidden(true)
                         WrappedText(String(localized: "Paid with your team card (\(card.label))"), style: .footnote, color: .secondaryLabel)
                     }
                 }
