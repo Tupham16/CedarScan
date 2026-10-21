@@ -18,12 +18,17 @@ enum BrandStyles {
     /// Agency styles this phone lists: the server sends the ones the account may see, each with the
     /// regions it is meant for (AU / NZ); the phone's region setting decides here. No regions = no
     /// phone: agency names must never reach a phone outside AU / NZ (App Review is in the US, on a
-    /// test account that sees every agency style).
+    /// test account that sees every agency style). App Store builds list none (owner 21/10): agency
+    /// names in a region-only feature = guideline 2.5.19 / 5.2.1 risk; AltStore builds keep them.
     static func listed(_ agency: [CatalogTemplate]?) -> [CatalogTemplate] {
+        #if APPSTORE
+        return []
+        #else
         guard let region = Locale.current.region?.identifier else { return [] }
         return (agency ?? []).filter { style in
             style.regions?.contains(region) == true
         }
+        #endif
     }
 
     /// The colour add-on's own styles, then the agency styles this phone lists.
