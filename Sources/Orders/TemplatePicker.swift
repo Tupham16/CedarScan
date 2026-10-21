@@ -14,7 +14,7 @@ struct TemplatePicker: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(alignment: .top, spacing: 10) {
+                HStack(spacing: 10) {
                     ForEach(templates) { tpl in
                         Button {
                             selection = tpl.id
@@ -31,10 +31,7 @@ struct TemplatePicker: View {
                                     .font(.caption2)
                                     .fontWeight(selection == tpl.id ? .semibold : .regular)
                                     .foregroundStyle(selection == tpl.id ? Theme.accentText : Color.secondary)
-                                    // Two lines in the column: agency names (F9) are longer than "Style 12".
-                                    .lineLimit(2)
-                                    .multilineTextAlignment(.center)
-                                    .frame(width: 72)
+                                    .lineLimit(1)
                             }
                         }
                         .buttonStyle(.plain)

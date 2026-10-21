@@ -10,38 +10,15 @@ import UniformTypeIdentifiers
 // "Color floor plan" is on. A style never adds a charge and never switches the add-on on by itself.
 // Plans carry no logo unless the customer asks (owner, F4): saving one here is that request.
 
-/// The colour styles a form offers, and which one to pre-select. Shared by `MyBrandView`,
-/// `OrderSheet` and `AddToOrderSheet`.
+/// The colour add-on and the style a form pre-selects for it. Shared by `MyBrandView`, `OrderSheet`
+/// and `AddToOrderSheet`. No agency styles (owner 21/10): a customer who asks gets a custom one.
 enum BrandStyles {
     static let colorAddonId = "color"
 
-    /// Agency styles this phone lists: the server sends the ones the account may see, each with the
-    /// regions it is meant for (AU / NZ); the phone's region setting decides here. No regions = no
-    /// phone: agency names must never reach a phone outside AU / NZ (App Review is in the US, on a
-    /// test account that sees every agency style). App Store builds list none (owner 21/10): agency
-    /// names in a region-only feature = guideline 2.5.19 / 5.2.1 risk; AltStore builds keep them.
-    static func listed(_ agency: [CatalogTemplate]?) -> [CatalogTemplate] {
-        #if APPSTORE
-        return []
-        #else
-        guard let region = Locale.current.region?.identifier else { return [] }
-        return (agency ?? []).filter { style in
-            style.regions?.contains(region) == true
-        }
-        #endif
-    }
-
-    /// The colour add-on's own styles, then the agency styles this phone lists.
-    static func styles(templates: [CatalogTemplate]?, agency: [CatalogTemplate]?) -> [CatalogTemplate] {
-        (templates ?? []) + listed(agency)
-    }
-
-    /// The saved style when `list` offers it: the agency style first, then the default style.
+    /// The saved default style when `list` offers it.
     static func preferred(_ brand: BrandSettings?, in list: [CatalogTemplate]) -> String? {
-        guard let brand else { return nil }
-        return [brand.agencyStyleId, brand.styleId]
-            .compactMap { $0 }
-            .first { id in list.contains { $0.id == id } }
+        guard let id = brand?.styleId, list.contains(where: { $0.id == id }) else { return nil }
+        return id
     }
 }
 
@@ -66,12 +43,6 @@ struct MyBrandView: View {
     }
 
     private var styles: [CatalogTemplate] { colorAddon?.templates ?? [] }
-    private var agencyStyles: [CatalogTemplate] { BrandStyles.listed(colorAddon?.agencyTemplates) }
-    /// The saved agency style, when this phone lists it. One saved on an AU / NZ phone and opened
-    /// elsewhere counts as none here — as in the order form, which then uses the default style.
-    private var activeAgencyStyleId: String? {
-        agencyStyles.contains { $0.id == brand.agencyStyleId } ? brand.agencyStyleId : nil
-    }
 
     var body: some View {
         Group {
@@ -188,29 +159,9 @@ struct MyBrandView: View {
 
     private var styleSection: some View {
         Section {
-            Group {
-                TemplatePicker(templates: styles, selection: styleBinding)
-                    .disabled(saving || uploading)
-                if !agencyStyles.isEmpty {
-                    NavigationLink {
-                        AgencyStyleView(styles: agencyStyles, selected: activeAgencyStyleId) { id in
-                            save(["agencyStyleId": id.map { $0 as Any } ?? NSNull()],
-                                 optimistic: brand.with(agencyStyleId: .some(id)))
-                        }
-                    } label: {
-                        HStack {
-                            Text(String(localized: "Agency style"))
-                            Spacer()
-                            if let name = agencyStyles.first(where: { $0.id == brand.agencyStyleId })?.name {
-                                Text(name)
-                                    .foregroundStyle(Color.secondary)
-                            }
-                        }
-                    }
-                    .disabled(saving || uploading)
-                }
-            }
-            .listRowBackground(Theme.card)
+            TemplatePicker(templates: styles, selection: styleBinding)
+                .disabled(saving || uploading)
+                .listRowBackground(Theme.card)
         } header: {
             Text(String(localized: "Default style"))
         } footer: {
@@ -220,17 +171,12 @@ struct MyBrandView: View {
 
     // MARK: Settings
 
-    /// An agency style in use = none of the ordinary styles is the default (the row says which).
-    /// Picking an ordinary style ends the agency style.
     private var styleBinding: Binding<String?> {
         Binding(
-            get: { activeAgencyStyleId == nil ? brand.styleId : nil },
+            get: { brand.styleId },
             set: { id in
-                // Tapping the style shown as picked changes nothing (an agency style saved on
-                // another phone, not listed here, stays saved).
-                guard let id, id != brand.styleId || activeAgencyStyleId != nil else { return }
-                save(["styleId": id, "agencyStyleId": NSNull()],
-                     optimistic: brand.with(styleId: .some(id), agencyStyleId: .some(nil)))
+                guard let id, id != brand.styleId else { return }
+                save(["styleId": id], optimistic: brand.with(styleId: .some(id)))
             }
         )
     }
@@ -243,8 +189,8 @@ struct MyBrandView: View {
     }
 
     private func load() async {
-        // `.task` runs again on the way back from Agency style, while that save may be out: one
-        // load per visit (Retry clears `loadError` and comes here with no catalog).
+        // `.task` runs again whenever the screen reappears, maybe while a save is out: one load per
+        // visit (Retry clears `loadError` and comes here with no catalog).
         guard catalog == nil else { return }
         do {
             let result = try await APIClient.shared.brandCatalog()
@@ -274,7 +220,6 @@ struct MyBrandView: View {
                 var back = brand
                 if fields["addLogo"] != nil { back = back.with(addLogo: before.addLogo) }
                 if fields["styleId"] != nil { back = back.with(styleId: .some(before.styleId)) }
-                if fields["agencyStyleId"] != nil { back = back.with(agencyStyleId: .some(before.agencyStyleId)) }
                 brand = back
                 errorText = message(for: error)
                 saving = false
@@ -365,81 +310,6 @@ struct MyBrandView: View {
         case "storage", "email_unverified": return String(localized: "Something went wrong. Please try again.")
         default: return error.localizedDescription
         }
-    }
-}
-
-/// Account → My brand → Agency style (AU / NZ phones).
-private struct AgencyStyleView: View {
-    let styles: [CatalogTemplate]
-    let selected: String?
-    let onPick: (String?) -> Void
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        List {
-            Section {
-                Group {
-                    row(id: nil, name: String(localized: "No agency style"), style: nil)
-                    ForEach(styles) { style in
-                        row(id: style.id, name: style.name, style: style)
-                    }
-                }
-                .listRowBackground(Theme.card)
-            } footer: {
-                Text(String(localized: "Follows the look of each agency's floor plans. Cedar247 is not affiliated with these agencies."))
-            }
-        }
-        .fogScreen()
-        .tabRootBarRoom()
-        .navigationTitle(String(localized: "Agency style"))
-        .navigationBarTitleDisplayMode(.inline)
-    }
-
-    private func row(id: String?, name: String, style: CatalogTemplate?) -> some View {
-        Button {
-            if id != selected { onPick(id) }
-            dismiss()
-        } label: {
-            HStack(spacing: 12) {
-                if let style {
-                    styleThumb(style)
-                }
-                // Concrete colour: `.primary` in a Button label = the tint (trap #45).
-                Text(name)
-                    .foregroundStyle(Color.primary)
-                Spacer()
-                if id == selected {
-                    Image(systemName: "checkmark")
-                        .font(.body.weight(.semibold))
-                        .foregroundStyle(Theme.accentText)
-                }
-            }
-            .padding(.vertical, style == nil ? 4 : 0)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityAddTraits(id == selected ? AccessibilityTraits.isSelected : AccessibilityTraits())
-    }
-
-    @ViewBuilder
-    private func styleThumb(_ style: CatalogTemplate) -> some View {
-        Group {
-            if let s = style.imageUrl, let url = URL(string: s) {
-                AsyncImage(url: url) { phase in
-                    if let image = phase.image {
-                        image.resizable().scaledToFill()
-                    } else {
-                        Theme.thumbBg
-                    }
-                }
-            } else {
-                Theme.thumbBg.overlay(Image(systemName: "paintpalette").foregroundStyle(.secondary))
-            }
-        }
-        .frame(width: 44, height: 44)
-        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(Theme.ghostBorder))
-        .accessibilityHidden(true)
     }
 }
 
@@ -586,12 +456,7 @@ enum LogoImageEncoder {
 
 extension BrandSettings {
     /// A copy with some fields changed (`.some(nil)` clears a style).
-    func with(addLogo: Bool? = nil, styleId: String?? = nil, agencyStyleId: String?? = nil) -> BrandSettings {
-        BrandSettings(
-            logo: logo,
-            addLogo: addLogo ?? self.addLogo,
-            styleId: styleId ?? self.styleId,
-            agencyStyleId: agencyStyleId ?? self.agencyStyleId
-        )
+    func with(addLogo: Bool? = nil, styleId: String?? = nil) -> BrandSettings {
+        BrandSettings(logo: logo, addLogo: addLogo ?? self.addLogo, styleId: styleId ?? self.styleId)
     }
 }

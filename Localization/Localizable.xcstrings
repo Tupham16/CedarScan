@@ -2069,53 +2069,6 @@
         }
       }
     },
-    "Agency style": {
-      "extractionState": "manual",
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Styl realitní kanceláře"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Maklerstil"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Estilo de agencia"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Style d'agence"
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Makelaarsstijl"
-          }
-        },
-        "sk": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Štýl realitnej kancelárie"
-          }
-        },
-        "vi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Kiểu theo hãng môi giới"
-          }
-        }
-      }
-    },
     "Alerts while scanning when you move or turn too fast, light is low, or you get too close.": {
       "extractionState": "manual",
       "localizations": {
@@ -7292,53 +7245,6 @@
         }
       }
     },
-    "Follows the look of each agency's floor plans. Cedar247 is not affiliated with these agencies.": {
-      "extractionState": "manual",
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Odpovídá vzhledu půdorysů dané realitní kanceláře. Cedar247 není s těmito kancelářemi nijak spojena."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Folgt dem Stil der Grundrisse des jeweiligen Maklerbüros. Cedar247 ist mit diesen Maklerbüros nicht verbunden."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sigue el estilo de los planos de cada agencia. Cedar247 no está afiliada a estas agencias."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Reprend l'apparence des plans d'étage de chaque agence. Cedar247 n'est pas affiliée à ces agences."
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Volgt de stijl van de plattegronden van elk makelaarskantoor. Cedar247 is niet verbonden aan deze kantoren."
-          }
-        },
-        "sk": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Zodpovedá vzhľadu pôdorysov danej realitnej kancelárie. Cedar247 nie je s týmito kanceláriami nijako spojená."
-          }
-        },
-        "vi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Theo phong cách mặt bằng của từng hãng. Cedar247 không liên kết với các hãng này."
-          }
-        }
-      }
-    },
     "Forgot password?": {
       "extractionState": "manual",
       "localizations": {
@@ -10625,53 +10531,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Bản quét này chưa thu được mô hình 3D — đội vẽ không dựng được mặt bằng, hãy quét lại khu này."
-          }
-        }
-      }
-    },
-    "No agency style": {
-      "extractionState": "manual",
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Bez stylu kanceláře"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Kein Maklerstil"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sin estilo de agencia"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Aucun style d'agence"
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Geen makelaarsstijl"
-          }
-        },
-        "sk": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Bez štýlu kancelárie"
-          }
-        },
-        "vi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Không theo hãng nào"
           }
         }
       }
