@@ -1331,6 +1331,10 @@ struct OrderSheet: View {
             .task {
                 await loadCatalog()
             }
+            // F10b: the team (and its card) as of now, for the line under Place order.
+            .task {
+                await account.refreshTeam()
+            }
         }
         // Chặn VUỐT-đóng khi đang đặt: vuốt xuống là cử chỉ VÔ Ý, đường dễ nhất để "hủy hụt" (sheet
         // đóng mà đơn vẫn tạo ngầm). Muốn thoát thì bấm nút "Hủy" tường minh — nút đó cancel Task hẳn.
@@ -1924,6 +1928,15 @@ struct OrderSheet: View {
             VStack(alignment: .leading, spacing: 4) {
                 if isFreePromo {
                     Text(String(localized: "Free order — no payment needed. Our team starts right after you place it."))
+                } else if let card = account.team?.card {
+                    // F10b (mockup f10b-6): the team's card is charged at Place order (server
+                    // `chargeTeamCard`); declined = the usual "Awaiting payment" + Pay Now.
+                    // WrappedText: wrapped in German, a plain footer Text lost its last line (trap #44).
+                    Label {
+                        WrappedText(String(localized: "Paid with your team card (\(card.label))"), style: .footnote, color: .secondaryLabel)
+                    } icon: {
+                        Image(systemName: "creditcard")
+                    }
                 }
                 // Dòng đồng ý điều khoản — MỘT dòng footer, bấm được để đọc ngay tại chỗ
                 // (không bắt khách rời form sang tab Tài khoản). Sheet bọc NavigationStack
@@ -2037,7 +2050,8 @@ struct OrderSheet: View {
                 .font(.title3.monospaced().weight(.bold))
             // Dòng "MIỄN PHÍ — khuyến mãi đơn đầu 🎁" ĐÃ BỎ 2026-09-01 theo chủ app. Đơn free
             // vì thế KHÔNG rơi xuống nhánh tổng tiền (in "$0" còn tệ hơn dòng vừa bỏ).
-            if order.free != true, let total = order.total {
+            // F10: a team-card order comes back `free` (nothing left to pay) but was charged.
+            if order.free != true || order.paidWithTeamCard, let total = order.total {
                 Text(String(localized: "Total: $\(total)"))
                     .font(.headline)
             }
@@ -2050,6 +2064,13 @@ struct OrderSheet: View {
                 Text(String(localized: "Coupon code was not valid — full price applies."))
                     .font(.footnote)
                     .foregroundStyle(Theme.Badge.warn.fg)
+                    .multilineTextAlignment(.center)
+            }
+            // F10b (mockup f10b-7): no Pay Now — `paymentUrl` is nil and `free` true.
+            if order.paidWithTeamCard {
+                Label(String(localized: "Paid with the team card"), systemImage: "checkmark.circle")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Theme.Badge.ok.fg)
                     .multilineTextAlignment(.center)
             }
             if !unpaid, let due = OrderDTO.readyByDate(placedDueAt ?? order.dueAt) {
@@ -2395,6 +2416,9 @@ struct OrderSheet: View {
                 // gets stamped and the house offers a second PAID order. Still inside
                 // `placingOrder` (#26).
                 if let api = error as? APIError, api.statusCode == 409 {
+                    // F10: one 409 is "Your team membership just changed": the team-card line under
+                    // the button follows the account's team before the next tap.
+                    Task { await account.refreshTeam() }
                     await adoptExistingOrder(api, primaryCloudId: primaryCloudId, ticked: tickedCloudIds)
                 } else {
                     errorMessage = error.localizedDescription
@@ -2490,7 +2514,9 @@ struct OrderSheet: View {
         let isNew = order.status == "awaiting_payment" || order.status == "received"
         let holdsTicked = Set(ticked).isSubset(of: order.allScanIds)
         let payLinkReady = !order.isAwaitingPayment || httpsURL(order.paymentUrl) != nil
-        guard isNew, holdsTicked, payLinkReady else {
+        // F10: a teammate's order (they ordered this team scan) is not this tap's: one line, ✗ "Order
+        // placed!". The lost answer to this phone's own tap is always this account's.
+        guard isNew, holdsTicked, payLinkReady, order.placedByMe else {
             errorMessage = String(localized: "This scan is already in order \(order.orderNumber) — see the Orders tab.")
             return
         }
@@ -2513,11 +2539,14 @@ struct OrderSheet: View {
             paymentUrl: order.paymentUrl,
             discount: nil,
             couponApplied: nil,
-            free: order.paid == true && (order.total ?? 0) <= 0,
+            // F10: paid by the team (card; F10c adds "wallet" / "invoice") too, as the Place order
+            // reply says (nothing left to pay).
+            free: order.paid == true && ((order.total ?? 0) <= 0 || order.paidWith != nil),
             hasTour: order.hasTour,
             payInApp: order.payInApp,
             payBy: order.payBy,
-            dueAt: order.dueAt
+            dueAt: order.dueAt,
+            paidWith: order.paidWith
         )
     }
 }

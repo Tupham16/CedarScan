@@ -5916,6 +5916,246 @@
     "es": "No se pudieron cargar tus correos de entrega.",
     "nl": "Je bezorg-e-mails konden niet worden geladen."
    }
+  },
+  {
+   "key": "Team",
+   "translations": {
+    "vi": "Nhóm",
+    "fr": "Équipe",
+    "de": "Team",
+    "cs": "Tým",
+    "sk": "Tím",
+    "es": "Equipo",
+    "nl": "Team"
+   }
+  },
+  {
+   "key": "Members",
+   "translations": {
+    "vi": "Thành viên",
+    "fr": "Membres",
+    "de": "Mitglieder",
+    "cs": "Členové",
+    "sk": "Členovia",
+    "es": "Miembros",
+    "nl": "Leden"
+   }
+  },
+  {
+   "key": "Admin",
+   "translations": {
+    "vi": "Quản trị",
+    "fr": "Admin",
+    "de": "Admin",
+    "cs": "Správce",
+    "sk": "Správca",
+    "es": "Admin",
+    "nl": "Beheerder"
+   }
+  },
+  {
+   "key": "You",
+   "translations": {
+    "vi": "Bạn",
+    "fr": "Vous",
+    "de": "Sie",
+    "cs": "Vy",
+    "sk": "Vy",
+    "es": "Tú",
+    "nl": "Jij"
+   }
+  },
+  {
+   "key": "Invited",
+   "translations": {
+    "vi": "Đã mời",
+    "fr": "En attente",
+    "de": "Eingeladen",
+    "cs": "Pozvánka",
+    "sk": "Pozvánka",
+    "es": "Pendiente",
+    "nl": "Uitgenodigd"
+   }
+  },
+  {
+   "key": "Team card",
+   "translations": {
+    "vi": "Thẻ của nhóm",
+    "fr": "Carte de l'équipe",
+    "de": "Team-Karte",
+    "cs": "Karta týmu",
+    "sk": "Karta tímu",
+    "es": "Tarjeta del equipo",
+    "nl": "Teamkaart"
+   }
+  },
+  {
+   "key": "Couldn't load your team.",
+   "translations": {
+    "vi": "Không tải được thông tin nhóm.",
+    "fr": "Impossible de charger votre équipe.",
+    "de": "Ihr Team konnte nicht geladen werden.",
+    "cs": "Tým se nepodařilo načíst.",
+    "sk": "Tím sa nepodarilo načítať.",
+    "es": "No se pudo cargar tu equipo.",
+    "nl": "Je team kon niet worden geladen."
+   }
+  },
+  {
+   "key": "You're not on a team.",
+   "translations": {
+    "vi": "Bạn không ở trong nhóm nào.",
+    "fr": "Vous ne faites partie d'aucune équipe.",
+    "de": "Sie sind in keinem Team.",
+    "cs": "Nejste členem žádného týmu.",
+    "sk": "Nie ste členom žiadneho tímu.",
+    "es": "No formas parte de ningún equipo.",
+    "nl": "Je zit niet in een team."
+   }
+  },
+  {
+   "key": "Manage on app.cedar247.com",
+   "translations": {
+    "vi": "Quản lý trên app.cedar247.com",
+    "fr": "Gérer sur app.cedar247.com",
+    "de": "Auf app.cedar247.com verwalten",
+    "cs": "Spravovat na app.cedar247.com",
+    "sk": "Spravovať na app.cedar247.com",
+    "es": "Gestionar en app.cedar247.com",
+    "nl": "Beheren op app.cedar247.com"
+   }
+  },
+  {
+   "key": "Everyone on the team sees the team's orders and can order any scan the team uploaded.",
+   "translations": {
+    "vi": "Mọi người trong nhóm đều thấy đơn của nhóm và đặt được bất kỳ bản quét nào nhóm đã tải lên.",
+    "fr": "Tous les membres de l'équipe voient les commandes de l'équipe et peuvent commander toute numérisation téléversée par l'équipe.",
+    "de": "Alle im Team sehen die Bestellungen des Teams und können jeden Scan bestellen, den das Team hochgeladen hat.",
+    "cs": "Všichni v týmu vidí objednávky týmu a mohou objednat jakýkoli sken, který tým nahrál.",
+    "sk": "Všetci v tíme vidia objednávky tímu a môžu objednať ktorýkoľvek sken, ktorý tím nahral.",
+    "es": "Todos en el equipo ven los pedidos del equipo y pueden pedir cualquier escaneo que haya subido el equipo.",
+    "nl": "Iedereen in het team ziet de bestellingen van het team en kan elke scan bestellen die het team heeft geüpload."
+   }
+  },
+  {
+   "key": "Your orders are paid with this card.",
+   "translations": {
+    "vi": "Đơn của bạn được trả bằng thẻ này.",
+    "fr": "Vos commandes sont payées avec cette carte.",
+    "de": "Ihre Bestellungen werden mit dieser Karte bezahlt.",
+    "cs": "Vaše objednávky se platí touto kartou.",
+    "sk": "Vaše objednávky sa platia touto kartou.",
+    "es": "Tus pedidos se pagan con esta tarjeta.",
+    "nl": "Je bestellingen worden met deze kaart betaald."
+   }
+  },
+  {
+   "key": "by %@",
+   "translations": {
+    "vi": "do %@ đặt",
+    "fr": "par %@",
+    "de": "von %@",
+    "cs": "objednal(a) %@",
+    "sk": "objednal(a) %@",
+    "es": "por %@",
+    "nl": "door %@"
+   }
+  },
+  {
+   "key": "Placed by %@",
+   "translations": {
+    "vi": "Người đặt: %@",
+    "fr": "Passée par %@",
+    "de": "Bestellt von %@",
+    "cs": "Objednal(a): %@",
+    "sk": "Objednal(a): %@",
+    "es": "Realizado por %@",
+    "nl": "Geplaatst door %@"
+   }
+  },
+  {
+   "key": "Paid with your team card (%@)",
+   "translations": {
+    "vi": "Trả bằng thẻ của nhóm (%@)",
+    "fr": "Paiement avec la carte de votre équipe (%@)",
+    "de": "Zahlung mit der Karte Ihres Teams (%@)",
+    "cs": "Platí se kartou vašeho týmu (%@)",
+    "sk": "Platí sa kartou vášho tímu (%@)",
+    "es": "Se paga con la tarjeta de tu equipo (%@)",
+    "nl": "Betaling met de kaart van je team (%@)"
+   }
+  },
+  {
+   "key": "Paid with the team card",
+   "translations": {
+    "vi": "Đã trả bằng thẻ của nhóm",
+    "fr": "Payée avec la carte de l'équipe",
+    "de": "Mit der Team-Karte bezahlt",
+    "cs": "Zaplaceno kartou týmu",
+    "sk": "Zaplatené kartou tímu",
+    "es": "Pagado con la tarjeta del equipo",
+    "nl": "Betaald met de teamkaart"
+   }
+  },
+  {
+   "key": "Your team membership just changed. Please try again.",
+   "translations": {
+    "vi": "Tư cách thành viên nhóm của bạn vừa thay đổi. Vui lòng thử lại.",
+    "fr": "Votre appartenance à l'équipe vient de changer. Veuillez réessayer.",
+    "de": "Ihre Team-Mitgliedschaft hat sich gerade geändert. Bitte versuchen Sie es erneut.",
+    "cs": "Vaše členství v týmu se právě změnilo. Zkuste to prosím znovu.",
+    "sk": "Vaše členstvo v tíme sa práve zmenilo. Skúste to, prosím, znova.",
+    "es": "Tu pertenencia al equipo acaba de cambiar. Inténtalo de nuevo.",
+    "nl": "Je lidmaatschap van het team is net gewijzigd. Probeer het opnieuw."
+   }
+  },
+  {
+   "key": "A teammate's scan can't be added to your personal order.",
+   "translations": {
+    "vi": "Không thể thêm bản quét của đồng nghiệp vào đơn riêng của bạn.",
+    "fr": "La numérisation d'un coéquipier ne peut pas être ajoutée à votre commande personnelle.",
+    "de": "Der Scan eines Teammitglieds kann nicht zu Ihrer persönlichen Bestellung hinzugefügt werden.",
+    "cs": "Sken kolegy z týmu nelze přidat do vaší osobní objednávky.",
+    "sk": "Sken kolegu z tímu nemožno pridať do vašej osobnej objednávky.",
+    "es": "El escaneo de un compañero de equipo no se puede añadir a tu pedido personal.",
+    "nl": "De scan van een teamgenoot kan niet aan je persoonlijke bestelling worden toegevoegd."
+   }
+  },
+  {
+   "key": "Only the person who placed this order or a team admin can cancel it.",
+   "translations": {
+    "vi": "Chỉ người đặt đơn hoặc quản trị viên của nhóm mới hủy được đơn này.",
+    "fr": "Seule la personne qui a passé cette commande ou un administrateur de l'équipe peut l'annuler.",
+    "de": "Nur die Person, die diese Bestellung aufgegeben hat, oder ein Team-Admin kann sie stornieren.",
+    "cs": "Tuto objednávku může zrušit jen ten, kdo ji zadal, nebo správce týmu.",
+    "sk": "Túto objednávku môže zrušiť iba ten, kto ju zadal, alebo správca tímu.",
+    "es": "Solo quien hizo este pedido o un administrador del equipo puede cancelarlo.",
+    "nl": "Alleen degene die deze bestelling heeft geplaatst of een teambeheerder kan haar annuleren."
+   }
+  },
+  {
+   "key": "Scans and photos in your team's orders stay with the team.",
+   "translations": {
+    "vi": "Bản quét và ảnh trong đơn của nhóm vẫn ở lại với nhóm.",
+    "fr": "Les numérisations et les photos des commandes de votre équipe restent à l'équipe.",
+    "de": "Scans und Fotos in den Bestellungen Ihres Teams bleiben beim Team.",
+    "cs": "Skeny a fotky v objednávkách vašeho týmu zůstávají týmu.",
+    "sk": "Skeny a fotky v objednávkach vášho tímu zostávajú tímu.",
+    "es": "Los escaneos y las fotos de los pedidos de tu equipo se quedan con el equipo.",
+    "nl": "Scans en foto's in de bestellingen van je team blijven bij het team."
+   }
+  },
+  {
+   "key": "Your team could not be found. Please try again.",
+   "translations": {
+    "vi": "Không tìm thấy nhóm của bạn. Vui lòng thử lại.",
+    "fr": "Votre équipe est introuvable. Veuillez réessayer.",
+    "de": "Ihr Team wurde nicht gefunden. Bitte versuchen Sie es erneut.",
+    "cs": "Váš tým se nepodařilo najít. Zkuste to prosím znovu.",
+    "sk": "Váš tím sa nepodarilo nájsť. Skúste to, prosím, znova.",
+    "es": "No se encontró tu equipo. Inténtalo de nuevo.",
+    "nl": "Je team kon niet worden gevonden. Probeer het opnieuw."
+   }
   }
  ],
  "infoplist": {

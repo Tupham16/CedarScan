@@ -52,6 +52,23 @@ struct AccountView: View {
                             .padding(.vertical, 4)
                             .listRowBackground(Theme.card)
                         }
+                        // F10b (mockup f10b-0): only while the account is on a team (`GET me`).
+                        if let team = account.team {
+                            Section {
+                                NavigationLink {
+                                    // Pushed in the Account tab: room for `CedarTabBar` (as `LegalLinks`).
+                                    TeamView()
+                                        .safeAreaPadding(.bottom, CedarTabBar.reservedHeight)
+                                } label: {
+                                    LabeledContent {
+                                        Text(team.name)
+                                    } label: {
+                                        Label(String(localized: "Team"), systemImage: "person.2")
+                                    }
+                                }
+                                .listRowBackground(Theme.card)
+                            }
+                        }
                         if account.paymentMethodsAvailable {
                             Section {
                                 paymentMethodsRow
@@ -344,6 +361,12 @@ struct DeleteAccountView: View {
                             // Orders v2 B: `account/delete/route.ts` cancels them first (Privacy
                             // "Deleting your account" says the same).
                             Text(String(localized: "An order still awaiting payment is cancelled first, where possible."))
+                            // F10: the server keeps the files of a team's orders while the team goes
+                            // on (`account/delete/route.ts`, Privacy "Deleting your account"); a sole
+                            // member's team ends with the account.
+                            if (account.team?.memberCount ?? 0) > 1 {
+                                Text(String(localized: "Scans and photos in your team's orders stay with the team."))
+                            }
                         }
                         .font(.footnote)
                     } icon: {

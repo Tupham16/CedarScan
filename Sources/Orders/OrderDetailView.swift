@@ -181,6 +181,12 @@ struct OrderDetailView: View {
                 }
             }
             summaryLine(order)
+            // F10b (mockups f10b-4/5): a teammate's order.
+            if let placer = order.placedBy {
+                Text(String(localized: "Placed by \(placer)"))
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
             readyByLine(order)
             stateNote(order)
             payNow(order)
@@ -265,8 +271,14 @@ struct OrderDetailView: View {
             .font(.footnote)
             .foregroundStyle(.secondary)
         } else {
-            HStack(spacing: 5) {
-                summaryParts(order, dots: true)
+            // F10b: "· Team card" can make it too long for one line (German, large text): stacked then.
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 5) {
+                    summaryParts(order, dots: true)
+                }
+                VStack(alignment: .leading, spacing: 4) {
+                    summaryParts(order, dots: false)
+                }
             }
             .font(.footnote)
             .foregroundStyle(.secondary)
@@ -285,6 +297,10 @@ struct OrderDetailView: View {
                 Label(String(localized: "Paid"), systemImage: "checkmark.circle")
                     .fontWeight(.medium)
                     .foregroundStyle(Theme.Badge.ok.fg)
+                // F10b (mockup f10b-4): the team's card paid it.
+                if order.paidWithTeamCard {
+                    Text(dots ? "· " + String(localized: "Team card") : String(localized: "Team card"))
+                }
             }
         }
     }
@@ -614,8 +630,14 @@ struct OrderDetailView: View {
     }
 
     private func extraLine(_ extra: OrderDTO) -> some View {
-        HStack(spacing: 5) {
-            summaryParts(extra, dots: true)
+        // F10b: stacked when "· Team card" makes one line too long, as `summaryLine`.
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 5) {
+                summaryParts(extra, dots: true)
+            }
+            VStack(alignment: .leading, spacing: 4) {
+                summaryParts(extra, dots: false)
+            }
         }
         .font(.footnote)
         .foregroundStyle(.secondary)
@@ -633,24 +655,26 @@ struct OrderDetailView: View {
                     style: .footnote
                 )
                 payNowButton(extra)
-                Button {
-                    confirmCancelExtra = extra
-                } label: {
-                    if cancelling(extra) {
-                        HStack(spacing: 8) {
-                            ProgressView()
-                            Text(String(localized: "Cancelling…"))
+                if mayCancel(extra) {
+                    Button {
+                        confirmCancelExtra = extra
+                    } label: {
+                        if cancelling(extra) {
+                            HStack(spacing: 8) {
+                                ProgressView()
+                                Text(String(localized: "Cancelling…"))
+                            }
+                            .font(.footnote.weight(.semibold))
+                            .padding(8)
+                            .frame(maxWidth: .infinity, minHeight: 36)
+                        } else {
+                            ghostLabel(String(localized: "Cancel items"), systemImage: "xmark.circle")
                         }
-                        .font(.footnote.weight(.semibold))
-                        .padding(8)
-                        .frame(maxWidth: .infinity, minHeight: 36)
-                    } else {
-                        ghostLabel(String(localized: "Cancel items"), systemImage: "xmark.circle")
                     }
+                    .buttonStyle(FogGhost())
+                    // No second tap while one runs, and not while its card payment is prepared / settled.
+                    .disabled(cancelling(extra) || paymentBusy(extra))
                 }
-                .buttonStyle(FogGhost())
-                // No second tap while one runs, and not while its card payment is prepared / settled.
-                .disabled(cancelling(extra) || paymentBusy(extra))
             }
             .padding(EdgeInsets(top: 6, leading: 16, bottom: 14, trailing: 16))
         } else if extra.isAwaitingPayment, flow.paidOrderIds.contains(extra.orderId), httpsURL(extra.paymentUrl) != nil {
@@ -810,7 +834,7 @@ struct OrderDetailView: View {
     /// unpaid order has no Cancel (the server answers `not_cancellable`), a paid one never.
     @ViewBuilder
     private func cancelRow(_ order: OrderDTO) -> some View {
-        if showsUnpaidState(order) {
+        if showsUnpaidState(order), mayCancel(order) {
             Button {
                 confirmCancel = true
             } label: {
@@ -835,7 +859,13 @@ struct OrderDetailView: View {
     }
 
     private func canCancel(_ order: OrderDTO) -> Bool {
-        showsUnpaidState(order) && !cancelling(order) && !paymentBusy(order)
+        showsUnpaidState(order) && !cancelling(order) && !paymentBusy(order) && mayCancel(order)
+    }
+
+    /// F10: a teammate's order (or items they added) — only its placer or a team admin may cancel it
+    /// (server `orders/{id}/cancel` → 403 `not_allowed`); the others still see Pay Now.
+    private func mayCancel(_ order: OrderDTO) -> Bool {
+        order.placedByMe || account.team?.isAdmin == true
     }
 
     /// `POST orders/{id}/cancel` (up to ~45 s). Its own task, ✗ tied to this screen: Back during
@@ -887,6 +917,8 @@ struct OrderDetailView: View {
             return String(localized: "A payment for this order is still being processed. Please check again in a few minutes.")
         case "not_cancellable":
             return String(localized: "This order can't be cancelled in the app. Please contact our team.")
+        case "not_allowed":
+            return String(localized: "Only the person who placed this order or a team admin can cancel it.")
         default:
             if api?.statusCode == 404 { return nil }
             return String(localized: "We couldn't cancel this order right now. Please try again in a few minutes.")

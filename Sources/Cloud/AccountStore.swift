@@ -31,6 +31,9 @@ final class AccountStore: ObservableObject {
     /// F9: the server has My brand (`GET me` → `myBrand`) — the Account row shows only then, so a
     /// 2.79 build on a server without it shows no broken screen. Same lifetime as the flag above.
     @Published private(set) var myBrandAvailable = false
+    /// F10b: the team this account is on (`GET me` → `team`): the Account "Team" row, the order
+    /// form's team-card line, who may cancel a teammate's order. Same lifetime as the flags above.
+    @Published private(set) var team: TeamSummaryDTO?
     var needsVerification: Bool { customer != nil && !emailVerified }
 
     init() {
@@ -89,6 +92,7 @@ final class AccountStore: ObservableObject {
             }
             paymentMethodsAvailable = me.paymentMethods == true
             myBrandAvailable = me.myBrand == true
+            team = me.team
         } catch let error as APIError where error.statusCode == 401 {
             signOut()
         } catch {
@@ -128,6 +132,16 @@ final class AccountStore: ObservableObject {
         return verified
     }
 
+    /// F10b: the team only, for the order form's team-card line. Unlike `refresh()`, ✗ a sign-out on a
+    /// 401 in the middle of an order (the server answers 401 to a database blip too); an answer for
+    /// another account (signed out / switched meanwhile) is dropped.
+    func refreshTeam() async {
+        guard let asked = customer?.id, APIClient.shared.token != nil,
+              let me = try? await APIClient.shared.me(),
+              customer?.id == asked, me.customer.id == asked else { return }
+        team = me.team
+    }
+
     /// Every sign-out passes here (Account tab, verify screen, account deletion, a 401 in `refresh`).
     func signOut() {
         // Before the session goes (plan: unregister first); this phone stops getting its pushes.
@@ -146,6 +160,7 @@ final class AccountStore: ObservableObject {
         emailVerified = false
         paymentMethodsAvailable = false
         myBrandAvailable = false
+        team = nil
         // Link remembers the customer on this phone; the next account must not inherit it.
         PaymentSheet.resetCustomer()
         // Which team messages were shown / left open, per order.

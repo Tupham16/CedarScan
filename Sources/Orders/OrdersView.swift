@@ -571,8 +571,14 @@ struct OrdersView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             .font(.footnote.weight(.medium))
+            // F10b (mockup f10b-3): a teammate's order says who placed it — under "Ready by…".
+            if let placer = order.placedBy {
+                Text(String(localized: "by \(placer)"))
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
         } else {
-            Text(Self.formatDate(order.placedAt))
+            Text(Self.formatDate(order.placedAt) + (order.placedBy.map { " · " + String(localized: "by \($0)") } ?? ""))
                 .font(.footnote)
                 .foregroundStyle(.secondary)
         }
