@@ -2921,6 +2921,53 @@
         }
       }
     },
+    "Billing": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fakturace"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abrechnung"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Facturación"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Facturation"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Facturering"
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fakturácia"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thanh toán"
+          }
+        }
+      }
+    },
     "Both (ft & m)": {
       "extractionState": "manual",
       "localizations": {
@@ -3814,6 +3861,53 @@
         }
       }
     },
+    "Charged to your company's cedar247.com account": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Účtováno na účet cedar247.com vaší firmy"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Über das cedar247.com-Konto Ihres Unternehmens abgerechnet"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cargado a la cuenta cedar247.com de tu empresa"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Facturée au compte cedar247.com de votre entreprise"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ten laste van het cedar247.com-account van je bedrijf"
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Účtované na účet cedar247.com vašej firmy"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tính vào tài khoản cedar247.com của công ty bạn"
+          }
+        }
+      }
+    },
     "Check the inbox (and spam folder) of %@. The code expires in 15 minutes.": {
       "extractionState": "manual",
       "localizations": {
@@ -4186,6 +4280,53 @@
           "stringUnit": {
             "state": "translated",
             "value": "Đang thu gọn"
+          }
+        }
+      }
+    },
+    "Company account": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Firemní účet"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Firmenkonto"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cuenta de la empresa"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Compte de l'entreprise"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bedrijfsaccount"
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Firemný účet"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tài khoản công ty"
           }
         }
       }
@@ -10065,6 +10206,53 @@
         }
       }
     },
+    "Monthly invoice": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Měsíční faktura"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Monatsrechnung"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Factura mensual"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Facture mensuelle"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Maandfactuur"
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mesačná faktúra"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hóa đơn tháng"
+          }
+        }
+      }
+    },
     "More guides are on the way.": {
       "extractionState": "manual",
       "localizations": {
@@ -11800,6 +11988,53 @@
           "stringUnit": {
             "state": "translated",
             "value": "Tạm giữ"
+          }
+        }
+      }
+    },
+    "On your company's monthly invoice": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Na měsíční faktuře vaší firmy"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Auf der Monatsrechnung Ihres Unternehmens"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En la factura mensual de tu empresa"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sur la facture mensuelle de votre entreprise"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Op de maandfactuur van je bedrijf"
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Na mesačnej faktúre vašej firmy"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tính vào hóa đơn tháng của công ty bạn"
           }
         }
       }
@@ -13590,6 +13825,53 @@
         }
       }
     },
+    "Pays an order when the cedar247.com account doesn't cover it.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zaplatí objednávku, když ji účet cedar247.com nepokryje."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bezahlt eine Bestellung, wenn das cedar247.com-Konto sie nicht abdeckt."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paga un pedido cuando la cuenta cedar247.com no lo cubre."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paie une commande lorsque le compte cedar247.com ne la couvre pas."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Betaalt een bestelling als het cedar247.com-account die niet dekt."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zaplatí objednávku, keď ju účet cedar247.com nepokryje."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trả cho đơn mà tài khoản cedar247.com không chi trả được."
+          }
+        }
+      }
+    },
     "Place order": {
       "extractionState": "manual",
       "localizations": {
@@ -14197,6 +14479,53 @@
           "stringUnit": {
             "state": "translated",
             "value": "Tùy chọn (lưu cho lần sau)"
+          }
+        }
+      }
+    },
+    "Prepaid credits": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Předplacený kredit"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prepaid-Guthaben"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Créditos prepagados"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Crédits prépayés"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prepaid tegoed"
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Predplatený kredit"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tiền nạp trước"
           }
         }
       }
@@ -23597,6 +23926,100 @@
           "stringUnit": {
             "state": "translated",
             "value": "Đơn hàng cho %@ đã bị hủy vì chưa được thanh toán trong 7 ngày."
+          }
+        }
+      }
+    },
+    "Your orders are charged to the company's cedar247.com account (%@). Admins manage billing.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vaše objednávky se účtují na účet cedar247.com firmy (%@). Fakturaci spravují správci."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ihre Bestellungen werden über das cedar247.com-Konto des Unternehmens (%@) abgerechnet. Admins verwalten die Abrechnung."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tus pedidos se cargan a la cuenta cedar247.com de la empresa (%@). Los administradores gestionan la facturación."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vos commandes sont facturées au compte cedar247.com de l'entreprise (%@). Les administrateurs gèrent la facturation."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Je bestellingen komen ten laste van het cedar247.com-account van het bedrijf (%@). Beheerders regelen de facturering."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vaše objednávky sa účtujú na účet cedar247.com firmy (%@). Fakturáciu spravujú správcovia."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đơn của bạn được tính vào tài khoản cedar247.com của công ty (%@). Quản trị viên quản lý việc thanh toán."
+          }
+        }
+      }
+    },
+    "Your orders are charged to the company's cedar247.com account. Admins manage billing.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vaše objednávky se účtují na účet cedar247.com firmy. Fakturaci spravují správci."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ihre Bestellungen werden über das cedar247.com-Konto des Unternehmens abgerechnet. Admins verwalten die Abrechnung."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tus pedidos se cargan a la cuenta cedar247.com de la empresa. Los administradores gestionan la facturación."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vos commandes sont facturées au compte cedar247.com de l'entreprise. Les administrateurs gèrent la facturation."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Je bestellingen komen ten laste van het cedar247.com-account van het bedrijf. Beheerders regelen de facturering."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vaše objednávky sa účtujú na účet cedar247.com firmy. Fakturáciu spravujú správcovia."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đơn của bạn được tính vào tài khoản cedar247.com của công ty. Quản trị viên quản lý việc thanh toán."
           }
         }
       }

@@ -64,9 +64,9 @@ struct AddToOrderSheet: View {
         NavigationStack {
             Group {
                 if let created, isDone(created) {
-                    // F10: a team-card purchase comes back `free` (nothing left to pay) but was charged.
-                    doneView(amount: created.free == true && !created.paidWithTeamCard ? nil : amountText(created),
-                             items: created.items, teamCard: created.paidWithTeamCard)
+                    // F10: a team-paid purchase comes back `free` (nothing left to pay) but was charged.
+                    doneView(amount: created.free == true && created.paidWith == nil ? nil : amountText(created),
+                             items: created.items, paidWith: created.paidWith)
                 } else if let addedUnanswered {
                     doneView(amount: nil, items: addedUnanswered)
                 } else if let offer {
@@ -601,10 +601,10 @@ struct AddToOrderSheet: View {
 
     /// Centred; scrolls only when it does not fit (large text), as the "Order placed" screen.
     /// `amount`: what was paid (nil when free, or unknown).
-    private func doneView(amount: String?, items: [String]?, teamCard: Bool = false) -> some View {
+    private func doneView(amount: String?, items: [String]?, paidWith: String? = nil) -> some View {
         GeometryReader { proxy in
             ScrollView {
-                doneContent(amount: amount, items: items, teamCard: teamCard)
+                doneContent(amount: amount, items: items, paidWith: paidWith)
                     .padding(24)
                     .frame(maxWidth: .infinity, minHeight: proxy.size.height)
             }
@@ -612,7 +612,7 @@ struct AddToOrderSheet: View {
         }
     }
 
-    private func doneContent(amount: String?, items: [String]?, teamCard: Bool) -> some View {
+    private func doneContent(amount: String?, items: [String]?, paidWith: String?) -> some View {
         VStack(spacing: 14) {
             Image(systemName: "checkmark")
                 .font(.system(size: 30, weight: .bold))
@@ -623,7 +623,8 @@ struct AddToOrderSheet: View {
                 .font(.title3.weight(.bold))
                 .multilineTextAlignment(.center)
             if let amount {
-                Text(verbatim: amount + " · " + (teamCard ? String(localized: "Paid with the team card") : String(localized: "Paid")))
+                // F10c (mockup f10c-app 8): the company's account, in the placed screen's words.
+                Text(verbatim: amount + " · " + (PaidWith.sentence(paidWith) ?? String(localized: "Paid")))
                     .font(.headline)
                     .multilineTextAlignment(.center)
             }

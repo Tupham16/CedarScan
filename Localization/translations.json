@@ -6156,6 +6156,114 @@
     "es": "No se encontró tu equipo. Inténtalo de nuevo.",
     "nl": "Je team kon niet worden gevonden. Probeer het opnieuw."
    }
+  },
+  {
+   "key": "Prepaid credits",
+   "translations": {
+    "vi": "Tiền nạp trước",
+    "fr": "Crédits prépayés",
+    "de": "Prepaid-Guthaben",
+    "cs": "Předplacený kredit",
+    "sk": "Predplatený kredit",
+    "es": "Créditos prepagados",
+    "nl": "Prepaid tegoed"
+   }
+  },
+  {
+   "key": "Monthly invoice",
+   "translations": {
+    "vi": "Hóa đơn tháng",
+    "fr": "Facture mensuelle",
+    "de": "Monatsrechnung",
+    "cs": "Měsíční faktura",
+    "sk": "Mesačná faktúra",
+    "es": "Factura mensual",
+    "nl": "Maandfactuur"
+   }
+  },
+  {
+   "key": "Company account",
+   "translations": {
+    "vi": "Tài khoản công ty",
+    "fr": "Compte de l'entreprise",
+    "de": "Firmenkonto",
+    "cs": "Firemní účet",
+    "sk": "Firemný účet",
+    "es": "Cuenta de la empresa",
+    "nl": "Bedrijfsaccount"
+   }
+  },
+  {
+   "key": "On your company's monthly invoice",
+   "translations": {
+    "vi": "Tính vào hóa đơn tháng của công ty bạn",
+    "fr": "Sur la facture mensuelle de votre entreprise",
+    "de": "Auf der Monatsrechnung Ihres Unternehmens",
+    "cs": "Na měsíční faktuře vaší firmy",
+    "sk": "Na mesačnej faktúre vašej firmy",
+    "es": "En la factura mensual de tu empresa",
+    "nl": "Op de maandfactuur van je bedrijf"
+   }
+  },
+  {
+   "key": "Charged to your company's cedar247.com account",
+   "translations": {
+    "vi": "Tính vào tài khoản cedar247.com của công ty bạn",
+    "fr": "Facturée au compte cedar247.com de votre entreprise",
+    "de": "Über das cedar247.com-Konto Ihres Unternehmens abgerechnet",
+    "cs": "Účtováno na účet cedar247.com vaší firmy",
+    "sk": "Účtované na účet cedar247.com vašej firmy",
+    "es": "Cargado a la cuenta cedar247.com de tu empresa",
+    "nl": "Ten laste van het cedar247.com-account van je bedrijf"
+   }
+  },
+  {
+   "key": "Billing",
+   "translations": {
+    "vi": "Thanh toán",
+    "fr": "Facturation",
+    "de": "Abrechnung",
+    "cs": "Fakturace",
+    "sk": "Fakturácia",
+    "es": "Facturación",
+    "nl": "Facturering"
+   }
+  },
+  {
+   "key": "Pays an order when the cedar247.com account doesn't cover it.",
+   "translations": {
+    "vi": "Trả cho đơn mà tài khoản cedar247.com không chi trả được.",
+    "fr": "Paie une commande lorsque le compte cedar247.com ne la couvre pas.",
+    "de": "Bezahlt eine Bestellung, wenn das cedar247.com-Konto sie nicht abdeckt.",
+    "cs": "Zaplatí objednávku, když ji účet cedar247.com nepokryje.",
+    "sk": "Zaplatí objednávku, keď ju účet cedar247.com nepokryje.",
+    "es": "Paga un pedido cuando la cuenta cedar247.com no lo cubre.",
+    "nl": "Betaalt een bestelling als het cedar247.com-account die niet dekt."
+   }
+  },
+  {
+   "key": "Your orders are charged to the company's cedar247.com account. Admins manage billing.",
+   "translations": {
+    "vi": "Đơn của bạn được tính vào tài khoản cedar247.com của công ty. Quản trị viên quản lý việc thanh toán.",
+    "fr": "Vos commandes sont facturées au compte cedar247.com de l'entreprise. Les administrateurs gèrent la facturation.",
+    "de": "Ihre Bestellungen werden über das cedar247.com-Konto des Unternehmens abgerechnet. Admins verwalten die Abrechnung.",
+    "cs": "Vaše objednávky se účtují na účet cedar247.com firmy. Fakturaci spravují správci.",
+    "sk": "Vaše objednávky sa účtujú na účet cedar247.com firmy. Fakturáciu spravujú správcovia.",
+    "es": "Tus pedidos se cargan a la cuenta cedar247.com de la empresa. Los administradores gestionan la facturación.",
+    "nl": "Je bestellingen komen ten laste van het cedar247.com-account van het bedrijf. Beheerders regelen de facturering."
+   }
+  },
+  {
+   "key": "Your orders are charged to the company's cedar247.com account (%@). Admins manage billing.",
+   "translations": {
+    "vi": "Đơn của bạn được tính vào tài khoản cedar247.com của công ty (%@). Quản trị viên quản lý việc thanh toán.",
+    "fr": "Vos commandes sont facturées au compte cedar247.com de l'entreprise (%@). Les administrateurs gèrent la facturation.",
+    "de": "Ihre Bestellungen werden über das cedar247.com-Konto des Unternehmens (%@) abgerechnet. Admins verwalten die Abrechnung.",
+    "cs": "Vaše objednávky se účtují na účet cedar247.com firmy (%@). Fakturaci spravují správci.",
+    "sk": "Vaše objednávky sa účtujú na účet cedar247.com firmy (%@). Fakturáciu spravujú správcovia.",
+    "es": "Tus pedidos se cargan a la cuenta cedar247.com de la empresa (%@). Los administradores gestionan la facturación.",
+    "nl": "Je bestellingen komen ten laste van het cedar247.com-account van het bedrijf (%@). Beheerders regelen de facturering."
+   }
   }
  ],
  "infoplist": {

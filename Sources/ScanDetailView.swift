@@ -1928,6 +1928,14 @@ struct OrderSheet: View {
             VStack(alignment: .leading, spacing: 4) {
                 if isFreePromo {
                     Text(String(localized: "Free order — no payment needed. Our team starts right after you place it."))
+                } else if account.team?.siteAccount == true {
+                    // F10c (mockup f10c-app 2): the company's cedar247.com account pays first (`team.card` is
+                    // nil then); short or refused = the team card, else the usual "Awaiting payment".
+                    Label {
+                        WrappedText(String(localized: "Charged to your company's cedar247.com account"), style: .footnote, color: .secondaryLabel)
+                    } icon: {
+                        Image(systemName: "building.2")
+                    }
                 } else if let card = account.team?.card {
                     // F10b (mockup f10b-6): the team's card is charged at Place order (server
                     // `chargeTeamCard`); declined = the usual "Awaiting payment" + Pay Now.
@@ -2050,8 +2058,8 @@ struct OrderSheet: View {
                 .font(.title3.monospaced().weight(.bold))
             // Dòng "MIỄN PHÍ — khuyến mãi đơn đầu 🎁" ĐÃ BỎ 2026-09-01 theo chủ app. Đơn free
             // vì thế KHÔNG rơi xuống nhánh tổng tiền (in "$0" còn tệ hơn dòng vừa bỏ).
-            // F10: a team-card order comes back `free` (nothing left to pay) but was charged.
-            if order.free != true || order.paidWithTeamCard, let total = order.total {
+            // F10: a team-paid order comes back `free` (nothing left to pay) but was charged.
+            if order.free != true || order.paidWith != nil, let total = order.total {
                 Text(String(localized: "Total: $\(total)"))
                     .font(.headline)
             }
@@ -2066,9 +2074,9 @@ struct OrderSheet: View {
                     .foregroundStyle(Theme.Badge.warn.fg)
                     .multilineTextAlignment(.center)
             }
-            // F10b (mockup f10b-7): no Pay Now — `paymentUrl` is nil and `free` true.
-            if order.paidWithTeamCard {
-                Label(String(localized: "Paid with the team card"), systemImage: "checkmark.circle")
+            // F10b / F10c (mockups f10b-7, f10c-app 3–4): no Pay Now — `paymentUrl` is nil and `free` true.
+            if let paid = PaidWith.sentence(order.paidWith) {
+                Label(paid, systemImage: "checkmark.circle")
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(Theme.Badge.ok.fg)
                     .multilineTextAlignment(.center)
@@ -2539,8 +2547,8 @@ struct OrderSheet: View {
             paymentUrl: order.paymentUrl,
             discount: nil,
             couponApplied: nil,
-            // F10: paid by the team (card; F10c adds "wallet" / "invoice") too, as the Place order
-            // reply says (nothing left to pay).
+            // F10: paid by the team (its card, or F10c's company account: "wallet" / "invoice" /
+            // "account") too, as the Place order reply says (nothing left to pay).
             free: order.paid == true && ((order.total ?? 0) <= 0 || order.paidWith != nil),
             hasTour: order.hasTour,
             payInApp: order.payInApp,

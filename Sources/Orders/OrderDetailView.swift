@@ -291,15 +291,18 @@ struct OrderDetailView: View {
         if let total = order.total, total > 0 {
             Text(verbatim: dots ? "· $\(total)" : "$\(total)")
             if order.paid == true {
-                if dots {
-                    Text(verbatim: "·")
+                // F10c (mockups f10c-app 5–7): on the company's monthly invoice = placed, not paid yet.
+                if !PaidWith.onInvoice(order.paidWith) {
+                    if dots {
+                        Text(verbatim: "·")
+                    }
+                    Label(String(localized: "Paid"), systemImage: "checkmark.circle")
+                        .fontWeight(.medium)
+                        .foregroundStyle(Theme.Badge.ok.fg)
                 }
-                Label(String(localized: "Paid"), systemImage: "checkmark.circle")
-                    .fontWeight(.medium)
-                    .foregroundStyle(Theme.Badge.ok.fg)
-                // F10b (mockup f10b-4): the team's card paid it.
-                if order.paidWithTeamCard {
-                    Text(dots ? "· " + String(localized: "Team card") : String(localized: "Team card"))
+                // F10b / F10c (mockup f10b-4): the team paid it — its card or the company's account.
+                if let chip = PaidWith.chip(order.paidWith) {
+                    Text(verbatim: dots ? "· " + chip : chip)
                 }
             }
         }
