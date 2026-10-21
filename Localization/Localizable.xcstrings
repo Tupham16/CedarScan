@@ -3867,25 +3867,25 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Účtováno na účet cedar247.com vaší firmy"
+            "value": "Účtuje se na účet cedar247.com vaší firmy"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Über das cedar247.com-Konto Ihres Unternehmens abgerechnet"
+            "value": "Abrechnung über das cedar247.com-Konto Ihres Unternehmens"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Cargado a la cuenta cedar247.com de tu empresa"
+            "value": "Con cargo a la cuenta cedar247.com de tu empresa"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Facturée au compte cedar247.com de votre entreprise"
+            "value": "Facturation au compte cedar247.com de votre entreprise"
           }
         },
         "nl": {
@@ -3897,7 +3897,7 @@
         "sk": {
           "stringUnit": {
             "state": "translated",
-            "value": "Účtované na účet cedar247.com vašej firmy"
+            "value": "Účtuje sa na účet cedar247.com vašej firmy"
           }
         },
         "vi": {
@@ -4296,7 +4296,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Firmenkonto"
+            "value": "Unternehmenskonto"
           }
         },
         "es": {
@@ -14513,7 +14513,7 @@
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Prepaid tegoed"
+            "value": "Prepaidtegoed"
           }
         },
         "sk": {

@@ -1364,7 +1364,7 @@ struct OrderSheet: View {
 
     /// F1: the ready-by time of an order just paid on this screen, from the order list. The server
     /// confirms a card payment a moment later (webhook), so up to three tries, 5 s apart. Read
-    /// only; nothing else on this screen changes.
+    /// only; nothing else on this screen changes, except a team-paid order (`adoptTeamPaid`).
     private func loadPlacedDueAt(_ orderId: String) {
         Task {
             for attempt in 0..<3 {
@@ -1373,10 +1373,21 @@ struct OrderSheet: View {
                    let live = list.orders.first(where: { $0.orderId == orderId }),
                    let due = live.dueAt {
                     placedDueAt = due
+                    adoptTeamPaid(live)
                     return
                 }
             }
         }
+    }
+
+    /// F10c: Pay Now's "already paid", or a payment found on the way back, may be the team's doing
+    /// meanwhile (the company's cedar247.com account answering late, an admin's "Pay"): the screen
+    /// then reads as a team-paid order (Total + who paid), ✗ "Paid" for an order on the monthly invoice.
+    @discardableResult
+    private func adoptTeamPaid(_ live: OrderDTO) -> Bool {
+        guard live.paidWith != nil, live.paid == true, !live.isCancelled, live.orderId == placedOrder?.orderId else { return false }
+        placedOrder = Self.placedState(of: live)
+        return true
     }
 
     /// N14: the code screen over the form. Opened only on the server's own "not verified"
@@ -1931,19 +1942,18 @@ struct OrderSheet: View {
                 } else if account.team?.siteAccount == true {
                     // F10c (mockup f10c-app 2): the company's cedar247.com account pays first (`team.card` is
                     // nil then); short or refused = the team card, else the usual "Awaiting payment".
-                    Label {
-                        WrappedText(String(localized: "Charged to your company's cedar247.com account"), style: .footnote, color: .secondaryLabel)
-                    } icon: {
+                    // HStack, ✗ Label: the icon stays by the first line (WrappedText may report no baseline).
+                    HStack(alignment: .top, spacing: 6) {
                         Image(systemName: "building.2")
+                        WrappedText(String(localized: "Charged to your company's cedar247.com account"), style: .footnote, color: .secondaryLabel)
                     }
                 } else if let card = account.team?.card {
                     // F10b (mockup f10b-6): the team's card is charged at Place order (server
                     // `chargeTeamCard`); declined = the usual "Awaiting payment" + Pay Now.
                     // WrappedText: wrapped in German, a plain footer Text lost its last line (trap #44).
-                    Label {
-                        WrappedText(String(localized: "Paid with your team card (\(card.label))"), style: .footnote, color: .secondaryLabel)
-                    } icon: {
+                    HStack(alignment: .top, spacing: 6) {
                         Image(systemName: "creditcard")
+                        WrappedText(String(localized: "Paid with your team card (\(card.label))"), style: .footnote, color: .secondaryLabel)
                     }
                 }
                 // Dòng đồng ý điều khoản — MỘT dòng footer, bấm được để đọc ngay tại chỗ
@@ -2005,7 +2015,7 @@ struct OrderSheet: View {
                 if let list = try? await APIClient.shared.listOrders(),
                    let live = list.orders.first(where: { $0.orderId == placed.orderId }),
                    live.paid == true, !live.isCancelled {
-                    serverPaid = true
+                    if !adoptTeamPaid(live) { serverPaid = true }
                     store.noteOrderStatus(orderNumber: live.orderNumber, status: live.status)
                     // F1: the paid order's ready-by time, from the same answer.
                     if let due = live.dueAt { placedDueAt = due }

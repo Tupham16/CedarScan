@@ -55,6 +55,9 @@ struct AddToOrderSheet: View {
     @State private var shownTotal = 0
     /// The server said the purchase is paid (a browser payment: `PaymentFlow` never hears of it).
     @State private var serverPaid = false
+    /// F10c: the team paid it after all (the company's cedar247.com account answering late, an admin's
+    /// "Pay"), as the order list says: the done screen shows its words, ✗ "Paid".
+    @State private var teamPaidWith: String?
     /// A purchase whose answer was lost, found in the order afterwards (`failed`): the names of
     /// its items, for the done screen.
     @State private var addedUnanswered: [String]?
@@ -66,7 +69,7 @@ struct AddToOrderSheet: View {
                 if let created, isDone(created) {
                     // F10: a team-paid purchase comes back `free` (nothing left to pay) but was charged.
                     doneView(amount: created.free == true && created.paidWith == nil ? nil : amountText(created),
-                             items: created.items, paidWith: created.paidWith)
+                             items: created.items, paidWith: created.paidWith ?? teamPaidWith)
                 } else if let addedUnanswered {
                     doneView(amount: nil, items: addedUnanswered)
                 } else if let offer {
@@ -278,10 +281,23 @@ struct AddToOrderSheet: View {
                    let parent = list.orders.first(where: { $0.orderId == target.orderId }),
                    let live = parent.extras?.first(where: { $0.orderId == purchase.orderId }),
                    live.paid == true, !live.isCancelled {
+                    teamPaidWith = live.paidWith
                     serverPaid = true
                     onChanged()
                     return
                 }
+            }
+        }
+    }
+
+    /// F10c: Pay Now's "already paid" may be the team's doing meanwhile (see `teamPaidWith`). One look
+    /// at the order list, read only.
+    private func loadTeamPaidWith(_ orderId: String) {
+        Task {
+            if let list = try? await APIClient.shared.listOrders(),
+               let parent = list.orders.first(where: { $0.orderId == target.orderId }),
+               let live = parent.extras?.first(where: { $0.orderId == orderId }) {
+                teamPaidWith = live.paidWith
             }
         }
     }
@@ -550,7 +566,10 @@ struct AddToOrderSheet: View {
                 payInApp: created.payInApp == true,
                 // Rule 3: by itself only at the price the customer tapped.
                 opensOnAppear: exactAsShown(created),
-                onPaid: { onChanged() },
+                onPaid: {
+                    onChanged()
+                    loadTeamPaidWith(created.orderId)
+                },
                 // Cancelled meanwhile (another device, or it expired): the order shows its state.
                 onOrderChanged: {
                     onChanged()
@@ -622,9 +641,14 @@ struct AddToOrderSheet: View {
             Text(String(localized: "Added to your order"))
                 .font(.title3.weight(.bold))
                 .multilineTextAlignment(.center)
+            // F10c (mockup f10c-app 8): the company's account, in the placed screen's words; without
+            // the exact amount (`amountCents` nil) still who paid, ✗ reading as free.
             if let amount {
-                // F10c (mockup f10c-app 8): the company's account, in the placed screen's words.
                 Text(verbatim: amount + " · " + (PaidWith.sentence(paidWith) ?? String(localized: "Paid")))
+                    .font(.headline)
+                    .multilineTextAlignment(.center)
+            } else if let paid = PaidWith.sentence(paidWith) {
+                Text(verbatim: paid)
                     .font(.headline)
                     .multilineTextAlignment(.center)
             }

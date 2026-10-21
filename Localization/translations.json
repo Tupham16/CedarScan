@@ -6166,7 +6166,7 @@
     "cs": "Předplacený kredit",
     "sk": "Predplatený kredit",
     "es": "Créditos prepagados",
-    "nl": "Prepaid tegoed"
+    "nl": "Prepaidtegoed"
    }
   },
   {
@@ -6186,7 +6186,7 @@
    "translations": {
     "vi": "Tài khoản công ty",
     "fr": "Compte de l'entreprise",
-    "de": "Firmenkonto",
+    "de": "Unternehmenskonto",
     "cs": "Firemní účet",
     "sk": "Firemný účet",
     "es": "Cuenta de la empresa",
@@ -6209,11 +6209,11 @@
    "key": "Charged to your company's cedar247.com account",
    "translations": {
     "vi": "Tính vào tài khoản cedar247.com của công ty bạn",
-    "fr": "Facturée au compte cedar247.com de votre entreprise",
-    "de": "Über das cedar247.com-Konto Ihres Unternehmens abgerechnet",
-    "cs": "Účtováno na účet cedar247.com vaší firmy",
-    "sk": "Účtované na účet cedar247.com vašej firmy",
-    "es": "Cargado a la cuenta cedar247.com de tu empresa",
+    "fr": "Facturation au compte cedar247.com de votre entreprise",
+    "de": "Abrechnung über das cedar247.com-Konto Ihres Unternehmens",
+    "cs": "Účtuje se na účet cedar247.com vaší firmy",
+    "sk": "Účtuje sa na účet cedar247.com vašej firmy",
+    "es": "Con cargo a la cuenta cedar247.com de tu empresa",
     "nl": "Ten laste van het cedar247.com-account van je bedrijf"
    }
   },

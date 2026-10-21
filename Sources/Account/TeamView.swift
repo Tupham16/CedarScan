@@ -109,10 +109,12 @@ struct TeamView: View {
         // F10c (mockup f10c-app 1, = the web's W8): admins and members alike; billing is managed on the web.
         if let billing = answer.billing, billing.accountPaysFirst {
             Section {
-                Label {
-                    WrappedText(Self.billingLine(company: billing.account?.company), style: .subheadline)
-                } icon: {
+                // ✗ Label: it lines its icon up with the title's text baseline, which WrappedText (UIKit)
+                // may not report — the icon must stay by the first line (mockup).
+                HStack(alignment: .top, spacing: 12) {
                     Image(systemName: "building.2")
+                        .foregroundStyle(Theme.accentText)
+                    WrappedText(Self.billingLine(company: billing.account?.company), style: .subheadline)
                 }
                 .listRowBackground(Theme.card)
             } header: {
