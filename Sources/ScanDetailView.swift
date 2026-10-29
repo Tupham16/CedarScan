@@ -1440,8 +1440,8 @@ struct OrderSheet: View {
             // F9: the style saved in My brand comes first ("used for every new order").
             var tpls: [String: String] = [:]
             for addon in result.addons {
-                let templates = Self.styles(of: addon)
-                guard !templates.isEmpty, selectedAddons.contains(addon.id) else { continue }
+                guard let templates = addon.templates, !templates.isEmpty,
+                      selectedAddons.contains(addon.id) else { continue }
                 let saved = d?.templates?[addon.id]
                 tpls[addon.id] = Self.brandStyle(for: addon, result.brand, in: templates)
                     ?? ((saved != nil && templates.contains { $0.id == saved }) ? saved! : templates.first!.id)
@@ -1466,7 +1466,7 @@ struct OrderSheet: View {
             set: { on in
                 if on {
                     selectedAddons.insert(addon.id)
-                    let templates = Self.styles(of: addon)
+                    let templates = addon.templates ?? []
                     if selectedTemplates[addon.id] == nil,
                        let firstTpl = Self.brandStyle(for: addon, catalog?.brand, in: templates) ?? templates.first?.id {
                         selectedTemplates[addon.id] = firstTpl
@@ -1479,25 +1479,9 @@ struct OrderSheet: View {
         )
     }
 
-    /// F9: the colour add-on also offers the AU / NZ agency styles this phone lists.
-    private static func styles(of addon: CatalogAddon) -> [CatalogTemplate] {
-        addon.id == BrandStyles.colorAddonId
-            ? BrandStyles.styles(templates: addon.templates, agency: addon.agencyTemplates)
-            : (addon.templates ?? [])
-    }
-
     /// F9: the My brand style, for the colour add-on only, when this form offers it.
     private static func brandStyle(for addon: CatalogAddon, _ brand: BrandSettings?, in templates: [CatalogTemplate]) -> String? {
         addon.id == BrandStyles.colorAddonId ? BrandStyles.preferred(brand, in: templates) : nil
-    }
-
-    /// The style picker of a switched-on add-on that has styles (colour: + agency styles, F9).
-    @ViewBuilder
-    private func addonStylePicker(_ addon: CatalogAddon) -> some View {
-        let templates = Self.styles(of: addon)
-        if !templates.isEmpty {
-            templatePicker(addonId: addon.id, templates: templates)
-        }
     }
 
     /// Picker mẫu cho color/siteplan — the shared `TemplatePicker` (Orders v2 C moved its body there).
@@ -1691,8 +1675,8 @@ struct OrderSheet: View {
                         }
                     }
                     // Addon có picker mẫu (color/siteplan) + đang được chọn → hiện list mẫu cuộn ngang.
-                    if selectedAddons.contains(addon.id) {
-                        addonStylePicker(addon)
+                    if selectedAddons.contains(addon.id), let templates = addon.templates, !templates.isEmpty {
+                        templatePicker(addonId: addon.id, templates: templates)
                     }
                 }
             }

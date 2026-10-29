@@ -441,26 +441,11 @@ struct AddToOrderSheet: View {
             }
             .disabled(locked)
             // An add-on with styles (colour, site plan) + switched on → its picker, as in the order form.
-            if selectedAddons.contains(item.id) {
-                stylePicker(item)
+            if selectedAddons.contains(item.id), let templates = item.templates, !templates.isEmpty {
+                TemplatePicker(templates: templates, selection: templateBinding(item.id))
+                    .disabled(locked)
             }
         }
-    }
-
-    @ViewBuilder
-    private func stylePicker(_ item: ExtrasOfferItem) -> some View {
-        let templates = styles(of: item)
-        if !templates.isEmpty {
-            TemplatePicker(templates: templates, selection: templateBinding(item.id))
-                .disabled(locked)
-        }
-    }
-
-    /// F9: the colour add-on also offers the AU / NZ agency styles this phone lists.
-    private func styles(of item: ExtrasOfferItem) -> [CatalogTemplate] {
-        item.id == BrandStyles.colorAddonId
-            ? BrandStyles.styles(templates: item.templates, agency: item.agencyTemplates)
-            : (item.templates ?? [])
     }
 
     /// Switching on an add-on with styles picks the My brand style (colour, F9), else its first style
@@ -471,7 +456,7 @@ struct AddToOrderSheet: View {
             set: { on in
                 if on {
                     selectedAddons.insert(item.id)
-                    let templates = styles(of: item)
+                    let templates = item.templates ?? []
                     let saved = item.id == BrandStyles.colorAddonId ? BrandStyles.preferred(offer?.brand, in: templates) : nil
                     if selectedTemplates[item.id] == nil, let first = saved ?? templates.first?.id {
                         selectedTemplates[item.id] = first

@@ -187,8 +187,6 @@ struct CatalogTemplate: Decodable, Identifiable, Hashable {
     let id: String
     let name: String
     let imageUrl: String?
-    /// Agency styles only (F9): the phone regions that list it (`BrandStyles.listed`).
-    let regions: [String]?
 }
 
 struct CatalogAddon: Decodable, Identifiable {
@@ -197,21 +195,16 @@ struct CatalogAddon: Decodable, Identifiable {
     let price: Int
     /// Chỉ addon có picker mẫu (color, siteplan) mới có. Server cũ / addon thường → nil.
     let templates: [CatalogTemplate]?
-    /// F9: the colour add-on's AU / NZ agency styles this account may see (server: those with a
-    /// sample image; all of them for a test account). nil from servers before F9.
-    let agencyTemplates: [CatalogTemplate]?
 }
 
 /// F9 "My brand" (server `lib/brand.ts`): the saved logo, whether every order gets it, and the
-/// default colour style (`agencyStyleId` wins over `styleId`). In `GET catalog`, `GET extras` and
-/// every `account/brand` answer.
+/// default colour style. In `GET catalog`, `GET extras` and every `account/brand` answer.
 struct BrandSettings: Decodable, Equatable {
     let logo: BrandLogo?
     let addLogo: Bool
     let styleId: String?
-    let agencyStyleId: String?
 
-    static let empty = BrandSettings(logo: nil, addLogo: false, styleId: nil, agencyStyleId: nil)
+    static let empty = BrandSettings(logo: nil, addLogo: false, styleId: nil)
 }
 
 struct BrandLogo: Decodable, Equatable {
@@ -469,8 +462,6 @@ struct ExtrasOfferItem: Decodable, Identifiable {
     let price: Int
     let included: Bool
     let templates: [CatalogTemplate]?
-    /// F9, as `CatalogAddon.agencyTemplates`.
-    let agencyTemplates: [CatalogTemplate]?
 }
 
 /// `GET orders/{id}/extras`: what may be added to this order, at what price. `code` says why not
@@ -1092,7 +1083,7 @@ final class APIClient {
 
     // MARK: My brand (F9) — callers: `MyBrandView`
 
-    /// Any of `addLogo` (Bool), `styleId` / `agencyStyleId` (String, or NSNull() to clear).
+    /// Any of `addLogo` (Bool), `styleId` (String, or NSNull() to clear).
     /// 400 `code` `unknown_style` = that style is gone from the catalog.
     func saveBrand(_ fields: [String: Any]) async throws -> BrandSettings {
         let response: BrandResponse = try await send("account/brand", method: "PUT", json: fields)
