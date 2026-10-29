@@ -23,6 +23,8 @@ struct MeResponse: Decodable {
     let myBrand: Bool?
     /// F10: the team this account is on. nil = none, or a server without teams.
     let team: TeamSummaryDTO?
+    /// Account → "Invite a friend" row (F8). Absent (older server) or false (programme closed) = no row.
+    let referral: Bool?
 }
 
 /// F10 (team accounts, app half F10b): read-only here; the team is managed on app.cedar247.com.
@@ -285,6 +287,26 @@ struct CatalogResponse: Decodable {
     let scanQuality: ScanQualityConfig? // ngưỡng Accuracy Suite — server tinh chỉnh từ xa
     /// F9 My brand. nil from servers before F9 (the form then works as before).
     let brand: BrandSettings?
+    /// F8: free 2D orders from inviting friends that this account can use now. Absent (older
+    /// server) = none. Never counted together with `freeOrdersRemaining`: an order free by the
+    /// allowance does not use one (server `scans/[id]/order`).
+    let referralCredits: Int?
+}
+
+/// `GET referral` — Account → "Invite a friend" (F8, server `lib/referrals.ts`). Counts only:
+/// the server never says who joined. `enabled: false` = programme closed (hide the row).
+/// Every field Optional: one the server drops must not fail the screen.
+struct ReferralResponse: Decodable {
+    let enabled: Bool?
+    /// "JOHN-7Q2" — made by the server on the first visit.
+    let code: String?
+    let friendsJoined: Int?
+    let freeOrdersEarned: Int?
+    let freeOrdersAvailable: Int?
+    /// What the share text promises the friend (the usual free first orders); 0 = say nothing.
+    let freeFirstOrders: Int?
+    /// App Store link to share with the text; nil until the owner sets it (server `referral-config`).
+    let shareUrl: String?
 }
 
 struct DeliveryFileDTO: Decodable, Hashable {
@@ -831,10 +853,14 @@ final class APIClient {
 
     // MARK: Auth
 
-    func register(email: String, password: String, name: String) async throws -> AuthResponse {
-        try await send("auth/register", method: "POST", json: [
+    /// `inviteCode` (F8, optional): a code the server cannot use refuses the sign-up with 400 and
+    /// `code` `invite_invalid` / `invite_not_eligible` / `invite_closed` — nothing is created.
+    func register(email: String, password: String, name: String, inviteCode: String = "") async throws -> AuthResponse {
+        var body: [String: Any] = [
             "email": email, "password": password, "name": name, "deviceId": DeviceID.current,
-        ])
+        ]
+        if !inviteCode.isEmpty { body["inviteCode"] = inviteCode }
+        return try await send("auth/register", method: "POST", json: body)
     }
 
     func login(email: String, password: String) async throws -> AuthResponse {
@@ -848,6 +874,11 @@ final class APIClient {
     /// F10b: the Team screen (read-only).
     func team() async throws -> TeamResponse {
         try await send("team")
+    }
+
+    /// F8 "Invite a friend": the account's code (made on the first call) and its counts.
+    func referral() async throws -> ReferralResponse {
+        try await send("referral")
     }
 
     struct OkResponse: Decodable {
@@ -1007,13 +1038,14 @@ final class APIClient {
         floorNaming: String,
         projectName: String,
         coupon: String,
-        addLogo: Bool? = nil
+        addLogo: Bool? = nil,
+        useReferralCredit: Bool = false
     ) async throws -> OrderScanResponse {
         let body = Self.orderBody(
             extraScanIds: extraScanIds, packageIds: packageIds, addonIds: addonIds,
             templates: templates, orderFiles: orderFiles, notes: notes, unitSystem: unitSystem,
             language: language, floorNaming: floorNaming, projectName: projectName, coupon: coupon,
-            addLogo: addLogo
+            addLogo: addLogo, useReferralCredit: useReferralCredit
         )
         // N10 (2.79): the backstop of `OrderSheet.submit`'s check before its uploads.
         if Self.isTooLarge(body) {
@@ -1040,7 +1072,8 @@ final class APIClient {
         floorNaming: String,
         projectName: String,
         coupon: String,
-        addLogo: Bool? = nil
+        addLogo: Bool? = nil,
+        useReferralCredit: Bool = false
     ) -> [String: Any] {
         var body: [String: Any] = [
             "packageIds": packageIds, // đa gói (server cũng nhận `packageId` đơn, nhưng app mới gửi mảng)
@@ -1060,6 +1093,10 @@ final class APIClient {
             // cancelled by itself after 7 days) instead of being worked on before payment.
             // 🔴 ALWAYS sent: the Cancel button, the placed screen and the stamp release all assume it.
             "payFirst": true,
+            // F8: the form showed the invite-a-friend credit on the 2D package (`OrderSheet`). The
+            // server uses one only with this flag, and answers 409 `credit_gone` when none is left
+            // (nothing placed) — so the price paid is always the one the form showed.
+            "useReferralCredit": useReferralCredit,
         ]
         // F9: the form's logo choice (2.79; OrderSheet always sends it). Absent = the saved setting
         // decides (server `lib/brand.ts`) — what apps before 2.79 get.

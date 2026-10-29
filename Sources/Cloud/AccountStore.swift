@@ -34,6 +34,9 @@ final class AccountStore: ObservableObject {
     /// F10b: the team this account is on (`GET me` → `team`): the Account "Team" row, the order
     /// form's team-card line, who may cancel a teammate's order. Same lifetime as the flags above.
     @Published private(set) var team: TeamSummaryDTO?
+    /// Server says the Account tab may show "Invite a friend" (F8, `GET me` → `referral`). Not
+    /// stored, same as `paymentMethodsAvailable`.
+    @Published private(set) var referralAvailable = false
     var needsVerification: Bool { customer != nil && !emailVerified }
 
     init() {
@@ -93,6 +96,7 @@ final class AccountStore: ObservableObject {
             paymentMethodsAvailable = me.paymentMethods == true
             myBrandAvailable = me.myBrand == true
             team = me.team
+            referralAvailable = me.referral == true
         } catch let error as APIError where error.statusCode == 401 {
             signOut()
         } catch {
@@ -100,8 +104,8 @@ final class AccountStore: ObservableObject {
         }
     }
 
-    func register(email: String, password: String, name: String) async throws {
-        let result = try await APIClient.shared.register(email: email, password: password, name: name)
+    func register(email: String, password: String, name: String, inviteCode: String = "") async throws {
+        let result = try await APIClient.shared.register(email: email, password: password, name: name, inviteCode: inviteCode)
         apply(result)
     }
 
@@ -113,6 +117,11 @@ final class AccountStore: ObservableObject {
     /// The server refused saved payment methods (`in_app_disabled`): hide the row until next refresh.
     func paymentMethodsWentAway() {
         paymentMethodsAvailable = false
+    }
+
+    /// `GET referral` said the programme is closed: hide the row until the next refresh.
+    func referralWentAway() {
+        referralAvailable = false
     }
 
     func markVerified() {
@@ -161,6 +170,7 @@ final class AccountStore: ObservableObject {
         paymentMethodsAvailable = false
         myBrandAvailable = false
         team = nil
+        referralAvailable = false
         // Link remembers the customer on this phone; the next account must not inherit it.
         PaymentSheet.resetCustomer()
         // Which team messages were shown / left open, per order.

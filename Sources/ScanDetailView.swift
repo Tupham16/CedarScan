@@ -1,9 +1,10 @@
 import SwiftUI
 import AVKit
+import UIKit // UIColor for WrappedText (F8 credit banner, 2.79)
 import UniformTypeIdentifiers // UTType — suy ra MIME + giới hạn loại file cho .fileImporter
-// (`import UIKit` GỠ 11/08 cùng RoomPlan: lý do duy nhất của nó là `UIImage` cho ảnh mặt bằng
-// `floorplan.png`, và grep toàn file nay ra 0 ký hiệu UIKit. Cần lại thì khai lại TƯỜNG MINH,
-// ✗ trông chờ SwiftUI/AVKit kéo hộ — đó là thứ chỉ lộ sau 10 phút CI.)
+// (`import UIKit` GỠ 11/08 cùng RoomPlan, KHAI LẠI 20/10 cho `UIColor` của banner F8. Thêm ký hiệu
+// UIKit thì giữ dòng import này TƯỜNG MINH, ✗ trông chờ SwiftUI/AVKit kéo hộ — thứ chỉ lộ sau 10
+// phút CI.)
 
 /// Ý ĐỊNH "Đặt hàng ngay" — một giá trị điều hướng RIÊNG, cố ý KHÔNG dùng lại `ScanRecord`.
 ///
@@ -1262,6 +1263,38 @@ struct OrderSheet: View {
         (catalog?.freeOrdersRemaining ?? 0) > 0
     }
 
+    /// F8: the server answered 409 `credit_gone` (or the re-check found none): ✗ offer the credit
+    /// again until a fresh catalog arrives (`loadCatalog`, the re-checks).
+    @State private var creditGone = false
+
+    /// F8 "Invite a friend": the catalog package a free floor plan pays for (server `lib/referrals.ts`
+    /// `REFERRAL_PACKAGE_ID`).
+    private static let referralPackageId = "2d"
+
+    private var referralPackagePrice: Int? {
+        catalog?.packages.first { $0.id == Self.referralPackageId }?.price
+    }
+
+    /// F8: this order uses one of the account's free 2D floor plans — the 2D package is free, the
+    /// rest is charged. Exactly the server's rule (`scans/[id]/order`): never with the free
+    /// allowance (that order is free already), only when the 2D package is in the order. The
+    /// server applies it only because `submit` sends `useReferralCredit` (✗ an older build or the
+    /// web portal never spends one), and refuses with 409 `credit_gone` when none is left.
+    private var referralCreditApplies: Bool {
+        referralCreditOnHand && selectedPackages.contains(Self.referralPackageId) && (referralPackagePrice ?? 0) > 0
+    }
+
+    /// F8: a free 2D floor plan waits for this order (the allowance does not cover it). `creditGone`
+    /// = the server just said it was used: hidden until a fresh catalog says otherwise.
+    private var referralCreditOnHand: Bool {
+        !isFreePromo && !creditGone && (catalog?.referralCredits ?? 0) > 0 && (referralPackagePrice ?? 0) > 0
+    }
+
+    /// Nothing to pay: the free allowance, or a free 2D floor plan covering the whole order.
+    private var isFreeOrder: Bool {
+        isFreePromo || (referralCreditApplies && totalUSD == 0)
+    }
+
     private var totalUSD: Int {
         guard let catalog else { return 0 }
         // Đa gói: cộng dồn giá mọi gói đã chọn (khớp computeQuote phía server).
@@ -1277,7 +1310,11 @@ struct OrderSheet: View {
             .max(by: { $0.overSqFt < $1.overSqFt }) {
             total += surcharge.fee
         }
-        return total
+        // F8: the free 2D floor plan pays the 2D package only (the server's `chargeTotal`).
+        if referralCreditApplies, let price = referralPackagePrice {
+            total -= price
+        }
+        return max(0, total)
     }
 
     var body: some View {
@@ -1433,6 +1470,7 @@ struct OrderSheet: View {
         do {
             let result = try await APIClient.shared.catalog()
             catalog = result
+            creditGone = false
             // Điền mặc định gói: `packageIds` (app mới) > `packageId` (default cũ) > gói default > gói đầu.
             let d = result.defaults
             let validPkgIds = Set(result.packages.map(\.id))
@@ -1579,7 +1617,31 @@ struct OrderSheet: View {
                 .foregroundStyle(Theme.Badge.ok.fg)
                 .listRowBackground(Theme.Badge.ok.bg)
             }
+        } else if referralCreditOnHand {
+            // F8 (mockup 86): same green row as the allowance; the package row says "Free". Shown
+            // while a credit waits, whatever is ticked — only its sentence changes (✗ a row that
+            // comes and goes when 2D is ticked: the rows under the finger would jump).
+            Section {
+                // WrappedText: 3–4 lines in German, the customer reads it whole (trap #44).
+                HStack(alignment: .top, spacing: 10) {
+                    Text(verbatim: "🎁")
+                        .accessibilityHidden(true)
+                    WrappedText(referralBannerText(catalog), style: .subheadline,
+                                color: UIColor(Theme.Badge.ok.fg), weight: .semibold)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .listRowBackground(Theme.Badge.ok.bg)
+            }
         }
+    }
+
+    /// F8 banner: the credit is in this order, or it waits for the 2D package to be ticked.
+    private func referralBannerText(_ catalog: CatalogResponse) -> String {
+        if referralCreditApplies {
+            return String(localized: "Your 2D floor plan is free — a thank-you for inviting a friend.")
+        }
+        let name = catalog.packages.first { $0.id == Self.referralPackageId }?.name ?? "2D Floor Plan"
+        return String(localized: "You have a free \(name) from inviting a friend: select it to use it.")
     }
 
     private var floorsSection: some View {
@@ -1659,8 +1721,18 @@ struct OrderSheet: View {
                             Text(pkg.name)
                                 .foregroundStyle(Color.primary)
                             Spacer()
-                            Text("$\(pkg.price)")
-                                .foregroundStyle(Color.secondary)
+                            if pkg.id == Self.referralPackageId, referralCreditApplies {
+                                // F8: paid by the free 2D floor plan (banner on top).
+                                Text("$\(pkg.price)")
+                                    .strikethrough()
+                                    .foregroundStyle(Color.secondary)
+                                Text(String(localized: "Free"))
+                                    .fontWeight(.semibold)
+                                    .foregroundStyle(Theme.Badge.ok.fg)
+                            } else {
+                                Text("$\(pkg.price)")
+                                    .foregroundStyle(Color.secondary)
+                            }
                         }
                     }
                     // N17: chosen = the trait, ✗ only the tick's colour (the tick is hidden from VoiceOver).
@@ -1879,9 +1951,9 @@ struct OrderSheet: View {
                 // nên nó in ra vô điều kiện cho MỌI đơn — một câu luôn đúng thì không nói với ai
                 // điều gì, mà lại ngồi ngay trên nút trả tiền. ✗ thêm lại.
                 if let errorMessage {
-                    Text(errorMessage)
-                        .font(.footnote)
-                        .foregroundStyle(.red)
+                    // WrappedText: the longer errors (credit_gone in German: its last line is the
+                    // instruction) must not lose a line (trap #44).
+                    WrappedText(errorMessage, style: .footnote, color: .systemRed)
                 }
             }
             .listRowBackground(Theme.card)
@@ -1895,7 +1967,7 @@ struct OrderSheet: View {
                             Text(busyLabel).font(.subheadline)
                         }
                     } else {
-                        Text(String(localized: "Place order") + " · " + (isFreePromo ? String(localized: "FREE 🎁") : "$\(totalUSD)"))
+                        Text(String(localized: "Place order") + " · " + (isFreeOrder ? String(localized: "FREE 🎁") : "$\(totalUSD)"))
                             .font(.headline)
                     }
                 }
@@ -1923,6 +1995,11 @@ struct OrderSheet: View {
             VStack(alignment: .leading, spacing: 4) {
                 if isFreePromo {
                     Text(String(localized: "Free order — no payment needed. Our team starts right after you place it."))
+                } else if isFreeOrder {
+                    // F8: a free 2D floor plan covers the order. "now": a large-property fee can still
+                    // follow once the area is measured (Terms "Invite a friend": surcharges as usual).
+                    WrappedText(String(localized: "Nothing to pay now: your free 2D floor plan covers this order. Our team starts right after you place it."),
+                                style: .footnote, color: .secondaryLabel)
                 } else if account.team?.siteAccount == true {
                     // F10c (mockup f10c-app 2): the company's cedar247.com account pays first (`team.card` is
                     // nil then); short or refused = the team card, else the usual "Awaiting payment".
@@ -2204,6 +2281,8 @@ struct OrderSheet: View {
         let projectNameSnapshot = Self.cut(projectName ?? "", Self.maxProjectName)
         let couponSnapshot = Self.cut(couponCode.trimmingCharacters(in: .whitespacesAndNewlines), Self.maxCoupon)
         let addLogoSnapshot = logoChoice
+        // F8: the button's price took the free 2D floor plan off — the order asks for it (and only then).
+        let creditSnapshot = referralCreditApplies
         // N10 (2.79): the body measured NOW, ✗ after 40–200 MB of uploads (`orderScan` refuses it
         // again as a backstop). The scans' server ids are not known yet: 36 characters each (cuids
         // are 25), so the guess is never smaller than the real body.
@@ -2212,7 +2291,7 @@ struct OrderSheet: View {
             packageIds: pkgIds, addonIds: addonIds, templates: templatesSnapshot,
             orderFiles: filesSnapshot, notes: notesSnapshot, unitSystem: unitSnapshot,
             language: languageSnapshot, floorNaming: floorNamingSnapshot,
-            projectName: projectNameSnapshot, coupon: couponSnapshot, addLogo: addLogoSnapshot
+            projectName: projectNameSnapshot, coupon: couponSnapshot, addLogo: addLogoSnapshot, useReferralCredit: creditSnapshot
         )
         if APIClient.isTooLarge(probe) {
             errorMessage = String(localized: "This request is too large. Please shorten your text and try again.")
@@ -2328,7 +2407,11 @@ struct OrderSheet: View {
             // that order, ✗ "slots used up". No list = carry on, failing open on purpose (a list that never
             // decodes must not block every order); the server only refuses the same scans, so a lost
             // earlier floor can still get a second order then.
+            // F8: whether the list answered — the credit re-check below trusts "no credit left" only then
+            // (a lost earlier order of this house may be what used it: its 409 must come first).
+            var listLoaded = false
             if let list = try? await APIClient.shared.listOrders() {
+                listLoaded = true
                 store.syncOrders(list.orders)
                 if stopForExistingOrder(list.orders, primaryCloudId: primaryCloudId, ticked: tickedCloudIds) {
                     isBusy = false
@@ -2347,6 +2430,23 @@ struct OrderSheet: View {
                 catalog = fresh
                 if (fresh.freeOrdersRemaining ?? 0) == 0 {
                     errorMessage = String(localized: "Your free-order slots were just used up. Please review the price and tap Place order again.")
+                    isBusy = false
+                    busyLabel = nil
+                    return
+                }
+            }
+            // F8: the same re-check for the free 2D floor plan this tap priced the order with (an
+            // order placed meanwhile, on this phone or another, may have used it). The server
+            // refuses anyway (409 `credit_gone`, nothing placed): this saves the customer a round trip.
+            // A catalog without the count (the server could not count: it omits the key) changes
+            // nothing: the form stays as the customer saw it and the server decides below.
+            if creditSnapshot, listLoaded, let fresh = try? await APIClient.shared.catalog(),
+               let left = fresh.referralCredits {
+                catalog = fresh
+                creditGone = false
+                if left == 0 {
+                    creditGone = true
+                    errorMessage = String(localized: "Your free 2D floor plan from inviting a friend was just used on another order. Please review the price and tap Place order again.")
                     isBusy = false
                     busyLabel = nil
                     return
@@ -2386,7 +2486,8 @@ struct OrderSheet: View {
                     floorNaming: floorNamingSnapshot,
                     projectName: projectNameSnapshot,
                     coupon: couponSnapshot,
-                    addLogo: addLogoSnapshot
+                    addLogo: addLogoSnapshot,
+                    useReferralCredit: creditSnapshot
                 )
                 placedOrder = result
                 // Đóng dấu số đơn cho ĐÚNG tập đã vào đơn: bản chính + các tầng khách còn tick.
@@ -2419,7 +2520,27 @@ struct OrderSheet: View {
                 // the answer to an earlier tap, lost on a weak connection. ✗ just print it: nothing
                 // gets stamped and the house offers a second PAID order. Still inside
                 // `placingOrder` (#26).
-                if let api = error as? APIError, api.statusCode == 409 {
+                if let api = error as? APIError, api.statusCode == 409, api.code == "credit_gone" {
+                    // F8: the free 2D floor plan went between the check above and the order —
+                    // NOTHING was placed. A lost earlier order of this house may be what used it:
+                    // a fresh list first (it stops on that order, as the 409 adopt path would),
+                    // else fresh prices on the form and the customer taps again.
+                    if let list = try? await APIClient.shared.listOrders() {
+                        store.syncOrders(list.orders)
+                        if stopForExistingOrder(list.orders, primaryCloudId: primaryCloudId, ticked: tickedCloudIds) {
+                            placingOrder = false
+                            isBusy = false
+                            busyLabel = nil
+                            return
+                        }
+                    }
+                    creditGone = true
+                    if let fresh = try? await APIClient.shared.catalog() {
+                        catalog = fresh
+                        creditGone = (fresh.referralCredits ?? 0) == 0
+                    }
+                    errorMessage = String(localized: "Your free 2D floor plan from inviting a friend was just used on another order. Please review the price and tap Place order again.")
+                } else if let api = error as? APIError, api.statusCode == 409 {
                     // F10: one 409 is "Your team membership just changed": the team-card line under
                     // the button follows the account's team before the next tap.
                     Task { await account.refreshTeam() }

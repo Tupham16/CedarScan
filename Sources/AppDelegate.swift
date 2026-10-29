@@ -15,6 +15,9 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         // Here, ✗ later: a tap that LAUNCHED the app is delivered only to a delegate set before
         // didFinishLaunching returns.
         UNUserNotificationCenter.current().delegate = self
+        // 2.79: make the Keychain copy of the device id now (sends nothing), so a phone that ran this
+        // build keeps its id when the app is deleted — even if it never reached a request that sends it.
+        DispatchQueue.global(qos: .utility).async { _ = DeviceID.current }
         return true
     }
 
