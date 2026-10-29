@@ -106,6 +106,22 @@ struct TeamView: View {
             WrappedText(String(localized: "Everyone on the team sees the team's orders and can order any scan the team uploaded."),
                         style: .footnote, color: .secondaryLabel)
         }
+        // F10c (mockup f10c-app 1, = the web's W8): admins and members alike; billing is managed on the web.
+        if let billing = answer.billing, billing.accountPaysFirst {
+            Section {
+                // ✗ Label: it lines its icon up with the title's text baseline, which WrappedText (UIKit)
+                // may not report — the icon must stay by the first line (mockup).
+                HStack(alignment: .top, spacing: 12) {
+                    Image(systemName: "building.2")
+                        .foregroundStyle(Theme.accentText)
+                        .accessibilityHidden(true)
+                    WrappedText(Self.billingLine(company: billing.account?.company), style: .subheadline)
+                }
+                .listRowBackground(Theme.card)
+            } header: {
+                Text(String(localized: "Billing"))
+            }
+        }
         if let card = team.card {
             Section {
                 Label(card.label, systemImage: "creditcard")
@@ -113,10 +129,13 @@ struct TeamView: View {
             } header: {
                 Text(String(localized: "Team card"))
             } footer: {
-                // ✗ while the server would not charge it (card keys / in-app switch), or while the
-                // company's account pays first (F10c `billing.mode` "wallet" / "invoice").
-                if answer.cardsAvailable == true, (answer.billing?.mode ?? "card") == "card" {
-                    WrappedText(String(localized: "Your orders are paid with this card."), style: .footnote, color: .secondaryLabel)
+                // ✗ while the server would not charge it (card keys / in-app switch).
+                if answer.cardsAvailable == true {
+                    if answer.billing?.accountPaysFirst == true {
+                        WrappedText(String(localized: "Pays an order when the cedar247.com account doesn't cover it."), style: .footnote, color: .secondaryLabel)
+                    } else if (answer.billing?.mode ?? "card") == "card" {
+                        WrappedText(String(localized: "Your orders are paid with this card."), style: .footnote, color: .secondaryLabel)
+                    }
                 }
             }
         }
@@ -161,6 +180,14 @@ struct TeamView: View {
             .frame(width: 34, height: 34)
             .background(Circle().fill(kind?.bg ?? Theme.thumbBg))
             .accessibilityHidden(true)
+    }
+
+    /// The web's W8 sentence; the company is "" while cedar247.com does not answer.
+    static func billingLine(company: String?) -> String {
+        let company = company?.trimmingCharacters(in: .whitespaces) ?? ""
+        return company.isEmpty
+            ? String(localized: "Your orders are charged to the company's cedar247.com account. Admins manage billing.")
+            : String(localized: "Your orders are charged to the company's cedar247.com account (\(company)). Admins manage billing.")
     }
 
     /// "John Smith" → "JS": the first letter of the first two words.

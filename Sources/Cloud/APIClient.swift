@@ -35,6 +35,9 @@ struct TeamSummaryDTO: Decodable, Equatable {
     let memberCount: Int?
     /// The card that pays the team's orders; nil = none.
     let card: TeamCardDTO?
+    /// F10c (`GET me` only): the company's cedar247.com account pays first (prepaid credits or a monthly
+    /// invoice), the card after it; `card` is nil then. nil = a server without F10c.
+    let siteAccount: Bool?
 
     var isAdmin: Bool { role == "admin" }
 }
@@ -66,9 +69,47 @@ struct TeamResponse: Decodable {
 }
 
 struct TeamBillingDTO: Decodable {
-    /// "card" | "wallet" | "invoice": with the company's cedar247.com account (wallet / invoice) the
-    /// team card is only the fallback.
+    /// "card" | "wallet" | "invoice" (admins) | "account" (members: either of the two). With the company's
+    /// cedar247.com account the team card is only the fallback.
     let mode: String?
+    /// The linked cedar247.com account (members get the company only). nil = none.
+    let account: TeamSiteAccountDTO?
+
+    var accountPaysFirst: Bool { mode == "wallet" || mode == "invoice" || mode == "account" }
+}
+
+struct TeamSiteAccountDTO: Decodable {
+    /// "" while cedar247.com does not answer.
+    let company: String?
+}
+
+/// `paidWith` of an order the team paid (GET orders, Place order, extras), in the web's words
+/// (order-webapp `my/(portal)/page.tsx` PAID_WITH, the order form's success panel). nil = the
+/// customer paid, or not paid.
+enum PaidWith {
+    /// After the price in the order detail.
+    static func chip(_ raw: String?) -> String? {
+        switch raw {
+        case "team_card": return String(localized: "Team card")
+        case "wallet": return String(localized: "Prepaid credits")
+        case "invoice": return String(localized: "Monthly invoice")
+        case "account": return String(localized: "Company account")
+        default: return nil
+        }
+    }
+
+    /// "Order placed!" and "Added to your order". "account" = the credits or the invoice, as members see it.
+    static func sentence(_ raw: String?) -> String? {
+        switch raw {
+        case "team_card": return String(localized: "Paid with the team card")
+        case "invoice": return String(localized: "On your company's monthly invoice")
+        case "wallet", "account": return String(localized: "Charged to your company's cedar247.com account")
+        default: return nil
+        }
+    }
+
+    /// On the company's monthly invoice (members' "account" may be): placed, not paid yet — no "Paid".
+    static func onInvoice(_ raw: String?) -> Bool { raw == "invoice" || raw == "account" }
 }
 
 struct TeamMemberDTO: Decodable, Identifiable {
@@ -137,10 +178,9 @@ struct OrderScanResponse: Decodable {
     /// F1 (2.79): same as `OrderDTO.dueAt`, for the "Order placed!" screen. nil = no line (not
     /// paid yet, or a server that does not send it here).
     let dueAt: String?
-    /// F10: "team_card" = the team's card paid it at once (`free` is then true too: nothing to pay).
+    /// F10: the team paid it at once (`free` is then true too: nothing to pay) — "team_card", or F10c's
+    /// company account ("wallet" / "invoice", "account" for members). Read via `PaidWith`.
     let paidWith: String?
-
-    var paidWithTeamCard: Bool { paidWith == "team_card" }
 }
 
 /// Kết quả "gửi bổ sung bản quét" (`POST orders/{id}/supplement-scan`).
@@ -363,12 +403,11 @@ struct OrderDTO: Decodable, Identifiable {
     /// This account placed it (asked of F10a 20/10 to tell "you" from a deleted teammate). Read via
     /// `placedByMe`. Optional: a server without it.
     let placedByYou: Bool?
-    /// "team_card" once the team's card paid it. Optional: older servers.
+    /// Who paid it when the team did: "team_card", F10c "wallet" / "invoice" / "account" (`PaidWith`).
+    /// Optional: older servers.
     let paidWith: String?
 
     var id: String { orderId }
-
-    var paidWithTeamCard: Bool { paidWith == "team_card" }
 
     /// Without `placedByYou`, nil `placedBy` = yours (a deleted teammate's reads as yours then).
     var placedByMe: Bool { placedByYou ?? (placedBy == nil) }
@@ -496,10 +535,9 @@ struct AddExtrasResponse: Decodable {
     let paymentUrl: String?
     let payInApp: Bool?
     let payBy: String?
-    /// F10: "team_card" = the team's card paid it at once (`free` true too, as on Place order).
+    /// F10: the team paid it at once (`free` true too, as on Place order): "team_card", F10c "wallet" /
+    /// "invoice" / "account" (`PaidWith`).
     let paidWith: String?
-
-    var paidWithTeamCard: Bool { paidWith == "team_card" }
 }
 
 /// `POST orders/{id}/cancel` (200). `scanIds` = the scans released back to the customer: the app

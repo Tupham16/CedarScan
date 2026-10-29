@@ -1364,7 +1364,7 @@ struct OrderSheet: View {
 
     /// F1: the ready-by time of an order just paid on this screen, from the order list. The server
     /// confirms a card payment a moment later (webhook), so up to three tries, 5 s apart. Read
-    /// only; nothing else on this screen changes.
+    /// only; nothing else on this screen changes, except a team-paid order (`adoptTeamPaid`).
     private func loadPlacedDueAt(_ orderId: String) {
         Task {
             for attempt in 0..<3 {
@@ -1373,10 +1373,21 @@ struct OrderSheet: View {
                    let live = list.orders.first(where: { $0.orderId == orderId }),
                    let due = live.dueAt {
                     placedDueAt = due
+                    adoptTeamPaid(live)
                     return
                 }
             }
         }
+    }
+
+    /// F10c: Pay Now's "already paid", or a payment found on the way back, may be the team's doing
+    /// meanwhile (the company's cedar247.com account answering late, an admin's "Pay"): the screen
+    /// then reads as a team-paid order (Total + who paid), ✗ "Paid" for an order on the monthly invoice.
+    @discardableResult
+    private func adoptTeamPaid(_ live: OrderDTO) -> Bool {
+        guard live.paidWith != nil, live.paid == true, !live.isCancelled, live.orderId == placedOrder?.orderId else { return false }
+        placedOrder = Self.placedState(of: live)
+        return true
     }
 
     /// N14: the code screen over the form. Opened only on the server's own "not verified"
@@ -1912,14 +1923,23 @@ struct OrderSheet: View {
             VStack(alignment: .leading, spacing: 4) {
                 if isFreePromo {
                     Text(String(localized: "Free order — no payment needed. Our team starts right after you place it."))
+                } else if account.team?.siteAccount == true {
+                    // F10c (mockup f10c-app 2): the company's cedar247.com account pays first (`team.card` is
+                    // nil then); short or refused = the team card, else the usual "Awaiting payment".
+                    // HStack, ✗ Label: the icon stays by the first line (WrappedText may report no baseline).
+                    HStack(alignment: .top, spacing: 6) {
+                        Image(systemName: "building.2")
+                            .accessibilityHidden(true)
+                        WrappedText(String(localized: "Charged to your company's cedar247.com account"), style: .footnote, color: .secondaryLabel)
+                    }
                 } else if let card = account.team?.card {
                     // F10b (mockup f10b-6): the team's card is charged at Place order (server
                     // `chargeTeamCard`); declined = the usual "Awaiting payment" + Pay Now.
                     // WrappedText: wrapped in German, a plain footer Text lost its last line (trap #44).
-                    Label {
-                        WrappedText(String(localized: "Paid with your team card (\(card.label))"), style: .footnote, color: .secondaryLabel)
-                    } icon: {
+                    HStack(alignment: .top, spacing: 6) {
                         Image(systemName: "creditcard")
+                            .accessibilityHidden(true)
+                        WrappedText(String(localized: "Paid with your team card (\(card.label))"), style: .footnote, color: .secondaryLabel)
                     }
                 }
                 // Dòng đồng ý điều khoản — MỘT dòng footer, bấm được để đọc ngay tại chỗ
@@ -1981,7 +2001,7 @@ struct OrderSheet: View {
                 if let list = try? await APIClient.shared.listOrders(),
                    let live = list.orders.first(where: { $0.orderId == placed.orderId }),
                    live.paid == true, !live.isCancelled {
-                    serverPaid = true
+                    if !adoptTeamPaid(live) { serverPaid = true }
                     store.noteOrderStatus(orderNumber: live.orderNumber, status: live.status)
                     // F1: the paid order's ready-by time, from the same answer.
                     if let due = live.dueAt { placedDueAt = due }
@@ -2034,8 +2054,8 @@ struct OrderSheet: View {
                 .font(.title3.monospaced().weight(.bold))
             // Dòng "MIỄN PHÍ — khuyến mãi đơn đầu 🎁" ĐÃ BỎ 2026-09-01 theo chủ app. Đơn free
             // vì thế KHÔNG rơi xuống nhánh tổng tiền (in "$0" còn tệ hơn dòng vừa bỏ).
-            // F10: a team-card order comes back `free` (nothing left to pay) but was charged.
-            if order.free != true || order.paidWithTeamCard, let total = order.total {
+            // F10: a team-paid order comes back `free` (nothing left to pay) but was charged.
+            if order.free != true || order.paidWith != nil, let total = order.total {
                 Text(String(localized: "Total: $\(total)"))
                     .font(.headline)
             }
@@ -2050,9 +2070,9 @@ struct OrderSheet: View {
                     .foregroundStyle(Theme.Badge.warn.fg)
                     .multilineTextAlignment(.center)
             }
-            // F10b (mockup f10b-7): no Pay Now — `paymentUrl` is nil and `free` true.
-            if order.paidWithTeamCard {
-                Label(String(localized: "Paid with the team card"), systemImage: "checkmark.circle")
+            // F10b / F10c (mockups f10b-7, f10c-app 3–4): no Pay Now — `paymentUrl` is nil and `free` true.
+            if let paid = PaidWith.sentence(order.paidWith) {
+                Label(paid, systemImage: "checkmark.circle")
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(Theme.Badge.ok.fg)
                     .multilineTextAlignment(.center)
@@ -2523,8 +2543,8 @@ struct OrderSheet: View {
             paymentUrl: order.paymentUrl,
             discount: nil,
             couponApplied: nil,
-            // F10: paid by the team (card; F10c adds "wallet" / "invoice") too, as the Place order
-            // reply says (nothing left to pay).
+            // F10: paid by the team (its card, or F10c's company account: "wallet" / "invoice" /
+            // "account") too, as the Place order reply says (nothing left to pay).
             free: order.paid == true && ((order.total ?? 0) <= 0 || order.paidWith != nil),
             hasTour: order.hasTour,
             payInApp: order.payInApp,
