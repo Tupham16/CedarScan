@@ -26,7 +26,7 @@ struct MeshScanResult {
     /// đã bỏ 2026-07-31 nên nay luôn là `MeshQuality.storageDefault` — vẫn mang theo kết quả
     /// thay vì đọc lại ở chỗ lưu, để chỗ lưu không bao giờ khai một cấu hình khác cái đã quét.
     let quality: MeshQuality
-    /// Mô hình từng chạm trần 2M trong lúc quét → dữ liệu CÓ PHẦN BỊ THIẾU;
+    /// Mô hình từng chạm trần đỉnh (hoặc van RAM) trong lúc quét → dữ liệu CÓ PHẦN BỊ THIẾU;
     /// call-site nên mời khách quét bản BỔ SUNG cho phần còn lại sau khi lưu.
     let hitCap: Bool
     /// Đã đi ĐƯỜNG LƯU NHANH: mesh KHÔNG có màu-đỉnh (xám hằng số), màu sẽ đến từ texture

@@ -120,8 +120,8 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
         report = ScanSessionReport()
         arSession.run(config)
 
-        // wholeHomePreset: hình học full mật độ ARKit, trần 2M chỉ là van an toàn RAM —
-        // tier chỉ quyết định chất lượng MÀU. (Preset thường 120k là cho luồng RoomPlan.)
+        // wholeHomePreset: hình học full mật độ ARKit, trần đỉnh (3–5M theo RAM máy) chỉ là van an
+        // toàn RAM — tier chỉ quyết định chất lượng MÀU. (Preset thường 120k là cho luồng RoomPlan.)
         // strictVertexCap: không mất geometry đã quét khi ARKit gộp anchor lúc đầy.
         // captureDepthForOcclusion: kiểm tra che khuất khi gán màu (hết màu ghế in lên bàn).
         // refineLargeTriangles: lúc xuất chia nhỏ tam giác lớn để mảng tường/sàn phẳng có
@@ -227,8 +227,9 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
         // is the camera view (ARSCNView.session), which MeshScanFlowView removes on this change.
         arSession = nil
         // capReached STICKY của builder = "đã từng phải bỏ dữ liệu" → call-site dùng để
-        // mời khách quét BẢN BỔ SUNG cho phần còn thiếu (nhà rất lớn chạm trần 2M).
+        // mời khách quét BẢN BỔ SUNG cho phần còn thiếu (nhà rất lớn chạm trần đỉnh / van RAM).
         let hitCap = colorMesh?.capReached ?? false
+        let memoryCapHit = colorMesh?.memoryCapReached ?? false
         let vertexCount = colorMesh?.vertexCount ?? 0
         // Chặng 1. Hai lời gọi finish() bên dưới KHÔNG có tiến độ nào để lấy (AVAssetWriter
         // đóng file, recorder ảnh nén nốt ≤3 tấm) → chặng CÂM, màn hình hiện vòng xoay nhỏ.
@@ -259,7 +260,8 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
         // for a 20-min scan since the 1 Hz exposure-cap trace, ≤ ~1 MB at an hour). nil on any
         // failure — never blocks the save.
         let reportURL = report?.write(
-            hitCap: hitCap, vertexCount: vertexCount, fastSave: fastSave, shots: texshots?.stats,
+            hitCap: hitCap, vertexCount: vertexCount, maxVertices: quality.wholeHomePreset.maxVertices,
+            memoryCapHit: memoryCapHit, fastSave: fastSave, shots: texshots?.stats,
             torch: torch.stats, exposureCap: exposureCap.stats
         )
         report = nil

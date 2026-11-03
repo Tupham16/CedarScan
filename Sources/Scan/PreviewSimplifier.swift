@@ -62,7 +62,7 @@ enum PreviewSimplifier {
     /// inside the library. Past it (e.g. a big floor lying exactly on a cell plane, all locked in
     /// stage A: a synthetic 2M-vertex floor peaked at 312MB) → nil → clustering fallback.
     private static let maxStageVertices = 600_000
-    /// Input guard, far above the 2M `wholeHomePreset` cap: every index here is a UInt32.
+    /// Input guard, far above the 3–5M `wholeHomePreset` caps: every index here is a UInt32.
     private static let maxInputVertices = 50_000_000
 
     /// `vertexLists[k]` / `faceLists[k]` = one ARKit anchor piece, in `buildPreview`'s sorted-key

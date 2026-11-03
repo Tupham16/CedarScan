@@ -4,6 +4,8 @@ import simd
 // UIKit tường minh cho `UIApplication.didReceiveMemoryWarningNotification` (xem `start()`).
 // ARKit kéo UIKit vào gián tiếp, nhưng dựa vào import gián tiếp là thứ chỉ vỡ ra sau 10 phút CI.
 import UIKit
+// `os_proc_available_memory` (the low-memory valve in `ingestMesh`).
+import os
 
 /// Dựng mô hình 3D CÓ MÀU (thấp phân giải, file nhẹ) từ lưới LiDAR + màu lấy từ khung hình camera.
 /// Xuất ra file PLY nhị phân với màu theo từng đỉnh. Đây là NGUYÊN LIỆU NỘI BỘ cho đội xử lý.
@@ -47,6 +49,35 @@ final class ColorMeshBuilder {
     /// Mesh mode: controller đọc cờ này để hiện banner "mô hình đã đầy".
     private(set) var capReached = false
 
+    /// Low-memory valve (strict cap only, with the per-RAM `MeshQuality.deviceVertexCap`, 03/11):
+    /// iOS says less than this is left before the app's limit ⇒ the vertex cap is FROZEN at the
+    /// current total + `memoryMergeSlack`, never below `memoryFloorVertices` (same "Model is full"
+    /// banner once something is refused).
+    /// 🔴 Freeze, ✗ refuse every growing anchor: an ARKit merge removes the old piece and brings a
+    /// replacement under a new id — refusing that replacement drops an area already in the file
+    /// (review R1), while the cap check lets it into the room the old piece freed.
+    /// A safety net for the estimated 8 / 12 GB limits: with the increased-memory-limit
+    /// entitlement (TestFlight / App Store) a 3M scan on the measured 6 GB phone still leaves
+    /// ~1,900 MB; AltStore builds lack it (default limit not measured), so there a 6 GB phone
+    /// may freeze before 3M — never below `memoryFloorVertices`.
+    private static let memoryReserveBytes = 1_000_000_000
+    /// Room above the frozen total (the floor may leave more), shared first-come by merges and new
+    /// areas (~60 MB at ~0.6 KB/vertex).
+    private static let memoryMergeSlack = 100_000
+    /// The old fixed cap every phone ran with before 03/11, AltStore builds included: the valve
+    /// only guards the new range above it (a low reading right after a save must not cap a
+    /// "scan another area" run below what 2.79.2 allowed).
+    private static let memoryFloorVertices = 2_000_000
+    /// Low readings in a row (3 Hz ticks): a passing spike (JPEG encodes, overlay rebuild) must
+    /// not freeze the cap for the rest of the scan.
+    private var lowMemoryPasses = 0
+    /// Set once by the valve, never lifted: memory does not come back while ARKit keeps meshing.
+    private var memoryVertexCap: Int?
+    /// The valve froze the cap (scan-report `memoryCapHit`).
+    var memoryCapReached: Bool { memoryVertexCap != nil }
+    /// `maxVertices`, or lower once the valve froze it.
+    private var vertexCap: Int { min(maxVertices, memoryVertexCap ?? maxVertices) }
+
     /// Tổng số đỉnh đang giữ — Mesh mode dùng để chặn lưu bản quét rỗng.
     /// Chỉ đọc trên main (cùng luồng với CADisplayLink tick).
     var vertexCount: Int {
@@ -62,7 +93,7 @@ final class ColorMeshBuilder {
     /// chỗ trở lại và banner phải tự hạ. Dựa vào blockedNewAnchor (có dữ liệu THẬT
     /// đang bị bỏ) chứ không chỉ so tổng — trần giờ chặn chặt nên tổng hiếm khi chạm.
     var isFull: Bool {
-        blockedNewAnchor || vertexCount >= maxVertices
+        blockedNewAnchor || vertexCount >= vertexCap
     }
 
     // Khung màu: RGB nhỏ (origin trên-trái) + ma trận camera của đúng khung đó
@@ -218,6 +249,17 @@ final class ColorMeshBuilder {
     // MARK: - Gom lưới
 
     private func ingestMesh(from frame: ARFrame) {
+        // Low-memory valve BEFORE the cleanup below: the frozen budget then still counts the
+        // pieces ARKit is replacing in this very frame, so their replacements fit (review R1).
+        if strictVertexCap && memoryVertexCap == nil {
+            // 0 = no answer (not an app, or already past the limit): no valve.
+            let available = os_proc_available_memory()
+            let low = available > 0 && available < Self.memoryReserveBytes
+            lowMemoryPasses = low ? lowMemoryPasses + 1 : 0
+            if lowMemoryPasses >= 3 {
+                memoryVertexCap = max(vertexCount + Self.memoryMergeSlack, Self.memoryFloorVertices)
+            }
+        }
         // Dọn anchor bị ARKit xóa TRƯỚC khi đếm: ARKit gộp/tách chunk mesh liên tục
         // (nhiều nhất ở phút đầu). Không dọn thì đỉnh "ma" của anchor chết tích lại —
         // vừa phình vertexTotal (báo "mô hình đầy" oan chỉ sau ~10 giây quét), vừa để
@@ -236,6 +278,7 @@ final class ColorMeshBuilder {
 
         var vertexTotal = pieces.values.reduce(0) { $0 + $1.worldVertices.count }
         var blockedThisPass = false
+        let cap = vertexCap
         for anchor in frame.anchors {
             guard let mesh = anchor as? ARMeshAnchor else { continue }
             let geometry = mesh.geometry
@@ -261,7 +304,7 @@ final class ColorMeshBuilder {
                 // đặc hơn hẳn phần vừa nhả, khi đó banner + lưới đỏ báo cho người quét.)
                 // Anchor bị chặn KHÔNG ghi chữ ký — tick sau tự thử lại, có chỗ là vào ngay;
                 // bản cũ (nếu có) giữ nguyên.
-                if count > oldCount && vertexTotal - oldCount + count > maxVertices {
+                if count > oldCount && vertexTotal - oldCount + count > cap {
                     capReached = true
                     blockedThisPass = true
                     continue
@@ -589,7 +632,7 @@ final class ColorMeshBuilder {
     /// (clustering ~0.3s). Expect ~1.3–2.7s on an iPhone 12 Pro class phone, up to ~3.5s at
     /// 1.8–2M vertices — whole-house scans end in thermal `.serious`; not yet timed on a phone.
     /// RAM on top of `pieces` (alive either way): stage A peak 74 / 87 / 93MB at 1.55 / 1.72 /
-    /// 1.80M vertices, ~105MB at the 2M cap (welded positions + index buffer + ≈97 bytes per
+    /// 1.80M vertices, ~105MB at 2M (welded positions + index buffer + ≈97 bytes per
     /// triangle of the densest 4m cell inside the library), ~46MB in stage B — ~55% of
     /// `buildPLY`'s own fast-save peak on the same scan, which runs seconds earlier from the same
     /// starting point. Worst case, not seen on real houses: a surface lying on a cell plane stays
@@ -838,8 +881,9 @@ final class ColorMeshBuilder {
         // thứ tự đỉnh. Sắp vài trăm–vài nghìn UUID tốn dưới 1ms, đổi lại khi so hai bản export
         // thì khác biệt đến từ THAY ĐỔI CODE chứ không từ may rủi — cần đúng cho việc nghiệm
         // thu màu của đợt này. (Thứ tự này cũng quyết định mặt nào được chia trước khi
-        // `refineVertexCeiling` chạm trần — hôm nay trần đang ngủ, nhưng ai hạ
-        // `refineEdgeThreshold` trong tương lai thì nợ luôn phần ưu tiên chia theo cạnh dài.)
+        // `refineVertexCeiling` chạm trần — trần từng ngủ khi mesh ≤ 2M; từ 03/11 (trần 3–5M)
+        // đường chậm < 30 ảnh có thể chạm nó từ ~3M (chưa đo) và bỏ chia hẳn ở ≥ 4,5M: chỉ kém nét màu, hình học
+        // giữ nguyên. Ai hạ `refineEdgeThreshold` thì nợ luôn phần ưu tiên chia theo cạnh dài.)
         // 🔴 The workstation harness (`tools/preview-harness/load_cache.py`) recovers the pieces
         // from this order: every piece = one contiguous vertex range + one contiguous face range.
         let sortedKeys = pieces.keys.sorted(by: { $0.uuidString < $1.uuidString })
@@ -946,7 +990,7 @@ final class ColorMeshBuilder {
             vertexCount += piece.worldVertices.count
             faceCount += piece.faces.count
         }
-        // Same "nothing to save" rule as the merged path; UInt32 indices (the cap is 2M).
+        // Same "nothing to save" rule as the merged path; UInt32 indices (the cap is ≤ 5M).
         guard vertexCount > 0, faceCount > 0, vertexCount <= Int(UInt32.max) else { return nil }
         progress(.buildingMesh, 0)
         return writePLY(

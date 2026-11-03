@@ -207,7 +207,7 @@ struct ScanPreviewView: View {
             // trên máy nhỏ chữ bị bóp, mà khu video vốn đã hẹp.
             //
             // LUÔN hiện, không chỉ khi mô hình chạm trần: nhà cỡ thường không bao giờ chạm trần
-            // 2M nhưng khách vẫn quên nguyên một phòng — và phát hiện được lúc còn đứng trong nhà
+            // đỉnh nhưng khách vẫn quên nguyên một phòng — và phát hiện được lúc còn đứng trong nhà
             // chính là lý do màn preview này tồn tại.
             Button(action: onScanMore) {
                 Label(
