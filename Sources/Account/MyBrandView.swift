@@ -10,7 +10,7 @@ import UniformTypeIdentifiers
 // "Color floor plan" is on.
 // Plans carry no logo unless the customer asks (owner, F4): saving one here is that request.
 //
-// F9b "Order defaults" (2.79.3, owner 03/11; mockups `PLAN-GIAO-DIEN-mockups\f9b\`): the screen also
+// F9b "Order defaults" (2.79.4, owner 03/11; mockups `PLAN-GIAO-DIEN-mockups\f9b\`): the screen also
 // sets what every order form starts with (presets): the colour style or Black & white (= no colour),
 // 3D, site plan + its style, CAD; ✗ express. Saved presets win; never saved = the last order's
 // choices, as before (server `withPresets`). A colour default now ticks Color (reverses F9). The
@@ -85,7 +85,7 @@ extension OrderPresets {
     }
 }
 
-/// Account → Order defaults ("My brand" until 2.79.3).
+/// Account → Order defaults ("My brand" until 2.79.4).
 struct MyBrandView: View {
     /// The parts of the screen: where a refusal shows, which file goes up.
     private enum Part {
@@ -145,8 +145,11 @@ struct MyBrandView: View {
     }
 
     /// … and the add-ons presets may hold besides colour (site plan, CAD), as the catalog sells them.
+    /// Colour without styles (no Default style row) is a plain switch here.
     private var extraAddons: [CatalogAddon] {
-        (catalog?.addons ?? []).filter { $0.id != BrandStyles.colorAddonId && BrandStyles.presetAddonIds.contains($0.id) }
+        (catalog?.addons ?? []).filter {
+            BrandStyles.presetAddonIds.contains($0.id) && ($0.id != BrandStyles.colorAddonId || styles.isEmpty)
+        }
     }
 
     var body: some View {
@@ -308,6 +311,7 @@ struct MyBrandView: View {
                     ProgressView()
                     Text(String(localized: "Uploading…"))
                         .foregroundStyle(Color.secondary)
+                    Spacer(minLength: 0)
                 } else {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(brand.styleSample == nil ? String(localized: "Upload your own style") : String(localized: "Change your style"))
@@ -320,10 +324,10 @@ struct MyBrandView: View {
                                     : String(localized: "Our team draws your plans to match it."),
                                     style: .footnote, color: .secondaryLabel)
                     }
-                    // As every WrappedText in an HStack: the width it may wrap in.
+                    // As every WrappedText in an HStack: the width it may wrap in (✗ a Spacer beside
+                    // it: two flexible views split the row and the text wraps at half width).
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                Spacer(minLength: 0)
             }
             .padding(.vertical, 4)
             .contentShape(Rectangle())
@@ -430,8 +434,6 @@ struct MyBrandView: View {
                     next.packageIds.insert(id)
                 } else {
                     next.packageIds.remove(id)
-                    // An order needs a package (the server refuses none): the base one then.
-                    if next.packageIds.isEmpty, let base = basePackageId { next.packageIds = [base] }
                 }
                 save([:], presets: next, in: .extras)
             }
@@ -491,9 +493,13 @@ struct MyBrandView: View {
 
     /// Shows the change at once; the server's answer replaces the brand, a refusal puts the old
     /// values back. `presets` = the whole new set, sent as `presets` (F9b).
-    private func save(_ fields: [String: Any], brand changed: BrandSettings? = nil, presets next: OrderPresets? = nil, in part: Part) {
+    private func save(_ fields: [String: Any], brand changed: BrandSettings? = nil, presets asked: OrderPresets? = nil, in part: Part) {
         guard !saving, let catalog else { return }
         var fields = fields
+        // Presets build on the base package: "Add to every order" adds to it (board C: preset 3D =
+        // 2D + 3D ticked). A last order of 3D alone does not become every order's behind a "+$40".
+        var next = asked
+        if let base = basePackageId { next?.packageIds.insert(base) }
         if let next { fields["presets"] = next.json(in: catalog) }
         let before = brand
         let presetsBefore = presets
@@ -510,19 +516,24 @@ struct MyBrandView: View {
                 if fields["addLogo"] != nil { back = back.with(addLogo: before.addLogo) }
                 if fields["styleId"] != nil { back = back.with(styleId: .some(before.styleId)) }
                 brand = back
-                if next != nil { presets = presetsBefore }
+                if asked != nil { presets = presetsBefore }
                 problem = (part, message(for: error))
                 // A style or an item left the catalog: what is on screen is old, read it again (the
                 // controls wait: a change made meanwhile would be overwritten).
                 let code = (error as? APIError)?.code
                 if code == "unknown_style" || code == "invalid",
                    let fresh = try? await APIClient.shared.brandCatalog() {
-                    self.catalog = fresh
-                    if let saved = fresh.brand { brand = saved }
-                    presets = OrderPresets(fresh)
+                    show(fresh)
                 }
             }
         }
+    }
+
+    /// What the server holds now: its catalog, brand and the presets as the order form will open.
+    private func show(_ fresh: CatalogResponse) {
+        catalog = fresh
+        if let saved = fresh.brand { brand = saved }
+        presets = OrderPresets(fresh)
     }
 
     // MARK: Files (logo, own style)
@@ -614,8 +625,11 @@ struct MyBrandView: View {
         Task { @MainActor in
             do {
                 brand = try await APIClient.shared.deleteStyleSample()
-                // As the server: a preset on the own style loses it, colour stays on with the first style.
-                if presets.templates[BrandStyles.colorAddonId] == BrandStyles.ownStyleId {
+                // The server dropped "custom" from the saved style and presets: read back what it holds.
+                if let fresh = try? await APIClient.shared.brandCatalog() {
+                    show(fresh)
+                } else if presets.templates[BrandStyles.colorAddonId] == BrandStyles.ownStyleId {
+                    // Unread: as the server does, colour stays on with the first style.
                     presets.templates[BrandStyles.colorAddonId] = styles.first?.id
                 }
             } catch {
@@ -726,9 +740,11 @@ struct BrandLogoThumb: View {
         let key = pdfKey(url, box)
         if let cached = pdfThumbs.object(forKey: key) { return cached }
         guard let address = URL(string: url),
-              let download = try? await URLSession.shared.data(from: address),
-              let page = PDFDocument(data: download.0)?.page(at: 0) else { return nil }
-        let thumb = page.thumbnail(of: box, for: .mediaBox)
+              let data = try? await URLSession.shared.data(from: address).0 else { return nil }
+        // Off the main thread: a dense plan drawn at 480 pt would stall the screen.
+        guard let thumb = await Task.detached(priority: .userInitiated, operation: {
+            PDFDocument(data: data)?.page(at: 0)?.thumbnail(of: box, for: .mediaBox)
+        }).value else { return nil }
         pdfThumbs.setObject(thumb, forKey: key)
         return thumb
     }

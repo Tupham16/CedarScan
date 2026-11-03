@@ -87,7 +87,7 @@ struct AccountView: View {
                             }
                             .listRowBackground(Theme.card)
                         }
-                        // F9 (2.79): saved logo + default style; F9b (2.79.3) "Order defaults": also what
+                        // F9 (2.79): saved logo + default style; F9b (2.79.4) "Order defaults": also what
                         // every order starts with. Its own Section: F6 / F8 add rows here too.
                         if account.myBrandAvailable {
                             Section {

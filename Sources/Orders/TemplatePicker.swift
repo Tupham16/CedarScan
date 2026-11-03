@@ -40,8 +40,9 @@ struct TemplatePicker: View {
                         }
                         .buttonStyle(.plain)
                         // N17: the template's name (the thumbnail has none) and which one is
-                        // chosen — the blue ring alone said it to nobody using VoiceOver.
-                        .accessibilityLabel(name(tpl))
+                        // chosen — the blue ring alone said it to nobody using VoiceOver. F9b: the
+                        // B&W tile in words ("S/W" would be read letter by letter).
+                        .accessibilityLabel(tpl.id == BrandStyles.bwId ? String(localized: "Black & white") : name(tpl))
                         .accessibilityAddTraits(selection == tpl.id ? AccessibilityTraits.isSelected : AccessibilityTraits())
                     }
                 }

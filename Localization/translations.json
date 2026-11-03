@@ -5606,6 +5606,18 @@
    }
   },
   {
+   "key": "Black & white",
+   "translations": {
+    "vi": "Đen trắng",
+    "fr": "Noir et blanc",
+    "de": "Schwarz-Weiß",
+    "cs": "Černobílý",
+    "sk": "Čiernobiely",
+    "es": "Blanco y negro",
+    "nl": "Zwart-wit"
+   }
+  },
+  {
    "key": "Your style",
    "translations": {
     "vi": "Kiểu của bạn",
