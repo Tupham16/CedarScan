@@ -163,10 +163,10 @@ final class MeshOverlayRenderer: NSObject {
     private var wireGeos: [UUID: SCNGeometry] = [:]
     /// Tổng đỉnh đang có mặt nạ (sổ theo `anchorSigs`, không đo geometry thật).
     private var maskVerts = 0
-    /// Ngân sách mask = trần XUẤT của mesh mode (MeshQuality.wholeHomePreset 2M). Vượt nó là
-    /// mô hình cũng đầy → banner "Mô hình đã đầy — Dừng & Lưu" đã hiện; lớp phủ đỏ tắt hẳn
-    /// (`disableMasking`) thay vì bắt đầu nói dối vì thiếu mask.
-    private static let maskMaxVerts = 2_000_000
+    /// Ngân sách mask = trần XUẤT của mesh mode (`MeshQuality.deviceVertexCap`, 3–5M theo RAM máy
+    /// từ 03/11). Vượt nó là mô hình cũng đầy → banner "Mô hình đã đầy — Dừng & Lưu" đã hiện; lớp
+    /// phủ đỏ tắt hẳn (`disableMasking`) thay vì bắt đầu nói dối vì thiếu mask.
+    private static let maskMaxVerts = MeshQuality.deviceVertexCap
     private var maskingDisabled = false
     /// Trạng thái bật/tắt do SwiftUI quyết (xem `setVisible`).
     private var visible = false
@@ -322,7 +322,7 @@ final class MeshOverlayRenderer: NSObject {
     /// 🔴 VÌ SAO PHẢI CÓ: đời trước, tắt lưới = SwiftUI tháo hẳn view = mọi node + `wireGeos`
     /// chết theo. Sau khi gộp vào ARSCNView thì renderer do Coordinator giữ, nên nếu chỉ `isHidden`
     /// thì hình học vẫn nằm nguyên trong RAM. Lưu ý `wireGeos` KHÔNG bị trần `maxVerts` chặn
-    /// (trần chỉ áp cho node HIỂN THỊ) nên nó giữ geometry của MỌI anchor còn sống — tới ~2M
+    /// (trần chỉ áp cho node HIỂN THỊ) nên nó giữ geometry của MỌI anchor còn sống — 2M
     /// đỉnh ≈ 70MB phía CPU cộng bản sao MTLBuffer phía GPU. Giữ nguyên khối đó xuyên qua
     /// `stopAndExport` + nén zip là chồng thêm vào ĐÚNG đỉnh RAM của cả app, chỗ bị iOS giết
     /// thì mất trắng buổi quét 10–30 phút.
@@ -477,7 +477,7 @@ final class MeshOverlayRenderer: NSObject {
         // Dọn anchor đã biến khỏi phiên TRƯỚC khi cộng sổ (pattern ColorMeshBuilder đã trả
         // giá — "đỉnh ma báo đầy oan"): ARKit GỘP anchor là bản thay thế xuất hiện CÙNG frame
         // với bản cũ biến mất. Cộng bản mới giữa vòng rồi cuối vòng mới trừ bản cũ thì
-        // `maskVerts` vọt ma qua trần 2M → `disableMasking` oan, tint tắt lặng lẽ giữa phiên
+        // `maskVerts` vọt ma qua trần → `disableMasking` oan, tint tắt lặng lẽ giữa phiên
         // trong khi banner "Mô hình đã đầy" (đếm theo builder, vốn dọn-trước-đếm-sau) không
         // hề hiện. Review vòng 2 (2026-07-29) bắt.
         let present = Set(frame.anchors.compactMap { ($0 as? ARMeshAnchor)?.identifier })
@@ -791,7 +791,7 @@ final class MeshOverlayRenderer: NSObject {
         dyingMasks = kept
     }
 
-    /// Ngân sách mask cạn (mô hình vượt trần xuất 2M — banner "Mô hình đã đầy" của
+    /// Ngân sách mask cạn (mô hình vượt trần xuất — banner "Mô hình đã đầy" của
     /// MeshScanFlowView cũng đã hiện từ trước đó): tắt HẲN lớp phủ đỏ cho hết phiên,
     /// thay vì tiếp tục hiện một tín hiệu bắt đầu nói dối vì thiếu mask. Một chiều.
     private func disableMasking() {

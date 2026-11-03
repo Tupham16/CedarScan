@@ -218,6 +218,10 @@ final class ScanSessionReport {
         let sessionErrors: [Stamp]
         let hitCap: Bool
         let vertexCount: Int
+        /// This phone's cap (`MeshQuality.deviceVertexCap`, by RAM) and whether the low-memory
+        /// valve froze it (03/11) — how the 8 / 12 GB estimates get checked.
+        let maxVertices: Int
+        let memoryCapHit: Bool
         let fastSave: Bool
         let textureShots: ShotStats?
         let whiteBalance: WhiteBalance
@@ -261,10 +265,17 @@ final class ScanSessionReport {
         "shot waited because 3 JPEG encodes were still pending (one wait can count several ticks).",
     ].joined()
 
+    /// 03/11 (per-RAM vertex cap). Array join, ✗ a `+` chain (CI type-check time).
+    private static let capNote: String = [
+        " maxVertices = this phone's mesh vertex cap, set by its RAM (3M / 4M / 5M for 6 / 8 / 12+ GB; ",
+        "2M on every phone before); memoryCapHit = iOS had under ~1 GB left for the app, so the cap ",
+        "was frozen near the vertex count of that moment (low-memory valve; hitCap = mesh was then refused).",
+    ].joined()
+
     /// Writes the report to a temp file; nil on any failure (the scan saves without it).
     func write(
-        hitCap: Bool, vertexCount: Int, fastSave: Bool, shots: ShotStats?, torch: AutoTorch.Stats,
-        exposureCap: ExposureCap.Stats?
+        hitCap: Bool, vertexCount: Int, maxVertices: Int, memoryCapHit: Bool, fastSave: Bool,
+        shots: ShotStats?, torch: AutoTorch.Stats, exposureCap: ExposureCap.Stats?
     ) -> URL? {
         markStopped()
         let secs = trackingSeconds.compactMapValues { Self.fin($0) }
@@ -278,6 +289,7 @@ final class ScanSessionReport {
             note += Self.exposureCapNote
         }
         note += Self.encodeBusyNote
+        note += Self.capNote
         let file = File(
             version: 1,
             note: note,
@@ -294,6 +306,8 @@ final class ScanSessionReport {
             sessionErrors: errors,
             hitCap: hitCap,
             vertexCount: vertexCount,
+            maxVertices: maxVertices,
+            memoryCapHit: memoryCapHit,
             fastSave: fastSave,
             textureShots: shots,
             whiteBalance: WhiteBalance(
