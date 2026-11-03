@@ -51,16 +51,23 @@ final class ColorMeshBuilder {
 
     /// Low-memory valve (strict cap only, with the per-RAM `MeshQuality.deviceVertexCap`, 03/11):
     /// iOS says less than this is left before the app's limit ⇒ the vertex cap is FROZEN at the
-    /// current total + `memoryMergeSlack` (same "Model is full" banner once something is refused).
+    /// current total + `memoryMergeSlack`, never below `memoryFloorVertices` (same "Model is full"
+    /// banner once something is refused).
     /// 🔴 Freeze, ✗ refuse every growing anchor: an ARKit merge removes the old piece and brings a
     /// replacement under a new id — refusing that replacement drops an area already in the file
     /// (review R1), while the cap check lets it into the room the old piece freed.
     /// A safety net for the estimated 8 / 12 GB limits: with the increased-memory-limit
     /// entitlement (TestFlight / App Store) a 3M scan on the measured 6 GB phone still leaves
-    /// ~1,900 MB; AltStore builds lack it, so there a 6 GB phone freezes around 2.5M.
+    /// ~1,900 MB; AltStore builds lack it (default limit not measured), so there a 6 GB phone
+    /// may freeze before 3M — never below `memoryFloorVertices`.
     private static let memoryReserveBytes = 1_000_000_000
-    /// Room for merges to grow a little after the freeze (~60 MB at the measured ~0.6 KB/vertex).
+    /// Room above the frozen total (the floor may leave more), shared first-come by merges and new
+    /// areas (~60 MB at ~0.6 KB/vertex).
     private static let memoryMergeSlack = 100_000
+    /// The old fixed cap every phone ran with before 03/11, AltStore builds included: the valve
+    /// only guards the new range above it (a low reading right after a save must not cap a
+    /// "scan another area" run below what 2.79.2 allowed).
+    private static let memoryFloorVertices = 2_000_000
     /// Low readings in a row (3 Hz ticks): a passing spike (JPEG encodes, overlay rebuild) must
     /// not freeze the cap for the rest of the scan.
     private var lowMemoryPasses = 0
@@ -249,7 +256,9 @@ final class ColorMeshBuilder {
             let available = os_proc_available_memory()
             let low = available > 0 && available < Self.memoryReserveBytes
             lowMemoryPasses = low ? lowMemoryPasses + 1 : 0
-            if lowMemoryPasses >= 3 { memoryVertexCap = vertexCount + Self.memoryMergeSlack }
+            if lowMemoryPasses >= 3 {
+                memoryVertexCap = max(vertexCount + Self.memoryMergeSlack, Self.memoryFloorVertices)
+            }
         }
         // Dọn anchor bị ARKit xóa TRƯỚC khi đếm: ARKit gộp/tách chunk mesh liên tục
         // (nhiều nhất ở phút đầu). Không dọn thì đỉnh "ma" của anchor chết tích lại —
@@ -872,8 +881,9 @@ final class ColorMeshBuilder {
         // thứ tự đỉnh. Sắp vài trăm–vài nghìn UUID tốn dưới 1ms, đổi lại khi so hai bản export
         // thì khác biệt đến từ THAY ĐỔI CODE chứ không từ may rủi — cần đúng cho việc nghiệm
         // thu màu của đợt này. (Thứ tự này cũng quyết định mặt nào được chia trước khi
-        // `refineVertexCeiling` chạm trần — hôm nay trần đang ngủ, nhưng ai hạ
-        // `refineEdgeThreshold` trong tương lai thì nợ luôn phần ưu tiên chia theo cạnh dài.)
+        // `refineVertexCeiling` chạm trần — trần từng ngủ khi mesh ≤ 2M; từ 03/11 (trần 3–5M)
+        // đường chậm < 30 ảnh có thể chạm nó từ ~3M (chưa đo) và bỏ chia hẳn ở ≥ 4,5M: chỉ kém nét màu, hình học
+        // giữ nguyên. Ai hạ `refineEdgeThreshold` thì nợ luôn phần ưu tiên chia theo cạnh dài.)
         // 🔴 The workstation harness (`tools/preview-harness/load_cache.py`) recovers the pieces
         // from this order: every piece = one contiguous vertex range + one contiguous face range.
         let sortedKeys = pieces.keys.sorted(by: { $0.uuidString < $1.uuidString })

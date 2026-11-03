@@ -268,8 +268,9 @@ final class ScanSessionReport {
     /// 03/11 (per-RAM vertex cap). Array join, ✗ a `+` chain (CI type-check time).
     private static let capNote: String = [
         " maxVertices = this phone's mesh vertex cap, set by its RAM (3M / 4M / 5M for 6 / 8 / 12+ GB; ",
-        "2M on every phone before); memoryCapHit = iOS had under ~1 GB left for the app, so the cap ",
-        "was frozen near the vertex count of that moment (low-memory valve; hitCap = mesh was then refused).",
+        "2M on every phone before); memoryCapHit = iOS had under ~1 GB left for the app (3 readings ",
+        "in a row), so from then on the cap was the vertex count of that moment + 100k, never below 2M ",
+        "nor above maxVertices (low-memory valve). hitCap = mesh was refused at the cap, either way.",
     ].joined()
 
     /// Writes the report to a temp file; nil on any failure (the scan saves without it).
