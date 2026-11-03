@@ -377,9 +377,8 @@ struct MyBrandView: View {
     @ViewBuilder
     private func problemRow(_ part: Part) -> some View {
         if let problem, problem.part == part {
-            Text(problem.text)
-                .font(.footnote)
-                .foregroundStyle(.red)
+            // German errors wrap: a plain Text can lose its last line (trap #44).
+            WrappedText(problem.text, style: .footnote, color: .systemRed)
         }
     }
 
@@ -496,10 +495,11 @@ struct MyBrandView: View {
     private func save(_ fields: [String: Any], brand changed: BrandSettings? = nil, presets asked: OrderPresets? = nil, in part: Part) {
         guard !saving, let catalog else { return }
         var fields = fields
-        // Presets build on the base package: "Add to every order" adds to it (board C: preset 3D =
-        // 2D + 3D ticked). A last order of 3D alone does not become every order's behind a "+$40".
+        // An order needs a package (the server refuses none): the base one when 3D goes off alone.
+        // ✗ always adding it: a customer who orders 3D alone would get 2D (+$10, a free-2D credit
+        // spent) on every order after any tap here (owner to decide, F9b review R2).
         var next = asked
-        if let base = basePackageId { next?.packageIds.insert(base) }
+        if let base = basePackageId, next?.packageIds.isEmpty == true { next?.packageIds = [base] }
         if let next { fields["presets"] = next.json(in: catalog) }
         let before = brand
         let presetsBefore = presets
@@ -530,9 +530,12 @@ struct MyBrandView: View {
     }
 
     /// What the server holds now: its catalog, brand and the presets as the order form will open.
+    /// Not a catalog without `brand`: the server could not read it, nor the presets (its `defaults`
+    /// are then the last order's, and the next tap would save them over the real ones).
     private func show(_ fresh: CatalogResponse) {
+        guard let saved = fresh.brand else { return }
         catalog = fresh
-        if let saved = fresh.brand { brand = saved }
+        brand = saved
         presets = OrderPresets(fresh)
     }
 
@@ -625,12 +628,14 @@ struct MyBrandView: View {
         Task { @MainActor in
             do {
                 brand = try await APIClient.shared.deleteStyleSample()
-                // The server dropped "custom" from the saved style and presets: read back what it holds.
+                // As the server does, colour stays on with the first style (at once: no tile picked
+                // while the read below is out) …
+                if presets.templates[BrandStyles.colorAddonId] == BrandStyles.ownStyleId {
+                    presets.templates[BrandStyles.colorAddonId] = styles.first?.id
+                }
+                // … then what it holds now (it also dropped "custom" from a saved style not shown here).
                 if let fresh = try? await APIClient.shared.brandCatalog() {
                     show(fresh)
-                } else if presets.templates[BrandStyles.colorAddonId] == BrandStyles.ownStyleId {
-                    // Unread: as the server does, colour stays on with the first style.
-                    presets.templates[BrandStyles.colorAddonId] = styles.first?.id
                 }
             } catch {
                 problem = (.style, message(for: error))
