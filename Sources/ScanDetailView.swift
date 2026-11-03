@@ -1471,31 +1471,13 @@ struct OrderSheet: View {
             let result = try await APIClient.shared.catalog()
             catalog = result
             creditGone = false
-            // Điền mặc định gói: `packageIds` (app mới) > `packageId` (default cũ) > gói default > gói đầu.
+            // Packages, add-ons, styles: the catalog's `defaults` (F9b: Order defaults' presets, else
+            // the last order's) checked against what it sells — shared with Order defaults.
+            let start = OrderPresets(result)
+            selectedPackages = start.packageIds
+            selectedAddons = start.addonIds
+            selectedTemplates = start.templates
             let d = result.defaults
-            let validPkgIds = Set(result.packages.map(\.id))
-            var pkgs = Set((d?.packageIds ?? []).filter { validPkgIds.contains($0) })
-            if pkgs.isEmpty, let saved = d?.packageId, validPkgIds.contains(saved) {
-                pkgs = [saved]
-            }
-            if pkgs.isEmpty, let def = result.packages.first(where: { $0.isDefault })?.id ?? result.packages.first?.id {
-                pkgs = [def]
-            }
-            selectedPackages = pkgs
-            let validAddonIds = Set(result.addons.map(\.id))
-            selectedAddons = Set((d?.addonIds ?? []).filter { validAddonIds.contains($0) })
-            // Mẫu mặc định cho addon đã chọn sẵn + có picker: lấy mẫu lần trước nếu còn hợp lệ, không
-            // thì mẫu đầu. Addon chưa chọn thì để trống — tự chọn mẫu đầu khi khách bật (xem toggle).
-            // F9: the style saved in My brand comes first ("used for every new order").
-            var tpls: [String: String] = [:]
-            for addon in result.addons {
-                guard let templates = addon.templates, !templates.isEmpty,
-                      selectedAddons.contains(addon.id) else { continue }
-                let saved = d?.templates?[addon.id]
-                tpls[addon.id] = Self.brandStyle(for: addon, result.brand, in: templates)
-                    ?? ((saved != nil && templates.contains { $0.id == saved }) ? saved! : templates.first!.id)
-            }
-            selectedTemplates = tpls
             addLogo = result.brand?.addLogo ?? false
             if let u = d?.unitSystem, u == "imperial" || u == "metric" || u == "both" { unitSystem = u }
             // Chỉ nhận ngôn ngữ lần trước nếu còn trong list (Picker cần selection khớp một tag, không
@@ -1753,7 +1735,8 @@ struct OrderSheet: View {
                         HStack {
                             Text(addon.name)
                             Spacer()
-                            Text("+$\(addon.price)")
+                            // F9b: colour is free (03/11) — "Free", ✗ "+$0".
+                            Text(addon.price == 0 ? String(localized: "Free") : "+$\(addon.price)")
                                 .foregroundStyle(.secondary)
                         }
                     }

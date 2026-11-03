@@ -451,7 +451,8 @@ struct AddToOrderSheet: View {
                 HStack {
                     Text(item.name)
                     Spacer()
-                    Text(verbatim: "+$\(item.price)")
+                    // F9b: as the order form, 0 = "Free" (the server sells only priced items today).
+                    Text(item.price == 0 ? String(localized: "Free") : "+$\(item.price)")
                         .foregroundStyle(.secondary)
                 }
             }

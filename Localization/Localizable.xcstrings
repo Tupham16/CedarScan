@@ -847,6 +847,53 @@
         }
       }
     },
+    "A floor plan whose look you like. We match it.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Půdorys, jehož vzhled se vám líbí. Přizpůsobíme se mu."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ein Grundriss, dessen Stil Ihnen gefällt. Wir übernehmen ihn."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un plano cuyo estilo te guste. Lo replicamos."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un plan dont le style vous plaît. Nous le reproduisons."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Een plattegrond waarvan je de stijl mooi vindt. Wij nemen die over."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pôdorys, ktorého vzhľad sa vám páči. Prispôsobíme sa mu."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Một mặt bằng có kiểu bạn thích. Chúng tôi vẽ theo kiểu đó."
+          }
+        }
+      }
+    },
     "A marked-up photo or PDF helps us find exactly what to fix.": {
       "extractionState": "manual",
       "localizations": {
@@ -1642,6 +1689,53 @@
           "stringUnit": {
             "state": "translated",
             "value": "Thêm ảnh phòng cho tour"
+          }
+        }
+      }
+    },
+    "Add to every order": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Přidat ke každé objednávce"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zu jeder Bestellung hinzufügen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Añadir a cada pedido"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajouter à chaque commande"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aan elke bestelling toevoegen"
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pridať ku každej objednávke"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thêm vào mọi đơn"
           }
         }
       }
@@ -2874,6 +2968,53 @@
         }
       }
     },
+    "B&W": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Č/B"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "S/W"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "B/N"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "N&B"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Z/W"
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Č/B"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đen trắng"
+          }
+        }
+      }
+    },
     "Back": {
       "extractionState": "manual",
       "localizations": {
@@ -3011,6 +3152,100 @@
           "stringUnit": {
             "state": "translated",
             "value": "Thanh toán"
+          }
+        }
+      }
+    },
+    "Black & white and color styles are included.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Černobílý i barevné styly jsou v ceně."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Schwarz-Weiß und Farbstile sind inbegriffen."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El blanco y negro y los estilos de color están incluidos."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le noir et blanc et les styles en couleur sont inclus."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zwart-wit en kleurstijlen zijn inbegrepen."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Čiernobiely aj farebné štýly sú v cene."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đã gồm bản đen trắng và các kiểu màu."
+          }
+        }
+      }
+    },
+    "Black & white is included. Each color style adds $%lld to an order.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Černobílý je v ceně. Každý barevný styl přidá k objednávce %lld $."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Schwarz-Weiß ist inbegriffen. Jeder Farbstil kostet $%lld pro Bestellung extra."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El blanco y negro está incluido. Cada estilo de color añade $%lld a un pedido."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le noir et blanc est inclus. Chaque style en couleur ajoute %lld $ à une commande."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zwart-wit is inbegrepen. Elke kleurstijl kost $%lld extra per bestelling."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Čiernobiely je v cene. Každý farebný štýl pridá k objednávke $%lld."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đã gồm bản đen trắng. Mỗi kiểu màu cộng thêm $%lld vào đơn."
           }
         }
       }
@@ -3904,6 +4139,53 @@
           "stringUnit": {
             "state": "translated",
             "value": "Đổi logo"
+          }
+        }
+      }
+    },
+    "Change your style": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Změnit váš styl"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ihren Stil ändern"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cambiar tu estilo"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Changer votre style"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Je stijl wijzigen"
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zmeniť váš štýl"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đổi kiểu của bạn"
           }
         }
       }
@@ -6677,6 +6959,53 @@
           "stringUnit": {
             "state": "translated",
             "value": "Nhập mật khẩu để xác nhận"
+          }
+        }
+      }
+    },
+    "Every order starts with these. You can still change them on each order.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Každá objednávka začne s těmito položkami. U každé objednávky je můžete i tak změnit."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jede Bestellung beginnt damit. Sie können sie bei jeder Bestellung trotzdem ändern."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cada pedido empieza con estos. Aun así puedes cambiarlos en cada pedido."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chaque commande commence avec ces options. Vous pouvez quand même les changer pour chaque commande."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elke bestelling begint hiermee. Je kunt ze per bestelling nog steeds wijzigen."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Každá objednávka začne s týmito položkami. Pri každej objednávke ich môžete aj tak zmeniť."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mọi đơn bắt đầu với những mục này. Bạn vẫn đổi được ở từng đơn."
           }
         }
       }
@@ -10958,53 +11287,6 @@
         }
       }
     },
-    "My brand": {
-      "extractionState": "manual",
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Moje značka"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Meine Marke"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mi marca"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ma marque"
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mijn merk"
-          }
-        },
-        "sk": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Moja značka"
-          }
-        },
-        "vi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Thương hiệu của tôi"
-          }
-        }
-      }
-    },
     "My house has several floors — how does that work?": {
       "extractionState": "manual",
       "localizations": {
@@ -13214,6 +13496,53 @@
         }
       }
     },
+    "Order defaults": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Předvolby objednávek"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bestellvorgaben"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Preferencias de pedido"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Préférences de commande"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bestelvoorkeuren"
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Predvoľby objednávok"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mặc định đơn hàng"
+          }
+        }
+      }
+    },
     "Order later": {
       "extractionState": "manual",
       "localizations": {
@@ -13633,6 +13962,53 @@
           "stringUnit": {
             "state": "translated",
             "value": "Khác"
+          }
+        }
+      }
+    },
+    "Our team draws your plans to match it.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Náš tým kreslí vaše půdorysy v tomto stylu."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unser Team zeichnet Ihre Grundrisse in diesem Stil."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nuestro equipo dibuja tus planos con este estilo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Notre équipe dessine vos plans dans ce style."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ons team tekent je plattegronden in deze stijl."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Náš tím kreslí vaše pôdorysy v tomto štýle."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đội vẽ của chúng tôi vẽ bản vẽ của bạn theo kiểu này."
           }
         }
       }
@@ -14620,6 +14996,53 @@
           "stringUnit": {
             "state": "translated",
             "value": "Đang đặt hàng…"
+          }
+        }
+      }
+    },
+    "Please choose a PNG, JPG or PDF file.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vyberte prosím soubor PNG, JPG nebo PDF."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bitte wählen Sie eine PNG-, JPG- oder PDF-Datei."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elige un archivo PNG, JPG o PDF."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choisissez un fichier PNG, JPG ou PDF."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kies een PNG-, JPG- of PDF-bestand."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vyberte prosím súbor PNG, JPG alebo PDF."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bạn chọn file PNG, JPG hoặc PDF nhé."
           }
         }
       }
@@ -15983,6 +16406,53 @@
           "stringUnit": {
             "state": "translated",
             "value": "Xóa email này?"
+          }
+        }
+      }
+    },
+    "Remove your style": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Odebrat váš styl"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ihren Stil entfernen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quitar tu estilo"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retirer votre style"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Je stijl verwijderen"
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Odstrániť váš štýl"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gỡ kiểu của bạn"
           }
         }
       }
@@ -21909,6 +22379,53 @@
         }
       }
     },
+    "Upload your own style": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nahrát vlastní styl"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eigenen Stil hochladen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Subir tu propio estilo"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Téléverser votre propre style"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Je eigen stijl uploaden"
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nahrať vlastný štýl"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tải lên kiểu riêng của bạn"
+          }
+        }
+      }
+    },
     "Uploading %@…": {
       "extractionState": "manual",
       "localizations": {
@@ -22093,53 +22610,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Dùng vị trí hiện tại"
-          }
-        }
-      }
-    },
-    "Used when you order a color floor plan. You can still change it on each order.": {
-      "extractionState": "manual",
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Použije se, když objednáte barevný půdorys. U každé objednávky ho můžete i tak změnit."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Gilt, wenn Sie einen farbigen Grundriss bestellen. Sie können ihn bei jeder Bestellung trotzdem ändern."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Se usa cuando pides un plano de planta en color. Aun así puedes cambiarlo en cada pedido."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Utilisé quand vous commandez un plan d'étage en couleur. Vous pouvez quand même le changer pour chaque commande."
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Gebruikt wanneer je een kleurenplattegrond bestelt. Je kunt hem per bestelling nog steeds wijzigen."
-          }
-        },
-        "sk": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Použije sa, keď objednáte farebný pôdorys. Pri každej objednávke ho môžete aj tak zmeniť."
-          }
-        },
-        "vi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Dùng khi bạn đặt mặt bằng màu. Bạn vẫn đổi được ở từng đơn."
           }
         }
       }
@@ -25195,6 +25665,53 @@
           "stringUnit": {
             "state": "translated",
             "value": "Bản quét %@ chưa được gửi."
+          }
+        }
+      }
+    },
+    "Your style": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Váš styl"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ihr Stil"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tu estilo"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Votre style"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Je stijl"
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Váš štýl"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kiểu của bạn"
           }
         }
       }

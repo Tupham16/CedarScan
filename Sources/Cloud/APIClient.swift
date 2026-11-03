@@ -229,6 +229,9 @@ struct CatalogTemplate: Decodable, Identifiable, Hashable {
     let id: String
     let name: String
     let imageUrl: String?
+    /// F9b: only on the customer's own style ("custom"): the sample's sniffed type. A PDF has no
+    /// picture `AsyncImage` can show (`TemplatePicker` draws its first page).
+    let contentType: String?
 }
 
 struct CatalogAddon: Decodable, Identifiable {
@@ -237,6 +240,8 @@ struct CatalogAddon: Decodable, Identifiable {
     let price: Int
     /// Chỉ addon có picker mẫu (color, siteplan) mới có. Server cũ / addon thường → nil.
     let templates: [CatalogTemplate]?
+    /// F9b: colour only — the picture of Order defaults' Black & white tile (no colour = plain 2D).
+    let bwImageUrl: String?
 }
 
 /// F9 "My brand" (server `lib/brand.ts`): the saved logo, whether every order gets it, and the
@@ -245,14 +250,18 @@ struct BrandSettings: Decodable, Equatable {
     let logo: BrandLogo?
     let addLogo: Bool
     let styleId: String?
+    /// F9b: the customer's own style file (the colour style "custom"). nil = none, or a server
+    /// before F9b.
+    let styleSample: BrandLogo?
 
-    static let empty = BrandSettings(logo: nil, addLogo: false, styleId: nil)
+    static let empty = BrandSettings(logo: nil, addLogo: false, styleId: nil, styleSample: nil)
 }
 
+/// A saved brand file: the logo, or (F9b) the own-style sample.
 struct BrandLogo: Decodable, Equatable {
     let url: String
     let name: String
-    /// Sniffed by the server: image/png · image/jpeg · image/svg+xml · application/pdf.
+    /// Sniffed by the server: image/png · image/jpeg · image/svg+xml (logo only) · application/pdf.
     let contentType: String
     let bytes: Int
 }
@@ -1156,10 +1165,13 @@ final class APIClient {
         ], timeout: 60)
     }
 
-    // MARK: My brand (F9) — callers: `MyBrandView`
+    // MARK: My brand (F9) / Order defaults (F9b) — callers: `MyBrandView`
 
-    /// Any of `addLogo` (Bool), `styleId` (String, or NSNull() to clear).
-    /// 400 `code` `unknown_style` = that style is gone from the catalog.
+    /// Any of `addLogo` (Bool), `styleId` (String, or NSNull() to clear), F9b `presets` (the whole
+    /// set `["packageIds": [..], "addonIds": [..], "templates": [addonId: templateId]]` = what every
+    /// new order form starts with; NSNull() = back to the last order's choices). 400 `code`
+    /// `unknown_style` = a style gone from the catalog, `invalid` = a preset it does not sell; nothing
+    /// is saved then. The answer has no presets: from then on they are the catalog's `defaults`.
     func saveBrand(_ fields: [String: Any]) async throws -> BrandSettings {
         let response: BrandResponse = try await send("account/brand", method: "PUT", json: fields)
         return response.brand
@@ -1168,7 +1180,18 @@ final class APIClient {
     /// The logo file itself (≤ 5 MB; the server sniffs PNG / JPEG / SVG / PDF). 413 `too_large`,
     /// 400 `unsupported_type`. The first logo switches "Add my logo" on.
     func uploadBrandLogo(_ data: Data, fileName: String, contentType: String) async throws -> BrandSettings {
-        var request = try makeRequest(path: "account/brand/logo", method: "POST", json: nil, query: ["name": fileName], timeout: 120)
+        try await uploadBrandFile("account/brand/logo", data, fileName: fileName, contentType: contentType)
+    }
+
+    /// F9b: the customer's own style, a plan whose look they want (≤ 5 MB; PNG / JPEG / PDF, sniffed;
+    /// the logo's refusals, SVG = `unsupported_type`). Answers with `styleSample` set: the colour
+    /// style "custom" is then in this customer's catalog.
+    func uploadStyleSample(_ data: Data, fileName: String, contentType: String) async throws -> BrandSettings {
+        try await uploadBrandFile("account/brand/style-sample", data, fileName: fileName, contentType: contentType)
+    }
+
+    private func uploadBrandFile(_ path: String, _ data: Data, fileName: String, contentType: String) async throws -> BrandSettings {
+        var request = try makeRequest(path: path, method: "POST", json: nil, query: ["name": fileName], timeout: 120)
         request.setValue(contentType, forHTTPHeaderField: "Content-Type")
         let (body, response) = try await URLSession.shared.upload(for: request, from: data)
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
@@ -1189,8 +1212,8 @@ final class APIClient {
         }
     }
 
-    /// My brand's styles + saved settings: the catalog WITHOUT `deviceId` (N8: the Privacy Policy
-    /// names three moments for it — sign-up, viewing prices, ordering; this screen shows no price).
+    /// Order defaults' styles, prices + saved settings: the catalog WITHOUT `deviceId` (N8: the
+    /// server reads it only for the free-order count, which this screen does not show).
     func brandCatalog() async throws -> CatalogResponse {
         try await send("catalog")
     }
@@ -1198,6 +1221,13 @@ final class APIClient {
     /// No logo, "Add my logo" off; the styles stay.
     func deleteBrandLogo() async throws -> BrandSettings {
         let response: BrandResponse = try await send("account/brand/logo", method: "DELETE")
+        return response.brand
+    }
+
+    /// F9b: no own style. The server also drops "custom" from `styleId` and from the presets' colour
+    /// style (colour stays on: the form picks the first style).
+    func deleteStyleSample() async throws -> BrandSettings {
+        let response: BrandResponse = try await send("account/brand/style-sample", method: "DELETE")
         return response.brand
     }
 

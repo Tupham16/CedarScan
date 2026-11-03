@@ -5462,18 +5462,6 @@
    }
   },
   {
-   "key": "My brand",
-   "translations": {
-    "vi": "Thương hiệu của tôi",
-    "fr": "Ma marque",
-    "de": "Meine Marke",
-    "cs": "Moje značka",
-    "sk": "Moja značka",
-    "es": "Mi marca",
-    "nl": "Mijn merk"
-   }
-  },
-  {
    "key": "Your logo",
    "translations": {
     "vi": "Logo của bạn",
@@ -5594,15 +5582,159 @@
    }
   },
   {
-   "key": "Used when you order a color floor plan. You can still change it on each order.",
+   "key": "Order defaults",
    "translations": {
-    "vi": "Dùng khi bạn đặt mặt bằng màu. Bạn vẫn đổi được ở từng đơn.",
-    "fr": "Utilisé quand vous commandez un plan d'étage en couleur. Vous pouvez quand même le changer pour chaque commande.",
-    "de": "Gilt, wenn Sie einen farbigen Grundriss bestellen. Sie können ihn bei jeder Bestellung trotzdem ändern.",
-    "cs": "Použije se, když objednáte barevný půdorys. U každé objednávky ho můžete i tak změnit.",
-    "sk": "Použije sa, keď objednáte farebný pôdorys. Pri každej objednávke ho môžete aj tak zmeniť.",
-    "es": "Se usa cuando pides un plano de planta en color. Aun así puedes cambiarlo en cada pedido.",
-    "nl": "Gebruikt wanneer je een kleurenplattegrond bestelt. Je kunt hem per bestelling nog steeds wijzigen."
+    "vi": "Mặc định đơn hàng",
+    "fr": "Préférences de commande",
+    "de": "Bestellvorgaben",
+    "cs": "Předvolby objednávek",
+    "sk": "Predvoľby objednávok",
+    "es": "Preferencias de pedido",
+    "nl": "Bestelvoorkeuren"
+   }
+  },
+  {
+   "key": "B&W",
+   "translations": {
+    "vi": "Đen trắng",
+    "fr": "N&B",
+    "de": "S/W",
+    "cs": "Č/B",
+    "sk": "Č/B",
+    "es": "B/N",
+    "nl": "Z/W"
+   }
+  },
+  {
+   "key": "Your style",
+   "translations": {
+    "vi": "Kiểu của bạn",
+    "fr": "Votre style",
+    "de": "Ihr Stil",
+    "cs": "Váš styl",
+    "sk": "Váš štýl",
+    "es": "Tu estilo",
+    "nl": "Je stijl"
+   }
+  },
+  {
+   "key": "Upload your own style",
+   "translations": {
+    "vi": "Tải lên kiểu riêng của bạn",
+    "fr": "Téléverser votre propre style",
+    "de": "Eigenen Stil hochladen",
+    "cs": "Nahrát vlastní styl",
+    "sk": "Nahrať vlastný štýl",
+    "es": "Subir tu propio estilo",
+    "nl": "Je eigen stijl uploaden"
+   }
+  },
+  {
+   "key": "A floor plan whose look you like. We match it.",
+   "translations": {
+    "vi": "Một mặt bằng có kiểu bạn thích. Chúng tôi vẽ theo kiểu đó.",
+    "fr": "Un plan dont le style vous plaît. Nous le reproduisons.",
+    "de": "Ein Grundriss, dessen Stil Ihnen gefällt. Wir übernehmen ihn.",
+    "cs": "Půdorys, jehož vzhled se vám líbí. Přizpůsobíme se mu.",
+    "sk": "Pôdorys, ktorého vzhľad sa vám páči. Prispôsobíme sa mu.",
+    "es": "Un plano cuyo estilo te guste. Lo replicamos.",
+    "nl": "Een plattegrond waarvan je de stijl mooi vindt. Wij nemen die over."
+   }
+  },
+  {
+   "key": "Change your style",
+   "translations": {
+    "vi": "Đổi kiểu của bạn",
+    "fr": "Changer votre style",
+    "de": "Ihren Stil ändern",
+    "cs": "Změnit váš styl",
+    "sk": "Zmeniť váš štýl",
+    "es": "Cambiar tu estilo",
+    "nl": "Je stijl wijzigen"
+   }
+  },
+  {
+   "key": "Our team draws your plans to match it.",
+   "translations": {
+    "vi": "Đội vẽ của chúng tôi vẽ bản vẽ của bạn theo kiểu này.",
+    "fr": "Notre équipe dessine vos plans dans ce style.",
+    "de": "Unser Team zeichnet Ihre Grundrisse in diesem Stil.",
+    "cs": "Náš tým kreslí vaše půdorysy v tomto stylu.",
+    "sk": "Náš tím kreslí vaše pôdorysy v tomto štýle.",
+    "es": "Nuestro equipo dibuja tus planos con este estilo.",
+    "nl": "Ons team tekent je plattegronden in deze stijl."
+   }
+  },
+  {
+   "key": "Remove your style",
+   "translations": {
+    "vi": "Gỡ kiểu của bạn",
+    "fr": "Retirer votre style",
+    "de": "Ihren Stil entfernen",
+    "cs": "Odebrat váš styl",
+    "sk": "Odstrániť váš štýl",
+    "es": "Quitar tu estilo",
+    "nl": "Je stijl verwijderen"
+   }
+  },
+  {
+   "key": "Black & white and color styles are included.",
+   "translations": {
+    "vi": "Đã gồm bản đen trắng và các kiểu màu.",
+    "fr": "Le noir et blanc et les styles en couleur sont inclus.",
+    "de": "Schwarz-Weiß und Farbstile sind inbegriffen.",
+    "cs": "Černobílý i barevné styly jsou v ceně.",
+    "sk": "Čiernobiely aj farebné štýly sú v cene.",
+    "es": "El blanco y negro y los estilos de color están incluidos.",
+    "nl": "Zwart-wit en kleurstijlen zijn inbegrepen."
+   }
+  },
+  {
+   "key": "Black & white is included. Each color style adds $%lld to an order.",
+   "translations": {
+    "vi": "Đã gồm bản đen trắng. Mỗi kiểu màu cộng thêm $%lld vào đơn.",
+    "fr": "Le noir et blanc est inclus. Chaque style en couleur ajoute %lld $ à une commande.",
+    "de": "Schwarz-Weiß ist inbegriffen. Jeder Farbstil kostet $%lld pro Bestellung extra.",
+    "cs": "Černobílý je v ceně. Každý barevný styl přidá k objednávce %lld $.",
+    "sk": "Čiernobiely je v cene. Každý farebný štýl pridá k objednávke $%lld.",
+    "es": "El blanco y negro está incluido. Cada estilo de color añade $%lld a un pedido.",
+    "nl": "Zwart-wit is inbegrepen. Elke kleurstijl kost $%lld extra per bestelling."
+   }
+  },
+  {
+   "key": "Add to every order",
+   "translations": {
+    "vi": "Thêm vào mọi đơn",
+    "fr": "Ajouter à chaque commande",
+    "de": "Zu jeder Bestellung hinzufügen",
+    "cs": "Přidat ke každé objednávce",
+    "sk": "Pridať ku každej objednávke",
+    "es": "Añadir a cada pedido",
+    "nl": "Aan elke bestelling toevoegen"
+   }
+  },
+  {
+   "key": "Every order starts with these. You can still change them on each order.",
+   "translations": {
+    "vi": "Mọi đơn bắt đầu với những mục này. Bạn vẫn đổi được ở từng đơn.",
+    "fr": "Chaque commande commence avec ces options. Vous pouvez quand même les changer pour chaque commande.",
+    "de": "Jede Bestellung beginnt damit. Sie können sie bei jeder Bestellung trotzdem ändern.",
+    "cs": "Každá objednávka začne s těmito položkami. U každé objednávky je můžete i tak změnit.",
+    "sk": "Každá objednávka začne s týmito položkami. Pri každej objednávke ich môžete aj tak zmeniť.",
+    "es": "Cada pedido empieza con estos. Aun así puedes cambiarlos en cada pedido.",
+    "nl": "Elke bestelling begint hiermee. Je kunt ze per bestelling nog steeds wijzigen."
+   }
+  },
+  {
+   "key": "Please choose a PNG, JPG or PDF file.",
+   "translations": {
+    "vi": "Bạn chọn file PNG, JPG hoặc PDF nhé.",
+    "fr": "Choisissez un fichier PNG, JPG ou PDF.",
+    "de": "Bitte wählen Sie eine PNG-, JPG- oder PDF-Datei.",
+    "cs": "Vyberte prosím soubor PNG, JPG nebo PDF.",
+    "sk": "Vyberte prosím súbor PNG, JPG alebo PDF.",
+    "es": "Elige un archivo PNG, JPG o PDF.",
+    "nl": "Kies een PNG-, JPG- of PDF-bestand."
    }
   },
   {
