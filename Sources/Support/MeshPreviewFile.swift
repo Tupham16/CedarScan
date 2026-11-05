@@ -5,8 +5,9 @@ import simd
 /// (`mesh-preview.bin`, written once per mesh scan by `ColorMeshBuilder.exportPreviewMesh`).
 ///
 /// 🔴 WHY THIS FILE EXISTS AT ALL — **THE APP CANNOT UNZIP.** The real model (`model.obj`)
-/// only ever exists *inside* `model-colored.zip`; the only archive code in the app is the
-/// WRITE-ONLY `NSFileCoordinator(.forUploading)` trick in `ColoredOBJExporter`, and there is
+/// only ever exists *inside* `model-colored.zip`; the only archive code in the app is
+/// WRITE-ONLY (`ZipWriter`, falling back to the `NSFileCoordinator(.forUploading)` trick in
+/// `ColoredOBJExporter`), and there is
 /// no zip reader and no third-party dependency in `project.yml`. So "let the customer look at
 /// the mesh he just scanned" has to be answered with a file the app itself wrote in a format
 /// it can read back. Adding a zip dependency was considered and rejected (2026-08-10): it
