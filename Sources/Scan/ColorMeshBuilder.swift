@@ -77,6 +77,9 @@ final class ColorMeshBuilder {
     /// Held vertices dropped on a memory warning / by the low-memory valve, or evicted for room (report).
     private var memoryDroppedVertices = 0
     private var evictedVertices = 0
+    /// Eviction order, worked out once per ingest pass (a merge burst near the cap calls `bury` hundreds
+    /// of times in one pass).
+    private var evictionOrder: [UUID]?
     /// RAM bound (~56 B per vertex). ARKit's own clean-up is held one window (`rescueWindow.after`, 45 s)
     /// and evicted oldest first when a new removal needs the room; a new ghost is refused only when pieces
     /// tied to a correction fill the budget (or the vertex cap's room) = the old behaviour.
@@ -318,7 +321,10 @@ final class ColorMeshBuilder {
                 dropGhosts()
             }
         }
-        if rescueEnabled { ghostRoom = max(0, vertexCap - vertexCount) }
+        if rescueEnabled {
+            ghostRoom = max(0, vertexCap - vertexCount)
+            evictionOrder = nil
+        }
         // Dọn anchor bị ARKit xóa TRƯỚC khi đếm: ARKit gộp/tách chunk mesh liên tục
         // (nhiều nhất ở phút đầu). Không dọn thì đỉnh "ma" của anchor chết tích lại —
         // vừa phình vertexTotal (báo "mô hình đầy" oan chỉ sau ~10 giây quét), vừa để
@@ -527,15 +533,17 @@ final class ColorMeshBuilder {
     /// first (a drop comes as a burst at a merge; ARKit's clean-up trickles in before it). Pieces already
     /// tied to a correction stay, e.g. the early wave of a drop once its merge has come (main).
     private func evictOldestUnchecked(toFit n: Int, limit: Int) {
-        let shots = Array(shotPoses.values)
-        let victims = ghosts.filter { _, g in
-            guard !g.checked else { return false }
-            guard let s = MeshRescue.nearestShot(to: g.builtLast, center: g.center, shots: shots) else { return true }
-            return !MeshRescue.movedAtRemoval(s, removedAt: g.removedAt, center: g.center, window: rescueWindow)
-        }.sorted { $0.value.removedAt < $1.value.removedAt }
-        for (id, g) in victims {
-            guard ghostVertices + n > limit else { return }
-            ghosts.removeValue(forKey: id)
+        if evictionOrder == nil {
+            let shots = Array(shotPoses.values)
+            evictionOrder = ghosts.filter { _, g in
+                guard !g.checked else { return false }
+                guard let s = MeshRescue.nearestShot(to: g.builtLast, center: g.center, shots: shots) else { return true }
+                return !MeshRescue.movedAtRemoval(s, removedAt: g.removedAt, center: g.center, window: rescueWindow)
+            }.sorted { $0.value.removedAt < $1.value.removedAt }.map { $0.key }
+        }
+        while ghostVertices + n > limit, let id = evictionOrder?.first {
+            evictionOrder?.removeFirst()
+            guard let g = ghosts.removeValue(forKey: id) else { continue }
             ghostVertices -= g.piece.worldVertices.count
             evictedVertices += g.piece.worldVertices.count
         }

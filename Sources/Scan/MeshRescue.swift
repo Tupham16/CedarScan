@@ -134,10 +134,12 @@ enum MeshRescue {
         return m
     }
 
-    /// A live piece first built before a ≥ `minShift` correction of its sub-map, or up to `window.before`
-    /// s after it (ARKit re-chunking a leftover: same uncorrected surface under a new id): ARKit kept that
-    /// surface uncorrected, so this is the live mesh that can sit where a removed piece of the sub-map sat.
-    static func awaitsCorrection(_ live: LivePiece, shots: [Shot], window: Window) -> Bool {
+    /// A live piece first built before a ≥ `minShift` correction of its sub-map: ARKit kept it uncorrected,
+    /// so it is the live mesh that can sit where a removed piece of that sub-map sat. Known limit: a
+    /// leftover ARKit re-chunks under a new id just after the merge is not recognised (its predecessor can
+    /// come back beside it); counting everything first built in the seconds after a merge instead would
+    /// also count the user's fresh re-scan there and crack seams (review R6) — the trace will tell.
+    static func awaitsCorrection(_ live: LivePiece, shots: [Shot]) -> Bool {
         let v = live.piece.vertices
         guard !v.isEmpty else { return false }
         var sum = SIMD3<Float>(0, 0, 0)
@@ -147,7 +149,7 @@ enum MeshRescue {
             n += 1
         }
         let center = sum / Float(n)
-        guard let m = correction(since: live.builtFirst - window.before, center: center, shots: shots) else { return false }
+        guard let m = correction(since: live.builtFirst, center: center, shots: shots) else { return false }
         return shift(m, at: center) >= minShift
     }
 
@@ -190,7 +192,7 @@ enum MeshRescue {
         var landCells = Cells()
         for l in live {
             add(l.piece.vertices, l.piece.normals, to: &landCells, stride: 2)
-            if awaitsCorrection(l, shots: shots, window: window) { add(l.piece.vertices, l.piece.normals, to: &sitCells, stride: 2) }
+            if awaitsCorrection(l, shots: shots) { add(l.piece.vertices, l.piece.normals, to: &sitCells, stride: 2) }
         }
         // Ties by removal time: the same input gives the same model.
         let order = jobs.indices.sorted {
