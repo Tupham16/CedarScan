@@ -1182,7 +1182,7 @@
         "cs": {
           "stringUnit": {
             "state": "translated",
-            "value": "Zbývá asi %lld min."
+            "value": "Zbývající čas: asi %lld min."
           }
         },
         "de": {
@@ -1194,7 +1194,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Quedan unos %lld min."
+            "value": "Tiempo restante: aprox. %lld min."
           }
         },
         "fr": {
@@ -1212,7 +1212,7 @@
         "sk": {
           "stringUnit": {
             "state": "translated",
-            "value": "Zostáva asi %lld min."
+            "value": "Zostávajúci čas: asi %lld min."
           }
         },
         "vi": {

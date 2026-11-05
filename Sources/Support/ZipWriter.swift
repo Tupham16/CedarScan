@@ -11,7 +11,8 @@ import Foundation
 /// cut-worker (`tar -xf`), MeshCut (fflate); the server never opens it. The container differs:
 /// sizes in the local headers (no data descriptors), no extra fields, no zip64 — past 4 GB or
 /// 65,535 entries it throws and the caller falls back to the old zipper. Checked against Python
-/// zipfile, bsdtar and unzip by `tools/zip-harness` (run on macOS CI: SESSION-HANDOFF).
+/// zipfile, bsdtar, unzip, ditto and fflate by `tools/zip-harness` (how to run it on macOS CI:
+/// SESSION-HANDOFF §TRAPS "Scan zip writer"). Change this file ⇒ run it again.
 enum ZipWriter {
     enum ZipError: Error { case unreadable, tooLarge }
 

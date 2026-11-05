@@ -6703,9 +6703,9 @@
     "vi": "Còn khoảng %lld phút.",
     "fr": "Encore environ %lld min.",
     "de": "Noch etwa %lld Min.",
-    "cs": "Zbývá asi %lld min.",
-    "sk": "Zostáva asi %lld min.",
-    "es": "Quedan unos %lld min.",
+    "cs": "Zbývající čas: asi %lld min.",
+    "sk": "Zostávajúci čas: asi %lld min.",
+    "es": "Tiempo restante: aprox. %lld min.",
     "nl": "Nog ongeveer %lld min."
    }
   },

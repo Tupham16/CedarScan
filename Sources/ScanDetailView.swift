@@ -2261,9 +2261,11 @@ struct OrderSheet: View {
     }
 
     /// "About N min left. Keep CedarScan open…": the time from the real speed of the last 30 s
-    /// (owner 05/11; a fixed "1–2 minutes" is wrong on a slow link), none before 5 s of it or while
-    /// nothing moves. Keep open: uploads go on behind a lock or another app, but the order is
-    /// placed only with CedarScan on screen (`UploadKeepAlive.untilActive`).
+    /// (owner 05/11; a fixed "1–2 minutes" is wrong on a slow link), none before 5 s of it.
+    /// shortcut: no clock — a dead link freezes the line with the bar until the stall watchdog
+    /// (BackgroundUploads, 60 s) fails the batch; add a TimelineView if that shows up in tests.
+    /// Keep open: uploads go on behind a lock or another app, but the order is placed only with
+    /// CedarScan on screen (`UploadKeepAlive.untilActive`).
     private var uploadLine: String {
         let keep = String(localized: "Keep CedarScan open until your order is placed.")
         guard let bytes = uploadBytes?.values, !bytes.contains(where: { $0.total <= 0 }),
@@ -2282,9 +2284,14 @@ struct OrderSheet: View {
     /// `ScanUploader.onBytes` of one scan of the running batch.
     private func noteUpload(_ id: UUID, sent: Int64, total: Int64) {
         guard uploadBytes != nil else { return } // a late call after the batch ended
+        let before = uploadBytes?[id]?.sent ?? 0
         uploadBytes?[id] = (sent, total)
         let now = Date().timeIntervalSinceReferenceDate
         let all = uploadBytes?.values.reduce(Int64(0)) { $0 + $1.sent } ?? 0
+        // A retry back to 0, a re-joined transfer or a resumed floor's done files: not speed.
+        if sent < before || Double(sent - before) > 0.02 * Double(total) {
+            uploadSamples = []
+        }
         uploadSamples.removeAll { now - $0.at > 30 }
         uploadSamples.append((now, all))
     }

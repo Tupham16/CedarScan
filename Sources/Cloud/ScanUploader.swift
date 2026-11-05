@@ -213,13 +213,15 @@ final class ScanUploader: ObservableObject {
                 publishProgress()
                 return
             } catch {
-                sentBytes[job.kind] = 0
-                publishProgress()
                 let status = (error as? APIError)?.statusCode ?? 0
                 // R2 answers an expired / stale signature with 403 (400 for some malformed ones):
                 // one fresh URL, then give up — a 403 that survives re-presign is not transient.
                 let expired = (status == 403 || status == 400) && !represigned
                 guard attempt < Self.maxAttempts, expired || Self.isTransient(error) else { throw error }
+                // The file starts again from 0 — only on a retry (2.79.5: a give-up / Cancel no
+                // longer flashes a lower percent on Place order just before the error).
+                sentBytes[job.kind] = 0
+                publishProgress()
                 try await Task.sleep(nanoseconds: UInt64(min(attempt * attempt, 9)) * 2_000_000_000)
                 if expired || attempt >= 2 {
                     // A retry after a pause may outlive a 1 h URL: re-presign rather than guess.
