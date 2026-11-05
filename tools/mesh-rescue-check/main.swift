@@ -169,7 +169,8 @@ let liveBig = MeshRescue.LivePiece(piece: wall(x: 0, z0: 0, z1: 8), builtFirst: 
 let liveStale = MeshRescue.LivePiece(piece: wall(x: 0, z0: 30, z1: 38), builtFirst: 200)  // first built before the merge: uncorrected, even if re-sent after it
 let liveSeam = MeshRescue.LivePiece(piece: wall(x: 10, z0: 0, z1: 8.3), builtFirst: 100)  // main map, no shot near
 let liveFresh = MeshRescue.LivePiece(piece: wall(x: 0, z0: 49.7, z1: 54.2), builtFirst: 305)  // re-scanned 5 s after the move
-let liveRemainder = MeshRescue.LivePiece(piece: wall(x: 0, z0: 60, z1: 60.92), builtFirst: 200) // 47% ARKit left of a block
+// 49% of a 2 m block (25 of 51 columns: odd, so stride-2 cells keep its last column): covers ~55% of the block.
+let liveRemainder = MeshRescue.LivePiece(piece: wall(x: 0, z0: 60, z1: 60.96), builtFirst: 200)
 check(!MeshRescue.awaitsCorrection(liveBig, shots: pbShots), "correct main-map mesh does not await a correction")
 check(MeshRescue.awaitsCorrection(liveStale, shots: pbShots), "ARKit's uncorrected leftover awaits a correction")
 check(!MeshRescue.awaitsCorrection(liveFresh, shots: pbShots), "mesh first built after the move (a fresh re-scan) is not a leftover")
