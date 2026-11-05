@@ -135,7 +135,11 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
             captureDepthForOcclusion: true,
             refineLargeTriangles: true,
             fillUncoloredVertices: true,
-            meshRescue: ScanQualityConfig.current.meshRescue
+            meshRescue: ScanQualityConfig.current.meshRescue,
+            meshRescueWindow: MeshRescue.Window(
+                before: ScanQualityConfig.current.meshRescueBeforeSec,
+                after: ScanQualityConfig.current.meshRescueAfterSec
+            )
         )
         self.colorMesh = colorMesh
         colorMesh.start()

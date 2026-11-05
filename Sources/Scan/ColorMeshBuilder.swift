@@ -49,8 +49,9 @@ final class ColorMeshBuilder {
     // in `ghosts`; at Stop `adoptRescued` puts back those whose sub-map was corrected (`MeshRescue`).
     // Main thread only, like `pieces`.
 
-    /// Server kill switch `meshRescue` (ScanQualityConfig), read at scan start.
+    /// Server kill switch `meshRescue` and window (ScanQualityConfig), read at scan start.
     private let rescueEnabled: Bool
+    private let rescueWindow: MeshRescue.Window
     /// Frame time of each piece's first / last ingest.
     private var firstBuilt: [UUID: TimeInterval] = [:]
     private var builtAt: [UUID: TimeInterval] = [:]
@@ -58,17 +59,21 @@ final class ColorMeshBuilder {
     private var shotPoses: [UUID: MeshRescue.Shot] = [:]
     /// A piece ARKit removed (or shrank to under half), as last ingested.
     private struct Ghost {
-        var piece: MeshPiece
+        let piece: MeshPiece
         let builtFirst: TimeInterval
         let builtLast: TimeInterval
         let removedAt: TimeInterval
         let center: SIMD3<Float>
-        /// Its sub-map moved around its removal (`MeshRescue.movedAtRemoval`); the others are forgotten
-        /// `MeshRescue.eventAfter` s after their removal.
+        /// Qualified (`MeshRescue.correction`) once `rescueWindow.after` s had passed; the others are
+        /// forgotten then.
         var checked = false
     }
     private var ghosts: [UUID: Ghost] = [:]
     private var ghostVertices = 0
+    /// Room the vertex cap leaves this ingest pass (nothing beyond it could go back).
+    private var ghostRoom = 0
+    /// Held vertices dropped on a memory warning / by the low-memory valve (scan-report).
+    private var memoryDroppedVertices = 0
     /// RAM bound (~56 B per vertex). Ghosts of ARKit's own clean-up live ~2 s, so only a drop event fills
     /// it; beyond it (or the vertex cap's room) new ghosts are not kept = the old behaviour.
     private static let ghostVertexBudget = 1_500_000
@@ -194,10 +199,12 @@ final class ColorMeshBuilder {
         captureDepthForOcclusion: Bool = false,
         refineLargeTriangles: Bool = false,
         fillUncoloredVertices: Bool = false,
-        meshRescue: Bool = false
+        meshRescue: Bool = false,
+        meshRescueWindow: MeshRescue.Window = .standard
     ) {
         self.arSession = arSession
         rescueEnabled = meshRescue
+        rescueWindow = meshRescueWindow
         maxVertices = preset.maxVertices
         maxKeyframes = preset.maxKeyframes
         keyframeWidth = preset.keyframeWidth
@@ -267,6 +274,7 @@ final class ColorMeshBuilder {
     /// dưới 8 khung".
     private func relieveMemoryPressure() {
         // Mesh rescue: kept pieces go first, every warning (no cooldown) — RAM beats a rare rescue.
+        memoryDroppedVertices += ghostVertices
         dropGhosts()
         let now = ProcessInfo.processInfo.systemUptime
         guard now - lastMemoryRelief >= Self.memoryReliefCooldown else { return }
@@ -302,9 +310,11 @@ final class ColorMeshBuilder {
             lowMemoryPasses = low ? lowMemoryPasses + 1 : 0
             if lowMemoryPasses >= 3 {
                 memoryVertexCap = max(vertexCount + Self.memoryMergeSlack, Self.memoryFloorVertices)
+                memoryDroppedVertices += ghostVertices
                 dropGhosts()
             }
         }
+        if rescueEnabled { ghostRoom = max(0, vertexCap - vertexCount) }
         // Dọn anchor bị ARKit xóa TRƯỚC khi đếm: ARKit gộp/tách chunk mesh liên tục
         // (nhiều nhất ở phút đầu). Không dọn thì đỉnh "ma" của anchor chết tích lại —
         // vừa phình vertexTotal (báo "mô hình đầy" oan chỉ sau ~10 giây quét), vừa để
@@ -444,14 +454,13 @@ final class ColorMeshBuilder {
     /// Texture-shot pose bookkeeping: first pose = capture pose, `traceShotJump` = map corrections (main).
     private func notePose(of anchor: ARAnchor, at now: TimeInterval) {
         let t = anchor.transform
-        guard var s = shotPoses[anchor.identifier] else {
+        guard let previous = shotPoses[anchor.identifier]?.now else {
             shotPoses[anchor.identifier] = MeshRescue.Shot(seenAt: now, pose: t)
             return
         }
-        guard s.now != t else { return }
-        traceShotJump = max(traceShotJump, simd_distance(MeshRescue.position(s.now), MeshRescue.position(t)))
-        s.update(t, at: now)
-        shotPoses[anchor.identifier] = s
+        guard previous != t else { return }
+        traceShotJump = max(traceShotJump, simd_distance(MeshRescue.position(previous), MeshRescue.position(t)))
+        shotPoses[anchor.identifier]?.update(t, at: now)
     }
 
     /// An anchor ARKit re-sent: trace counters, and a piece shrunk to under half is kept like a removed
@@ -478,7 +487,7 @@ final class ColorMeshBuilder {
     private func bury(_ piece: MeshPiece, id: UUID, at now: TimeInterval) {
         let n = piece.worldVertices.count
         guard rescueEnabled, memoryVertexCap == nil, n >= Self.ghostMinVertices,
-              ghostVertices + n <= min(Self.ghostVertexBudget, max(0, vertexCap - vertexCount)) else { return }
+              ghostVertices + n <= min(Self.ghostVertexBudget, ghostRoom) else { return }
         let center = piece.worldVertices.reduce(SIMD3<Float>(repeating: 0), +) / Float(n)
         let last = builtAt[id] ?? now
         ghosts[UUID()] = Ghost(
@@ -487,15 +496,17 @@ final class ColorMeshBuilder {
         ghostVertices += n
     }
 
-    /// Forgets kept pieces whose sub-map did not move around their removal (ARKit's own clean-up: a
-    /// replaced chunk, carved noise), once that is known — they never go back, so they cost RAM ~2 s (main).
+    /// Forgets kept pieces that do not qualify once their window has passed (ARKit's own clean-up: a
+    /// replaced chunk, carved noise) — they never go back, so they cost RAM only that long (main).
     private func forgetUnqualifiedGhosts(now: TimeInterval) {
         var shots: [MeshRescue.Shot]?
-        for (id, g) in ghosts where !g.checked && now >= g.removedAt + MeshRescue.eventAfter {
+        for (id, g) in ghosts where !g.checked && now >= g.removedAt + rescueWindow.after {
             let all = shots ?? Array(shotPoses.values)
             shots = all
-            if let s = MeshRescue.nearestShot(to: g.builtLast, center: g.center, shots: all),
-               MeshRescue.movedAtRemoval(s, removedAt: g.removedAt, center: g.center) {
+            if MeshRescue.correction(
+                builtFirst: g.builtFirst, builtLast: g.builtLast, removedAt: g.removedAt, center: g.center,
+                shots: all, window: rescueWindow
+            ) != nil {
                 ghosts[id]?.checked = true
             } else {
                 ghosts.removeValue(forKey: id)
@@ -537,28 +548,33 @@ final class ColorMeshBuilder {
         return sample
     }
 
-    /// scan-report `meshRescue`.
+    /// scan-report `meshRescue` (vertex counts unless named pieces; `MeshRescue.Outcome` for the reasons).
     struct RescueStats: Encodable {
         var enabled: Bool
-        /// Pieces / vertices held at Stop (removed around a move of their sub-map).
+        /// Held at Stop: removed with a qualifying move of their sub-map, or in the last window.
         var heldPieces = 0
         var heldVertices = 0
         /// Put back into the model.
         var keptPieces = 0
         var keptVertices = 0
-        /// Not put back: failed `MeshRescue.correction` (moved < 15 cm since built, built across sub-maps,
-        /// no shot near) · live mesh covers it in place or after the move, or < 20 faces left · vertex cap.
+        /// Not put back: failed `MeshRescue.correction` · qualifying total too small · ARKit replaced it in
+        /// place · duplicate · cut away · vertex cap.
         var skippedVertices = 0
-        var coveredVertices = 0
+        var smallEventVertices = 0
+        var inPlaceVertices = 0
+        var duplicateVertices = 0
+        var cutVertices = 0
         var cappedVertices = 0
+        /// Dropped during the scan on a memory warning / by the low-memory valve.
+        var memoryDroppedVertices = 0
         /// Largest correction of a piece put back (at its centre), cm.
         var maxShiftCm: Double = 0
         var ms = 0
     }
 
-    /// Stop: puts back the held pieces that qualify (`MeshRescue.correction`), moved by that correction,
-    /// minus what live mesh (and pieces already put back) covers, within the vertex cap. Call once, after
-    /// `ingestFinalFrame()` (final shot poses) and before `capReached` / `vertexCount` / the exports read.
+    /// Stop: puts back what ARKit emptied of the held pieces that qualify (`MeshRescue.correction`,
+    /// `MeshRescue.putBack`), within the vertex cap. Call once, after `ingestFinalFrame()` (final shot
+    /// poses) and before `capReached` / `vertexCount` / the exports read.
     @MainActor
     func adoptRescued() async {
         guard rescueEnabled else {
@@ -567,71 +583,52 @@ final class ColorMeshBuilder {
         }
         let start = ScanSessionReport.clock()
         var stats = RescueStats(enabled: true)
+        stats.memoryDroppedVertices = memoryDroppedVertices
         let held = ghosts
         dropGhosts()
         let shots = Array(shotPoses.values)
-        var jobs: [(id: UUID, piece: MeshPiece, m: simd_float4x4, shift: Float)] = []
+        var ids: [UUID] = []
+        var jobs: [MeshRescue.Job] = []
         for (id, g) in held {
             stats.heldPieces += 1
             stats.heldVertices += g.piece.worldVertices.count
             guard let m = MeshRescue.correction(
-                builtFirst: g.builtFirst, builtLast: g.builtLast, removedAt: g.removedAt, center: g.center, shots: shots
+                builtFirst: g.builtFirst, builtLast: g.builtLast, removedAt: g.removedAt, center: g.center,
+                shots: shots, window: rescueWindow
             ) else {
                 stats.skippedVertices += g.piece.worldVertices.count
                 continue
             }
-            jobs.append((id: id, piece: g.piece, m: m, shift: MeshRescue.shift(m, at: g.center)))
+            ids.append(id)
+            jobs.append(MeshRescue.Job(
+                piece: MeshRescue.Piece(vertices: g.piece.worldVertices, normals: g.piece.worldNormals, faces: g.piece.faces),
+                m: m, shift: MeshRescue.shift(m, at: g.center)
+            ))
         }
         if !jobs.isEmpty {
-            // Largest first: at the cap whole rooms beat crumbs, and smaller overlapping copies get cut.
-            jobs.sort { $0.piece.worldVertices.count > $1.piece.worldVertices.count }
-            let live = Array(pieces.values)
-            let room = max(0, vertexCap - vertexCount)
-            let result: (pieces: [(UUID, MeshPiece)], covered: Int, capped: Int, shift: Float) =
-                await withCheckedContinuation { continuation in
-                    queue.async {
-                        var cells = MeshRescue.Cells()
-                        for p in live { MeshRescue.add(p.worldVertices, p.worldNormals, to: &cells, stride: 2) }
-                        var out: [(UUID, MeshPiece)] = []
-                        var used = 0
-                        var covered = 0
-                        var capped = 0
-                        var shift: Float = 0
-                        for job in jobs {
-                            let v = job.piece.worldVertices
-                            let n = job.piece.worldNormals
-                            // Live mesh where it sat = ARKit replaced it there (kept that copy uncorrected).
-                            guard MeshRescue.coveredShare(v, n, matrix_identity_float4x4, cells, stride: 4) <= MeshRescue.coveredInPlace,
-                                  let p = MeshRescue.place(
-                                      vertices: v, normals: n, faces: job.piece.faces, m: job.m, cells: cells, minFaces: 20
-                                  ) else {
-                                covered += v.count
-                                continue
-                            }
-                            covered += v.count - p.vertices.count
-                            guard used + p.vertices.count <= room else {
-                                capped += p.vertices.count
-                                continue
-                            }
-                            used += p.vertices.count
-                            shift = max(shift, job.shift)
-                            MeshRescue.add(p.vertices, p.normals, to: &cells, stride: 2)
-                            out.append((job.id, MeshPiece(worldVertices: p.vertices, worldNormals: p.normals, faces: p.faces)))
-                        }
-                        continuation.resume(returning: (out, covered, capped, shift))
-                    }
-                }
-            // Ghost ids are fresh UUIDs, never a live anchor's.
-            for (id, piece) in result.pieces {
-                pieces[id] = piece
-                stats.keptPieces += 1
-                stats.keptVertices += piece.worldVertices.count
+            let live = pieces.values.map {
+                MeshRescue.Piece(vertices: $0.worldVertices, normals: $0.worldNormals, faces: [])
             }
-            stats.coveredVertices = result.covered
-            stats.cappedVertices = result.capped
-            stats.maxShiftCm = Double(result.shift) * 100
+            let room = max(0, vertexCap - vertexCount)
+            let outcome: MeshRescue.Outcome = await withCheckedContinuation { continuation in
+                queue.async {
+                    continuation.resume(returning: MeshRescue.putBack(jobs, live: live, room: room))
+                }
+            }
+            // Ghost ids are fresh UUIDs, never a live anchor's.
+            for (job, p) in outcome.placed {
+                pieces[ids[job]] = MeshPiece(worldVertices: p.vertices, worldNormals: p.normals, faces: p.faces)
+                stats.keptPieces += 1
+                stats.keptVertices += p.vertices.count
+            }
+            stats.smallEventVertices = outcome.smallEvent
+            stats.inPlaceVertices = outcome.inPlace
+            stats.duplicateVertices = outcome.duplicate
+            stats.cutVertices = outcome.cut
+            stats.cappedVertices = outcome.capped
+            stats.maxShiftCm = Double(outcome.maxShift) * 100
             // Part of the scan is missing again: the save invites a supplementary scan, as at the cap.
-            if result.capped > 0 { capReached = true }
+            if outcome.capped > 0 { capReached = true }
         }
         stats.ms = ScanSessionReport.ms(since: start)
         rescueStats = stats
