@@ -6684,6 +6684,42 @@
     "es": "Copia el código de invitación",
     "nl": "Kopieert de uitnodigingscode"
    }
+  },
+  {
+   "key": "Keep CedarScan open until your order is placed.",
+   "translations": {
+    "vi": "Giữ CedarScan mở cho tới khi đặt hàng xong.",
+    "fr": "Ne quittez pas CedarScan avant que votre commande soit passée.",
+    "de": "Lassen Sie CedarScan geöffnet, bis Ihre Bestellung aufgegeben ist.",
+    "cs": "Nechte aplikaci CedarScan otevřenou, dokud nebude vaše objednávka odeslána.",
+    "sk": "Nechajte aplikáciu CedarScan otvorenú, kým nebude vaša objednávka odoslaná.",
+    "es": "No salgas de CedarScan hasta que se realice tu pedido.",
+    "nl": "Houd CedarScan open tot je bestelling is geplaatst."
+   }
+  },
+  {
+   "key": "About %lld min left.",
+   "translations": {
+    "vi": "Còn khoảng %lld phút.",
+    "fr": "Encore environ %lld min.",
+    "de": "Noch etwa %lld Min.",
+    "cs": "Zbývá asi %lld min.",
+    "sk": "Zostáva asi %lld min.",
+    "es": "Quedan unos %lld min.",
+    "nl": "Nog ongeveer %lld min."
+   }
+  },
+  {
+   "key": "Less than a minute left.",
+   "translations": {
+    "vi": "Còn chưa tới một phút.",
+    "fr": "Encore moins d'une minute.",
+    "de": "Noch weniger als eine Minute.",
+    "cs": "Zbývá méně než minuta.",
+    "sk": "Zostáva menej ako minúta.",
+    "es": "Queda menos de un minuto.",
+    "nl": "Nog minder dan een minuut."
+   }
   }
  ],
  "infoplist": {

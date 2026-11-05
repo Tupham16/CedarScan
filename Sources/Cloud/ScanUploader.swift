@@ -22,6 +22,9 @@ final class ScanUploader: ObservableObject {
     }
 
     @Published var phase: Phase = .idle
+    /// Bytes on R2 so far and this scan's total, at every progress publish (2.79.5: OrderSheet
+    /// sums the scans of one Place order for its percent and time left).
+    var onBytes: (@MainActor (_ sent: Int64, _ total: Int64) -> Void)?
 
     /// 🔴 Ba loại của RoomPlan/video đã BỎ 11/08 (bản 2.5): `usdz`/`model.usdz`,
     /// `plan`/`floorplan.png`, `rooms`/`rooms.json`. Luồng mesh KHÔNG BAO GIỜ sinh ba file đó, mà
@@ -278,7 +281,8 @@ final class ScanUploader: ObservableObject {
         case .preparing, .uploading: break
         default: return
         }
-        let fraction = min(1, Double(sentBytes.values.reduce(0, +)) / Double(totalBytes))
+        let sent = sentBytes.values.reduce(0, +)
+        let fraction = min(1, Double(sent) / Double(totalBytes))
         guard abs(fraction - lastFraction) >= 0.005 || fraction >= 1 || lastFraction < 0 else { return }
         lastFraction = fraction
         phase = .uploading(
@@ -287,5 +291,6 @@ final class ScanUploader: ObservableObject {
             total: filesTotal,
             fraction: fraction
         )
+        onBytes?(sent, totalBytes)
     }
 }
