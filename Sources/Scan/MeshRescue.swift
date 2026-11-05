@@ -14,13 +14,20 @@ enum MeshRescue {
         var faces: [Face]
     }
 
+    /// A piece still in the model and the frame time of its last update.
+    struct LivePiece {
+        let piece: Piece
+        let builtLast: Double
+    }
+
     /// A texture-shot anchor (`TextureShotRecorder.anchorName`): first seen at `seenAt` (pose = capture
     /// pose `m` in shots.json); `poses` = its pose after each move of ≥ 1 cm / ~0.3°, `now` = latest.
     struct Shot {
         let seenAt: Double
         private(set) var poses: [(t: Double, m: simd_float4x4)]
         private(set) var now: simd_float4x4
-        /// Real map corrections are a handful per scan; past this the last entry is replaced.
+        /// Real map corrections are a handful per scan; a full history stops growing and the shot is
+        /// no longer used (`nearestShot`).
         static let maxPoses = 64
 
         init(seenAt: Double, pose: simd_float4x4) {
@@ -29,13 +36,14 @@ enum MeshRescue {
             now = pose
         }
 
+        var isFull: Bool { poses.count >= Self.maxPoses }
+
         mutating func update(_ m: simd_float4x4, at t: Double) {
             now = m
-            guard let last = poses.last?.m else { return }
+            guard !isFull, let last = poses.last?.m else { return }
             let turned = simd_length(last.columns.0 - m.columns.0) + simd_length(last.columns.1 - m.columns.1)
                 + simd_length(last.columns.2 - m.columns.2)
             guard simd_distance(MeshRescue.position(last), MeshRescue.position(m)) >= 0.01 || turned >= 0.01 else { return }
-            if poses.count >= Self.maxPoses { poses.removeLast() }
             poses.append((t: t, m: m))
         }
 
@@ -49,15 +57,16 @@ enum MeshRescue {
 
     /// How long before / after its removal a piece's sub-map must have moved (server-tunable,
     /// ScanQualityConfig `meshRescueBeforeSec` / `meshRescueAfterSec`): the removal went with that
-    /// correction, not with ARKit's own clean-up (a replaced chunk, carved noise).
+    /// correction, not with ARKit's own clean-up. `after` is long because ARKit may drop a sub-map's mesh
+    /// while hopping between sub-maps before the merge (05/11: the yard vanished ~30 s before it).
     struct Window {
         var before: Double
         var after: Double
-        static let standard = Window(before: 10, after: 2)
+        static let standard = Window(before: 10, after: 45)
     }
 
-    /// Coverage voxel. With the 27-cell neighbourhood, live mesh within ~10–20 cm and facing within 60°
-    /// covers a point (the correction landed 4–8 cm from re-scanned mesh on 05/11).
+    /// Coverage voxel. With the 27-cell neighbourhood, mesh within ~10–20 cm and facing within 60° covers
+    /// a point (the correction landed 4–8 cm from re-scanned mesh on 05/11).
     static let voxel: Float = 0.10
     /// A shot further than this in time or space from a piece says nothing about the piece's sub-map.
     static let maxShotGap: Double = 20
@@ -70,19 +79,22 @@ enum MeshRescue {
     /// The shots nearest the piece's first and last update agree on its correction within this: it lived
     /// in one sub-map (a piece built partly in correct coordinates differs by ≥ `minShift`).
     static let sameSubMap: Float = 0.10
-    /// Whole piece skipped when live mesh covers more of it than this where it sat (ARKit replaced it
-    /// there) or a piece already put back covers more of it after the move (a duplicate).
+    /// Whole piece skipped when ARKit's uncorrected leftovers cover more of it than this where it sat (it
+    /// was replaced there) or a piece already put back covers more of it after the move (a duplicate).
     static let maxCovered: Float = 0.5
-    /// Below this many qualifying vertices in all, nothing goes back: a drop takes whole rooms (05/11:
-    /// hundreds of thousands); a person or a door carved at the moment of a merge is a few thousand.
+    /// Below this many vertices put back per removal cluster (removals ≤ `clusterGap` s apart), that
+    /// cluster stays out: a drop takes rooms (05/11: hundreds of thousands); a person or a door carved at
+    /// the moment of a merge is a few thousand.
     static let minEventVertices = 20_000
+    static let clusterGap: Double = 30
 
     /// The shot nearest in time to `t` within `maxShotGap` s and `maxShotDistance` m of `center`, preferring
-    /// one first seen at or before `t` (a shot first seen after a merge has no history before it).
+    /// one first seen at or before `t` (a shot first seen after a merge has no history before it). Shots
+    /// with a full history are not used.
     static func nearestShot(to t: Double, center: SIMD3<Float>, shots: [Shot]) -> Shot? {
         var before: Shot?
         var after: Shot?
-        for s in shots where abs(s.seenAt - t) <= maxShotGap
+        for s in shots where !s.isFull && abs(s.seenAt - t) <= maxShotGap
             && simd_distance(position(s.poses[0].m), center) <= maxShotDistance {
             if s.seenAt <= t {
                 if before.map({ s.seenAt > $0.seenAt }) ?? true { before = s }
@@ -100,21 +112,42 @@ enum MeshRescue {
         return shift(move, at: center) >= minEventShift
     }
 
+    /// Correction ARKit has applied to the piece's sub-map since `t` (the move of the shot nearest `t`),
+    /// nil when no shot qualifies. ARKit moves a whole sub-map rigidly (05/11: one transform for every shot
+    /// of 348–507 s), so that shot's move is the piece's.
+    static func correction(since t: Double, center: SIMD3<Float>, shots: [Shot]) -> simd_float4x4? {
+        guard let s = nearestShot(to: t, center: center, shots: shots) else { return nil }
+        return s.now * s.pose(at: t).inverse
+    }
+
     /// Correction to put a removed piece back, or nil when it does not qualify (see the constants above).
-    /// ARKit moves a whole sub-map rigidly (05/11: one transform for every shot of 348–507 s), so the move
-    /// of the shot nearest the piece's last update since that update is the piece's.
     static func correction(
         builtFirst: Double, builtLast: Double, removedAt: Double, center: SIMD3<Float>, shots: [Shot],
         window: Window
     ) -> simd_float4x4? {
         guard let s = nearestShot(to: builtLast, center: center, shots: shots),
-              let s0 = nearestShot(to: builtFirst, center: center, shots: shots) else { return nil }
+              let m0 = correction(since: builtFirst, center: center, shots: shots) else { return nil }
         let m = s.now * s.pose(at: builtLast).inverse
-        let m0 = s0.now * s0.pose(at: builtFirst).inverse
         guard shift(m, at: center) >= minShift,
               movedAtRemoval(s, removedAt: removedAt, center: center, window: window),
               simd_distance(apply(m, center), apply(m0, center)) <= sameSubMap else { return nil }
         return m
+    }
+
+    /// A live piece built before a ≥ `minShift` correction of its sub-map: ARKit kept it uncorrected, so
+    /// it is the only live mesh that can sit where a removed piece of that sub-map sat.
+    static func awaitsCorrection(_ live: LivePiece, shots: [Shot]) -> Bool {
+        let v = live.piece.vertices
+        guard !v.isEmpty else { return false }
+        var sum = SIMD3<Float>(0, 0, 0)
+        var n = 0
+        for i in Swift.stride(from: 0, to: v.count, by: 8) {
+            sum += v[i]
+            n += 1
+        }
+        let center = sum / Float(n)
+        guard let m = correction(since: live.builtLast, center: center, shots: shots) else { return false }
+        return shift(m, at: center) >= minShift
     }
 
     struct Job {
@@ -122,44 +155,50 @@ enum MeshRescue {
         let m: simd_float4x4
         /// Correction at the piece's centre, metres.
         let shift: Float
+        let removedAt: Double
     }
 
     struct Outcome {
         /// Index into the jobs → the piece to add to the model.
         var placed: [(job: Int, piece: Piece)] = []
-        /// Vertices not put back: qualifying total under `minEventVertices` · live mesh where the whole
-        /// piece sat · a piece already put back covers it · cut away (live mesh where a vertex sat or goes,
-        /// or < `minFaces` faces left) · vertex cap.
-        var smallEvent = 0
+        /// Vertices not put back (each counted once): ARKit's leftovers where the whole piece sat ·
+        /// a piece already put back covers it · cut away (leftovers where a vertex sat, live mesh where it
+        /// lands, or < `minFaces` faces left) · its removal cluster too small · vertex cap.
         var inPlace = 0
         var duplicate = 0
         var cut = 0
+        var smallEvent = 0
         var capped = 0
         /// Largest correction of a piece put back, metres.
         var maxShift: Float = 0
     }
 
-    /// The Stop-time pass: largest first, each qualifying piece is skipped when ARKit replaced it in place
-    /// or a piece already put back duplicates it, else moved and cut to what ARKit emptied (no live mesh
-    /// where a vertex sat, none where it goes), within `room` vertices. Pieces put back never trim each
-    /// other (a drop is many neighbouring chunks: trimming would crack every seam).
-    static func putBack(_ jobs: [Job], live: [Piece], room: Int, minFaces: Int = 20) -> Outcome {
+    /// The Stop-time pass. Largest first, each qualifying piece is skipped when ARKit's uncorrected
+    /// leftovers replace it in place or a piece already put back duplicates it, else moved and cut to what
+    /// ARKit emptied (no leftover where a vertex sat, no live mesh where it lands). Then removal clusters
+    /// under `minEventVertices` stay out, and the rest goes in within `room` vertices. Pieces put back
+    /// never trim each other (a drop is many neighbouring chunks: trimming would crack every seam).
+    static func putBack(_ jobs: [Job], live: [LivePiece], shots: [Shot], room: Int, minFaces: Int = 20) -> Outcome {
         var out = Outcome()
-        let total = jobs.reduce(0) { $0 + $1.piece.vertices.count }
-        guard total >= minEventVertices else {
-            out.smallEvent = total
-            return out
+        var sitCells = Cells()
+        var landCells = Cells()
+        for l in live {
+            add(l.piece.vertices, l.piece.normals, to: &landCells, stride: 2)
+            if awaitsCorrection(l, shots: shots) { add(l.piece.vertices, l.piece.normals, to: &sitCells, stride: 2) }
         }
-        var liveCells = Cells()
-        for p in live { add(p.vertices, p.normals, to: &liveCells, stride: 2) }
+        // Ties by removal time: the same input gives the same model.
+        let order = jobs.indices.sorted {
+            let a = jobs[$0], b = jobs[$1]
+            return a.piece.vertices.count != b.piece.vertices.count
+                ? a.piece.vertices.count > b.piece.vertices.count : a.removedAt < b.removedAt
+        }
         var rescuedCells = Cells()
-        var used = 0
-        let order = jobs.indices.sorted { jobs[$0].piece.vertices.count > jobs[$1].piece.vertices.count }
+        var candidates: [(job: Int, piece: Piece)] = []
         for i in order {
             let job = jobs[i]
             let v = job.piece.vertices
             let n = job.piece.normals
-            if coveredShare(v, n, matrix_identity_float4x4, liveCells, stride: 4) > maxCovered {
+            if coveredShare(v, n, matrix_identity_float4x4, sitCells, stride: 4) > maxCovered {
                 out.inPlace += v.count
                 continue
             }
@@ -167,19 +206,40 @@ enum MeshRescue {
                 out.duplicate += v.count
                 continue
             }
-            guard let p = place(job.piece, m: job.m, cells: liveCells, minFaces: minFaces) else {
+            guard let p = place(job.piece, m: job.m, sit: sitCells, land: landCells, minFaces: minFaces) else {
                 out.cut += v.count
                 continue
             }
             out.cut += v.count - p.vertices.count
-            guard used + p.vertices.count <= room else {
-                out.capped += p.vertices.count
+            add(p.vertices, p.normals, to: &rescuedCells, stride: 2)
+            candidates.append((job: i, piece: p))
+        }
+        // Removal clusters: sorted by time, a gap over `clusterGap` starts a new one.
+        let byTime = candidates.indices.sorted { jobs[candidates[$0].job].removedAt < jobs[candidates[$1].job].removedAt }
+        var cluster = [Int](repeating: 0, count: candidates.count)
+        var totals: [Int] = []
+        var last = -Double.infinity
+        for k in byTime {
+            let t = jobs[candidates[k].job].removedAt
+            if totals.isEmpty || t - last > clusterGap { totals.append(0) }
+            last = t
+            cluster[k] = totals.count - 1
+            totals[totals.count - 1] += candidates[k].piece.vertices.count
+        }
+        var used = 0
+        for (k, c) in candidates.enumerated() {
+            let count = c.piece.vertices.count
+            guard totals[cluster[k]] >= minEventVertices else {
+                out.smallEvent += count
                 continue
             }
-            used += p.vertices.count
-            out.maxShift = max(out.maxShift, job.shift)
-            add(p.vertices, p.normals, to: &rescuedCells, stride: 2)
-            out.placed.append((job: i, piece: p))
+            guard used + count <= room else {
+                out.capped += count
+                continue
+            }
+            used += count
+            out.maxShift = max(out.maxShift, jobs[c.job].shift)
+            out.placed.append(c)
         }
         return out
     }
@@ -247,16 +307,16 @@ enum MeshRescue {
         return n == 0 ? 0 : Float(hit) / Float(n)
     }
 
-    /// `piece` moved by `m` (rigid), keeping only what `cells` cover neither where it sat nor where it
-    /// goes: faces with 2+ covered corners and the vertices only those faces used are dropped. nil =
-    /// fewer than `minFaces` faces left.
-    static func place(_ piece: Piece, m: simd_float4x4, cells: Cells, minFaces: Int) -> Piece? {
+    /// `piece` moved by `m` (rigid), keeping only what `sit` does not cover where it sat and `land` does
+    /// not cover where it goes: faces with 2+ covered corners and the vertices only those faces used are
+    /// dropped. nil = fewer than `minFaces` faces left.
+    static func place(_ piece: Piece, m: simd_float4x4, sit: Cells, land: Cells, minFaces: Int) -> Piece? {
         let r = rotation(m)
         let count = min(piece.vertices.count, piece.normals.count)
         let moved = (0..<count).map { apply(m, piece.vertices[$0]) }
         let turned = (0..<count).map { r * piece.normals[$0] }
         let hit = (0..<count).map {
-            covered(piece.vertices[$0], piece.normals[$0], cells) || covered(moved[$0], turned[$0], cells)
+            covered(piece.vertices[$0], piece.normals[$0], sit) || covered(moved[$0], turned[$0], land)
         }
         var remap = [Int32](repeating: -1, count: count)
         var out = Piece(vertices: [], normals: [], faces: [])

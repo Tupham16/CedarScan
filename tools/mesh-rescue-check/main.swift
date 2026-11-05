@@ -19,9 +19,10 @@ func rotationY(_ degrees: Float) -> simd_float4x4 {
     simd_float4x4(simd_quatf(angle: degrees * .pi / 180, axis: SIMD3(0, 1, 0)))
 }
 
-/// Grid wall in the plane x = `x`, y 0…`height`, z `z0`…`z1`, spacing `step`, two triangles per cell,
-/// facing +x (`facing` = 1) or -x (-1).
-func wall(x: Float, z0: Float, z1: Float, facing: Float = 1, height: Float = 2.5, step: Float = 0.04) -> MeshRescue.Piece {
+/// Grid wall in the plane x = `x`, y 0…`height`, z `z0`…`z1`, spacing 4 cm, two triangles per cell,
+/// facing +x (`facing` = 1) or -x (-1). Height 2.5 = 64 rows; 8 m long = 201 columns (12,864 vertices).
+func wall(x: Float, z0: Float, z1: Float, facing: Float = 1, height: Float = 2.5) -> MeshRescue.Piece {
+    let step: Float = 0.04
     let ny = Int((height / step).rounded()) + 1
     let nz = Int(((z1 - z0) / step).rounded()) + 1
     var v: [SIMD3<Float>] = []
@@ -49,7 +50,7 @@ func cells(_ pieces: [MeshRescue.Piece]) -> MeshRescue.Cells {
     return c
 }
 
-let window = MeshRescue.Window.standard
+let window = MeshRescue.Window.standard   // 10 s before, 45 s after the removal
 
 // --- shots: A main map (never moves); B and B2 one sub-map merged at t = 400; C refined 6 cm; D moved 12 cm
 let firstA = translation(5.5, 0, 0)
@@ -70,21 +71,26 @@ var shotC = MeshRescue.Shot(seenAt: 499, pose: translation(-20, 0, 0))
 shotC.update(translation(-20.06, 0, 0), at: 520)
 var shotD = MeshRescue.Shot(seenAt: 699, pose: translation(40, 0, 0))
 shotD.update(translation(40.12, 0, 0), at: 720)
-let shots = [shotA, shotB, shotB2, shotLate, shotC, shotD]
+var shotFull = MeshRescue.Shot(seenAt: 600, pose: translation(-40, 0, 0))
+for k in 1..<MeshRescue.Shot.maxPoses + 5 {                   // 2 cm steps until the history is full
+    shotFull.update(translation(-40 + Float(k % 2) * 0.02, 0, 0), at: 600 + Double(k))
+}
+check(shotFull.isFull && shotFull.poses.count == MeshRescue.Shot.maxPoses, "a shot's history stops at its cap")
+let shots = [shotA, shotB, shotB2, shotLate, shotC, shotD, shotFull]
 let c = SIMD3<Float>(6, 1, 0)
 
 // --- correction: only a piece built in the sub-map, removed with the merge, comes back
-func corr(_ first: Double, _ last: Double, _ removed: Double, _ at: SIMD3<Float> = c) -> simd_float4x4? {
-    MeshRescue.correction(builtFirst: first, builtLast: last, removedAt: removed, center: at, shots: shots, window: window)
+func corr(_ first: Double, _ last: Double, _ removed: Double, _ at: SIMD3<Float> = c, _ w: MeshRescue.Window = window) -> simd_float4x4? {
+    MeshRescue.correction(builtFirst: first, builtLast: last, removedAt: removed, center: at, shots: shots, window: w)
 }
 if let m = corr(295, 300, 400.3) {
     check(near(MeshRescue.apply(m, c), MeshRescue.apply(merge, c)), "dropped at the merge: back by the sub-map's move")
 } else {
     check(false, "dropped at the merge: qualifies")
 }
-check(corr(295, 300, 399) != nil, "removed up to 2 s before the merge still qualifies")
-check(corr(295, 300, 395) == nil, "removed 5 s before the merge = ARKit's clean-up, not back")
-check(corr(295, 300, 480) == nil, "removed long after the merge (kept, carved later) = not back")
+check(corr(295, 300, 370) != nil, "dropped 30 s before the merge (sub-map hopping) still qualifies")
+check(corr(295, 300, 350) == nil, "removed 50 s before the merge = ARKit's clean-up, not back")
+check(corr(295, 300, 412) == nil, "removed 12 s after the merge (kept, carved later) = not back")
 check(corr(401, 402, 405) == nil, "built after the merge (already corrected) = not back")
 check(corr(250, 300, 400.3) == nil, "built partly in the main map = not back")
 check(corr(515, 518, 520.5, SIMD3(-21, 1, 0)) == nil, "a 6 cm refinement = not back")
@@ -93,15 +99,17 @@ check(corr(295, 300, 400.3, SIMD3(30, 0, 0)) == nil, "no shot within 8 m = not b
 check(corr(398.8, 399.9, 400.3) != nil, "updated just before the merge: an older shot is preferred over one seen after it")
 if let s = MeshRescue.nearestShot(to: 399.9, center: c, shots: shots) {
     check(s.seenAt == 398, "nearestShot prefers a shot seen before the time")
+} else {
+    check(false, "nearestShot finds a shot")
 }
-let wide = MeshRescue.Window(before: 10, after: 40)
-check(MeshRescue.correction(builtFirst: 295, builtLast: 300, removedAt: 370, center: c, shots: shots, window: wide) != nil,
-      "a wider server window catches a removal 30 s before the merge")
+check(MeshRescue.nearestShot(to: 610, center: SIMD3(-41, 1, 0), shots: shots) == nil, "a shot with a full history is not used")
+check(corr(295, 300, 370, c, MeshRescue.Window(before: 10, after: 2)) == nil, "a narrower server window drops the hopping case")
 
 // --- coverage with normals: live wall at x = 0 facing +x, z 0…4 (and one at negative coordinates)
 let live = wall(x: 0, z0: 0, z1: 4)
 let liveNeg = wall(x: -5, z0: -4, z1: -1)
 let liveCells = cells([live, liveNeg])
+let noCells = MeshRescue.Cells()
 let plusX = SIMD3<Float>(1, 0, 0)
 check(MeshRescue.covered(SIMD3(0.05, 1, 1), plusX, liveCells), "5 cm from live mesh, same facing = covered")
 check(!MeshRescue.covered(SIMD3(0.05, 1, 1), -plusX, liveCells), "a thin wall's other face is not covered")
@@ -115,62 +123,89 @@ check(MeshRescue.coveredShare(shiftedWall.vertices, shiftedWall.normals, transla
 check(MeshRescue.coveredShare(shiftedWall.vertices, shiftedWall.normals, matrix_identity_float4x4, liveCells, stride: 8) < 0.1,
       "the same wall 30 cm away is not covered")
 
-// --- place: keep only what live mesh covers neither where it sat nor where it goes
-check(MeshRescue.place(wall(x: 0.04, z0: 1, z1: 3), m: matrix_identity_float4x4, cells: liveCells, minFaces: 20) == nil,
-      "a piece lying on live mesh is cut away entirely")
+// --- place: keep only what `sit` does not cover where it sat and `land` does not cover where it goes
+check(MeshRescue.place(wall(x: 0.04, z0: 1, z1: 3), m: matrix_identity_float4x4, sit: noCells, land: liveCells, minFaces: 20) == nil,
+      "a piece landing on live mesh is cut away entirely")
+check(MeshRescue.place(wall(x: 0.3, z0: 1, z1: 3), m: translation(-0.28, 0, 0), sit: noCells, land: liveCells, minFaces: 20) == nil,
+      "a piece moved onto live mesh is cut away")
 let backFace = wall(x: -0.10, z0: 1, z1: 3, facing: -1)
-check(MeshRescue.place(backFace, m: matrix_identity_float4x4, cells: liveCells, minFaces: 20)?.faces.count == backFace.faces.count,
+check(MeshRescue.place(backFace, m: matrix_identity_float4x4, sit: liveCells, land: liveCells, minFaces: 20)?.faces.count == backFace.faces.count,
       "the other face of a 10 cm wall is kept whole")
 let away = wall(x: 3, z0: 0, z1: 2)
 let turn = translation(0.1, 0, -0.2) * rotationY(90)
-if let p = MeshRescue.place(away, m: turn, cells: liveCells, minFaces: 20) {
+if let p = MeshRescue.place(away, m: turn, sit: liveCells, land: liveCells, minFaces: 20) {
     check(p.faces.count == away.faces.count && p.vertices.count == away.vertices.count, "a piece in empty space is kept whole")
     check(near(p.vertices[0], MeshRescue.apply(turn, away.vertices[0])), "kept vertices are moved by the correction")
     check(near(p.normals[0], SIMD3(0, 0, -1)), "normals are rotated, not translated")
 } else {
     check(false, "a piece in empty space is kept")
 }
-// Half of it still live where it sat (ARKit kept that part in place): only the emptied half moves.
+// Half of it still sits where it was (ARKit kept that part, uncorrected): only the emptied half moves.
 let partly = wall(x: 0.02, z0: 2, z1: 6)
-if let p = MeshRescue.place(partly, m: translation(3, 0, 0), cells: liveCells, minFaces: 20) {
+if let p = MeshRescue.place(partly, m: translation(3, 0, 0), sit: liveCells, land: noCells, minFaces: 20) {
     check(p.faces.count < partly.faces.count && p.vertices.allSatisfy { $0.z > 3.9 }, "only what ARKit emptied comes back")
-    var badFace = false
-    for (a, b, cc) in p.faces where Int(a) >= p.vertices.count || Int(b) >= p.vertices.count || Int(cc) >= p.vertices.count {
-        badFace = true
-    }
+    var badIndex = false
     var used = Array(repeating: false, count: p.vertices.count)
-    for (a, b, cc) in p.faces where !badFace {
-        used[Int(a)] = true
-        used[Int(b)] = true
-        used[Int(cc)] = true
+    for (a, b, cc) in p.faces {
+        for i in [a, b, cc] {
+            if Int(i) < p.vertices.count { used[Int(i)] = true } else { badIndex = true }
+        }
     }
-    check(!badFace && !used.contains(false), "indices in range, no unused vertex after compaction")
+    check(!badIndex && !used.contains(false), "indices in range, no unused vertex after compaction")
 } else {
-    check(false, "the emptied part of a half-live piece is kept")
+    check(false, "the emptied part of a half-kept piece is kept")
 }
 
-// --- putBack: the Stop-time pass (walls of 64 x 201 = 12,864 vertices: two pass the 20k event minimum)
+// --- putBack: the Stop-time pass. Shot M (main map) never moves; shot S's sub-map moved 30 cm at t = 300.
+let shotM = MeshRescue.Shot(seenAt: 100, pose: translation(0, 1, 4))
+var shotS = MeshRescue.Shot(seenAt: 200, pose: translation(0, 1, 34))
+shotS.update(translation(0, 1, 34.3), at: 300)
+let pbShots = [shotM, shotS]
+let liveBig = MeshRescue.LivePiece(piece: wall(x: 0, z0: 0, z1: 8), builtLast: 100)       // main map, correct
+let liveStale = MeshRescue.LivePiece(piece: wall(x: 0, z0: 30, z1: 38), builtLast: 200)   // ARKit kept it uncorrected
+let liveSeam = MeshRescue.LivePiece(piece: wall(x: 10, z0: 0, z1: 8.3), builtLast: 100)   // main map, no shot near
+check(!MeshRescue.awaitsCorrection(liveBig, shots: pbShots), "correct main-map mesh does not await a correction")
+check(MeshRescue.awaitsCorrection(liveStale, shots: pbShots), "ARKit's uncorrected leftover awaits a correction")
+let pbLive = [liveBig, liveStale, liveSeam]
 let roomLeft = 10_000_000
-func job(_ p: MeshRescue.Piece, _ m: simd_float4x4) -> MeshRescue.Job {
-    MeshRescue.Job(piece: p, m: m, shift: MeshRescue.shift(m, at: p.vertices[p.vertices.count / 2]))
+func job(_ p: MeshRescue.Piece, _ m: simd_float4x4, _ removedAt: Double = 400) -> MeshRescue.Job {
+    MeshRescue.Job(piece: p, m: m, shift: MeshRescue.shift(m, at: p.vertices[p.vertices.count / 2]), removedAt: removedAt)
+}
+func putBack(_ jobs: [MeshRescue.Job], room: Int = roomLeft) -> MeshRescue.Outcome {
+    MeshRescue.putBack(jobs, live: pbLive, shots: pbShots, room: room)
 }
 let move = translation(0, 0, -0.3)
-let liveBig = wall(x: 0, z0: 0, z1: 8)
 let left = wall(x: 3, z0: 10, z1: 18)
 let right = wall(x: 3, z0: 18, z1: 26)
-check(left.vertices.count < MeshRescue.minEventVertices && left.vertices.count * 2 >= MeshRescue.minEventVertices,
-      "test walls pass the event minimum together, not alone")
-let side = MeshRescue.putBack([job(left, move), job(right, move)], live: [liveBig], room: roomLeft)
+let leftLong = wall(x: 3, z0: 10, z1: 26)
+check(left.vertices.count < MeshRescue.minEventVertices && left.vertices.count * 2 >= MeshRescue.minEventVertices
+      && leftLong.vertices.count >= MeshRescue.minEventVertices, "test walls: one 8 m wall is under the event minimum, two are over")
+let side = putBack([job(left, move), job(right, move)])
 check(side.placed.count == 2 && side.placed.allSatisfy { $0.piece.faces.count == left.faces.count },
       "two neighbouring pieces are both put back whole (no crack at the seam)")
-let dup = MeshRescue.putBack([job(left, move), job(left, move)], live: [liveBig], room: roomLeft)
-check(dup.placed.count == 1 && dup.duplicate == left.vertices.count, "a second copy of a piece is dropped as a duplicate")
-let replaced = MeshRescue.putBack([job(left, move), job(wall(x: 0.02, z0: 0, z1: 8), move)], live: [liveBig], room: roomLeft)
-check(replaced.placed.count == 1 && replaced.inPlace == left.vertices.count, "a piece ARKit replaced in place is skipped")
+let dup = putBack([job(leftLong, move), job(leftLong, move)])
+check(dup.placed.count == 1 && dup.duplicate == leftLong.vertices.count, "a second copy of a piece is dropped as a duplicate")
+let replacedGhost = wall(x: 0.02, z0: 30, z1: 38)
+let replaced = putBack([job(leftLong, move), job(replacedGhost, move)])
+check(replaced.placed.count == 1 && replaced.inPlace == replacedGhost.vertices.count,
+      "a piece whose uncorrected leftover still sits in place is skipped")
+// The dropped continuation of a wall whose kept part is correct main-map mesh: no extra gap at the seam.
+let seamGhost = wall(x: 10, z0: 8, z1: 24)
+let seam = putBack([job(seamGhost, translation(0, 0, 0.3))])
+if let p = seam.placed.first?.piece {
+    check(p.vertices.map(\.z).min() ?? 99 < 8.6, "at a seam with correct mesh only the landing overlap is cut (gap under 30 cm)")
+} else {
+    check(false, "the dropped continuation of a wall is put back")
+}
 let tiny = wall(x: 3, z0: 30, z1: 30.6, height: 0.6)
-let small = MeshRescue.putBack([job(tiny, move)], live: [liveBig], room: roomLeft)
+let twoEvents = putBack([job(leftLong, move, 400), job(tiny, move, 900)])
+check(twoEvents.placed.count == 1 && twoEvents.smallEvent == tiny.vertices.count, "the event minimum applies per removal cluster")
+let small = putBack([job(tiny, move)])
 check(small.placed.isEmpty && small.smallEvent == tiny.vertices.count, "a few hundred vertices (carved noise) never come back")
-let capped = MeshRescue.putBack([job(left, move), job(right, move)], live: [liveBig], room: left.vertices.count)
+let onlyInPlace = putBack([job(replacedGhost, move), job(wall(x: 0.03, z0: 30, z1: 38), move), job(tiny, move)])
+check(onlyInPlace.placed.isEmpty && onlyInPlace.smallEvent == tiny.vertices.count,
+      "pieces skipped in place do not count towards the event minimum")
+let capped = putBack([job(left, move), job(right, move)], room: left.vertices.count)
 check(capped.placed.count == 1 && capped.capped == right.vertices.count, "the vertex cap keeps the first piece and counts the rest")
 
 print(failures == 0 ? "mesh rescue check: all passed" : "mesh rescue check: \(failures) FAILED")

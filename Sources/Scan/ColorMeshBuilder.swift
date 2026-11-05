@@ -338,6 +338,7 @@ final class ColorMeshBuilder {
         for id in Array(pieces.keys) where !present.contains(id) {
             if let old = pieces.removeValue(forKey: id) {
                 traceRemoved += old.worldVertices.count
+                ghostRoom += old.worldVertices.count
                 bury(old, id: id, at: frame.timestamp)
             }
             anchorSigs.removeValue(forKey: id)
@@ -477,6 +478,7 @@ final class ColorMeshBuilder {
             return
         }
         traceRemoved += oldCount - count
+        ghostRoom += oldCount - count
         if oldCount - count >= Self.shrinkMinVertices && count * 2 < oldCount {
             bury(old, id: id, at: now)
         }
@@ -496,17 +498,16 @@ final class ColorMeshBuilder {
         ghostVertices += n
     }
 
-    /// Forgets kept pieces that do not qualify once their window has passed (ARKit's own clean-up: a
-    /// replaced chunk, carved noise) — they never go back, so they cost RAM only that long (main).
+    /// Forgets kept pieces whose sub-map did not move around their removal once their window has passed
+    /// (ARKit's own clean-up: a replaced chunk, carved noise) — they never go back, so they cost RAM only
+    /// that long. The full rule is applied at Stop (later corrections still count) (main).
     private func forgetUnqualifiedGhosts(now: TimeInterval) {
         var shots: [MeshRescue.Shot]?
         for (id, g) in ghosts where !g.checked && now >= g.removedAt + rescueWindow.after {
             let all = shots ?? Array(shotPoses.values)
             shots = all
-            if MeshRescue.correction(
-                builtFirst: g.builtFirst, builtLast: g.builtLast, removedAt: g.removedAt, center: g.center,
-                shots: all, window: rescueWindow
-            ) != nil {
+            if let s = MeshRescue.nearestShot(to: g.builtLast, center: g.center, shots: all),
+               MeshRescue.movedAtRemoval(s, removedAt: g.removedAt, center: g.center, window: rescueWindow) {
                 ghosts[id]?.checked = true
             } else {
                 ghosts.removeValue(forKey: id)
@@ -602,17 +603,20 @@ final class ColorMeshBuilder {
             ids.append(id)
             jobs.append(MeshRescue.Job(
                 piece: MeshRescue.Piece(vertices: g.piece.worldVertices, normals: g.piece.worldNormals, faces: g.piece.faces),
-                m: m, shift: MeshRescue.shift(m, at: g.center)
+                m: m, shift: MeshRescue.shift(m, at: g.center), removedAt: g.removedAt
             ))
         }
         if !jobs.isEmpty {
-            let live = pieces.values.map {
-                MeshRescue.Piece(vertices: $0.worldVertices, normals: $0.worldNormals, faces: [])
+            let live = pieces.map { id, p in
+                MeshRescue.LivePiece(
+                    piece: MeshRescue.Piece(vertices: p.worldVertices, normals: p.worldNormals, faces: []),
+                    builtLast: builtAt[id] ?? 0
+                )
             }
             let room = max(0, vertexCap - vertexCount)
             let outcome: MeshRescue.Outcome = await withCheckedContinuation { continuation in
                 queue.async {
-                    continuation.resume(returning: MeshRescue.putBack(jobs, live: live, room: room))
+                    continuation.resume(returning: MeshRescue.putBack(jobs, live: live, shots: shots, room: room))
                 }
             }
             // Ghost ids are fresh UUIDs, never a live anchor's.
