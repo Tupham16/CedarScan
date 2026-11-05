@@ -234,17 +234,18 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
         // T3 (2.79): let the paused session go (see the property). The only other strong holder
         // is the camera view (ARSCNView.session), which MeshScanFlowView removes on this change.
         arSession = nil
-        // Mesh rescue (05/11): mesh ARKit dropped at a map merge goes back in, before the vertex
-        // count, the report and both exports read the pieces. Instant when nothing was dropped.
+        // Chặng 1. Hai lời gọi finish() bên dưới KHÔNG có tiến độ nào để lấy (AVAssetWriter
+        // đóng file, recorder ảnh nén nốt ≤3 tấm) → chặng CÂM, màn hình hiện vòng xoay nhỏ.
+        progress(.finishingCapture, 0)
+        // Mesh rescue (05/11), inside that silent stage: mesh ARKit dropped at a map merge goes back
+        // in before capReached, the vertex count, the report and both exports read the pieces. Nothing
+        // held = no work; a big drop ~1–2 s (unmeasured on a phone).
         await colorMesh?.adoptRescued()
         // capReached STICKY của builder = "đã từng phải bỏ dữ liệu" → call-site dùng để
         // mời khách quét BẢN BỔ SUNG cho phần còn thiếu (nhà rất lớn chạm trần đỉnh / van RAM).
         let hitCap = colorMesh?.capReached ?? false
         let memoryCapHit = colorMesh?.memoryCapReached ?? false
         let vertexCount = colorMesh?.vertexCount ?? 0
-        // Chặng 1. Hai lời gọi finish() bên dưới KHÔNG có tiến độ nào để lấy (AVAssetWriter
-        // đóng file, recorder ảnh nén nốt ≤3 tấm) → chặng CÂM, màn hình hiện vòng xoay nhỏ.
-        progress(.finishingCapture, 0)
         let videoURL = await recorder?.finish()
         let trackURL = recorder?.cameraTrackURL // chỉ khác nil khi video hoàn tất OK
         // Why there is (no) video — read before the recorder goes (report `save.video`).
@@ -267,8 +268,8 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
         // không có (recorder hỏng, shots.json ném lỗi nên finish() trả nil, buổi quét vài
         // giây) → máy trạm sẽ KHÔNG bake được, phải giữ màu-đỉnh cho đội vẽ có cái mà xem.
         let fastSave = (texshots?.shotCount ?? 0) >= Self.fastSaveMinShots
-        // Item 3 (26/09): scan-report.json (temp file; ScanStore packs it into the zip; ~250 KB
-        // for a 20-min scan since the 1 Hz exposure-cap trace, ≤ ~1 MB at an hour). nil on any
+        // Item 3 (26/09): scan-report.json (temp file; ScanStore packs it into the zip; ~400 KB
+        // for a 20-min scan since the 1 Hz exposure-cap and mesh traces, ≤ ~1.5 MB at an hour). nil on any
         // failure — never blocks the save.
         let reportURL = report?.write(
             hitCap: hitCap, vertexCount: vertexCount, maxVertices: quality.wholeHomePreset.maxVertices,
@@ -309,7 +310,7 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
         colorMesh = nil
         if let reportURL {
             // First half of `save`; the zip step adds its own just before packing. Off main and
-            // awaited: it must land before `ScanStore` moves the file (~1 MB at most).
+            // awaited: it must land before `ScanStore` moves the file (~1.5 MB at most).
             var save: [String: any Sendable] = [
                 "stopMs": stopMs, "plyMs": plyMs, "previewMs": previewMs,
                 "preview": previewPath, "previewVertices": previewVertices, "video": videoStatus,

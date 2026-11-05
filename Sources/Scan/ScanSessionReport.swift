@@ -322,10 +322,13 @@ final class ScanSessionReport {
         "rescue), shotJumpCm (largest move of a texture-shot anchor = ARKit map correction), meshMoveCm (largest ",
         "move of a mesh anchor's origin), mapping (ARKit worldMappingStatus: 0 notAvailable, 1 limited, 2 extending, ",
         "3 mapped, -1 no frame), highConf (% of LiDAR depth pixels rated high confidence, -1 no depth). ",
-        "meshRescue = mesh ARKit removed, mainly when it merges a sub-map back into the map: held at Stop; kept = put ",
-        "back, moved by the correction of the texture shot taken nearest in time, minus what live mesh covers; ",
-        "notMoved = its sub-map was not corrected (ordinary clean-up, dropped as before); covered = cut because live ",
-        "mesh is there; capped = over the vertex cap; maxShiftCm; ms. enabled false = server switch meshRescue off.",
+        "meshRescue = mesh ARKit removed when it merged a sub-map back into the map (ARKit's own clean-up is ",
+        "forgotten after ~2 s): heldPieces / heldVertices at Stop; kept = put back, moved by the correction of the ",
+        "texture shot taken nearest in time to the piece's last update; skipped = did not qualify (moved < 15 cm ",
+        "since built, removal not within 10 s after / 2 s before a >= 10 cm move, built across sub-maps, no shot ",
+        "near); covered = live mesh is where it sat or where it goes (vertices cut), or < 20 faces left; capped = ",
+        "over the vertex cap (then hitCap is true); maxShiftCm = largest correction of a piece put back; ms. ",
+        "enabled false = server switch meshRescue off (the model is then as in 2.79.4).",
     ].joined()
 
     /// Writes the report to a temp file; nil on any failure (the scan saves without it).
