@@ -160,16 +160,24 @@ if let p = MeshRescue.place(partly, m: translation(3, 0, 0), sit: liveCells, lan
 let shotM = MeshRescue.Shot(seenAt: 100, pose: translation(0, 1, 4))
 var shotS = MeshRescue.Shot(seenAt: 200, pose: translation(0, 1, 34))
 shotS.update(translation(0, 1, 34.3), at: 300)
-let pbShots = [shotM, shotS]
+var shotS2 = MeshRescue.Shot(seenAt: 280, pose: translation(0, 1, 54))
+shotS2.update(translation(0, 1, 54.3), at: 300)
+var shotS3 = MeshRescue.Shot(seenAt: 190, pose: translation(0, 1, 62))
+shotS3.update(translation(0, 1, 62.3), at: 300)
+let pbShots = [shotM, shotS, shotS2, shotS3]
 let liveBig = MeshRescue.LivePiece(piece: wall(x: 0, z0: 0, z1: 8), builtFirst: 100)      // main map, correct
 let liveStale = MeshRescue.LivePiece(piece: wall(x: 0, z0: 30, z1: 38), builtFirst: 200)  // first built before the merge: uncorrected, even if re-sent after it
 let liveSeam = MeshRescue.LivePiece(piece: wall(x: 10, z0: 0, z1: 8.3), builtFirst: 100)  // main map, no shot near
-check(!MeshRescue.awaitsCorrection(liveBig, shots: pbShots), "correct main-map mesh does not await a correction")
-check(MeshRescue.awaitsCorrection(liveStale, shots: pbShots), "ARKit's uncorrected leftover awaits a correction")
-let pbLive = [liveBig, liveStale, liveSeam]
+let liveRechunk = MeshRescue.LivePiece(piece: wall(x: 0, z0: 50, z1: 58), builtFirst: 305) // re-chunked 5 s after the move
+let liveRemainder = MeshRescue.LivePiece(piece: wall(x: 0, z0: 60, z1: 64.6), builtFirst: 200) // what ARKit left of a shrunk block
+check(!MeshRescue.awaitsCorrection(liveBig, shots: pbShots, window: window), "correct main-map mesh does not await a correction")
+check(MeshRescue.awaitsCorrection(liveStale, shots: pbShots, window: window), "ARKit's uncorrected leftover awaits a correction")
+check(MeshRescue.awaitsCorrection(liveRechunk, shots: pbShots, window: window), "a leftover re-chunked just after the move still counts")
+let pbLive = [liveBig, liveStale, liveSeam, liveRechunk, liveRemainder]
 let roomLeft = 10_000_000
-func job(_ p: MeshRescue.Piece, _ m: simd_float4x4, _ removedAt: Double = 400) -> MeshRescue.Job {
-    MeshRescue.Job(piece: p, m: m, shift: MeshRescue.shift(m, at: p.vertices[p.vertices.count / 2]), removedAt: removedAt)
+func job(_ p: MeshRescue.Piece, _ m: simd_float4x4, _ removedAt: Double = 400, shrink: Bool = false) -> MeshRescue.Job {
+    MeshRescue.Job(piece: p, m: m, shift: MeshRescue.shift(m, at: p.vertices[p.vertices.count / 2]),
+                   removedAt: removedAt, isShrink: shrink)
 }
 func putBack(_ jobs: [MeshRescue.Job], room: Int = roomLeft) -> MeshRescue.Outcome {
     MeshRescue.putBack(jobs, live: pbLive, shots: pbShots, window: window, room: room)
@@ -200,13 +208,22 @@ if let p = seam.placed.first?.piece {
 let tiny = wall(x: 3, z0: 30, z1: 30.6, height: 0.6)
 let twoEvents = putBack([job(leftLong, move, 400), job(tiny, move, 900)])
 check(twoEvents.placed.count == 1 && twoEvents.smallEvent == tiny.vertices.count, "the event minimum applies per removal cluster")
-let oneEvent = putBack([job(leftLong, move, 400), job(tiny, move, 440)])
+let oneEvent = putBack([job(leftLong, move, 400), job(tiny, move, 450)])
 check(oneEvent.placed.count == 2 && oneEvent.smallEvent == 0, "removals within one window span form one cluster")
 let small = putBack([job(tiny, move)])
 check(small.placed.isEmpty && small.smallEvent == tiny.vertices.count, "a few hundred vertices (carved noise) never come back")
 let onlyInPlace = putBack([job(replacedGhost, move), job(wall(x: 0.03, z0: 30, z1: 38), move), job(tiny, move)])
 check(onlyInPlace.placed.isEmpty && onlyInPlace.smallEvent == tiny.vertices.count,
       "pieces skipped in place do not count towards the event minimum")
+let rechunkedGhost = wall(x: 0.02, z0: 50, z1: 58)
+check(putBack([job(rechunkedGhost, move)]).inPlace == rechunkedGhost.vertices.count,
+      "a piece re-chunked under a new id just after the move is skipped in place")
+let shrunkBlock = wall(x: 0, z0: 60, z1: 68)
+let asRemoval = putBack([job(shrunkBlock, move)])
+check(asRemoval.inPlace == shrunkBlock.vertices.count, "a removed piece mostly covered where it sat is skipped whole")
+let asShrink = putBack([job(shrunkBlock, move, shrink: true)])
+check(asShrink.inPlace == 0 && asShrink.cut > 0 && asShrink.cut < shrunkBlock.vertices.count,
+      "a shrunk block is never skipped whole: only its live remainder is cut")
 let capped = putBack([job(left, move), job(right, move)], room: left.vertices.count)
 check(capped.placed.count == 1 && capped.capped == right.vertices.count, "the vertex cap keeps the first piece and counts the rest")
 

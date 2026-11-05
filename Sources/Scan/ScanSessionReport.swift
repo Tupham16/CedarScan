@@ -323,14 +323,14 @@ final class ScanSessionReport {
         "move of a mesh anchor's origin), mapping (ARKit worldMappingStatus: 0 notAvailable, 1 limited, 2 extending, ",
         "3 mapped, -1 no frame), highConf (% of LiDAR depth pixels rated high confidence, -1 no depth). ",
         "meshRescue (vertex counts) = mesh ARKit removed when it merged a sub-map back into the map; ARKit's own ",
-        "clean-up is forgotten once the window (server meshRescueBeforeSec / AfterSec, 10 / 45 s) has passed: ",
+        "clean-up is forgotten once the window (server meshRescueBeforeSec / AfterSec, 10 / 45 s) has passed or evicted: ",
         "heldPieces / heldVertices at Stop; kept = put back, moved by the correction of the texture shot nearest in ",
         "time to the piece's last update (one seen before it preferred), only what ARKit emptied; skipped = did not ",
         "qualify (moved < 15 cm since built, < 10 cm within the window around its removal, built across sub-maps, ",
         "no shot near); inPlace = ARKit's uncorrected leftovers sit where the piece sat; duplicate = a piece already ",
         "put back covers it; cut = trimmed where leftovers sit or live mesh lands (or < 20 faces left); smallEvent = ",
         "its removal cluster (removals up to one window span apart) puts back under 20k; capped = over the vertex cap (then hitCap ",
-        "is true); memoryDropped = released on a memory warning or by the low-memory valve; maxShiftCm = largest ",
+        "is true); memoryDropped = released on a memory warning or by the low-memory valve; evicted = released for room; maxShiftCm = largest ",
         "correction of a piece put back; ms. enabled false = server switch meshRescue off (model as in 2.79.4).",
     ].joined()
 

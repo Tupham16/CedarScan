@@ -64,19 +64,22 @@ final class ColorMeshBuilder {
         let builtLast: TimeInterval
         let removedAt: TimeInterval
         let center: SIMD3<Float>
-        /// Qualified (`MeshRescue.correction`) once `rescueWindow.after` s had passed; the others are
-        /// forgotten then.
+        /// Shrunk to under half, not removed (`MeshRescue.Job.isShrink`).
+        let isShrink: Bool
+        /// Its sub-map moved around its removal (`MeshRescue.movedAtRemoval`), known once
+        /// `rescueWindow.after` s have passed; the others are forgotten then (or evicted earlier).
         var checked = false
     }
     private var ghosts: [UUID: Ghost] = [:]
     private var ghostVertices = 0
     /// Room the vertex cap leaves this ingest pass (nothing beyond it could go back).
     private var ghostRoom = 0
-    /// Held vertices dropped on a memory warning / by the low-memory valve (scan-report).
+    /// Held vertices dropped on a memory warning / by the low-memory valve, or evicted for room (report).
     private var memoryDroppedVertices = 0
+    private var evictedVertices = 0
     /// RAM bound (~56 B per vertex). ARKit's own clean-up is held one window (`rescueWindow.after`, 45 s)
-    /// and evicted oldest first when a new removal needs the room; past the budget (or the vertex cap's
-    /// room) new ghosts are not kept = the old behaviour.
+    /// and evicted oldest first when a new removal needs the room; a new ghost is refused only when pieces
+    /// tied to a correction fill the budget (or the vertex cap's room) = the old behaviour.
     private static let ghostVertexBudget = 1_500_000
     private static let ghostMinVertices = 50
     /// Same id, at least this many vertices gone and under half left = treated like a removal.
@@ -340,7 +343,7 @@ final class ColorMeshBuilder {
             if let old = pieces.removeValue(forKey: id) {
                 traceRemoved += old.worldVertices.count
                 ghostRoom += old.worldVertices.count
-                bury(old, id: id, at: frame.timestamp)
+                bury(old, id: id, at: frame.timestamp, shrink: false)
             }
             anchorSigs.removeValue(forKey: id)
             firstBuilt.removeValue(forKey: id)
@@ -481,22 +484,23 @@ final class ColorMeshBuilder {
         traceRemoved += oldCount - count
         ghostRoom += oldCount - count
         if oldCount - count >= Self.shrinkMinVertices && count * 2 < oldCount {
-            bury(old, id: id, at: now)
+            bury(old, id: id, at: now, shrink: true)
         }
     }
 
     /// Keeps a piece ARKit removed, for `adoptRescued` (main). Not after the low-memory valve tripped,
     /// not beyond the RAM budget nor the room the vertex cap leaves (nothing beyond it can go back).
-    private func bury(_ piece: MeshPiece, id: UUID, at now: TimeInterval) {
+    private func bury(_ piece: MeshPiece, id: UUID, at now: TimeInterval, shrink: Bool) {
         let n = piece.worldVertices.count
-        guard rescueEnabled, memoryVertexCap == nil, n >= Self.ghostMinVertices else { return }
         let limit = min(Self.ghostVertexBudget, ghostRoom)
+        guard rescueEnabled, memoryVertexCap == nil, n >= Self.ghostMinVertices, n <= limit else { return }
         if ghostVertices + n > limit { evictOldestUnchecked(toFit: n, limit: limit) }
         guard ghostVertices + n <= limit else { return }
         let center = piece.worldVertices.reduce(SIMD3<Float>(repeating: 0), +) / Float(n)
         let last = builtAt[id] ?? now
         ghosts[UUID()] = Ghost(
-            piece: piece, builtFirst: firstBuilt[id] ?? last, builtLast: last, removedAt: now, center: center
+            piece: piece, builtFirst: firstBuilt[id] ?? last, builtLast: last, removedAt: now, center: center,
+            isShrink: shrink
         )
         ghostVertices += n
     }
@@ -519,14 +523,21 @@ final class ColorMeshBuilder {
         }
     }
 
-    /// Room for a new removal: the oldest held pieces not yet qualified go first (a drop comes as a burst
-    /// at a merge; ARKit's clean-up trickles in before it). Qualified pieces stay (main).
+    /// Room for a new removal: the oldest held pieces whose sub-map has not moved around their removal go
+    /// first (a drop comes as a burst at a merge; ARKit's clean-up trickles in before it). Pieces already
+    /// tied to a correction stay, e.g. the early wave of a drop once its merge has come (main).
     private func evictOldestUnchecked(toFit n: Int, limit: Int) {
-        let victims = ghosts.filter { !$0.value.checked }.sorted { $0.value.removedAt < $1.value.removedAt }
+        let shots = Array(shotPoses.values)
+        let victims = ghosts.filter { _, g in
+            guard !g.checked else { return false }
+            guard let s = MeshRescue.nearestShot(to: g.builtLast, center: g.center, shots: shots) else { return true }
+            return !MeshRescue.movedAtRemoval(s, removedAt: g.removedAt, center: g.center, window: rescueWindow)
+        }.sorted { $0.value.removedAt < $1.value.removedAt }
         for (id, g) in victims {
             guard ghostVertices + n > limit else { return }
             ghosts.removeValue(forKey: id)
             ghostVertices -= g.piece.worldVertices.count
+            evictedVertices += g.piece.worldVertices.count
         }
     }
 
@@ -580,8 +591,9 @@ final class ColorMeshBuilder {
         var duplicateVertices = 0
         var cutVertices = 0
         var cappedVertices = 0
-        /// Dropped during the scan on a memory warning / by the low-memory valve.
+        /// Dropped during the scan on a memory warning / by the low-memory valve · evicted for room.
         var memoryDroppedVertices = 0
+        var evictedVertices = 0
         /// Largest correction of a piece put back (at its centre), cm.
         var maxShiftCm: Double = 0
         var ms = 0
@@ -599,6 +611,7 @@ final class ColorMeshBuilder {
         let start = ScanSessionReport.clock()
         var stats = RescueStats(enabled: true)
         stats.memoryDroppedVertices = memoryDroppedVertices
+        stats.evictedVertices = evictedVertices
         let held = ghosts
         dropGhosts()
         let shots = Array(shotPoses.values)
@@ -617,7 +630,7 @@ final class ColorMeshBuilder {
             ids.append(id)
             jobs.append(MeshRescue.Job(
                 piece: MeshRescue.Piece(vertices: g.piece.worldVertices, normals: g.piece.worldNormals, faces: g.piece.faces),
-                m: m, shift: MeshRescue.shift(m, at: g.center), removedAt: g.removedAt
+                m: m, shift: MeshRescue.shift(m, at: g.center), removedAt: g.removedAt, isShrink: g.isShrink
             ))
         }
         if !jobs.isEmpty {

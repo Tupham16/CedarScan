@@ -134,9 +134,10 @@ enum MeshRescue {
         return m
     }
 
-    /// A live piece first built before a ≥ `minShift` correction of its sub-map: ARKit kept it
-    /// uncorrected, so it is the only live mesh that can sit where a removed piece of that sub-map sat.
-    static func awaitsCorrection(_ live: LivePiece, shots: [Shot]) -> Bool {
+    /// A live piece first built before a ≥ `minShift` correction of its sub-map, or up to `window.before`
+    /// s after it (ARKit re-chunking a leftover: same uncorrected surface under a new id): ARKit kept that
+    /// surface uncorrected, so this is the live mesh that can sit where a removed piece of the sub-map sat.
+    static func awaitsCorrection(_ live: LivePiece, shots: [Shot], window: Window) -> Bool {
         let v = live.piece.vertices
         guard !v.isEmpty else { return false }
         var sum = SIMD3<Float>(0, 0, 0)
@@ -146,7 +147,7 @@ enum MeshRescue {
             n += 1
         }
         let center = sum / Float(n)
-        guard let m = correction(since: live.builtFirst, center: center, shots: shots) else { return false }
+        guard let m = correction(since: live.builtFirst - window.before, center: center, shots: shots) else { return false }
         return shift(m, at: center) >= minShift
     }
 
@@ -156,6 +157,9 @@ enum MeshRescue {
         /// Correction at the piece's centre, metres.
         let shift: Float
         let removedAt: Double
+        /// A piece ARKit shrank to under half (not removed): its remainder is live in place, so only the
+        /// per-vertex cut applies, never the whole-piece in-place skip.
+        var isShrink = false
     }
 
     struct Outcome {
@@ -186,7 +190,7 @@ enum MeshRescue {
         var landCells = Cells()
         for l in live {
             add(l.piece.vertices, l.piece.normals, to: &landCells, stride: 2)
-            if awaitsCorrection(l, shots: shots) { add(l.piece.vertices, l.piece.normals, to: &sitCells, stride: 2) }
+            if awaitsCorrection(l, shots: shots, window: window) { add(l.piece.vertices, l.piece.normals, to: &sitCells, stride: 2) }
         }
         // Ties by removal time: the same input gives the same model.
         let order = jobs.indices.sorted {
@@ -200,7 +204,7 @@ enum MeshRescue {
             let job = jobs[i]
             let v = job.piece.vertices
             let n = job.piece.normals
-            if coveredShare(v, n, matrix_identity_float4x4, sitCells, stride: 4) > maxCovered {
+            if !job.isShrink && coveredShare(v, n, matrix_identity_float4x4, sitCells, stride: 4) > maxCovered {
                 out.inPlace += v.count
                 continue
             }
