@@ -161,9 +161,9 @@ let shotM = MeshRescue.Shot(seenAt: 100, pose: translation(0, 1, 4))
 var shotS = MeshRescue.Shot(seenAt: 200, pose: translation(0, 1, 34))
 shotS.update(translation(0, 1, 34.3), at: 300)
 let pbShots = [shotM, shotS]
-let liveBig = MeshRescue.LivePiece(piece: wall(x: 0, z0: 0, z1: 8), builtLast: 100)       // main map, correct
-let liveStale = MeshRescue.LivePiece(piece: wall(x: 0, z0: 30, z1: 38), builtLast: 200)   // ARKit kept it uncorrected
-let liveSeam = MeshRescue.LivePiece(piece: wall(x: 10, z0: 0, z1: 8.3), builtLast: 100)   // main map, no shot near
+let liveBig = MeshRescue.LivePiece(piece: wall(x: 0, z0: 0, z1: 8), builtFirst: 100)      // main map, correct
+let liveStale = MeshRescue.LivePiece(piece: wall(x: 0, z0: 30, z1: 38), builtFirst: 200)  // first built before the merge: uncorrected, even if re-sent after it
+let liveSeam = MeshRescue.LivePiece(piece: wall(x: 10, z0: 0, z1: 8.3), builtFirst: 100)  // main map, no shot near
 check(!MeshRescue.awaitsCorrection(liveBig, shots: pbShots), "correct main-map mesh does not await a correction")
 check(MeshRescue.awaitsCorrection(liveStale, shots: pbShots), "ARKit's uncorrected leftover awaits a correction")
 let pbLive = [liveBig, liveStale, liveSeam]
@@ -172,7 +172,7 @@ func job(_ p: MeshRescue.Piece, _ m: simd_float4x4, _ removedAt: Double = 400) -
     MeshRescue.Job(piece: p, m: m, shift: MeshRescue.shift(m, at: p.vertices[p.vertices.count / 2]), removedAt: removedAt)
 }
 func putBack(_ jobs: [MeshRescue.Job], room: Int = roomLeft) -> MeshRescue.Outcome {
-    MeshRescue.putBack(jobs, live: pbLive, shots: pbShots, room: room)
+    MeshRescue.putBack(jobs, live: pbLive, shots: pbShots, window: window, room: room)
 }
 let move = translation(0, 0, -0.3)
 let left = wall(x: 3, z0: 10, z1: 18)
@@ -200,6 +200,8 @@ if let p = seam.placed.first?.piece {
 let tiny = wall(x: 3, z0: 30, z1: 30.6, height: 0.6)
 let twoEvents = putBack([job(leftLong, move, 400), job(tiny, move, 900)])
 check(twoEvents.placed.count == 1 && twoEvents.smallEvent == tiny.vertices.count, "the event minimum applies per removal cluster")
+let oneEvent = putBack([job(leftLong, move, 400), job(tiny, move, 440)])
+check(oneEvent.placed.count == 2 && oneEvent.smallEvent == 0, "removals within one window span form one cluster")
 let small = putBack([job(tiny, move)])
 check(small.placed.isEmpty && small.smallEvent == tiny.vertices.count, "a few hundred vertices (carved noise) never come back")
 let onlyInPlace = putBack([job(replacedGhost, move), job(wall(x: 0.03, z0: 30, z1: 38), move), job(tiny, move)])

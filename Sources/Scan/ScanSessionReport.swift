@@ -329,7 +329,7 @@ final class ScanSessionReport {
         "qualify (moved < 15 cm since built, < 10 cm within the window around its removal, built across sub-maps, ",
         "no shot near); inPlace = ARKit's uncorrected leftovers sit where the piece sat; duplicate = a piece already ",
         "put back covers it; cut = trimmed where leftovers sit or live mesh lands (or < 20 faces left); smallEvent = ",
-        "its removal cluster (removals <= 30 s apart) puts back under 20k; capped = over the vertex cap (then hitCap ",
+        "its removal cluster (removals up to one window span apart) puts back under 20k; capped = over the vertex cap (then hitCap ",
         "is true); memoryDropped = released on a memory warning or by the low-memory valve; maxShiftCm = largest ",
         "correction of a piece put back; ms. enabled false = server switch meshRescue off (model as in 2.79.4).",
     ].joined()

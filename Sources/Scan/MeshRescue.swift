@@ -14,10 +14,11 @@ enum MeshRescue {
         var faces: [Face]
     }
 
-    /// A piece still in the model and the frame time of its last update.
+    /// A piece still in the model and the frame time of its first update (ARKit never moves mesh, so a
+    /// piece first built before a correction keeps that uncorrected surface, however often re-sent).
     struct LivePiece {
         let piece: Piece
-        let builtLast: Double
+        let builtFirst: Double
     }
 
     /// A texture-shot anchor (`TextureShotRecorder.anchorName`): first seen at `seenAt` (pose = capture
@@ -82,11 +83,10 @@ enum MeshRescue {
     /// Whole piece skipped when ARKit's uncorrected leftovers cover more of it than this where it sat (it
     /// was replaced there) or a piece already put back covers more of it after the move (a duplicate).
     static let maxCovered: Float = 0.5
-    /// Below this many vertices put back per removal cluster (removals ≤ `clusterGap` s apart), that
-    /// cluster stays out: a drop takes rooms (05/11: hundreds of thousands); a person or a door carved at
-    /// the moment of a merge is a few thousand.
+    /// Below this many vertices put back per removal cluster (removals no more than one window span
+    /// apart), that cluster stays out: a drop takes rooms (05/11: hundreds of thousands); a person or a
+    /// door carved at the moment of a merge is a few thousand.
     static let minEventVertices = 20_000
-    static let clusterGap: Double = 30
 
     /// The shot nearest in time to `t` within `maxShotGap` s and `maxShotDistance` m of `center`, preferring
     /// one first seen at or before `t` (a shot first seen after a merge has no history before it). Shots
@@ -134,8 +134,8 @@ enum MeshRescue {
         return m
     }
 
-    /// A live piece built before a ≥ `minShift` correction of its sub-map: ARKit kept it uncorrected, so
-    /// it is the only live mesh that can sit where a removed piece of that sub-map sat.
+    /// A live piece first built before a ≥ `minShift` correction of its sub-map: ARKit kept it
+    /// uncorrected, so it is the only live mesh that can sit where a removed piece of that sub-map sat.
     static func awaitsCorrection(_ live: LivePiece, shots: [Shot]) -> Bool {
         let v = live.piece.vertices
         guard !v.isEmpty else { return false }
@@ -146,7 +146,7 @@ enum MeshRescue {
             n += 1
         }
         let center = sum / Float(n)
-        guard let m = correction(since: live.builtLast, center: center, shots: shots) else { return false }
+        guard let m = correction(since: live.builtFirst, center: center, shots: shots) else { return false }
         return shift(m, at: center) >= minShift
     }
 
@@ -178,7 +178,9 @@ enum MeshRescue {
     /// ARKit emptied (no leftover where a vertex sat, no live mesh where it lands). Then removal clusters
     /// under `minEventVertices` stay out, and the rest goes in within `room` vertices. Pieces put back
     /// never trim each other (a drop is many neighbouring chunks: trimming would crack every seam).
-    static func putBack(_ jobs: [Job], live: [LivePiece], shots: [Shot], room: Int, minFaces: Int = 20) -> Outcome {
+    static func putBack(
+        _ jobs: [Job], live: [LivePiece], shots: [Shot], window: Window, room: Int, minFaces: Int = 20
+    ) -> Outcome {
         var out = Outcome()
         var sitCells = Cells()
         var landCells = Cells()
@@ -214,7 +216,8 @@ enum MeshRescue {
             add(p.vertices, p.normals, to: &rescuedCells, stride: 2)
             candidates.append((job: i, piece: p))
         }
-        // Removal clusters: sorted by time, a gap over `clusterGap` starts a new one.
+        // Removal clusters: sorted by time, a gap over one window span starts a new one.
+        let clusterGap = window.before + window.after
         let byTime = candidates.indices.sorted { jobs[candidates[$0].job].removedAt < jobs[candidates[$1].job].removedAt }
         var cluster = [Int](repeating: 0, count: candidates.count)
         var totals: [Int] = []

@@ -74,8 +74,9 @@ final class ColorMeshBuilder {
     private var ghostRoom = 0
     /// Held vertices dropped on a memory warning / by the low-memory valve (scan-report).
     private var memoryDroppedVertices = 0
-    /// RAM bound (~56 B per vertex). Ghosts of ARKit's own clean-up live ~2 s, so only a drop event fills
-    /// it; beyond it (or the vertex cap's room) new ghosts are not kept = the old behaviour.
+    /// RAM bound (~56 B per vertex). ARKit's own clean-up is held one window (`rescueWindow.after`, 45 s)
+    /// and evicted oldest first when a new removal needs the room; past the budget (or the vertex cap's
+    /// room) new ghosts are not kept = the old behaviour.
     private static let ghostVertexBudget = 1_500_000
     private static let ghostMinVertices = 50
     /// Same id, at least this many vertices gone and under half left = treated like a removal.
@@ -488,8 +489,10 @@ final class ColorMeshBuilder {
     /// not beyond the RAM budget nor the room the vertex cap leaves (nothing beyond it can go back).
     private func bury(_ piece: MeshPiece, id: UUID, at now: TimeInterval) {
         let n = piece.worldVertices.count
-        guard rescueEnabled, memoryVertexCap == nil, n >= Self.ghostMinVertices,
-              ghostVertices + n <= min(Self.ghostVertexBudget, ghostRoom) else { return }
+        guard rescueEnabled, memoryVertexCap == nil, n >= Self.ghostMinVertices else { return }
+        let limit = min(Self.ghostVertexBudget, ghostRoom)
+        if ghostVertices + n > limit { evictOldestUnchecked(toFit: n, limit: limit) }
+        guard ghostVertices + n <= limit else { return }
         let center = piece.worldVertices.reduce(SIMD3<Float>(repeating: 0), +) / Float(n)
         let last = builtAt[id] ?? now
         ghosts[UUID()] = Ghost(
@@ -513,6 +516,17 @@ final class ColorMeshBuilder {
                 ghosts.removeValue(forKey: id)
                 ghostVertices -= g.piece.worldVertices.count
             }
+        }
+    }
+
+    /// Room for a new removal: the oldest held pieces not yet qualified go first (a drop comes as a burst
+    /// at a merge; ARKit's clean-up trickles in before it). Qualified pieces stay (main).
+    private func evictOldestUnchecked(toFit n: Int, limit: Int) {
+        let victims = ghosts.filter { !$0.value.checked }.sorted { $0.value.removedAt < $1.value.removedAt }
+        for (id, g) in victims {
+            guard ghostVertices + n > limit else { return }
+            ghosts.removeValue(forKey: id)
+            ghostVertices -= g.piece.worldVertices.count
         }
     }
 
@@ -558,8 +572,8 @@ final class ColorMeshBuilder {
         /// Put back into the model.
         var keptPieces = 0
         var keptVertices = 0
-        /// Not put back: failed `MeshRescue.correction` · qualifying total too small · ARKit replaced it in
-        /// place · duplicate · cut away · vertex cap.
+        /// Not put back: failed `MeshRescue.correction` · its removal cluster puts back under 20k · ARKit's
+        /// leftover sits in place · duplicate · cut away · vertex cap.
         var skippedVertices = 0
         var smallEventVertices = 0
         var inPlaceVertices = 0
@@ -610,13 +624,16 @@ final class ColorMeshBuilder {
             let live = pieces.map { id, p in
                 MeshRescue.LivePiece(
                     piece: MeshRescue.Piece(vertices: p.worldVertices, normals: p.worldNormals, faces: []),
-                    builtLast: builtAt[id] ?? 0
+                    builtFirst: firstBuilt[id] ?? 0
                 )
             }
             let room = max(0, vertexCap - vertexCount)
+            let window = rescueWindow
             let outcome: MeshRescue.Outcome = await withCheckedContinuation { continuation in
                 queue.async {
-                    continuation.resume(returning: MeshRescue.putBack(jobs, live: live, shots: shots, room: room))
+                    continuation.resume(returning: MeshRescue.putBack(
+                        jobs, live: live, shots: shots, window: window, room: room
+                    ))
                 }
             }
             // Ghost ids are fresh UUIDs, never a live anchor's.
