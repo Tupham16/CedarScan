@@ -78,6 +78,11 @@ struct ScanQualityConfig: Codable {
     // the lever if a phone ever reports trouble with it (same delivery as above).
     var continuedSave: Bool
 
+    // Mesh rescue (05/11, owner board item A, see ColorMeshBuilder / MeshRescue): mesh ARKit drops when it
+    // merges a sub-map back is put back at Stop. Kill switch `{"meshRescue": false}` = the 2.79.4
+    // behaviour (same delivery as above; applies from the next scan). New key: old blobs lack it.
+    var meshRescue: Bool
+
     /// The server switched the exposure cap off for everyone (debug picker aside).
     var exposureCapOff: Bool { exposureCap == Self.exposureCapOffValue }
 
@@ -106,7 +111,8 @@ struct ScanQualityConfig: Codable {
         torchShareK: 1.0,
         exposureCap: exposureCapAdaptiveValue,
         videoBitrateKbps: 700,
-        continuedSave: true
+        continuedSave: true,
+        meshRescue: true
     )
 
     // Decode "khoan dung": server chỉ cần gửi field muốn đổi, thiếu field nào dùng mặc định.
@@ -147,6 +153,7 @@ struct ScanQualityConfig: Codable {
         let kbps = (try? c.decodeIfPresent(Double.self, forKey: .videoBitrateKbps)) ?? d.videoBitrateKbps
         videoBitrateKbps = (kbps.isFinite && kbps >= 150 && kbps <= 4000) ? kbps : d.videoBitrateKbps
         continuedSave = (try? c.decodeIfPresent(Bool.self, forKey: .continuedSave)) ?? d.continuedSave
+        meshRescue = (try? c.decodeIfPresent(Bool.self, forKey: .meshRescue)) ?? d.meshRescue
     }
 
     /// A hand-edited row that clearly means "off" must not fail open to adaptive.
@@ -167,7 +174,7 @@ struct ScanQualityConfig: Codable {
         lockWhiteBalance: Bool, whiteBalanceLockDelaySec: Double,
         autoTorch: Bool, torchLevel: Double,
         torchOnBelowBV: Double, torchOffAboveBV: Double, torchShareK: Double,
-        exposureCap: String, videoBitrateKbps: Double, continuedSave: Bool
+        exposureCap: String, videoBitrateKbps: Double, continuedSave: Bool, meshRescue: Bool
     ) {
         self.enabled = enabled
         self.maxSpeedSoft = maxSpeedSoft
@@ -187,6 +194,7 @@ struct ScanQualityConfig: Codable {
         self.exposureCap = exposureCap
         self.videoBitrateKbps = videoBitrateKbps
         self.continuedSave = continuedSave
+        self.meshRescue = meshRescue
     }
 
     // MARK: - Bản đang dùng (cache UserDefaults, server ghi đè qua /catalog)

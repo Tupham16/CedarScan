@@ -167,6 +167,45 @@ final class ScanSessionReport {
         trackingSince = t
     }
 
+    // MARK: - Mesh trace (05/11, #LS-MW30FJAA2)
+
+    /// One value per second per column (`meshNote`). Counts and ARKit states only (privacy rule above).
+    private struct MeshTrace: Encodable {
+        var t: [Double] = []
+        var anchors: [Int] = []
+        var vertices: [Int] = []
+        var removed: [Int] = []
+        var added: [Int] = []
+        var held: [Int] = []
+        var shotJumpCm: [Double] = []
+        var meshMoveCm: [Double] = []
+        var mapping: [Int] = []
+        var highConf: [Int] = []
+    }
+    private var meshTrace = MeshTrace()
+    /// An hour at 1 Hz (~430 KB pretty-printed); longer scans keep the first hour.
+    private static let maxMeshSamples = 3_600
+
+    /// MeshScanController's 1 Hz poll timer.
+    func noteMesh(_ s: ColorMeshBuilder.TraceSample, mapping: Int, highConfidencePct: Int) {
+        guard stoppedAt == nil, meshTrace.t.count < Self.maxMeshSamples else { return }
+        meshTrace.t.append(Self.tenth(now))
+        meshTrace.anchors.append(s.anchors)
+        meshTrace.vertices.append(s.vertices)
+        meshTrace.removed.append(s.removed)
+        meshTrace.added.append(s.added)
+        meshTrace.held.append(s.ghostVertices)
+        meshTrace.shotJumpCm.append(Self.tenth(s.shotJumpCm))
+        meshTrace.meshMoveCm.append(Self.tenth(s.meshMoveCm))
+        meshTrace.mapping.append(mapping)
+        meshTrace.highConf.append(highConfidencePct)
+    }
+
+    /// One decimal, always finite (JSONEncoder throws on NaN / infinity).
+    private static func tenth(_ x: Double) -> Double {
+        fin((x * 10).rounded() / 10) ?? 0
+    }
+
     // MARK: - Output
 
     /// Texture-shot figures handed back by `TextureShotRecorder.finish` (ioQueue-made, value type).
@@ -233,6 +272,9 @@ final class ScanSessionReport {
         let exposureCapMs: Int?
         let exposureCapMode: String?
         let exposureCap: ExposureCap.Stats?
+        /// 05/11 (`meshNote`). nil = key absent.
+        let mesh: MeshTrace?
+        let meshRescue: ColorMeshBuilder.RescueStats?
     }
 
     private struct WhiteBalance: Encodable {
@@ -273,10 +315,24 @@ final class ScanSessionReport {
         "nor above maxVertices (low-memory valve). hitCap = mesh was refused at the cap, either way.",
     ].joined()
 
+    /// 05/11 (mesh trace + rescue). Array join, ✗ a `+` chain (CI type-check time).
+    private static let meshNote: String = [
+        " mesh (app 2.79.5+) = 1 Hz columns: t (s), anchors (ARKit mesh anchors), vertices (in the model), ",
+        "removed / added (vertices that left / joined the model that second), held (vertices kept for the mesh ",
+        "rescue), shotJumpCm (largest move of a texture-shot anchor = ARKit map correction), meshMoveCm (largest ",
+        "move of a mesh anchor's origin), mapping (ARKit worldMappingStatus: 0 notAvailable, 1 limited, 2 extending, ",
+        "3 mapped, -1 no frame), highConf (% of LiDAR depth pixels rated high confidence, -1 no depth). ",
+        "meshRescue = mesh ARKit removed, mainly when it merges a sub-map back into the map: held at Stop; kept = put ",
+        "back, moved by the correction of the texture shot taken nearest in time, minus what live mesh covers; ",
+        "notMoved = its sub-map was not corrected (ordinary clean-up, dropped as before); covered = cut because live ",
+        "mesh is there; capped = over the vertex cap; maxShiftCm; ms. enabled false = server switch meshRescue off.",
+    ].joined()
+
     /// Writes the report to a temp file; nil on any failure (the scan saves without it).
     func write(
         hitCap: Bool, vertexCount: Int, maxVertices: Int, memoryCapHit: Bool, fastSave: Bool,
-        shots: ShotStats?, torch: AutoTorch.Stats, exposureCap: ExposureCap.Stats?
+        shots: ShotStats?, torch: AutoTorch.Stats, exposureCap: ExposureCap.Stats?,
+        meshRescue: ColorMeshBuilder.RescueStats?
     ) -> URL? {
         markStopped()
         let secs = trackingSeconds.compactMapValues { Self.fin($0) }
@@ -291,6 +347,7 @@ final class ScanSessionReport {
         }
         note += Self.encodeBusyNote
         note += Self.capNote
+        note += Self.meshNote
         let file = File(
             version: 1,
             note: note,
@@ -325,7 +382,13 @@ final class ScanSessionReport {
             }(),
             exposureCapMs: exposureCap?.capMs,
             exposureCapMode: exposureCap?.mode,
-            exposureCap: exposureCap
+            exposureCap: exposureCap,
+            mesh: meshTrace.t.isEmpty ? nil : meshTrace,
+            meshRescue: meshRescue.map { stats in
+                var r = stats
+                r.maxShiftCm = Self.tenth(r.maxShiftCm)
+                return r
+            }
         )
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("scan-report-\(UUID().uuidString.prefix(8)).json")

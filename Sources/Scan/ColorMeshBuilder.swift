@@ -44,6 +44,46 @@ final class ColorMeshBuilder {
     }
     private var anchorSigs: [UUID: AnchorSig] = [:]
 
+    // MARK: Mesh rescue + mesh trace (05/11, #LS-MW30FJAA2, owner board items A + T)
+    // ARKit can drop a sub-map's mesh when it merges the sub-map back (§TRAPS #57). Removed pieces wait
+    // in `ghosts`; at Stop `adoptRescued` puts back those whose sub-map was corrected (`MeshRescue`).
+    // Main thread only, like `pieces`.
+
+    /// Server kill switch `meshRescue` (ScanQualityConfig), read at scan start.
+    private let rescueEnabled: Bool
+    /// Frame time of each piece's last ingest.
+    private var builtAt: [UUID: TimeInterval] = [:]
+    /// Texture-shot anchors still in the session.
+    private var shotPoses: [UUID: MeshRescue.Shot] = [:]
+    /// A piece ARKit removed (or shrank to under half), as last ingested.
+    private struct Ghost {
+        var piece: MeshPiece
+        let builtAt: TimeInterval
+        let removedAt: TimeInterval
+        let center: SIMD3<Float>
+    }
+    private var ghosts: [UUID: Ghost] = [:]
+    private var ghostVertices = 0
+    /// RAM bound (~60 B per vertex): normal ARKit churn is pruned within seconds, so only a drop event
+    /// comes near it; beyond it new ghosts are not kept (= the old behaviour).
+    private static let ghostVertexBudget = 1_500_000
+    private static let ghostMinVertices = 50
+    /// Same id, at least this many vertices gone and under half left = treated like a removal.
+    private static let shrinkMinVertices = 1_000
+    /// A replacement chunk normally arrives within 0.1–1.5 s of the removal.
+    private static let ghostGraceSec: TimeInterval = 2
+    private static let pruneIntervalSec: TimeInterval = 5
+    private var lastPrune: TimeInterval = 0
+    private var pruneRunning = false
+    /// scan-report `meshRescue`, set by `adoptRescued`.
+    private(set) var rescueStats: RescueStats?
+    // Trace counters since the last `takeTraceSample()`.
+    private var traceAnchors = 0
+    private var traceRemoved = 0
+    private var traceAdded = 0
+    private var traceShotJump: Float = 0
+    private var traceMeshMove: Float = 0
+
     /// Đã chạm trần đỉnh → anchor mới (khu quét sau) không được gom nữa.
     /// RoomPlan mode: cross-check tường dùng cờ này để không trừ điểm oan.
     /// Mesh mode: controller đọc cờ này để hiện banner "mô hình đã đầy".
@@ -153,9 +193,11 @@ final class ColorMeshBuilder {
         strictVertexCap: Bool = false,
         captureDepthForOcclusion: Bool = false,
         refineLargeTriangles: Bool = false,
-        fillUncoloredVertices: Bool = false
+        fillUncoloredVertices: Bool = false,
+        meshRescue: Bool = false
     ) {
         self.arSession = arSession
+        rescueEnabled = meshRescue
         maxVertices = preset.maxVertices
         maxKeyframes = preset.maxKeyframes
         keyframeWidth = preset.keyframeWidth
@@ -266,14 +308,27 @@ final class ColorMeshBuilder {
         // hình học cũ đã bị thay thế nằm sai chỗ trong file xuất.
         var present = Set<UUID>()
         present.reserveCapacity(frame.anchors.count)
+        var shotIDs = Set<UUID>()
         for anchor in frame.anchors {
             if let mesh = anchor as? ARMeshAnchor {
                 present.insert(mesh.identifier)
+            } else if anchor.name == TextureShotRecorder.anchorName {
+                shotIDs.insert(anchor.identifier)
+                notePose(of: anchor, at: frame.timestamp)
             }
         }
+        // Shots that left the session (thinned on disk, a replaced window copy).
+        if shotPoses.count != shotIDs.count {
+            shotPoses = shotPoses.filter { shotIDs.contains($0.key) }
+        }
+        traceAnchors = present.count
         for id in Array(pieces.keys) where !present.contains(id) {
-            pieces.removeValue(forKey: id)
+            if let old = pieces.removeValue(forKey: id) {
+                traceRemoved += old.worldVertices.count
+                bury(old, builtAt: builtAt[id] ?? frame.timestamp, at: frame.timestamp)
+            }
             anchorSigs.removeValue(forKey: id)
+            builtAt.removeValue(forKey: id)
         }
 
         var vertexTotal = pieces.values.reduce(0) { $0 + $1.worldVertices.count }
@@ -362,6 +417,9 @@ final class ColorMeshBuilder {
 
             if let old = pieces[mesh.identifier] {
                 vertexTotal -= old.worldVertices.count
+                noteUpdate(of: mesh.identifier, old: old, count: count, transform: transform, at: frame.timestamp)
+            } else {
+                traceAdded += count
             }
             pieces[mesh.identifier] = MeshPiece(
                 worldVertices: worldVertices, worldNormals: worldNormals, faces: faces
@@ -369,9 +427,204 @@ final class ColorMeshBuilder {
             anchorSigs[mesh.identifier] = AnchorSig(
                 vertexCount: count, faceCount: faceElement.count, transform: transform
             )
+            builtAt[mesh.identifier] = frame.timestamp
             vertexTotal += worldVertices.count
         }
         blockedNewAnchor = blockedThisPass
+        if rescueEnabled { pruneGhosts(now: frame.timestamp) }
+    }
+
+    // MARK: - Mesh rescue + mesh trace (05/11)
+
+    /// Texture-shot pose bookkeeping: first pose = capture pose, `traceShotJump` = map corrections (main).
+    private func notePose(of anchor: ARAnchor, at now: TimeInterval) {
+        let t = anchor.transform
+        guard var s = shotPoses[anchor.identifier] else {
+            shotPoses[anchor.identifier] = MeshRescue.Shot(seenAt: now, first: t, now: t)
+            return
+        }
+        guard s.now != t else { return }
+        traceShotJump = max(traceShotJump, simd_distance(MeshRescue.position(s.now), MeshRescue.position(t)))
+        s.now = t
+        shotPoses[anchor.identifier] = s
+    }
+
+    /// An anchor ARKit re-sent: trace counters, and a piece shrunk to under half is kept like a removed
+    /// one — ARKit may empty a block instead of removing it (main).
+    private func noteUpdate(of id: UUID, old: MeshPiece, count: Int, transform: simd_float4x4, at now: TimeInterval) {
+        if let sig = anchorSigs[id] {
+            // Answers §TRAPS (e): does ARKit move ARMeshAnchor.transform at a loop closure?
+            let moved = simd_distance(MeshRescue.position(sig.transform), MeshRescue.position(transform))
+            traceMeshMove = max(traceMeshMove, moved)
+        }
+        let oldCount = old.worldVertices.count
+        guard count < oldCount else {
+            traceAdded += count - oldCount
+            return
+        }
+        traceRemoved += oldCount - count
+        if oldCount - count >= Self.shrinkMinVertices && count * 2 < oldCount {
+            bury(old, builtAt: builtAt[id] ?? now, at: now)
+        }
+    }
+
+    /// Keeps a piece ARKit removed, for `adoptRescued` (main).
+    private func bury(_ piece: MeshPiece, builtAt: TimeInterval, at now: TimeInterval) {
+        let n = piece.worldVertices.count
+        guard rescueEnabled, n >= Self.ghostMinVertices, ghostVertices + n <= Self.ghostVertexBudget else { return }
+        let center = piece.worldVertices.reduce(SIMD3<Float>(repeating: 0), +) / Float(n)
+        ghosts[UUID()] = Ghost(piece: piece, builtAt: builtAt, removedAt: now, center: center)
+        ghostVertices += n
+    }
+
+    /// Every few seconds, on `queue`: forgets kept pieces that live mesh covers again (a replaced chunk,
+    /// an area scanned again) — what keeps the rescue's RAM small (main).
+    private func pruneGhosts(now: TimeInterval) {
+        guard !pruneRunning, !ghosts.isEmpty, now - lastPrune >= Self.pruneIntervalSec else { return }
+        lastPrune = now
+        let shots = Array(shotPoses.values)
+        var due: [(id: UUID, vertices: [SIMD3<Float>], m: simd_float4x4)] = []
+        for (id, g) in ghosts where now - g.removedAt >= Self.ghostGraceSec {
+            let m = MeshRescue.correction(builtAt: g.builtAt, center: g.center, shots: shots) ?? matrix_identity_float4x4
+            due.append((id: id, vertices: g.piece.worldVertices, m: m))
+        }
+        guard !due.isEmpty else { return }
+        pruneRunning = true
+        let live = pieces.values.map(\.worldVertices)
+        queue.async { [weak self] in
+            let cells = MeshRescue.cells(live, stride: 4)
+            let gone = due.filter {
+                MeshRescue.coveredShare($0.vertices, $0.m, cells, stride: 8) >= MeshRescue.coveredToDrop
+            }.map { $0.id }
+            DispatchQueue.main.async {
+                guard let self else { return }
+                for id in gone {
+                    if let g = self.ghosts.removeValue(forKey: id) {
+                        self.ghostVertices -= g.piece.worldVertices.count
+                    }
+                }
+                self.pruneRunning = false
+            }
+        }
+    }
+
+    /// One second of scan-report `mesh` (1 Hz, MeshScanController's poll timer); resets the counters (main).
+    struct TraceSample {
+        /// ARKit mesh anchors in the last frame / vertices in the file.
+        let anchors: Int
+        let vertices: Int
+        /// Vertices that left / joined the file since the last sample.
+        let removed: Int
+        let added: Int
+        /// Vertices held for the rescue.
+        let ghostVertices: Int
+        /// Largest move of a texture-shot anchor (= map correction) / of a mesh anchor's origin, cm.
+        let shotJumpCm: Double
+        let meshMoveCm: Double
+    }
+
+    func takeTraceSample() -> TraceSample {
+        let sample = TraceSample(
+            anchors: traceAnchors, vertices: vertexCount, removed: traceRemoved, added: traceAdded,
+            ghostVertices: ghostVertices,
+            shotJumpCm: Double(traceShotJump) * 100, meshMoveCm: Double(traceMeshMove) * 100
+        )
+        traceRemoved = 0
+        traceAdded = 0
+        traceShotJump = 0
+        traceMeshMove = 0
+        return sample
+    }
+
+    /// scan-report `meshRescue`.
+    struct RescueStats: Encodable {
+        var enabled: Bool
+        /// Pieces / vertices kept at Stop.
+        var heldPieces = 0
+        var heldVertices = 0
+        /// Put back into the model.
+        var keptPieces = 0
+        var keptVertices = 0
+        /// Not put back: sub-map not corrected (ordinary ARKit clean-up) · covered by live mesh or too
+        /// small after the cut · over the vertex cap.
+        var notMovedVertices = 0
+        var coveredVertices = 0
+        var cappedVertices = 0
+        /// Largest correction applied (at a piece's centre), cm.
+        var maxShiftCm: Double = 0
+        var ms = 0
+    }
+
+    /// Stop: puts back the kept pieces whose sub-map ARKit corrected, moved by that correction, minus what
+    /// live mesh covers, within the vertex cap. Call once, after `ingestFinalFrame()` (final shot poses)
+    /// and before `vertexCount` / the exports read `pieces`.
+    @MainActor
+    func adoptRescued() async {
+        guard rescueEnabled else {
+            rescueStats = RescueStats(enabled: false)
+            return
+        }
+        let start = ScanSessionReport.clock()
+        var stats = RescueStats(enabled: true)
+        let held = ghosts
+        ghosts = [:]
+        ghostVertices = 0
+        stats.heldPieces = held.count
+        let shots = Array(shotPoses.values)
+        var jobs: [(id: UUID, piece: MeshPiece, m: simd_float4x4)] = []
+        for (id, g) in held {
+            stats.heldVertices += g.piece.worldVertices.count
+            guard let m = MeshRescue.correction(builtAt: g.builtAt, center: g.center, shots: shots),
+                  MeshRescue.shift(m, at: g.center) >= MeshRescue.minShift else {
+                stats.notMovedVertices += g.piece.worldVertices.count
+                continue
+            }
+            jobs.append((id: id, piece: g.piece, m: m))
+            stats.maxShiftCm = max(stats.maxShiftCm, Double(MeshRescue.shift(m, at: g.center)) * 100)
+        }
+        if !jobs.isEmpty {
+            // Largest first: at the cap whole rooms beat crumbs.
+            jobs.sort { $0.piece.worldVertices.count > $1.piece.worldVertices.count }
+            let live = pieces.values.map(\.worldVertices)
+            let room = max(0, vertexCap - vertexCount)
+            let result: (pieces: [(UUID, MeshPiece)], covered: Int, capped: Int) = await withCheckedContinuation { continuation in
+                queue.async {
+                    let cells = MeshRescue.cells(live, stride: 2)
+                    var out: [(UUID, MeshPiece)] = []
+                    var used = 0
+                    var covered = 0
+                    var capped = 0
+                    for job in jobs {
+                        let n = job.piece.worldVertices.count
+                        guard let p = MeshRescue.place(
+                            vertices: job.piece.worldVertices, normals: job.piece.worldNormals,
+                            faces: job.piece.faces, m: job.m, cells: cells, minFaces: 20
+                        ) else {
+                            covered += n
+                            continue
+                        }
+                        covered += n - p.vertices.count
+                        guard used + p.vertices.count <= room else {
+                            capped += p.vertices.count
+                            continue
+                        }
+                        used += p.vertices.count
+                        out.append((job.id, MeshPiece(worldVertices: p.vertices, worldNormals: p.normals, faces: p.faces)))
+                    }
+                    continuation.resume(returning: (out, covered, capped))
+                }
+            }
+            // Ghost ids are fresh UUIDs, never a live anchor's.
+            for (id, piece) in result.pieces {
+                pieces[id] = piece
+                stats.keptPieces += 1
+                stats.keptVertices += piece.worldVertices.count
+            }
+            stats.coveredVertices = result.covered
+            stats.cappedVertices = result.capped
+        }
+        stats.ms = ScanSessionReport.ms(since: start)
+        rescueStats = stats
     }
 
     // MARK: - Khung màu
