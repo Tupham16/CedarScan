@@ -1,0 +1,26 @@
+# Inactive copy. To run: on a THROWAWAY branch named claude/zip-harness-tmp, copy this file to
+# .github/workflows/, push, read the log, delete the branch. Checks Sources/Support/ZipWriter.swift.
+name: Zip harness
+
+on:
+  push:
+    branches: [claude/zip-harness-tmp]
+
+permissions:
+  contents: read
+
+jobs:
+  zip:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v7
+      - name: Select Xcode 26.3
+        run: sudo xcode-select -s /Applications/Xcode_26.3.app
+      - name: Build harness
+        run: swiftc -O -o zipharness Sources/Support/ZipWriter.swift tools/zip-harness/main.swift
+      - name: Zip (ours + old)
+        run: ./zipharness "$RUNNER_TEMP/zh"
+      - name: fflate
+        run: npm install --prefix "$RUNNER_TEMP/ff" fflate@0.8.2
+      - name: Read with every reader
+        run: python3 tools/zip-harness/check.py "$RUNNER_TEMP/zh" "$RUNNER_TEMP/ff"

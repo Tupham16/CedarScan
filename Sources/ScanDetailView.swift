@@ -607,9 +607,8 @@ struct ScanDetailView: View {
     /// việc tải lên qua `ensureUploaded` khi khách thật sự bấm "Đặt hàng", đúng thứ màn Dự án đã
     /// làm từ lâu. Khách thấy GIÁ trước khi tốn dữ liệu. Since 2.78 the button (`startOrder`) does
     /// the same — before, it uploaded 40–200 MB first and showed the form after.
-    /// ⚠ HỆ QUẢ, ✗ phải lỗi: không còn thanh % tải lên nào ở màn này — lúc bấm "Đặt hàng" trong
-    /// form chỉ có vòng xoay + "Đang tải <tên>…" (`OrderSheet` dùng một `ScanUploader` cục bộ mà
-    /// nó không quan sát `phase`). Muốn có % ở đó là việc RIÊNG.
+    /// ⚠ HỆ QUẢ, ✗ phải lỗi: không còn thanh % tải lên nào ở màn này. Since 2.79.5 the form's
+    /// Place order shows it ("Uploading… 42%", bar, time left: `UploadProgress`).
     ///
     /// 🔴 GÁC HẸP HƠN NÚT BẤM, VÀ ĐÓ LÀ CỐ Ý — bẫy #18: guard "có CHẶN khách không" ≠ guard "có
     /// TỰ ĐI TIẾP HỘ khách không". Nút chỉ gác `isSignedIn` (gác thêm `needsVerification` ở nút
@@ -1051,6 +1050,8 @@ struct OrderSheet: View {
 
     @State private var isBusy = false
     @State private var busyLabel: String?
+    /// 2.79.5 (owner 05/11): Place order's uploads (percent + time left); nil = none running.
+    @State private var upload: UploadProgress?
     @State private var errorMessage: String?
     @State private var placedOrder: OrderScanResponse?
     /// Mở Điều khoản từ dòng "Đặt đơn này là bạn đồng ý…" ở footer nút Đặt hàng (thêm 01/09,
@@ -1949,6 +1950,9 @@ struct OrderSheet: View {
                         if let busyLabel {
                             Text(busyLabel).font(.subheadline)
                         }
+                        if let upload {
+                            Text("\(Int(upload.fraction * 100))%").font(.subheadline.monospacedDigit())
+                        }
                     } else {
                         Text(String(localized: "Place order") + " · " + (isFreeOrder ? String(localized: "FREE 🎁") : "$\(totalUSD)"))
                             .font(.headline)
@@ -1976,6 +1980,15 @@ struct OrderSheet: View {
             // điều riêng của đơn này — "không phải trả gì cả". Bỏ nốt là khách vừa thấy nút
             // "MIỄN PHÍ 🎁" vừa không có gì xác nhận.
             VStack(alignment: .leading, spacing: 4) {
+                if let upload {
+                    // Mockup progress-5 (owner OK 05/11): bar + time left + keep open, under the button.
+                    // Keep open: uploads go on behind a lock or another app, but the order is placed
+                    // only with CedarScan on screen (`UploadKeepAlive.untilActive`).
+                    ProgressView(value: upload.fraction)
+                        .padding(.vertical, 4)
+                    WrappedText(upload.line(keep: String(localized: "Keep CedarScan open until your order is placed.")),
+                                style: .footnote, color: .secondaryLabel)
+                }
                 if isFreePromo {
                     Text(String(localized: "Free order — no payment needed. Our team starts right after you place it."))
                 } else if isFreeOrder {
@@ -2302,6 +2315,7 @@ struct OrderSheet: View {
                 let live = store.records.first { $0.id == scan.id } ?? scan
                 if let existing = live.cloudScanId { return existing }
                 let uploader = ScanUploader()
+                uploader.onBytes = { sent, total in upload?.note(live.id, sent: sent, total: total) }
                 if let cloudId = await uploader.upload(record: live, folder: store.folderURL(for: live)) {
                     store.setCloudScanId(live, cloudScanId: cloudId)
                     return cloudId
@@ -2345,10 +2359,10 @@ struct OrderSheet: View {
                 busyLabel = nil
                 return
             }
-            if toSend.count == 1 {
-                busyLabel = String(localized: "Uploading \(toSend[0].name)…")
-            } else if toSend.count > 1 {
+            if !toSend.isEmpty {
+                // 2.79.5 (mockup progress-5): one label + percent for the batch, no floor name.
                 busyLabel = String(localized: "Uploading…")
+                upload = UploadProgress(toSend.map(\.id))
             }
             var cloudIds: [UUID: String] = [:]
             var uploadFailed = false
@@ -2365,6 +2379,7 @@ struct OrderSheet: View {
                     }
                 }
             }
+            upload = nil
             guard !uploadFailed, let primaryCloudId = cloudIds[record.id] else {
                 isBusy = false
                 busyLabel = nil

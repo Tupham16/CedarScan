@@ -59,20 +59,24 @@ enum ColoredOBJExporter {
             // (Không báo % riêng: chỉ đường KHÔNG lưu-nhanh mới có GLB, tức đường phao.)
             try? GLBExporter.makeGLB(mesh: mesh, to: work.appendingPathComponent("model.glb"))
         }
-        // 🔴 CHẶNG CÂM CUỐI CÙNG, VÀ LÀ CHỖ YẾU NHẤT CỦA CẢ THANH %: chép `texture-shots/`
-        // (~100MB JPEG) rồi nén bằng `NSFileCoordinator(.forUploading)` — API đó KHÔNG trả
-        // tiến độ và không có callback nào. Màn hình chuyển sang vòng xoay + nhãn "Đang nén…",
-        // thanh đứng yên tại mốc của chặng. ✗ bịa một thanh tự bò ở đây; muốn nó chạy thật
-        // thì phải thay bộ nén, mà thay bộ nén là đổi FILE GIAO.
-        // Packaging first: its spinner + "Compressing…" covers the colour join below (the
-        // writing stage has no spinner — a wait there looks like a frozen bar).
+        // Chép `texture-shots/` (~100MB JPEG) rồi nén. Packaging first: its spinner +
+        // "Compressing…" covers the colour join below (the writing stage has no spinner — a wait
+        // there looks like a frozen bar).
         progress(.packaging, 0)
         beforePacking()
         for extra in extraFiles {
             try? fm.copyItem(at: extra, to: work.appendingPathComponent(extra.lastPathComponent))
         }
 
-        try zipDirectory(work, to: zipURL)
+        // 2.79.5 (owner 05/11): our own zip writer, so the bar counts the bytes zipped
+        // (0…0.8 of the stage; ScanStore reports 0.8 after, the preview 1). Any failure = the
+        // old zipper, which reports nothing (spinner, bar still) — before 2.79.5 the only one.
+        do {
+            try ZipWriter.write(work, to: zipURL) { progress(.packaging, 0.8 * $0) }
+        } catch {
+            try? fm.removeItem(at: zipURL)
+            try zipDirectory(work, to: zipURL)
+        }
     }
 
     /// Ghi OBJ dạng STREAM (buffer ~1MB, màu theo đỉnh: v x y z r g b).
@@ -241,6 +245,7 @@ enum ColoredOBJExporter {
     }
 
     // MARK: - Nén thư mục thành .zip (dùng NSFileCoordinator, không cần thư viện ngoài)
+    // Since 2.79.5 only the fallback of `ZipWriter` (no progress API at all).
 
     private static func zipDirectory(_ directory: URL, to zipURL: URL) throws {
         let fm = FileManager.default

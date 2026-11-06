@@ -29,7 +29,8 @@ enum SaveStage: Int, CaseIterable, Sendable {
     case readingMesh = 3
     /// `ColoredOBJExporter.writeOBJ` (+ GLB khi có màu-đỉnh).
     case writingModel = 4
-    /// Chép `texture-shots/` + `zipDirectory` (NSFileCoordinator `.forUploading`).
+    /// Colour join + chép `texture-shots/` + `ZipWriter` (counts bytes, 2.79.5; its fallback
+    /// `zipDirectory` = NSFileCoordinator `.forUploading` counts nothing).
     case packaging = 5
 
     /// 🔴 TRỌNG SỐ LÀ ƯỚC LƯỢNG THEO CẤU TRÚC, **CHƯA AI BẤM GIỜ TRÊN MÁY THẬT** —
@@ -68,9 +69,9 @@ enum SaveStage: Int, CaseIterable, Sendable {
     /// Chặng KHÔNG tự báo được phần trăm bên trong → thanh đứng yên suốt chặng, và màn hình
     /// hiện thêm một vòng xoay nhỏ để khách biết máy vẫn đang chạy.
     /// 🔴 ✗ "chữa" bằng cách cho thanh tự bò theo thời gian: đó là bịa số, và khi nó bò tới
-    /// mốc rồi đứng lại thì khách mất tin vào cả thanh. Chỗ tệ nhất là `.packaging`
-    /// (`NSFileCoordinator(.forUploading)` KHÔNG có API tiến độ nào cả) — nếu muốn nó chạy
-    /// thật thì phải đổi bộ nén, mà đổi bộ nén là đổi FILE GIAO. ✗ làm.
+    /// mốc rồi đứng lại thì khách mất tin vào cả thanh. `.packaging` counts since 2.79.5 (own
+    /// zip writer, owner 05/11) but keeps the spinner: its colour join and the fallback zipper
+    /// (`NSFileCoordinator(.forUploading)`, no progress API) count nothing.
     var showsSpinner: Bool {
         switch self {
         case .buildingMesh, .writingModel: return false

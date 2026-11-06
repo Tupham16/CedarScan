@@ -53,6 +53,8 @@ struct SupplementSheet: View {
     /// from the project's order number (trap #20a). Only the releases: the list may be tens of
     /// minutes old by then (an upload), and a cancel never goes stale — an "awaiting" state can.
     @State private var fetchedOrders: [OrderDTO]?
+    /// 2.79.5 (owner 06/11, as Place order): the uploads' percent + time left; nil = none running.
+    @State private var upload: UploadProgress?
 
     var body: some View {
         NavigationStack {
@@ -132,8 +134,22 @@ struct SupplementSheet: View {
                 HStack(spacing: 10) {
                     ProgressView()
                     Text(label).font(.subheadline)
+                    if let upload {
+                        Text("\(Int(upload.fraction * 100))%").font(.subheadline.monospacedDigit())
+                    }
                 }
                 .listRowBackground(Theme.card)
+            } footer: {
+                // Place order's pattern (mockup progress-5). Keep open: the uploads go on behind a lock
+                // or another app, but the scans join the order only with CedarScan on screen.
+                if let upload {
+                    VStack(alignment: .leading, spacing: 4) {
+                        ProgressView(value: upload.fraction)
+                            .padding(.vertical, 4)
+                        WrappedText(upload.line(keep: String(localized: "Keep CedarScan open until it's done.")),
+                                    style: .footnote, color: .secondaryLabel)
+                    }
+                }
             }
         case .sent(let count):
             Section {
@@ -227,10 +243,10 @@ struct SupplementSheet: View {
             }
             // One label for the whole batch (they all run at once).
             let toSend = queue.filter { $0.cloudScanId == nil }
-            if toSend.count == 1 {
-                phase = .working(String(localized: "Uploading \(toSend[0].name)…"))
-            } else if toSend.count > 1 {
+            if !toSend.isEmpty {
+                // 2.79.5: one label + percent for the batch, no scan name (as Place order).
                 phase = .working(String(localized: "Uploading…"))
+                upload = UploadProgress(toSend.map(\.id))
             }
             var uploaded: [UUID: String] = [:]
             var failure: String?
@@ -242,6 +258,7 @@ struct SupplementSheet: View {
                     }
                     group.addTask { @MainActor in
                         let uploader = ScanUploader()
+                        uploader.onBytes = { sent, total in upload?.note(live.id, sent: sent, total: total) }
                         if let cloudId = await uploader.upload(record: live, folder: store.folderURL(for: live)) {
                             store.setCloudScanId(live, cloudScanId: cloudId)
                             return (live.id, cloudId, nil)
@@ -262,6 +279,7 @@ struct SupplementSheet: View {
                     }
                 }
             }
+            upload = nil
             if Task.isCancelled { phase = .ready; return }
             if let failure {
                 phase = .failed(failure)

@@ -1176,6 +1176,53 @@
         }
       }
     },
+    "About %lld min left.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zbývající čas: asi %lld min."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Noch etwa %lld Min."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tiempo restante: aprox. %lld min."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Encore environ %lld min."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nog ongeveer %lld min."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zostávajúci čas: asi %lld min."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Còn khoảng %lld phút."
+          }
+        }
+      }
+    },
     "Account": {
       "extractionState": "manual",
       "localizations": {
@@ -9924,6 +9971,100 @@
         }
       }
     },
+    "Keep CedarScan open until it's done.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nechte aplikaci CedarScan otevřenou, dokud to nebude hotové."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lassen Sie CedarScan geöffnet, bis alles fertig ist."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No salgas de CedarScan hasta que termine."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ne quittez pas CedarScan avant la fin."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Houd CedarScan open tot het klaar is."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nechajte aplikáciu CedarScan otvorenú, kým to nebude hotové."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Giữ CedarScan mở cho tới khi xong."
+          }
+        }
+      }
+    },
+    "Keep CedarScan open until your order is placed.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nechte aplikaci CedarScan otevřenou, dokud nebude vaše objednávka odeslána."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lassen Sie CedarScan geöffnet, bis Ihre Bestellung aufgegeben ist."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No salgas de CedarScan hasta que se realice tu pedido."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ne quittez pas CedarScan avant que votre commande soit passée."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Houd CedarScan open tot je bestelling is geplaatst."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nechajte aplikáciu CedarScan otvorenú, kým nebude vaša objednávka odoslaná."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Giữ CedarScan mở cho tới khi đặt hàng xong."
+          }
+        }
+      }
+    },
     "Keep about 50cm or more from surfaces — closer than roughly 30cm and the LiDAR starts punching holes in the mesh. Where yellow \"TOO CLOSE\" text covers the screen, step back.": {
       "extractionState": "manual",
       "localizations": {
@@ -10390,6 +10531,53 @@
           "stringUnit": {
             "state": "translated",
             "value": "Legal & Privacy"
+          }
+        }
+      }
+    },
+    "Less than a minute left.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zbývá méně než minuta."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Noch weniger als eine Minute."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Queda menos de un minuto."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Encore moins d'une minute."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nog minder dan een minuut."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zostáva menej ako minúta."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Còn chưa tới một phút."
           }
         }
       }
@@ -22469,53 +22657,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Tải lên kiểu riêng của bạn"
-          }
-        }
-      }
-    },
-    "Uploading %@…": {
-      "extractionState": "manual",
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Nahrávání %@…"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ wird hochgeladen …"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Subiendo %@…"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Téléversement de %@…"
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ wordt geüpload…"
-          }
-        },
-        "sk": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Nahráva sa %@…"
-          }
-        },
-        "vi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Đang tải %@…"
           }
         }
       }
