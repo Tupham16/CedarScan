@@ -296,3 +296,61 @@ final class ScanUploader: ObservableObject {
         onBytes?(sent, totalBytes)
     }
 }
+
+/// The scans one tap uploads at once (2.79.5, owner 05/11): percent over all of them by bytes and
+/// the time left from their real speed. Place order (`OrderSheet`) and Send extra scan
+/// (`SupplementSheet`) keep one in @State while uploading, fed by each `ScanUploader.onBytes`.
+struct UploadProgress {
+    private var bytes: [UUID: (sent: Int64, total: Int64)]
+    /// (time, bytes sent over all scans) of the last 30 s.
+    private var samples: [(at: TimeInterval, sent: Int64)] = []
+
+    /// Every scan at 0 of an unknown total until its uploader reports.
+    init(_ scans: [UUID]) {
+        bytes = Dictionary(scans.map { ($0, (sent: Int64(0), total: Int64(0))) }) { a, _ in a }
+    }
+
+    /// 0…1; 0 until every scan has its total, so the percent never drops when a second floor starts.
+    var fraction: Double {
+        guard let total = knownTotal else { return 0 }
+        return min(1, Double(sentAll) / Double(total))
+    }
+
+    /// "About N min left. " + `keep`, the time from the real speed of the last 30 s (a fixed
+    /// "1–2 minutes" is wrong on a slow link); `keep` alone before 5 s of it.
+    /// shortcut: no clock — a dead link freezes the line with the bar until the stall watchdog
+    /// (BackgroundUploads, 60 s) fails the batch; add a TimelineView if that shows up in tests.
+    func line(keep: String) -> String {
+        guard let total = knownTotal, let first = samples.first, let last = samples.last,
+              last.at - first.at >= 5, last.sent > first.sent else { return keep }
+        let speed = Double(last.sent - first.sent) / (last.at - first.at)
+        let seconds = Double(max(0, total - last.sent)) / speed
+        if seconds < 60 {
+            return String(localized: "Less than a minute left.") + " " + keep
+        }
+        let minutes = Int((seconds / 60).rounded())
+        return String(localized: "About \(minutes) min left.") + " " + keep
+    }
+
+    /// One scan's `ScanUploader.onBytes`.
+    mutating func note(_ id: UUID, sent: Int64, total: Int64) {
+        let before = bytes[id]?.sent ?? 0
+        bytes[id] = (sent, total)
+        let now = Date().timeIntervalSinceReferenceDate
+        // A retry back to 0, a re-joined transfer or a resumed floor's done files: not speed.
+        if sent < before || Double(sent - before) > 0.02 * Double(total) {
+            samples = []
+        }
+        samples.removeAll { now - $0.at > 30 }
+        samples.append((now, sentAll))
+    }
+
+    private var sentAll: Int64 { bytes.values.reduce(0) { $0 + $1.sent } }
+
+    /// nil while any scan's total is unknown (or there is nothing to send).
+    private var knownTotal: Int64? {
+        guard !bytes.values.contains(where: { $0.total <= 0 }) else { return nil }
+        let total = bytes.values.reduce(Int64(0)) { $0 + $1.total }
+        return total > 0 ? total : nil
+    }
+}

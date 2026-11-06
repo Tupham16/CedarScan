@@ -608,7 +608,7 @@ struct ScanDetailView: View {
     /// làm từ lâu. Khách thấy GIÁ trước khi tốn dữ liệu. Since 2.78 the button (`startOrder`) does
     /// the same — before, it uploaded 40–200 MB first and showed the form after.
     /// ⚠ HỆ QUẢ, ✗ phải lỗi: không còn thanh % tải lên nào ở màn này. Since 2.79.5 the form's
-    /// Place order shows it ("Uploading… 42%", bar, time left: `OrderSheet.uploadBytes`).
+    /// Place order shows it ("Uploading… 42%", bar, time left: `UploadProgress`).
     ///
     /// 🔴 GÁC HẸP HƠN NÚT BẤM, VÀ ĐÓ LÀ CỐ Ý — bẫy #18: guard "có CHẶN khách không" ≠ guard "có
     /// TỰ ĐI TIẾP HỘ khách không". Nút chỉ gác `isSignedIn` (gác thêm `needsVerification` ở nút
@@ -1050,10 +1050,8 @@ struct OrderSheet: View {
 
     @State private var isBusy = false
     @State private var busyLabel: String?
-    /// 2.79.5 (owner 05/11): Place order's uploads, bytes sent / total per scan; nil = none running.
-    @State private var uploadBytes: [UUID: (sent: Int64, total: Int64)]?
-    /// (time, bytes sent over all scans) of the last 30 s: the speed behind "About N min left".
-    @State private var uploadSamples: [(at: TimeInterval, sent: Int64)] = []
+    /// 2.79.5 (owner 05/11): Place order's uploads (percent + time left); nil = none running.
+    @State private var upload: UploadProgress?
     @State private var errorMessage: String?
     @State private var placedOrder: OrderScanResponse?
     /// Mở Điều khoản từ dòng "Đặt đơn này là bạn đồng ý…" ở footer nút Đặt hàng (thêm 01/09,
@@ -1952,8 +1950,8 @@ struct OrderSheet: View {
                         if let busyLabel {
                             Text(busyLabel).font(.subheadline)
                         }
-                        if let uploadFraction {
-                            Text("\(Int(uploadFraction * 100))%").font(.subheadline.monospacedDigit())
+                        if let upload {
+                            Text("\(Int(upload.fraction * 100))%").font(.subheadline.monospacedDigit())
                         }
                     } else {
                         Text(String(localized: "Place order") + " · " + (isFreeOrder ? String(localized: "FREE 🎁") : "$\(totalUSD)"))
@@ -1982,11 +1980,14 @@ struct OrderSheet: View {
             // điều riêng của đơn này — "không phải trả gì cả". Bỏ nốt là khách vừa thấy nút
             // "MIỄN PHÍ 🎁" vừa không có gì xác nhận.
             VStack(alignment: .leading, spacing: 4) {
-                if let uploadFraction {
+                if let upload {
                     // Mockup progress-5 (owner OK 05/11): bar + time left + keep open, under the button.
-                    ProgressView(value: uploadFraction)
+                    // Keep open: uploads go on behind a lock or another app, but the order is placed
+                    // only with CedarScan on screen (`UploadKeepAlive.untilActive`).
+                    ProgressView(value: upload.fraction)
                         .padding(.vertical, 4)
-                    WrappedText(uploadLine, style: .footnote, color: .secondaryLabel)
+                    WrappedText(upload.line(keep: String(localized: "Keep CedarScan open until your order is placed.")),
+                                style: .footnote, color: .secondaryLabel)
                 }
                 if isFreePromo {
                     Text(String(localized: "Free order — no payment needed. Our team starts right after you place it."))
@@ -2251,51 +2252,6 @@ struct OrderSheet: View {
         }
     }
 
-    /// 0…1 over every scan this tap uploads (all at once); 0 until each has its total (so the
-    /// percent never drops when a second floor starts); nil = no upload running.
-    private var uploadFraction: Double? {
-        guard let bytes = uploadBytes?.values else { return nil }
-        guard !bytes.contains(where: { $0.total <= 0 }) else { return 0 }
-        let total = bytes.reduce(Int64(0)) { $0 + $1.total }
-        return min(1, Double(bytes.reduce(Int64(0)) { $0 + $1.sent }) / Double(total))
-    }
-
-    /// "About N min left. Keep CedarScan open…": the time from the real speed of the last 30 s
-    /// (owner 05/11; a fixed "1–2 minutes" is wrong on a slow link), none before 5 s of it.
-    /// shortcut: no clock — a dead link freezes the line with the bar until the stall watchdog
-    /// (BackgroundUploads, 60 s) fails the batch; add a TimelineView if that shows up in tests.
-    /// Keep open: uploads go on behind a lock or another app, but the order is placed only with
-    /// CedarScan on screen (`UploadKeepAlive.untilActive`).
-    private var uploadLine: String {
-        let keep = String(localized: "Keep CedarScan open until your order is placed.")
-        guard let bytes = uploadBytes?.values, !bytes.contains(where: { $0.total <= 0 }),
-              let first = uploadSamples.first, let last = uploadSamples.last,
-              last.at - first.at >= 5, last.sent > first.sent else { return keep }
-        let total = bytes.reduce(Int64(0)) { $0 + $1.total }
-        let speed = Double(last.sent - first.sent) / (last.at - first.at)
-        let seconds = Double(max(0, total - last.sent)) / speed
-        if seconds < 60 {
-            return String(localized: "Less than a minute left.") + " " + keep
-        }
-        let minutes = Int((seconds / 60).rounded())
-        return String(localized: "About \(minutes) min left.") + " " + keep
-    }
-
-    /// `ScanUploader.onBytes` of one scan of the running batch.
-    private func noteUpload(_ id: UUID, sent: Int64, total: Int64) {
-        guard uploadBytes != nil else { return } // a late call after the batch ended
-        let before = uploadBytes?[id]?.sent ?? 0
-        uploadBytes?[id] = (sent, total)
-        let now = Date().timeIntervalSinceReferenceDate
-        let all = uploadBytes?.values.reduce(Int64(0)) { $0 + $1.sent } ?? 0
-        // A retry back to 0, a re-joined transfer or a resumed floor's done files: not speed.
-        if sent < before || Double(sent - before) > 0.02 * Double(total) {
-            uploadSamples = []
-        }
-        uploadSamples.removeAll { now - $0.at > 30 }
-        uploadSamples.append((now, all))
-    }
-
     private func submit() {
         isBusy = true
         errorMessage = nil
@@ -2359,7 +2315,7 @@ struct OrderSheet: View {
                 let live = store.records.first { $0.id == scan.id } ?? scan
                 if let existing = live.cloudScanId { return existing }
                 let uploader = ScanUploader()
-                uploader.onBytes = { sent, total in noteUpload(live.id, sent: sent, total: total) }
+                uploader.onBytes = { sent, total in upload?.note(live.id, sent: sent, total: total) }
                 if let cloudId = await uploader.upload(record: live, folder: store.folderURL(for: live)) {
                     store.setCloudScanId(live, cloudScanId: cloudId)
                     return cloudId
@@ -2406,9 +2362,7 @@ struct OrderSheet: View {
             if !toSend.isEmpty {
                 // 2.79.5 (mockup progress-5): one label + percent for the batch, no floor name.
                 busyLabel = String(localized: "Uploading…")
-                uploadSamples = []
-                // Every scan at 0 of an unknown total until its uploader reports.
-                uploadBytes = Dictionary(toSend.map { ($0.id, (sent: Int64(0), total: Int64(0))) }) { a, _ in a }
+                upload = UploadProgress(toSend.map(\.id))
             }
             var cloudIds: [UUID: String] = [:]
             var uploadFailed = false
@@ -2425,7 +2379,7 @@ struct OrderSheet: View {
                     }
                 }
             }
-            uploadBytes = nil
+            upload = nil
             guard !uploadFailed, let primaryCloudId = cloudIds[record.id] else {
                 isBusy = false
                 busyLabel = nil

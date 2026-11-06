@@ -1069,18 +1069,6 @@
    }
   },
   {
-   "key": "Uploading %@…",
-   "translations": {
-    "vi": "Đang tải %@…",
-    "fr": "Téléversement de %@…",
-    "de": "%@ wird hochgeladen …",
-    "cs": "Nahrávání %@…",
-    "sk": "Nahráva sa %@…",
-    "es": "Subiendo %@…",
-    "nl": "%@ wordt geüpload…"
-   }
-  },
-  {
    "key": "Could not upload %@.",
    "translations": {
     "vi": "Không tải được %@.",
@@ -6719,6 +6707,18 @@
     "sk": "Zostáva menej ako minúta.",
     "es": "Queda menos de un minuto.",
     "nl": "Nog minder dan een minuut."
+   }
+  },
+  {
+   "key": "Keep CedarScan open until it's done.",
+   "translations": {
+    "vi": "Giữ CedarScan mở cho tới khi xong.",
+    "fr": "Ne quittez pas CedarScan avant la fin.",
+    "de": "Lassen Sie CedarScan geöffnet, bis alles fertig ist.",
+    "cs": "Nechte aplikaci CedarScan otevřenou, dokud to nebude hotové.",
+    "sk": "Nechajte aplikáciu CedarScan otvorenú, kým to nebude hotové.",
+    "es": "No salgas de CedarScan hasta que termine.",
+    "nl": "Houd CedarScan open tot het klaar is."
    }
   }
  ],

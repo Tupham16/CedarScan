@@ -9971,6 +9971,53 @@
         }
       }
     },
+    "Keep CedarScan open until it's done.": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nechte aplikaci CedarScan otevřenou, dokud to nebude hotové."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lassen Sie CedarScan geöffnet, bis alles fertig ist."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No salgas de CedarScan hasta que termine."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ne quittez pas CedarScan avant la fin."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Houd CedarScan open tot het klaar is."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nechajte aplikáciu CedarScan otvorenú, kým to nebude hotové."
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Giữ CedarScan mở cho tới khi xong."
+          }
+        }
+      }
+    },
     "Keep CedarScan open until your order is placed.": {
       "extractionState": "manual",
       "localizations": {
@@ -22610,53 +22657,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Tải lên kiểu riêng của bạn"
-          }
-        }
-      }
-    },
-    "Uploading %@…": {
-      "extractionState": "manual",
-      "localizations": {
-        "cs": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Nahrávání %@…"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ wird hochgeladen …"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Subiendo %@…"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Téléversement de %@…"
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ wordt geüpload…"
-          }
-        },
-        "sk": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Nahráva sa %@…"
-          }
-        },
-        "vi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Đang tải %@…"
           }
         }
       }
