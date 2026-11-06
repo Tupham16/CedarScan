@@ -40,6 +40,12 @@ jobs:
           sudo xcode-select -s /Applications/Xcode_26.3.app
           xcodebuild -version
 
+      # Mesh rescue geometry (05/11): Sources/Scan/MeshRescue.swift compiled alone against its checks.
+      - name: Mesh rescue check
+        run: |
+          swiftc -O Sources/Scan/MeshRescue.swift tools/mesh-rescue-check/main.swift -o "$RUNNER_TEMP/mesh-rescue-check"
+          "$RUNNER_TEMP/mesh-rescue-check"
+
       # XcodeGen PINNED (2.78; `brew install xcodegen` took whatever Homebrew had, 2.46.0 for 2.77).
       # A new XcodeGen can change the generated project with CI green (2.46.0 changed target order
       # and framework embedding): moving the pin = the IPA comparison of trap #39 first. Same pin in

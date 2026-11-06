@@ -134,7 +134,12 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
             strictVertexCap: true,
             captureDepthForOcclusion: true,
             refineLargeTriangles: true,
-            fillUncoloredVertices: true
+            fillUncoloredVertices: true,
+            meshRescue: ScanQualityConfig.current.meshRescue,
+            meshRescueWindow: MeshRescue.Window(
+                before: ScanQualityConfig.current.meshRescueBeforeSec,
+                after: ScanQualityConfig.current.meshRescueAfterSec
+            )
         )
         self.colorMesh = colorMesh
         colorMesh.start()
@@ -172,6 +177,13 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
                 self.longScanAdvisoryDue = true
             }
             guard let mesh = self.colorMesh else { return }
+            // scan-report `mesh` (05/11): 1 Hz mesh trace + ARKit's map state + LiDAR confidence.
+            let frame = self.arSession?.currentFrame
+            self.report?.noteMesh(
+                mesh.takeTraceSample(),
+                mapping: frame.map { Int($0.worldMappingStatus.rawValue) } ?? -1,
+                highConfidencePct: frame.map(Self.highConfidencePct) ?? -1
+            )
             let full = mesh.isFull
             if full != self.capReached {
                 self.capReached = full
@@ -226,14 +238,18 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
         // T3 (2.79): let the paused session go (see the property). The only other strong holder
         // is the camera view (ARSCNView.session), which MeshScanFlowView removes on this change.
         arSession = nil
+        // Chặng 1. Hai lời gọi finish() bên dưới KHÔNG có tiến độ nào để lấy (AVAssetWriter
+        // đóng file, recorder ảnh nén nốt ≤3 tấm) → chặng CÂM, màn hình hiện vòng xoay nhỏ.
+        progress(.finishingCapture, 0)
+        // Mesh rescue (05/11), inside that silent stage: mesh ARKit dropped at a map merge goes back
+        // in before capReached, the vertex count, the report and both exports read the pieces. Nothing
+        // held = no work; a big drop ~1–2 s (unmeasured on a phone).
+        await colorMesh?.adoptRescued()
         // capReached STICKY của builder = "đã từng phải bỏ dữ liệu" → call-site dùng để
         // mời khách quét BẢN BỔ SUNG cho phần còn thiếu (nhà rất lớn chạm trần đỉnh / van RAM).
         let hitCap = colorMesh?.capReached ?? false
         let memoryCapHit = colorMesh?.memoryCapReached ?? false
         let vertexCount = colorMesh?.vertexCount ?? 0
-        // Chặng 1. Hai lời gọi finish() bên dưới KHÔNG có tiến độ nào để lấy (AVAssetWriter
-        // đóng file, recorder ảnh nén nốt ≤3 tấm) → chặng CÂM, màn hình hiện vòng xoay nhỏ.
-        progress(.finishingCapture, 0)
         let videoURL = await recorder?.finish()
         let trackURL = recorder?.cameraTrackURL // chỉ khác nil khi video hoàn tất OK
         // Why there is (no) video — read before the recorder goes (report `save.video`).
@@ -256,13 +272,13 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
         // không có (recorder hỏng, shots.json ném lỗi nên finish() trả nil, buổi quét vài
         // giây) → máy trạm sẽ KHÔNG bake được, phải giữ màu-đỉnh cho đội vẽ có cái mà xem.
         let fastSave = (texshots?.shotCount ?? 0) >= Self.fastSaveMinShots
-        // Item 3 (26/09): scan-report.json (temp file; ScanStore packs it into the zip; ~250 KB
-        // for a 20-min scan since the 1 Hz exposure-cap trace, ≤ ~1 MB at an hour). nil on any
+        // Item 3 (26/09): scan-report.json (temp file; ScanStore packs it into the zip; ~400 KB
+        // for a 20-min scan since the 1 Hz exposure-cap and mesh traces, ≤ ~1.5 MB at an hour). nil on any
         // failure — never blocks the save.
         let reportURL = report?.write(
             hitCap: hitCap, vertexCount: vertexCount, maxVertices: quality.wholeHomePreset.maxVertices,
             memoryCapHit: memoryCapHit, fastSave: fastSave, shots: texshots?.stats,
-            torch: torch.stats, exposureCap: exposureCap.stats
+            torch: torch.stats, exposureCap: exposureCap.stats, meshRescue: colorMesh?.rescueStats
         )
         report = nil
         let plyStart = ScanSessionReport.clock()
@@ -298,7 +314,7 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
         colorMesh = nil
         if let reportURL {
             // First half of `save`; the zip step adds its own just before packing. Off main and
-            // awaited: it must land before `ScanStore` moves the file (~1 MB at most).
+            // awaited: it must land before `ScanStore` moves the file (~1.5 MB at most).
             var save: [String: any Sendable] = [
                 "stopMs": stopMs, "plyMs": plyMs, "previewMs": previewMs,
                 "preview": previewPath, "previewVertices": previewVertices, "video": videoStatus,
@@ -348,6 +364,30 @@ final class MeshScanController: NSObject, ObservableObject, ARSessionDelegate {
         // Same reason: a lit torch must not outlive the scan.
         torch.stop()
         UIApplication.shared.isIdleTimerDisabled = false
+    }
+
+    /// Share of LiDAR depth pixels ARKit rates `.high` (every 4th pixel each way), percent; -1 = no depth.
+    /// scan-report `mesh.highConf`: tells whether strong sun blinds the LiDAR (board item C, 05/11).
+    private static func highConfidencePct(_ frame: ARFrame) -> Int {
+        guard let map = frame.sceneDepth?.confidenceMap,
+              CVPixelBufferGetPixelFormatType(map) == kCVPixelFormatType_OneComponent8 else { return -1 }
+        CVPixelBufferLockBaseAddress(map, .readOnly)
+        defer { CVPixelBufferUnlockBaseAddress(map, .readOnly) }
+        guard let base = CVPixelBufferGetBaseAddress(map) else { return -1 }
+        let width = CVPixelBufferGetWidth(map)
+        let height = CVPixelBufferGetHeight(map)
+        let rowBytes = CVPixelBufferGetBytesPerRow(map)
+        let bytes = base.assumingMemoryBound(to: UInt8.self)
+        let high = UInt8(ARConfidenceLevel.high.rawValue)
+        var hits = 0
+        var total = 0
+        for y in stride(from: 0, to: height, by: 4) {
+            for x in stride(from: 0, to: width, by: 4) {
+                total += 1
+                if bytes[y * rowBytes + x] == high { hits += 1 }
+            }
+        }
+        return total == 0 ? -1 : hits * 100 / total
     }
 
     // MARK: - White balance lock (item 2, 26/09)

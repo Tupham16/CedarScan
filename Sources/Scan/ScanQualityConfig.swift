@@ -78,6 +78,16 @@ struct ScanQualityConfig: Codable {
     // the lever if a phone ever reports trouble with it (same delivery as above).
     var continuedSave: Bool
 
+    // Mesh rescue (05/11, owner board item A, see ColorMeshBuilder / MeshRescue): mesh ARKit drops when it
+    // merges a sub-map back is put back at Stop. Kill switch `{"meshRescue": false}` = the 2.79.4
+    // behaviour (same delivery as above; applies from the next scan). New key: old blobs lack it.
+    // Window (MeshRescue.Window, 10 / 45 s): how long before / after a piece's removal its sub-map must
+    // have moved; tune from scan-report `mesh` once a real drop is traced. before 1…120 s, after 0…120 s,
+    // else default. 🔴 Frozen-default trap (see load()) if a default changes.
+    var meshRescue: Bool
+    var meshRescueBeforeSec: Double
+    var meshRescueAfterSec: Double
+
     /// The server switched the exposure cap off for everyone (debug picker aside).
     var exposureCapOff: Bool { exposureCap == Self.exposureCapOffValue }
 
@@ -106,7 +116,10 @@ struct ScanQualityConfig: Codable {
         torchShareK: 1.0,
         exposureCap: exposureCapAdaptiveValue,
         videoBitrateKbps: 700,
-        continuedSave: true
+        continuedSave: true,
+        meshRescue: true,
+        meshRescueBeforeSec: MeshRescue.Window.standard.before,
+        meshRescueAfterSec: MeshRescue.Window.standard.after
     )
 
     // Decode "khoan dung": server chỉ cần gửi field muốn đổi, thiếu field nào dùng mặc định.
@@ -147,6 +160,22 @@ struct ScanQualityConfig: Codable {
         let kbps = (try? c.decodeIfPresent(Double.self, forKey: .videoBitrateKbps)) ?? d.videoBitrateKbps
         videoBitrateKbps = (kbps.isFinite && kbps >= 150 && kbps <= 4000) ? kbps : d.videoBitrateKbps
         continuedSave = (try? c.decodeIfPresent(Bool.self, forKey: .continuedSave)) ?? d.continuedSave
+        // A kill switch must not fail open: a hand-edited "false" / "off" / 0 means off too.
+        if let b = try? c.decodeIfPresent(Bool.self, forKey: .meshRescue) {
+            meshRescue = b
+        } else if let s = try? c.decodeIfPresent(String.self, forKey: .meshRescue) {
+            let v = s.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            meshRescue = ["false", "off", "0", "no", "disabled"].contains(v) ? false : d.meshRescue
+        } else if let n = try? c.decodeIfPresent(Double.self, forKey: .meshRescue) {
+            meshRescue = n != 0
+        } else {
+            meshRescue = d.meshRescue
+        }
+        // before > 0: a removal in the very frame of the merge must count.
+        let before = (try? c.decodeIfPresent(Double.self, forKey: .meshRescueBeforeSec)) ?? d.meshRescueBeforeSec
+        meshRescueBeforeSec = (before.isFinite && before >= 1 && before <= 120) ? before : d.meshRescueBeforeSec
+        let after = (try? c.decodeIfPresent(Double.self, forKey: .meshRescueAfterSec)) ?? d.meshRescueAfterSec
+        meshRescueAfterSec = (after.isFinite && after >= 0 && after <= 120) ? after : d.meshRescueAfterSec
     }
 
     /// A hand-edited row that clearly means "off" must not fail open to adaptive.
@@ -167,7 +196,8 @@ struct ScanQualityConfig: Codable {
         lockWhiteBalance: Bool, whiteBalanceLockDelaySec: Double,
         autoTorch: Bool, torchLevel: Double,
         torchOnBelowBV: Double, torchOffAboveBV: Double, torchShareK: Double,
-        exposureCap: String, videoBitrateKbps: Double, continuedSave: Bool
+        exposureCap: String, videoBitrateKbps: Double, continuedSave: Bool, meshRescue: Bool,
+        meshRescueBeforeSec: Double, meshRescueAfterSec: Double
     ) {
         self.enabled = enabled
         self.maxSpeedSoft = maxSpeedSoft
@@ -187,6 +217,9 @@ struct ScanQualityConfig: Codable {
         self.exposureCap = exposureCap
         self.videoBitrateKbps = videoBitrateKbps
         self.continuedSave = continuedSave
+        self.meshRescue = meshRescue
+        self.meshRescueBeforeSec = meshRescueBeforeSec
+        self.meshRescueAfterSec = meshRescueAfterSec
     }
 
     // MARK: - Bản đang dùng (cache UserDefaults, server ghi đè qua /catalog)
